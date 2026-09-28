@@ -11,9 +11,9 @@
   ],
   "cwd": "/home/postfiatchad/.cache/release-repair-20260928/source-1",
   "started_at": "2026-09-28T06:06:04.804359+00:00",
-  "status": "PENDING",
-  "stdout": "logs/full-workspace-tests.stdout (partial at packet time)",
-  "stderr": "logs/full-workspace-tests.stdout (stderr merged)",
+  "status": "PASS",
+  "stdout": "logs/full-workspace-tests.stdout",
+  "stderr": "empty (0 bytes); the log is logs/full-workspace-tests.stdout",
   "environment_overrides": {
     "CARGO_BUILD_JOBS": "2",
     "CARGO_INCREMENTAL": "0",
@@ -29,19 +29,13 @@
   "address_space_limit_bytes": 21474836480,
   "minimum_available_memory_bytes": 4294967296,
   "pid": 4161452,
-  "observed_at": "2026-09-28T07:00:47.355483+00:00",
-  "reason": "still running when the 100-minute time box ended; not waited for",
-  "groups_finished": 26,
-  "tests_ok_or_ignored_so_far": 798,
-  "tests_failed_so_far": 0,
-  "still_running": [
-    "tests::stale_qc_negative_control_finds_conflicting_decisions",
-    "tests::fastpay_payment_safety::fastpay_active_storage_transfer_restart_and_six_validator_anchor",
-    "tests::fastpay_payment_safety::six_validators_certify_anchor_and_catch_up_one_missing_fastpay_effect",
-    "tests::orchard_action_gate_verifies_applies_and_rejects_duplicate_nullifiers",
-    "tests::orchard_deposit_batch_locks_transparent_value_and_mints_spendable_note",
-    "tests::wan_devnet_invalid_asset_orchard_swap_proof_is_rejected_and_valid_swap_still_applies",
-    "tests::yolo_aws_compatible_guest_four_validator_finality_restart_and_replay",
-    "tests::yolo_four_validator_certificates_finality_restart_and_chain_replay"
-  ]
+  "exit_code": 0,
+  "completed_at": "2026-09-28T07:26:16.988966+00:00",
+  "elapsed_seconds": 4812.2,
+  "minimum_available_memory_observed_bytes": 18016768000,
+  "groups": 84,
+  "tests_passed": 1487,
+  "tests_failed": 0,
+  "tests_ignored": 39,
+  "failed_tests": []
 }

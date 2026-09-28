@@ -1,0 +1,75 @@
+{
+ "checked_at": "2026-09-28T08:08:07+00:00",
+ "result": "NOT_RUN",
+ "reason": "validator-5's next view-0 turn is height 1061; the chain is at 1056, so 4 positioning grants (1057-1060) would be needed before the payment and the check grant, more than the three allowed",
+ "proposer_rule": "crates/ordering_fast/src/lib.rs leader_for_view: validators[(height + view) mod 6]",
+ "certificate_validators": [
+  "validator-0",
+  "validator-1",
+  "validator-2",
+  "validator-3",
+  "validator-4",
+  "validator-5"
+ ],
+ "schedule_confirmed_on_heights": [
+  {
+   "height": 1051,
+   "view": 0,
+   "proposer": "validator-1"
+  },
+  {
+   "height": 1052,
+   "view": 0,
+   "proposer": "validator-2"
+  },
+  {
+   "height": 1053,
+   "view": 0,
+   "proposer": "validator-3"
+  },
+  {
+   "height": 1054,
+   "view": 0,
+   "proposer": "validator-4"
+  },
+  {
+   "height": 1055,
+   "view": 0,
+   "proposer": "validator-5"
+  },
+  {
+   "height": 1056,
+   "view": 0,
+   "proposer": "validator-0"
+  }
+ ],
+ "chain_height": 1056,
+ "next_view0_proposers": [
+  {
+   "height": 1057,
+   "proposer": "validator-1"
+  },
+  {
+   "height": 1058,
+   "proposer": "validator-2"
+  },
+  {
+   "height": 1059,
+   "proposer": "validator-3"
+  },
+  {
+   "height": 1060,
+   "proposer": "validator-4"
+  },
+  {
+   "height": 1061,
+   "proposer": "validator-5"
+  },
+  {
+   "height": 1062,
+   "proposer": "validator-0"
+  }
+ ],
+ "fastpay_payment_made": false,
+ "grants_used": 0
+}

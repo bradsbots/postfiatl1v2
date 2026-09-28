@@ -34,5 +34,5 @@
     "warm-latency": "DEFERRED",
     "warm-latency-rerun": "PASS"
   },
-  "full_workspace_tests": "PENDING"
+  "full_workspace_tests": "PASS"
 }

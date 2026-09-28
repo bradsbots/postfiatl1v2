@@ -1,7 +1,7 @@
 # FastPay effect-anchoring release tip qualification, September 28, 2026
 
-**Final. Nothing was deployed. No source was repaired.**
-Every check that ran locally passed. The full workspace test suite was still running when the time box ended and is recorded as **PENDING**: 26 test-result groups had finished, 798 tests had passed or been skipped as ignored, 0 had failed (log: `logs/full-workspace-tests.stdout`, partial). warm-latency timed out in its first 5-minute budget while compiling and passed on a rerun.
+**Final. This qualification deployed nothing and repaired no source.** The release was then deployed on September 28, 2026 ([deployment record](../combined-fastpay-20260928/README.md)).
+Every check passed. The full workspace test suite was still running when the time box ended; it finished green at 07:26Z on September 28, 2026: 84 test-result groups, 1,487 passed, 0 failed, 39 ignored (log: `logs/full-workspace-tests.stdout`). warm-latency timed out in its first 5-minute budget while compiling and passed on a rerun.
 
 Source tip: `c93b213755f5889565fd1f77b9e45c149a07193a` (`c93b2137`) on `release/combined-fastpay-20260928`.
 It is the deployed code `f60e9639` (executable `d66cecc3…`) plus the FastPay effect-anchoring fix; see
@@ -40,7 +40,7 @@ remap arguments and `SOURCE_DATE_EPOCH=1789514690`. Neither has RPATH or RUNPATH
 | cobalt-handoff-tests | PASS: 13 passed | [Log](logs/cobalt-handoff-tests.stdout) |
 | live-replay-supply | PASS: 1 passed | [Log](logs/live-replay-supply.stdout) |
 | warm-latency | DEFERRED (5-minute budget, still compiling); rerun with a longer budget: PASS: 1 passed | [Log](logs/warm-latency.stdout), [rerun](logs/warm-latency-rerun.stdout) |
-| Full workspace test suite (background, local) | PENDING: still running at packet time (started 06:06Z) | [Log](logs/full-workspace-tests.stdout), [receipt](receipts/full-workspace-tests.json) |
+| Full workspace test suite (background, local) | PASS: 84 groups, 1,487 passed, 0 failed, 39 ignored (06:06–07:26Z) | [Log](logs/full-workspace-tests.stdout), [receipt](receipts/full-workspace-tests.json) |
 | mkdocs build --strict | PASS | [Log](logs/strict-docs.stdout) |
 | public-doc-links | PASS | [Log](logs/public-doc-links.stdout) |
 | public-secret-scan | PASS | [Log](logs/public-secret-scan.stdout) |
@@ -108,7 +108,7 @@ fully replayed restored validator-0. This is pre-activation rollback only.
 ## Full workspace suite
 
 `cargo test --workspace --locked -j 2 --no-fail-fast` in `source-1` (`CARGO_TARGET_DIR=target-1`), started in the
-background after both builds: still running at packet time (started 06:06:04Z); the partial log is [logs/full-workspace-tests.stdout](logs/full-workspace-tests.stdout).
+background after both builds: started 06:06:04Z, still running at packet time, finished at 07:26:17Z with exit 0: 84 test-result groups, 1,487 passed, 0 failed, 39 ignored (4,812 s). Log: [logs/full-workspace-tests.stdout](logs/full-workspace-tests.stdout); receipt: [receipts/full-workspace-tests.json](receipts/full-workspace-tests.json). Recorded with the deployment of this release.
 
 ## CI
 
