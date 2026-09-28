@@ -59,6 +59,19 @@ IDENTITIES = {
     "nav_public_values_schema": "postfiat.nav_reserve_public_values.v1",
     "nav_valuation_unit": "USD_1E8",
 }
+# Reduced from the 2026-09-28 F2 `navcoin_bridge_supply_status` read-back in
+# docs/status/z3-cycle1-inputs-20260922.md: the node omits empty reservation_escrows.
+LIVE_SOURCE = (
+    "2bae082a6703375b9405af44715e1e64623265392627767b040fa2c30abb100a"
+    "09da403724a6f105317292d9c0073df7"
+)
+LIVE_CUSTODY_ROW = {
+    "asset_id": LIVE_SOURCE,
+    "enabled_for_issue": True,
+    "principal_atoms": 12_419,
+    "route_id": "pftl-a666-ethereum-wA666-usdc-v1",
+    "spread_atoms": 54_721,
+}
 
 
 def dump(path: Path, value: object) -> Path:
@@ -304,6 +317,37 @@ class ReserveDemoTests(unittest.TestCase):
                 with self.assertRaises(demo.DemoError):
                     self.build_issue(route_value=route(source_settlement_custody=rows))
                 self.assertFalse((self.root / "issue").exists())
+
+    def test_live_readback_without_empty_escrows_is_accepted(self) -> None:
+        live = route(source_settlement_custody=[dict(LIVE_CUSTODY_ROW)])
+        identities = dict(IDENTITIES, settlement_source_asset_id=LIVE_SOURCE)
+        selected = demo.selected_source_custody(live, identities, for_issue=True)
+        self.assertEqual(selected, dict(LIVE_CUSTODY_ROW, reservation_escrows={}))
+        self.assertNotIn("reservation_escrows", live["source_settlement_custody"][0])
+        explicit = route(source_settlement_custody=[dict(LIVE_CUSTODY_ROW, reservation_escrows={})])
+        demo.verify_source_custody_delta(live, explicit, identities, 0, 0)
+        omitted = custody()
+        del omitted["reservation_escrows"]
+        output, _ = self.build_issue(route_value=route(source_settlement_custody=[omitted]))
+        self.assertTrue((output / "01-reserve.ops.json").exists())
+
+    def test_malformed_custody_readback_is_still_rejected(self) -> None:
+        identities = dict(IDENTITIES, settlement_source_asset_id=LIVE_SOURCE)
+        bad_rows = [
+            {k: v for k, v in LIVE_CUSTODY_ROW.items() if k != field}
+            for field in LIVE_CUSTODY_ROW
+        ] + [
+            dict(LIVE_CUSTODY_ROW, reservation_escrows=value)
+            for value in (None, [], {"not-a-reservation": 1}, {"ab" * 48: -1})
+        ] + [dict(LIVE_CUSTODY_ROW, principal_atoms=None), dict(LIVE_CUSTODY_ROW, enabled_for_issue=None)]
+        for row in bad_rows:
+            with self.subTest(row=row):
+                with self.assertRaises(demo.DemoError):
+                    demo.selected_source_custody(route(source_settlement_custody=[row]), identities)
+        missing = route()
+        del missing["source_settlement_custody"]
+        with self.assertRaisesRegex(demo.DemoError, "missing source_settlement_custody"):
+            demo.selected_source_custody(missing, identities)
 
     def test_wrong_route_and_family_rejected_before_build(self) -> None:
         for updates in ({"route_id": "other-route"}, {"settlement_asset_id": SOURCE}):
