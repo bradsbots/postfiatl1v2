@@ -61,6 +61,12 @@ on `main` with the release line's version, which is formatted and
 Clippy-clean. The only differences from the release branch are in `docs/` and
 `mkdocs.yml`.
 
-## CI after the merge
+## After the push
 
-Recorded after the push. See [After the push](#after-the-push).
+The merge (`6b8f6ea8`) and this document (`63a0550a`) were pushed together
+at 09:00Z. The verdict for each workflow on `main` is recorded below once
+the runs finish.
+
+- `docs-build` on `63a0550a`: **fail**. The failing step was
+  `scripts/public-doc-links`, because this document linked to an anchor
+  that did not exist. The next commit fixed the link.
