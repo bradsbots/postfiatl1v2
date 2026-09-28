@@ -2,6 +2,9 @@
 
 - **Operator:** Domagoj Ravlić (`dravlic`)
 - **Date:** 2026-09-25 UTC
+- **Superseded:** the fleet, the FastPay stall trigger and the StakeHub branches
+  are updated in the
+  [2026-09-28 handoff](2026-09-28___dravlic__fastpay_stall_fixed_live_and_main_line_caught_up.md).
 
 ## BLUF
 
