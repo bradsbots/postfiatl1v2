@@ -553,3 +553,27 @@ These commands authenticate committed evidence. They do not query the fleet.
 Dated handoffs and completed plans are historical snapshots. When their mutable
 operational statements conflict with this page, this page owns the current
 record; the observation time still limits every claim.
+
+## 2026-09-28: disk cleanup on validator-1 and validator-0
+
+Deleted only pre-rollout artifacts written by `python/postfiat_ops/safe_rollout.py`
+under `/var/lib/postfiat/pre-rollout-snapshots`. No service was restarted and no
+chain action was taken; both hosts still run `combined-fastpay-20260928`.
+
+| Host | Free before | Free after | Deleted |
+|---|---|---|---|
+| validator-1 | 2.95 GB (97 %) | 9.92 GB (88 %) | 1 partial `.incoming` upload (56 MB); 69 exports and staged binaries of releases older than `fastpay-committee-20260925-r4` with no rollout state (6.92 GB) |
+| validator-0 | 7.66 GB (90 %) | 7.72 GB (90 %) | 1 export, `atomic-swap-w6-395e28e5` (58 MB) |
+
+No rotated logs existed. Left for the other lane: each host's live
+`transport-validator-events.ndjson` (13.9 GB, never rotated), three
+`/var/backups/postfiat` dumps (validator-1 10.6 GB, validator-0 7.6 GB), `gate931`
+(7.7 GB and 7.1 GB, Arc gate 2026-09-02), `gate926` (5.5 GB and 4.9 GB; the
+2026-08-31 storage-gate handoff lists its removal as owed), and entries of
+unknown origin: validator-1 `.a666-checkpoint-verifier-experimental.incoming*`
+(3 × 482 MB) and `a666-opening-export-proof-h348` (131 MB), validator-0
+`fastpay-committee-20260925-r3-retained-payment` (229 MB). Kept: r4, both
+combined-fastpay backups, and the cobalt and registry-fix artifacts referenced by
+local rollout state. Inventory:
+`deployments/combined-fastpay-20260925/observed/disk-inventory-20260928.json` on
+`release/combined-fastpay-20260925` (`4d88956b`).
