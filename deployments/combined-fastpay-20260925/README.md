@@ -101,3 +101,21 @@ Notes:
 Not in Git: private keys, the signed stage, rollout state and backup under
 `~/.postfiat/deployments/combined-fastpay-20260925/` on the signing workstation.
 No key material is in this directory.
+
+## Wallet configuration, 2026-09-28
+
+The StakeHub wallet on the signing workstation (`~/.pft/config.toml`, backup
+`config.toml.bak-20260928`) now uses this release, like the fleet. Only the
+three `[ce22]` release paths changed, from `fastpay-committee-20260925-r4` to
+`combined-fastpay-20260925`:
+
+- `runtime_binary`: `/opt/postfiat/releases/combined-fastpay-20260925/postfiat-node`
+  (on the validators, over SSH).
+- `topology_file`: `/etc/postfiat/releases/combined-fastpay-20260925/topology.json`
+  (on the validators; byte-identical to r4, SHA-256 `4df248e0…`).
+- `local_node_binary`: `~/.local/lib/postfiat/releases/combined-fastpay-20260925/postfiat-node`
+  (offline signing; copied from the stage, SHA-256 `d66cecc3…` checked before
+  and after).
+
+`pft balance` read exact-six status at height 1050 through the new paths. The
+FastPay wallet proxy does not read this configuration and was not restarted.
