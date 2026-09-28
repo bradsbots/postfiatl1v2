@@ -1,0 +1,31 @@
+{
+  "name": "rollback-services",
+  "command": [
+    "python3",
+    "/home/postfiatchad/.cache/release-repair-20260928/tools/services.py",
+    "rollback"
+  ],
+  "cwd": "/home/postfiatchad/.cache/qualify-20260928",
+  "started_at": "2026-09-28T06:19:32.431602+00:00",
+  "status": "PASS",
+  "stdout": "logs/rollback-services.stdout",
+  "stderr": "logs/rollback-services.stderr",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 25657,
+  "exit_code": 0,
+  "completed_at": "2026-09-28T06:20:03.446888+00:00",
+  "elapsed_seconds": 31.0,
+  "minimum_available_memory_observed_bytes": 18073911296
+}

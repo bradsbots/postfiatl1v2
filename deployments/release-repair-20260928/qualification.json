@@ -1,0 +1,36 @@
+{
+  "source_commit": "c93b213755f5889565fd1f77b9e45c149a07193a",
+  "updated_at": "2026-09-28T06:45:55.999921+00:00",
+  "deployed": false,
+  "executables": [
+    "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+    "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a"
+  ],
+  "reproducibility": "PASS",
+  "original_1020": "PASS",
+  "saved_v2_1021": "PASS",
+  "fresh_v2_1021": "PASS",
+  "canary_backup": "PASS",
+  "governance_gate": "PASS",
+  "rollback": {
+    "checkpoints": "PASS",
+    "services": "PASS_STARTUP_AND_RESTART_ONLY",
+    "candidate_full_replay": "PASS"
+  },
+  "software": {
+    "fix-reproduce-first": "PASS",
+    "view-recovery-bin": "PASS",
+    "timeout-votes-lib": "PASS",
+    "fastpay-committee-lib": "PASS",
+    "node-fastpay": "PASS",
+    "format": "PASS",
+    "proof-input-inventory": "PASS",
+    "workspace-check": "PASS",
+    "workspace-clippy": "PASS",
+    "fastpay-types": "PASS",
+    "fastpay-execution": "PASS",
+    "cobalt-handoff-tests": "PASS",
+    "live-replay-supply": "PASS"
+  },
+  "full_workspace_tests": "RUNNING"
+}

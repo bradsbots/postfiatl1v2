@@ -1,0 +1,9 @@
+2026-09-28T06:03:50.664000+00:00 guard start (free 14.5 GiB)
+2026-09-28T06:09:20.722412+00:00 cargo clean target-2 (build 2 finished and hashed; binary kept in binaries/candidate-2) (free 6.6 GiB)
+# the line above repeated 4524 times between 06:11:14 and 06:11:20: cargo clean ran outside a Cargo project and left target-2 in place, and the guard retried without sleeping; it was stopped and fixed
+2026-09-28T06:11:31.949974149+00:00 deleted verified disposable copy post-v2/validator-0 (guard looped on target-2; done by hand)
+2026-09-28T06:11:32.290070718+00:00 deleted verified disposable copy post-v2/validator-1 (guard looped on target-2; done by hand)
+2026-09-28T06:11:32.578891712+00:00 deleted verified disposable copy post-v2/validator-2 (guard looped on target-2; done by hand)
+2026-09-28T06:11:44.102174+00:00 guard start (free 5.4 GiB)
+2026-09-28T06:11:44.310063+00:00 deleted target-2 (build 2 finished and hashed; binary kept in binaries/candidate-2) (free 6.3 GiB)
+2026-09-28T06:12:54.601156+00:00 deleted verified disposable copy post-v2/validator-3 (free 7.1 GiB)

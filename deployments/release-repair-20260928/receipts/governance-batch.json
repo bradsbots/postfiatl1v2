@@ -1,0 +1,40 @@
+{
+  "name": "governance-batch",
+  "command": [
+    "/home/postfiatchad/.cache/release-repair-20260928/binaries/candidate-1",
+    "fastpay-recovery-governance-bootstrap-assemble",
+    "--data-dir",
+    "/home/postfiatchad/.cache/release-repair-20260928/working/validator-0",
+    "--payload-file",
+    "/home/postfiatchad/.cache/release-repair-20260928/v2-governance/payload.json",
+    "--signed-amendment-file",
+    "/home/postfiatchad/.cache/release-repair-20260928/v2-governance/signed-amendment.json",
+    "--proposal-slot",
+    "1021",
+    "--batch-file",
+    "/home/postfiatchad/.cache/release-repair-20260928/v2-governance/signed-batch.json"
+  ],
+  "cwd": "/home/postfiatchad/.cache/qualify-20260928",
+  "started_at": "2026-09-28T06:18:48.244440+00:00",
+  "status": "PASS",
+  "stdout": "/home/postfiatchad/.cache/release-repair-20260928/logs/governance-batch.stdout",
+  "stderr": "/home/postfiatchad/.cache/release-repair-20260928/logs/governance-batch.stderr",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 24831,
+  "exit_code": 0,
+  "completed_at": "2026-09-28T06:18:49.248964+00:00",
+  "elapsed_seconds": 1.0,
+  "minimum_available_memory_observed_bytes": 24437833728
+}

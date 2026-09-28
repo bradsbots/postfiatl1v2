@@ -1,0 +1,27 @@
+2026-09-28T06:02:53.783076+00:00 START canary-import-signed
+2026-09-28T06:03:31.800506+00:00 PASS canary-import-signed (38.0s)
+2026-09-28T06:03:31.801358+00:00 START canary-import-tampered-signature
+2026-09-28T06:03:32.806670+00:00 FAIL canary-import-tampered-signature (1.0s)
+2026-09-28T06:03:32.807724+00:00 START canary-verify-checkpoint-signed
+2026-09-28T06:03:36.813108+00:00 PASS canary-verify-checkpoint-signed (4.0s)
+2026-09-28T06:03:36.813876+00:00 START canary-status-signed
+2026-09-28T06:03:37.818519+00:00 PASS canary-status-signed (1.0s)
+2026-09-28T06:18:40.017387+00:00 START canary-verify-state-signed
+2026-09-28T06:21:57.098311+00:00 PASS canary-verify-state-signed (197.1s)
+{
+ "result": "PASS",
+ "observed": {
+  "status_height": 1050,
+  "status_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+  "status_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+  "checkpoint_verified": true,
+  "checkpoint_height": 1050,
+  "checkpoint_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+  "checkpoint_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+  "replay_verified": true,
+  "replay_block_log_verified": true,
+  "replay_block_count": 1050,
+  "replay_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+  "replay_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+ }
+}
