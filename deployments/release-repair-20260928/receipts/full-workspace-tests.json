@@ -1,0 +1,47 @@
+{
+  "name": "full-workspace-tests",
+  "command": [
+    "cargo",
+    "test",
+    "--workspace",
+    "--locked",
+    "-j",
+    "2",
+    "--no-fail-fast"
+  ],
+  "cwd": "/home/postfiatchad/.cache/release-repair-20260928/source-1",
+  "started_at": "2026-09-28T06:06:04.804359+00:00",
+  "status": "PENDING",
+  "stdout": "logs/full-workspace-tests.stdout (partial at packet time)",
+  "stderr": "logs/full-workspace-tests.stdout (stderr merged)",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-repair-20260928/target-1"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 4161452,
+  "observed_at": "2026-09-28T07:00:47.355483+00:00",
+  "reason": "still running when the 100-minute time box ended; not waited for",
+  "groups_finished": 26,
+  "tests_ok_or_ignored_so_far": 798,
+  "tests_failed_so_far": 0,
+  "still_running": [
+    "tests::stale_qc_negative_control_finds_conflicting_decisions",
+    "tests::fastpay_payment_safety::fastpay_active_storage_transfer_restart_and_six_validator_anchor",
+    "tests::fastpay_payment_safety::six_validators_certify_anchor_and_catch_up_one_missing_fastpay_effect",
+    "tests::orchard_action_gate_verifies_applies_and_rejects_duplicate_nullifiers",
+    "tests::orchard_deposit_batch_locks_transparent_value_and_mints_spendable_note",
+    "tests::wan_devnet_invalid_asset_orchard_swap_proof_is_rejected_and_valid_swap_still_applies",
+    "tests::yolo_aws_compatible_guest_four_validator_finality_restart_and_replay",
+    "tests::yolo_four_validator_certificates_finality_restart_and_chain_replay"
+  ]
+}

@@ -57,7 +57,7 @@ rows = [
     ('fastpay-execution', sws('fastpay-execution'), '[Log](logs/fastpay-execution.stdout)'),
     ('cobalt-handoff-tests', sws('cobalt-handoff-tests'), '[Log](logs/cobalt-handoff-tests.stdout)'),
     ('live-replay-supply', sws('live-replay-supply'), '[Log](logs/live-replay-supply.stdout)'),
-    ('warm-latency', sws('warm-latency'), '[Log](logs/warm-latency.stdout)'),
+    ('warm-latency', sws('warm-latency') + ' (5-minute budget, still compiling); rerun with a longer budget: ' + (lambda r: (r.get('status', 'PENDING') + (f": {r['tests_passed']} passed" if r.get('status') == 'PASS' else '')) if r.get('status') != 'RUNNING' else 'IN PROGRESS')(rep('warm-latency-rerun')), '[Log](logs/warm-latency.stdout), [rerun](logs/warm-latency-rerun.stdout)'),
     ('Full workspace test suite (background, local)', fss, '[Log](logs/full-workspace-tests.stdout), [receipt](receipts/full-workspace-tests.json)'),
 ]
 pub = read('publication-gates.json', {})

@@ -7,3 +7,4 @@
 2026-09-28T06:11:44.102174+00:00 guard start (free 5.4 GiB)
 2026-09-28T06:11:44.310063+00:00 deleted target-2 (build 2 finished and hashed; binary kept in binaries/candidate-2) (free 6.3 GiB)
 2026-09-28T06:12:54.601156+00:00 deleted verified disposable copy post-v2/validator-3 (free 7.1 GiB)
+2026-09-28T07:01:34.838091856+00:00 guard stopped before the final push; remaining copies are kept

@@ -643,8 +643,102 @@
       "tests_run": [
         "tests::archive_bridge_supply::archive_bridge_claim_matches_live_orchard_supply_at_activation"
       ]
+    },
+    {
+      "name": "warm-latency",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node",
+        "fastswap_service::tests::persistent_wallet_driver_meets_isolated_warm_latency_gate",
+        "--",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "cwd": "/home/postfiatchad/.cache/qualify-20260928",
+      "started_at": "2026-09-28T06:44:46.921557+00:00",
+      "status": "DEFERRED",
+      "stdout": "logs/warm-latency.stdout",
+      "stderr": "logs/warm-latency.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-repair-20260918/test-target",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "2",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 35128,
+      "exit_code": -15,
+      "completed_at": "2026-09-28T06:49:47.079818+00:00",
+      "elapsed_seconds": 300.2,
+      "minimum_available_memory_observed_bytes": 21772754944,
+      "reason": "local budget (TIMEOUT) expired; no passing result claimed"
+    },
+    {
+      "name": "warm-latency-rerun",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node",
+        "fastswap_service::tests::persistent_wallet_driver_meets_isolated_warm_latency_gate",
+        "--",
+        "--ignored",
+        "--exact",
+        "--nocapture",
+        "--test-threads=2"
+      ],
+      "cwd": "/home/postfiatchad/.cache/qualify-20260928",
+      "started_at": "2026-09-28T06:50:29.589858+00:00",
+      "status": "PASS",
+      "stdout": "logs/warm-latency-rerun.stdout",
+      "stderr": "logs/warm-latency-rerun.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-repair-20260918/test-target",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "2",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 37121,
+      "exit_code": 0,
+      "completed_at": "2026-09-28T06:55:34.717565+00:00",
+      "elapsed_seconds": 305.1,
+      "minimum_available_memory_observed_bytes": 21690204160,
+      "purpose": "rerun of warm-latency with a longer budget after the first attempt timed out while still compiling",
+      "tests_passed": 1,
+      "tests_failed": 0
     }
   ],
   "workspace_tests": "full workspace suite runs in the background; see reports/full-workspace-tests.json",
-  "updated_at": "2026-09-28T06:44:46.909203+00:00"
+  "updated_at": "2026-09-28T06:49:47.081339+00:00"
 }

@@ -1,6 +1,6 @@
 {
   "source_commit": "c93b213755f5889565fd1f77b9e45c149a07193a",
-  "updated_at": "2026-09-28T06:45:55.999921+00:00",
+  "updated_at": "2026-09-28T07:00:47.295322+00:00",
   "deployed": false,
   "executables": [
     "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
@@ -30,7 +30,9 @@
     "fastpay-types": "PASS",
     "fastpay-execution": "PASS",
     "cobalt-handoff-tests": "PASS",
-    "live-replay-supply": "PASS"
+    "live-replay-supply": "PASS",
+    "warm-latency": "DEFERRED",
+    "warm-latency-rerun": "PASS"
   },
-  "full_workspace_tests": "RUNNING"
+  "full_workspace_tests": "PENDING"
 }
