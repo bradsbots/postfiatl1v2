@@ -1,8 +1,47 @@
 # PostFiat L1 Current State
 
-Updated: `2026-09-25T14:18:53Z` (combined-fastpay-20260925 deployed); latest fleet observation `2026-09-25T14:18:53Z`
+Updated: `2026-09-28T08:09:24Z` (combined-fastpay-20260928 deployed); latest fleet observation `2026-09-28T08:09:24Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-09-28: FastPay effect-anchoring release deployed to all six validators"
+
+    Release `combined-fastpay-20260928` runs on all six validators. It is the
+    deployed September 25 code plus the FastPay effect-anchoring fix, which
+    lets a registered validator that cannot sign hold certificate-verified
+    FastPay effects so that its own proposal anchors them. Source: `c93b2137` on
+    branch `release/combined-fastpay-20260928`, qualified PASS including the
+    full workspace suite (84 groups, 1,487 passed, 0 failed). Executable
+    `1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a`,
+    signed manifest `d2fdb687…` (publisher `pfc531e0…`). It replaced
+    `combined-fastpay-20260925` (`d66cecc3…`) with
+    `scripts/postfiat-safe-rollout apply-next`, one validator at a time
+    (validator-1 canary, then 0, 2, 3, 4, 5), 07:40–08:05Z.
+
+    Before: six on `combined-fastpay-20260925` at height 1050, tip
+    `03a24230…`, root `13d9e652…`. After (`08:09:24Z`): six on the new
+    release, all 12 validator and RPC processes on `1f8b332d…`, manifest
+    verified on every host, height 1056, tip `30ebdccd…`, root `22576546…`.
+    There was no divergence at any step.
+
+    Grants used: six devnet faucet grants of 1 PFT from the faucet account to
+    the `testing` wallet (StakeHub `pft faucet`), one per applied validator, at
+    heights 1051–1056. All six certified at view 0. Total: 6 PFT plus 192 atoms
+    of fees. Nothing else moved.
+
+    Live fix check: **not run**. The check needs a FastPay payment followed
+    by a grant at validator-5's view-0 turn. The proposer is
+    `validators[(height + view) mod 6]`, so after 1056 that turn is 1061. It
+    would need four positioning grants, more than the three allowed. No
+    FastPay payment was made. The fix is deployed but not yet shown live.
+
+    Rollback: the `combined-fastpay-20260925` executable and release
+    directory stay on every host. The per-validator path is `rollback-one.sh`
+    (data in place, verified by that executable first). The signed
+    validator-1 backup at 1050 is the fallback. Rollback was not needed.
+    StakeHub's config still names the September 25 executable for its CLI calls.
+    Records:
+    [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/combined-fastpay-20260928/deployments/combined-fastpay-20260928/README.md).
 
 !!! success "2026-09-25: merged combined and FastPay release deployed to all six validators"
 
