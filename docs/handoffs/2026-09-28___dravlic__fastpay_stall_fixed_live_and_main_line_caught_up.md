@@ -125,7 +125,7 @@ cleanup.
   - The name is misleading; the fleet is fine.
 - **Disk** (inventory [before deletion][disk]; release branch `4d88956b`, main
   note `edacac0e`):
-  - validator-1 now has 9.92 GB free, up from 2.95 GB. I removed only our
+  - validator-1 now has 9.92 GB free, up from 2.95 GB. I removed only my
     rollout tool's old snapshot exports, staged binaries and one half-finished
     upload.
   - validator-0 has 7.7 GB free.
