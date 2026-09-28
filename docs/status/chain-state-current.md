@@ -29,17 +29,16 @@ Status: **canonical operational-state reference**
     heights 1051–1056. All six certified at view 0. Total: 6 PFT plus 192 atoms
     of fees. Nothing else moved.
 
-    Live fix check: **not run**. The check needs a FastPay payment followed
-    by a grant at validator-5's view-0 turn. The proposer is
-    `validators[(height + view) mod 6]`, so after 1056 that turn is 1061. It
-    would need four positioning grants, more than the three allowed. No
-    FastPay payment was made. The fix is deployed but not yet shown live.
+    Live fix check (08:28–08:38Z) **passed**: after a 0.001 PFT FastPay
+    payment signed by validators 0–4, height 1061 certified at view 0 with
+    validator-5 as proposer and the payment's effect anchored, where 1043
+    needed view 1 before the fix, and all six agree at 1062 (tip `9d08fd3e…`,
+    root `6324f86e…`).
 
     Rollback: the `combined-fastpay-20260925` executable and release
     directory stay on every host. The per-validator path is `rollback-one.sh`
     (data in place, verified by that executable first). The signed
     validator-1 backup at 1050 is the fallback. Rollback was not needed.
-    StakeHub's config still names the September 25 executable for its CLI calls.
     Records:
     [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/combined-fastpay-20260928/deployments/combined-fastpay-20260928/README.md).
 
