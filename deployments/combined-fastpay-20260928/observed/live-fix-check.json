@@ -1,75 +1,309 @@
 {
- "checked_at": "2026-09-28T08:08:07+00:00",
- "result": "NOT_RUN",
- "reason": "validator-5's next view-0 turn is height 1061; the chain is at 1056, so 4 positioning grants (1057-1060) would be needed before the payment and the check grant, more than the three allowed",
+ "checked_at": "2026-09-28T08:36:01+00:00",
+ "result": "PASS",
+ "summary": "After a FastPay payment signed by validators 0-4, validator-5 held the certificate-verified effect and its view-0 proposal at 1061 anchored it; all six certified at view 0 with identical tip and root.",
+ "release": {
+  "release_id": "combined-fastpay-20260928",
+  "binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a"
+ },
  "proposer_rule": "crates/ordering_fast/src/lib.rs leader_for_view: validators[(height + view) mod 6]",
- "certificate_validators": [
-  "validator-0",
-  "validator-1",
-  "validator-2",
-  "validator-3",
-  "validator-4",
-  "validator-5"
- ],
- "schedule_confirmed_on_heights": [
-  {
-   "height": 1051,
-   "view": 0,
-   "proposer": "validator-1"
-  },
-  {
-   "height": 1052,
-   "view": 0,
-   "proposer": "validator-2"
-  },
-  {
-   "height": 1053,
-   "view": 0,
-   "proposer": "validator-3"
-  },
-  {
-   "height": 1054,
-   "view": 0,
-   "proposer": "validator-4"
-  },
-  {
-   "height": 1055,
-   "view": 0,
-   "proposer": "validator-5"
-  },
-  {
-   "height": 1056,
-   "view": 0,
-   "proposer": "validator-0"
-  }
- ],
- "chain_height": 1056,
- "next_view0_proposers": [
+ "tooling": "StakeHub 01db0f3 (pft faucet, pft fastpay send, pft_wallet.transfer); ~/.pft/config.toml re-pointed to the combined-fastpay-20260928 runtime, topology and local node binary (backup config.toml.bak-20260928b)",
+ "throwaway_wallet": {
+  "label": "dravlic-fixcheck-20260928",
+  "wallet_id": "78051144201ea7b2",
+  "address": "pf8cb695732c351e4b90079c327e54d7b7fa0940bd",
+  "created_at": "2026-09-28T08:28Z",
+  "not_registered_in_stakehub": true,
+  "final_balance_atoms": 10,
+  "final_balance_note": "the 10-atom account reserve the validators require (below_account_reserve)",
+  "final_fastpay_objects": 0,
+  "key_material_and_passphrase_file_deleted_at": "2026-09-28T08:38Z"
+ },
+ "faucet": {
+  "address": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+  "before_pft": "79.995208",
+  "after_pft": "76.994036",
+  "note": "4 grants of 1 PFT + 32-atom fee each, less 0.998956 PFT returned at 1062"
+ },
+ "heights": [
   {
    "height": 1057,
-   "proposer": "validator-1"
+   "purpose": "faucet grant 1 PFT to the throwaway wallet",
+   "proposer": "validator-1",
+   "view": 0,
+   "certificate_voters": ["validator-0", "validator-1", "validator-3", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "4eea10a72f0ae59d147bbd23faa42212e59d8977ec32a4f97cd1e8dd2a948429598443b16de4d1261ad2bff8b914f524",
+   "state_root": "f6025eacac7f583db2269d11a6d14b3b91b142c27f2f5fc89a7c005ebc182ee315b515ee7621251c4f8d9308c5b72455",
+   "fastpay_pre_state_effects": [],
+   "identical_on_six": true
   },
   {
    "height": 1058,
-   "proposer": "validator-2"
+   "purpose": "faucet grant 1 PFT to testing",
+   "proposer": "validator-2",
+   "view": 0,
+   "certificate_voters": ["validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "c4506ce7be8fead5ad637155f41ee6f2ff07adc9e0548a4aca4f6c47054b9b1a0045a34a735520c7e4fbc598d9bc5834",
+   "state_root": "c415cbad456ad0623f4b7106f6fa94cbf273eefd28a1fabe732c2e8094612b6c26e8d5f59c9b0d6d53d30f86f3210b9f",
+   "fastpay_pre_state_effects": [],
+   "identical_on_six": true
   },
   {
    "height": 1059,
-   "proposer": "validator-3"
+   "purpose": "faucet grant 1 PFT to testing",
+   "proposer": "validator-3",
+   "view": 0,
+   "certificate_voters": ["validator-0", "validator-1", "validator-3", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "4d33355340685b2be017edfdfd00ae7585409afa39a39aa66d6dcbab6d2fadd8538acf6c9b9d39859b0379dc5d2f5939",
+   "state_root": "bae5cde12f35724e168a96b61f793393e584e69d8d5aaa4ea24fdec55d93911656e28fcae6e59dd2c3d1bef38c7f056f",
+   "fastpay_pre_state_effects": [],
+   "identical_on_six": true
   },
   {
    "height": 1060,
-   "proposer": "validator-4"
+   "purpose": "FastPay wrap: 1001 atoms from the throwaway account into one FastPay coin",
+   "proposer": "validator-4",
+   "view": 0,
+   "certificate_voters": ["validator-0", "validator-1", "validator-3", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "a6d4b68c9ff687190b241eebf6ab13a39ad5617a26a00d91d0e6ad52c6b655b7a3d73afde3737a77bb3a285d34f8c920",
+   "state_root": "b52f0f1318eaefc3721b99bf3aaa788b58977bb89978c87df13563c2df1a56fa802d6a8421563f8f87089224dfbf60cf",
+   "fastpay_pre_state_effects": [],
+   "identical_on_six": true
   },
   {
    "height": 1061,
-   "proposer": "validator-5"
+   "purpose": "check: faucet grant 1 PFT to testing at validator-5's view-0 turn",
+   "proposer": "validator-5",
+   "view": 0,
+   "certificate_voters": ["validator-0", "validator-1", "validator-2", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "ab20666b3c162954f47438a47fb9f71fcabc925a34948c4f5ae511fd7bb8b1701a93199f9a8e8a81ecbf44abebef84e5",
+   "state_root": "20d21e0e79a2a754b214ec16b8a099f144d5fdf0c8a4959a02ab5f5fd3e423ad12d36377b718899ebe1cf52437ba90dd",
+   "fastpay_pre_state_effects": [
+    {
+     "lock_id": "0708497d0ca1828e3b36d32273fa2260ebf97efb5f5014b236cd182bab3766b0b6aa6e7849e57e659b28c2458045908a",
+     "decided_at_height": 1060,
+     "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1",
+     "inputs": [{"id": "8a7442df6aa3531b6ede2a187af989ffefc7cc79d28ca5690c8e60ece46fb49d", "version": 1}]
+    }
+   ],
+   "identical_on_six": true
   },
   {
    "height": 1062,
-   "proposer": "validator-0"
+   "purpose": "return 0.998956 PFT from the throwaway wallet to the faucet (ordinary transfer)",
+   "proposer": "validator-0",
+   "view": 0,
+   "certificate_voters": ["validator-0", "validator-1", "validator-3", "validator-4", "validator-5"],
+   "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+   "block_hash": "9d08fd3e20610d34afda3e199a5a542dc5301b7305baee2ea79778fcb4e7e91039839c1628a211b5c193fc198fcb755f",
+   "state_root": "6324f86e61438df4aaa02f2e9ffadb7f3d2d15e3e890f0d84e79831c439839b6d1a8bb3a7f19cba359ac3f58bacdc269",
+   "fastpay_pre_state_effects": [],
+   "identical_on_six": true
   }
  ],
- "fastpay_payment_made": false,
- "grants_used": 0
+ "grant_receipts": {
+  "1057": {
+   "tx_id": "ef0f9ae67390b8f95140497aa31aaa0ebd7cf6e466acbd15cf8df11eb5dda20f2ffe7d1c62e0c7773c11fa331637028e",
+   "proposer": "validator-1",
+   "verified_6_of_6": true
+  },
+  "1058": {
+   "tx_id": "c97e558eb6390700969b8a98930a9b4d12e84f1314d660fdd4ffd00d904264ed21dfb2f053eeb1fbcd79c2c34cfd7fd5",
+   "proposer": "validator-2",
+   "verified_6_of_6": true
+  },
+  "1059": {
+   "tx_id": "572f2363c79ce9abb00b412e950b12d5f34d40713b079e695e247354e1a5b7f0e9cc4aca7a08084e735cc4471bc3cf47",
+   "proposer": "validator-3",
+   "verified_6_of_6": true
+  },
+  "1061": {
+   "tx_id": "e621b46ce8084884433495ada9d70166f92772a3c62521830540ceb03a6f6146a2e035a2ec597e378484006f32c6eafc",
+   "proposer": "validator-5",
+   "verified_6_of_6": true
+  }
+ },
+ "payment": {
+  "operation_id": "fixcheck-20260928-fastpay",
+  "at": "2026-09-28T08:33:28Z",
+  "amount_atoms": 1000,
+  "fee_atoms": 1,
+  "from": "pf8cb695732c351e4b90079c327e54d7b7fa0940bd",
+  "to": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+  "input_object_id": "8a7442df6aa3531b6ede2a187af989ffefc7cc79d28ca5690c8e60ece46fb49d",
+  "recipient_object_id": "e48ac3ec2faa4e952f13e4864dff56cecd9d6899bc921632d94396fd317f24d6",
+  "certificate_id": "0da86398630277f52f70c963cfd9929d06a653254dd11e0b7e8192bcb0ca1d0a",
+  "certificate_signers": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4"],
+  "apply_acknowledgements": [
+   {
+    "validator": "validator-0",
+    "schema": "postfiat-fastpay-apply-ack-v1",
+    "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1"
+   },
+   {
+    "validator": "validator-1",
+    "schema": "postfiat-fastpay-apply-ack-v1",
+    "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1"
+   },
+   {
+    "validator": "validator-2",
+    "schema": "postfiat-fastpay-apply-ack-v1",
+    "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1"
+   },
+   {
+    "validator": "validator-3",
+    "schema": "postfiat-fastpay-apply-ack-v1",
+    "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1"
+   },
+   {
+    "validator": "validator-4",
+    "schema": "postfiat-fastpay-apply-ack-v1",
+    "certificate_digest": "53a09e9a68fc53a201b95e00a160cfe691a946b8d059b2f47897306b515634fee36178d0360aeb4c5590640b00c643c1"
+   }
+  ],
+  "proxy_outbox": {
+   "applied_validators": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4"],
+   "replication_pending_count": 1
+  },
+  "validator_5_response": "No held-effect receipt reaches the wallet: the proxy counts only signed acknowledgements and lists validator-5 as replication pending. Validator-5's FastPay journal holds the same effect as validators 0-4 (lock 0708497d..., certificate digest 53a09e9a...), which is what the fix writes; before the fix its journal lacked it.",
+  "recipient_output_on_six": true,
+  "sender_fastpay_objects_after_on_six": {
+   "validator-0": 0,
+   "validator-1": 0,
+   "validator-2": 0,
+   "validator-3": 0,
+   "validator-4": 0,
+   "validator-5": 0
+  },
+  "testing_fastpay_objects": {
+   "before": 2,
+   "after": 3,
+   "identical_on_six": true
+  }
+ },
+ "fastpay_journals": {
+  "before": {
+   "validator-0": {
+    "file_sha256_prefix": "3dd33cc733134cf0",
+    "effects": [{"lock_id_prefix": "9ce0b6319bf7abb8", "decided_at_height": 1042, "retained_tip_height": 1042}]
+   },
+   "validator-1": {
+    "file_sha256_prefix": "3dd33cc733134cf0",
+    "effects": [{"lock_id_prefix": "9ce0b6319bf7abb8", "decided_at_height": 1042, "retained_tip_height": 1042}]
+   },
+   "validator-2": {
+    "file_sha256_prefix": "3dd33cc733134cf0",
+    "effects": [{"lock_id_prefix": "9ce0b6319bf7abb8", "decided_at_height": 1042, "retained_tip_height": 1042}]
+   },
+   "validator-3": {
+    "file_sha256_prefix": "3dd33cc733134cf0",
+    "effects": [{"lock_id_prefix": "9ce0b6319bf7abb8", "decided_at_height": 1042, "retained_tip_height": 1042}]
+   },
+   "validator-4": {
+    "file_sha256_prefix": "3dd33cc733134cf0",
+    "effects": [{"lock_id_prefix": "9ce0b6319bf7abb8", "decided_at_height": 1042, "retained_tip_height": 1042}]
+   },
+   "validator-5": {
+    "file_sha256_prefix": "3af9cf94f96dc3f0",
+    "effects": [{"lock_id_prefix": "e8fd4d291a2dea8b", "decided_at_height": 274, "retained_tip_height": null}]
+   }
+  },
+  "after_payment": {
+   "validator-0": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-1": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-2": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-3": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-4": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-5": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   }
+  },
+  "after_1061": {
+   "validator-0": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-1": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-2": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-3": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-4": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   },
+   "validator-5": {
+    "file_sha256_prefix": "bf9631e334862f3a",
+    "effects": [{"lock_id_prefix": "0708497d0ca1828e", "decided_at_height": 1060, "retained_tip_height": 1060}]
+   }
+  },
+  "note": "The journal keeps its last effect with the tip it was retained at; the effect is anchored by block 1061's fastpay_pre_state_effects."
+ },
+ "check_1061": {
+  "view0_proposer": "validator-5",
+  "certified_view": 0,
+  "view_change": false,
+  "timeout_votes_requested": false,
+  "effect_anchored": true,
+  "anchored_lock_id": "0708497d0ca1828e",
+  "identical_tip_and_root_on_six": true
+ },
+ "comparison_1043": {
+  "height": 1043,
+  "purpose": "2026-09-25, before the fix: grant after a FastPay payment at validator-5's view-0 turn",
+  "proposer": "validator-0",
+  "view": 1,
+  "certificate_voters": ["validator-0", "validator-1", "validator-3", "validator-4", "validator-5"],
+  "precommit_voters": ["validator-0", "validator-1", "validator-2", "validator-3", "validator-4", "validator-5"],
+  "block_hash": "18e7edc75924c25f9c60c4f69963d17002a4e3e664cf4d2c14e2503249989bb97677b51f7dd47c1a0b6b1f401648cfb3",
+  "state_root": "7b9174ddaa1b01d19ee90435a7d91736ee484375d0220d68b60dcbe76fda4102ed10514d44819d8570d38eb43641065a",
+  "fastpay_pre_state_effects": [
+   {
+    "lock_id": "9ce0b6319bf7abb859745c5432812190db6efccdd06204cbb76e2d5afc490d8b8a68723ab5490f6c5aa7ae7748c89d5e",
+    "decided_at_height": 1042,
+    "certificate_digest": "97961f3983f526fae95bcf756b173c736ad54fca9737882eced87c35533ffceee15b5293be696808434eda8ca65e4c96",
+    "inputs": [{"id": "9ef9fc413d692c8ee1a3ad35b83e4914e1b9491d2b88312e4d74c58ac4fb94c9", "version": 1}]
+   }
+  ],
+  "identical_on_six": true
+ },
+ "after": {
+  "height": 1062,
+  "block_hash": "9d08fd3e20610d34afda3e199a5a542dc5301b7305baee2ea79778fcb4e7e91039839c1628a211b5c193fc198fcb755f",
+  "state_root": "6324f86e61438df4aaa02f2e9ffadb7f3d2d15e3e890f0d84e79831c439839b6d1a8bb3a7f19cba359ac3f58bacdc269"
+ },
+ "return_transfer": {
+  "tx_id": "0eb2ee9a095b391817d49b7f112ff39db40f6fc88ae579f7ce7532811a71818ac9f547c89c2901bc1674d95a5a8fce86",
+  "height": 1062,
+  "amount_atoms": 998956,
+  "fee_atoms": 32
+ }
 }

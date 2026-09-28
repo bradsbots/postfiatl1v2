@@ -15,8 +15,8 @@ clean builds, rechecked before staging). Rollback release:
 **Deployed** (`status=DEPLOYED`, 2026-09-28 08:09:24Z). All six validators run
 `combined-fastpay-20260928` (executable `1f8b332d…`, build `c93b2137`, signed
 manifest `d2fdb687…`) and agree at height 1056, tip `30ebdccd…`, root
-`22576546…` ([after.json](observed/after.json)). The live fix check was not
-run: validator-5's turn could not be arranged within three grants (see below).
+`22576546…` ([after.json](observed/after.json)). The live fix check passed
+on 2026-09-28 (see below).
 
 | Step | Result | Evidence |
 |---|---|---|
@@ -26,7 +26,7 @@ run: validator-5's turn could not be arranged within three grants (see below).
 | 4. `postfiat-safe-rollout preflight` | PASS (06:00Z, reused): six-way agreement at 1050, six signer rosters valid, 0 deletions, order 1, 0, 2, 3, 4, 5 | local `rollout-state.json` (`4d3a7586…` before, `dde65f5b…` after) |
 | 5. Signed canary backup, validator-1 | PASS: height 1050, root `13d9e652…`, signed manifest `a40d6a99…`, snapshot publisher `pf4ebb80…`; re-imported and checkpoint-verified again at 07:38Z | local `pre-rollout-backup/`, DEPLOY-SHEET §4–5 |
 | 6. Applies, one at a time | PASS: six `apply-next` runs, exit 0, each followed by one faucet grant and a full observer check | table below, [rollout-record.json](observed/rollout-record.json) |
-| 7. Live fix check | NOT RUN: validator-5's next view-0 turn is 1061; four positioning grants would be needed, more than three | [live-fix-check.json](observed/live-fix-check.json) |
+| 7. Live fix check | PASS (08:36Z, second attempt): after a FastPay payment signed by validators 0–4, height 1061 certified at view 0 with validator-5 as proposer and the effect anchored; six-way agreement | [live-fix-check.json](observed/live-fix-check.json) |
 | 8. After state | PASS: six on the new release, all 12 validator and RPC processes on `1f8b332d…`, manifest verified on every host, height 1056 | [after.json](observed/after.json) |
 
 ## Rollout, 2026-09-28
@@ -54,26 +54,58 @@ The six grants were block triggers, 1 PFT each at heights 1051–1056
 (6 PFT plus 192 atoms of fees; faucet 85.995400 → 79.995208 PFT). Nothing
 else moved.
 
-## Live fix check: not run
+## Live fix check, 2026-09-28
 
-The check needs a FastPay payment of 0.001 PFT, then a grant at a height
-where validator-5 is the view-0 proposer. That height must then certify at
-view 0 with the effect anchored on all six. The proposer is
-`validators[(height + view) mod 6]`
-(`crates/ordering_fast/src/lib.rs`, `leader_for_view`); proposers at
-1051–1056 confirmed this. After the sixth grant the chain was at 1056, so
-validator-5's next view-0 turn is 1061. That needs four positioning grants
-(1057–1060) before the payment, more than the three allowed. The check was
-recorded and stopped there: no FastPay payment, no extra grant. The fix is
-deployed on all six but not yet shown live.
+The first attempt (08:08Z) was not run: it would have needed four
+positioning grants, more than the three allowed. The second attempt ran
+08:28–08:38Z with a throwaway sender wallet `dravlic-fixcheck-20260928`
+(`pf8cb695…`), as on 2026-09-25. The proposer is
+`validators[(height + view) mod 6]` (`crates/ordering_fast/src/lib.rs`,
+`leader_for_view`). Each height below was read from the `blocks` data of all
+six validators and was identical on all six.
+
+| Height | Step | Proposer, view | Certificate voters |
+|---:|---|---|---|
+| 1057 | Grant 1 PFT to the throwaway wallet | validator-1, 0 | 0, 1, 3, 4, 5 |
+| 1058 | Grant 1 PFT to `testing` | validator-2, 0 | 1, 2, 3, 4, 5 |
+| 1059 | Grant 1 PFT to `testing` | validator-3, 0 | 0, 1, 3, 4, 5 |
+| 1060 | FastPay wrap, 1,001 atoms into one coin | validator-4, 0 | 0, 1, 3, 4, 5 |
+| — | FastPay payment, 0.001 PFT to `testing` (no block) | — | signed by 0–4 |
+| **1061** | **Check: grant 1 PFT to `testing`** | **validator-5, 0** | 0, 1, 2, 4, 5 |
+| 1062 | Return 0.998956 PFT to the faucet | validator-0, 0 | 0, 1, 3, 4, 5 |
+
+All six signed the precommit certificate at every height.
+
+- **Payment** (08:33Z): validators 0–4 signed the certificate and returned
+  `postfiat-fastpay-apply-ack-v1` acknowledgements. The proxy lists validator-5
+  as pending, because it counts only signed acknowledgements; the held receipt
+  itself does not reach the wallet. All six validators' FastPay journals then
+  held the same effect: identical files with lock `0708497d…`, certificate
+  digest `53a09e9a…`, decided at 1060. Before the payment, validator-5's journal
+  still held a July effect instead. The new 0.001 PFT coin `e48ac3ec…` was
+  visible on all six, and the spent input was gone on all six.
+- **1061**: certified at view 0 by validator-5, with no view change and no
+  timeout votes. Its `fastpay_pre_state_effects` contains that effect (lock
+  `0708497d…`, input `8a7442df…`) on all six. Tip `ab20666b…` and root
+  `20d21e0e…` are the same on all six. Compare 1043 on 2026-09-25, before the
+  fix: after a payment, the same situation certified only at view 1, through
+  validator-0.
+- **Funds**: the faucet held 79.995208 PFT before and 76.994036 PFT after
+  (four grants of 1 PFT plus 32-atom fees, less the 0.998956 PFT returned).
+  The throwaway wallet ends with the 10-atom account reserve and no FastPay
+  coins. Its key material and passphrase file were deleted at 08:38Z. It was
+  never registered in StakeHub.
+
+Record: [live-fix-check.json](observed/live-fix-check.json).
 
 ## Notes
 
-- StakeHub's `~/.pft/config.toml` names the `combined-fastpay-20260925`
-  executable as `runtime_binary`. The proposer-side round of each grant
-  therefore ran that CLI on the proposer host, which still has it. At 1051 the
-  proposer was the canary itself. Pointing StakeHub at the new release is left
-  to the StakeHub lane.
+- During the rollout, StakeHub's `~/.pft/config.toml` named the
+  `combined-fastpay-20260925` executable as `runtime_binary`, so the grants
+  at 1051–1056 ran that CLI on the proposer host. Before the live fix check,
+  `runtime_binary`, `topology_file` and `local_node_binary` were pointed at
+  `combined-fastpay-20260928`. The local copy was `1f8b332d…` before and after
+  copying, and the old config is kept as `config.toml.bak-20260928b`.
 - The wallet proxy counts only signed acknowledgements. It still reports
   validator-5 as not applied for FastPay payments and retries it; each retry
   returns the same held receipt ([design](../../docs/status/fastpay-effect-anchoring-fix-20260928.md)).
