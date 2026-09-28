@@ -1,0 +1,2393 @@
+{
+  "schema": "postfiat.combined-fastpay-20260925.disk-inventory.v1",
+  "collected_at": "2026-09-28T09:40Z",
+  "mode": "read-only inventory (du -sb, stat, file, /proc fd); written before any deletion; cleanup applied 2026-09-28 ~09:45Z (see hosts[].cleanup)",
+  "rules": {
+    "a": "rotated/compressed validator logs older than 14 days; never the live log",
+    "b": ".incoming* partials older than 7 days whose origin is established",
+    "c": "pre-rollout exports and staged binaries of releases older than fastpay-committee-20260925-r4 and not referenced by ~/.postfiat/deployments/*/ rollout state (7 state files checked on the operator host)",
+    "never": "/var/backups/postfiat, gate931, gate926, /opt/postfiat/releases, /etc/postfiat/releases, r4 and combined-fastpay backups, current release data and logs, anything of unestablished origin"
+  },
+  "hosts": [
+    {
+      "validator": "validator-1",
+      "host": "95.179.184.122",
+      "running_executable": "/opt/postfiat/releases/combined-fastpay-20260928/postfiat-node",
+      "before": {
+        "size_bytes": 79941234688,
+        "used_bytes": 73495859200,
+        "avail_bytes": 2947973120,
+        "use_percent": "97%"
+      },
+      "backups": [
+        {
+          "path": "/var/backups/postfiat/a666-source-route-20260907-validator-1-1788743461",
+          "bytes": 3552732419,
+          "mtime": "2026-09-07 01:11",
+          "contents": [
+            "postfiat-validator-1-rpc.service",
+            "postfiat-validator-1.service",
+            "validator-state.tar"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        },
+        {
+          "path": "/var/backups/postfiat/pfeth-replay-v4-20260905-validator-1-1788631637",
+          "bytes": 3534464215,
+          "mtime": "2026-09-05 18:07",
+          "contents": [
+            "postfiat-validator-1-rpc.service",
+            "postfiat-validator-1.service",
+            "validator-state.tar"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        },
+        {
+          "path": "/var/backups/postfiat/rpc-status-cache-20260906-validator-1-1788724534",
+          "bytes": 3547991277,
+          "mtime": "2026-09-06 19:55",
+          "contents": [
+            "postfiat-validator-1-rpc.service",
+            "postfiat-validator-1.service",
+            "validator-state.tar"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        }
+      ],
+      "pre_rollout_snapshots": [
+        {
+          "name": ".a666-acceptance-25a20c4-validator-1.candidate-postfiat-node",
+          "bytes": 54851944,
+          "mtime": "2026-07-28 05:33",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-acceptance-25a20c4",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-acceptance-98c81a9-validator-1.candidate-postfiat-node",
+          "bytes": 55270448,
+          "mtime": "2026-07-28 07:27",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-acceptance-98c81a9",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-checkpoint-verifier-experimental.incoming",
+          "bytes": 482183840,
+          "mtime": "2026-07-23 23:33",
+          "type": "regular file",
+          "kind": "unknown",
+          "release": null,
+          "origin": "not established from the repository",
+          "action": "keep",
+          "reason": "origin not established from the repository; for the other lane"
+        },
+        {
+          "name": ".a666-checkpoint-verifier-experimental.incoming2",
+          "bytes": 482185304,
+          "mtime": "2026-07-23 23:35",
+          "type": "regular file",
+          "kind": "unknown",
+          "release": null,
+          "origin": "not established from the repository",
+          "action": "keep",
+          "reason": "origin not established from the repository; for the other lane"
+        },
+        {
+          "name": ".a666-checkpoint-verifier-experimental.incoming3",
+          "bytes": 482185312,
+          "mtime": "2026-07-23 23:36",
+          "type": "regular file",
+          "kind": "unknown",
+          "release": null,
+          "origin": "not established from the repository",
+          "action": "keep",
+          "reason": "origin not established from the repository; for the other lane"
+        },
+        {
+          "name": ".a666-finalized-checkpoint-8949759-validator-1.candidate-postfiat-node",
+          "bytes": 53642912,
+          "mtime": "2026-07-23 23:43",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-finalized-checkpoint-8949759",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-joe-e2e-1312a94-validator-1.candidate-postfiat-node",
+          "bytes": 54823504,
+          "mtime": "2026-07-28 00:59",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-joe-e2e-1312a94",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-mainnet-0f0a621-validator-1.candidate-postfiat-node",
+          "bytes": 54714544,
+          "mtime": "2026-07-27 20:18",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-mainnet-0f0a621",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-nav-overlay-bb905b7-validator-1.candidate-postfiat-node",
+          "bytes": 54714680,
+          "mtime": "2026-08-12 11:54",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-nav-overlay-bb905b7",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-nav-overlay-cbbf53e-validator-1.candidate-postfiat-node",
+          "bytes": 56988816,
+          "mtime": "2026-08-12 12:03",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-nav-overlay-cbbf53e",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-opening-export-5879768-validator-1.candidate-postfiat-node",
+          "bytes": 54702728,
+          "mtime": "2026-07-27 23:27",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-opening-export-5879768",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-primary-fill-8ae940f-validator-1.candidate-postfiat-node",
+          "bytes": 53644080,
+          "mtime": "2026-07-24 04:02",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-primary-fill-8ae940f",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-private-issue-92e2fcb-validator-1.candidate-postfiat-node",
+          "bytes": 55562192,
+          "mtime": "2026-07-28 11:03",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-private-issue-92e2fcb",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-private-receipt-1818a3c-validator-1.candidate-postfiat-node",
+          "bytes": 55562120,
+          "mtime": "2026-07-28 12:01",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-private-receipt-1818a3c",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-private-redeem-9061829-validator-1.candidate-postfiat-node",
+          "bytes": 55603640,
+          "mtime": "2026-07-28 17:12",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-private-redeem-9061829",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-public-reserve-e949f48-validator-1.candidate-postfiat-node",
+          "bytes": 54617344,
+          "mtime": "2026-08-03 00:26",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-public-reserve-e949f48",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-redeem-custody-e0cf4f3-validator-1.candidate-postfiat-node",
+          "bytes": 55567080,
+          "mtime": "2026-07-28 14:07",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-redeem-custody-e0cf4f3",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-route-fix-0737616-validator-1.candidate-postfiat-node",
+          "bytes": 54715000,
+          "mtime": "2026-07-27 23:05",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-route-fix-0737616",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-v2-binding-7a43e3e-validator-1.candidate-postfiat-node",
+          "bytes": 55567232,
+          "mtime": "2026-07-28 13:49",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-v2-binding-7a43e3e",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-v2-return-c871dfe-validator-1.candidate-postfiat-node",
+          "bytes": 55567184,
+          "mtime": "2026-07-28 13:05",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-v2-return-c871dfe",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-v2-schema-36ffda1-validator-1.candidate-postfiat-node",
+          "bytes": 55566848,
+          "mtime": "2026-07-28 13:33",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-v2-schema-36ffda1",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".a666-variable-nav-9ffdfb6-validator-1.candidate-postfiat-node",
+          "bytes": 55620728,
+          "mtime": "2026-07-28 21:44",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "a666-variable-nav-9ffdfb6",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".cobalt-activation-8694b99d-validator-1.candidate-postfiat-node",
+          "bytes": 48155256,
+          "mtime": "2026-08-25 01:52",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-activation-8694b99d/rollout-state.json"
+        },
+        {
+          "name": ".cobalt-adversarial-8cc7d15e-validator-1.candidate-postfiat-node",
+          "bytes": 48144664,
+          "mtime": "2026-08-26 05:00",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-adversarial-8cc7d15e/rollout-state.json"
+        },
+        {
+          "name": ".cobalt-verifier-92b63f5a-validator-1.candidate-postfiat-node",
+          "bytes": 48168736,
+          "mtime": "2026-08-25 02:41",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-verifier-92b63f5a/rollout-state.json"
+        },
+        {
+          "name": ".combined-fastpay-20260925-validator-1.candidate-postfiat-node",
+          "bytes": 62542824,
+          "mtime": "2026-09-25 12:17",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": ".combined-fastpay-20260928-validator-1.candidate-postfiat-node",
+          "bytes": 62539872,
+          "mtime": "2026-09-28 06:00",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": ".fastpay-committee-20260925-r4-validator-1.candidate-postfiat-node",
+          "bytes": 52474624,
+          "mtime": "2026-09-25 06:00",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": ".pftl-resident-swap-8ef86c4-validator-1.candidate-postfiat-node",
+          "bytes": 55982176,
+          "mtime": "2026-07-29 18:28",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pftl-resident-swap-8ef86c4",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".pftl-resident-swap-e55434c-validator-1.candidate-postfiat-node",
+          "bytes": 55985256,
+          "mtime": "2026-07-29 17:58",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pftl-resident-swap-e55434c",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".pfusdc-eth-l1-f30d368-validator-1.candidate-postfiat-node",
+          "bytes": 53824032,
+          "mtime": "2026-07-25 21:47",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pfusdc-eth-l1-f30d368",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".pfusdc-pool-repair-8a62cf9-validator-1.candidate-postfiat-node",
+          "bytes": 54807192,
+          "mtime": "2026-08-13 17:22",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pfusdc-pool-repair-8a62cf9",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".pnok-private-fix-2246d25-orchard1-validator-1.candidate-postfiat-node",
+          "bytes": 56988752,
+          "mtime": "2026-08-07 17:58",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pnok-private-fix-2246d25-orchard1",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".pnok-private-fix-2246d25-validator-1.candidate-postfiat-node",
+          "bytes": 56985480,
+          "mtime": "2026-08-01 04:14",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "pnok-private-fix-2246d25",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".registry-fix-291d1eb1-validator-1.candidate-postfiat-node",
+          "bytes": 48144728,
+          "mtime": "2026-08-30 23:57",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "registry-fix-291d1eb1",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/registry-fix-291d1eb1/rollout-state.json"
+        },
+        {
+          "name": ".resident-local-commit-777faa0-validator-1.candidate-postfiat-node",
+          "bytes": 56405440,
+          "mtime": "2026-07-30 01:25",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "resident-local-commit-777faa0",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".resident-precommit-6ad587f-validator-1.candidate-postfiat-node",
+          "bytes": 56376128,
+          "mtime": "2026-07-29 23:51",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "resident-precommit-6ad587f",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".resident-qc-view0-59cd3ee-validator-1.candidate-postfiat-node",
+          "bytes": 56394136,
+          "mtime": "2026-07-30 00:35",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "resident-qc-view0-59cd3ee",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".resident-qc-view0-59cd3ee-validator-1.candidate-postfiat-node.incoming",
+          "bytes": 56394136,
+          "mtime": "2026-07-30 00:36",
+          "type": "regular file",
+          "kind": "partial staged binary",
+          "release": "resident-qc-view0-59cd3ee",
+          "origin": "python/postfiat_ops/safe_rollout.py:741-743 (scp target before mv)",
+          "action": "deleted",
+          "group": "b",
+          "reason": "safe_rollout partial upload older than 7 days"
+        },
+        {
+          "name": ".resident-remote-proposer-5548112-validator-1.candidate-postfiat-node",
+          "bytes": 56371720,
+          "mtime": "2026-07-29 20:51",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "resident-remote-proposer-5548112",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": ".shielded-atomic-governance-f1f174f-validator-1.candidate-postfiat-node",
+          "bytes": 55993240,
+          "mtime": "2026-07-29 19:34",
+          "type": "regular file",
+          "kind": "staged binary",
+          "release": "shielded-atomic-governance-f1f174f",
+          "origin": "python/postfiat_ops/safe_rollout.py:740",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-acceptance-25a20c4-validator-1-finalized-checkpoint",
+          "bytes": 134970668,
+          "mtime": "2026-07-28 05:33",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-acceptance-25a20c4",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-acceptance-98c81a9-validator-1-finalized-checkpoint",
+          "bytes": 134970668,
+          "mtime": "2026-07-28 07:27",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-acceptance-98c81a9",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-finalized-checkpoint-8949759-validator-1-finalized-checkpoint",
+          "bytes": 112297212,
+          "mtime": "2026-07-23 23:43",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-finalized-checkpoint-8949759",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-joe-e2e-1312a94-validator-1-finalized-checkpoint",
+          "bytes": 131339297,
+          "mtime": "2026-07-28 01:00",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-joe-e2e-1312a94",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-mainnet-0f0a621-validator-1-finalized-checkpoint",
+          "bytes": 128823252,
+          "mtime": "2026-07-27 20:19",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-mainnet-0f0a621",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-nav-overlay-cbbf53e-validator-1-finalized-checkpoint",
+          "bytes": 331992432,
+          "mtime": "2026-08-12 12:03",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-nav-overlay-cbbf53e",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-opening-export-5879768-validator-1-finalized-checkpoint",
+          "bytes": 130671776,
+          "mtime": "2026-07-27 23:27",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-opening-export-5879768",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-opening-export-proof-h348",
+          "bytes": 131339297,
+          "mtime": "2026-07-27 23:41",
+          "type": "directory",
+          "kind": "unknown",
+          "release": null,
+          "origin": "not established from the repository",
+          "action": "keep",
+          "reason": "origin not established from the repository; for the other lane"
+        },
+        {
+          "name": "a666-primary-fill-8ae940f-validator-1-finalized-checkpoint",
+          "bytes": 114765015,
+          "mtime": "2026-07-24 04:02",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-primary-fill-8ae940f",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-private-issue-92e2fcb-validator-1-finalized-checkpoint",
+          "bytes": 140494975,
+          "mtime": "2026-07-28 11:03",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-private-issue-92e2fcb",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-private-receipt-1818a3c-validator-1-finalized-checkpoint",
+          "bytes": 141881052,
+          "mtime": "2026-07-28 12:01",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-private-receipt-1818a3c",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-private-redeem-9061829-validator-1-finalized-checkpoint",
+          "bytes": 149958376,
+          "mtime": "2026-07-28 17:12",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-private-redeem-9061829",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-public-reserve-e949f48-validator-1-finalized-checkpoint",
+          "bytes": 171273518,
+          "mtime": "2026-08-03 00:26",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-public-reserve-e949f48",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-redeem-custody-e0cf4f3-validator-1-finalized-checkpoint",
+          "bytes": 143893417,
+          "mtime": "2026-07-28 14:07",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-redeem-custody-e0cf4f3",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-route-fix-0737616-validator-1-finalized-checkpoint",
+          "bytes": 129998552,
+          "mtime": "2026-07-27 23:05",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-route-fix-0737616",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-v2-binding-7a43e3e-validator-1-finalized-checkpoint",
+          "bytes": 143064605,
+          "mtime": "2026-07-28 13:49",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-v2-binding-7a43e3e",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-v2-return-c871dfe-validator-1-finalized-checkpoint",
+          "bytes": 143064605,
+          "mtime": "2026-07-28 13:05",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-v2-return-c871dfe",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-v2-schema-36ffda1-validator-1-finalized-checkpoint",
+          "bytes": 143064605,
+          "mtime": "2026-07-28 13:34",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-v2-schema-36ffda1",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "a666-variable-nav-9ffdfb6-validator-1-finalized-checkpoint",
+          "bytes": 156736490,
+          "mtime": "2026-07-28 21:44",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "a666-variable-nav-9ffdfb6",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "cobalt-activation-8694b99d-validator-1-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-25 02:00",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-activation-8694b99d-validator-1-finalized-checkpoint",
+          "bytes": 201910446,
+          "mtime": "2026-08-25 01:52",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-activation-8694b99d/rollout-state.json"
+        },
+        {
+          "name": "cobalt-activation-8694b99d-validator-1-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-25 02:00",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-adversarial-8cc7d15e-validator-1-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-26 05:01",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-adversarial-8cc7d15e-validator-1-finalized-checkpoint",
+          "bytes": 203578071,
+          "mtime": "2026-08-26 05:00",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-adversarial-8cc7d15e/rollout-state.json"
+        },
+        {
+          "name": "cobalt-adversarial-8cc7d15e-validator-1-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-26 05:01",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-verifier-92b63f5a-validator-1-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-25 02:42",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-verifier-92b63f5a-validator-1-finalized-checkpoint",
+          "bytes": 202173735,
+          "mtime": "2026-08-25 02:41",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "release referenced by local rollout state ~/.postfiat/deployments/cobalt-verifier-92b63f5a/rollout-state.json"
+        },
+        {
+          "name": "cobalt-verifier-92b63f5a-validator-1-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-25 02:42",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "combined-fastpay-20260925-validator-1-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 13:37",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260925-validator-1-finalized-checkpoint",
+          "bytes": 231236328,
+          "mtime": "2026-09-25 12:17",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260925-validator-1-storage-migration.json",
+          "bytes": 8877,
+          "mtime": "2026-09-25 13:37",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260928-validator-1-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-28 07:40",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260928-validator-1-finalized-checkpoint",
+          "bytes": 232447356,
+          "mtime": "2026-09-28 06:01",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260928-validator-1-storage-migration.json",
+          "bytes": 8877,
+          "mtime": "2026-09-28 07:40",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-1-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 02:33",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-1-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 02:25",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-1-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 02:33",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-1-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 03:41",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-1-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 03:33",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-1-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 03:41",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r4-validator-1-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 06:03",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-r4-validator-1-finalized-checkpoint",
+          "bytes": 229276689,
+          "mtime": "2026-09-25 06:01",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-r4-validator-1-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 06:03",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-validator-1-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 01:59",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-payment-tier0-3c065ee5-validator-1",
+          "bytes": 67943322,
+          "mtime": "2026-07-14 16:24",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "fastpay-payment-tier0-3c065ee5",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "journal-schema-ce0efb9d-validator-1",
+          "bytes": 47096246,
+          "mtime": "2026-07-12 13:13",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "journal-schema-ce0efb9d",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pftl-resident-swap-8ef86c4-validator-1-finalized-checkpoint",
+          "bytes": 181238916,
+          "mtime": "2026-07-29 18:29",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pftl-resident-swap-8ef86c4",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pftl-resident-swap-e55434c-validator-1-finalized-checkpoint",
+          "bytes": 181238916,
+          "mtime": "2026-07-29 17:59",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pftl-resident-swap-e55434c",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pfusdc-eth-l1-f30d368-validator-1-finalized-checkpoint",
+          "bytes": 117217879,
+          "mtime": "2026-07-25 21:47",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pfusdc-eth-l1-f30d368",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pfusdc-pool-repair-8a62cf9-validator-1-finalized-checkpoint",
+          "bytes": 199127238,
+          "mtime": "2026-08-13 17:22",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pfusdc-pool-repair-8a62cf9",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pnok-private-fix-2246d25-orchard1-validator-1-finalized-checkpoint",
+          "bytes": 291737125,
+          "mtime": "2026-08-07 17:59",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pnok-private-fix-2246d25-orchard1",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "pnok-private-fix-2246d25-validator-1-finalized-checkpoint",
+          "bytes": 262134971,
+          "mtime": "2026-08-01 04:15",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "pnok-private-fix-2246d25",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "resident-local-commit-777faa0-validator-1-finalized-checkpoint",
+          "bytes": 188896709,
+          "mtime": "2026-07-30 01:25",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "resident-local-commit-777faa0",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "resident-precommit-6ad587f-validator-1-finalized-checkpoint",
+          "bytes": 186476364,
+          "mtime": "2026-07-29 23:51",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "resident-precommit-6ad587f",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "resident-qc-view0-59cd3ee-validator-1-finalized-checkpoint",
+          "bytes": 187686460,
+          "mtime": "2026-07-30 00:35",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "resident-qc-view0-59cd3ee",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "resident-remote-proposer-5548112-validator-1-finalized-checkpoint",
+          "bytes": 182391971,
+          "mtime": "2026-07-29 20:51",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "resident-remote-proposer-5548112",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "shielded-atomic-governance-f1f174f-validator-1-finalized-checkpoint",
+          "bytes": 181238916,
+          "mtime": "2026-07-29 19:35",
+          "type": "directory",
+          "kind": "checkpoint export",
+          "release": "shielded-atomic-governance-f1f174f",
+          "origin": "python/postfiat_ops/safe_rollout.py:739",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage3-rounding-v3r4-topology-9500d28e-validator-1",
+          "bytes": 36994799,
+          "mtime": "2026-07-12 00:12",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage3-rounding-v3r4-topology-9500d28e",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-00d4918d-validator-1",
+          "bytes": 37199551,
+          "mtime": "2026-07-12 02:57",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-00d4918d",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-06897b60-validator-1",
+          "bytes": 36994799,
+          "mtime": "2026-07-12 01:27",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-06897b60",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-5a55d6a1-validator-1",
+          "bytes": 36994799,
+          "mtime": "2026-07-12 01:53",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-5a55d6a1",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-75e18831-validator-1",
+          "bytes": 36994799,
+          "mtime": "2026-07-12 02:15",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-75e18831",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-7c75ec1e-validator-1",
+          "bytes": 37199551,
+          "mtime": "2026-07-12 03:22",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-7c75ec1e",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-948dd5b2-validator-1",
+          "bytes": 37356538,
+          "mtime": "2026-07-12 04:28",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-948dd5b2",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "stage5-validator-finality-a4fa18b5-validator-1",
+          "bytes": 37356538,
+          "mtime": "2026-07-12 04:53",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "stage5-validator-finality-a4fa18b5",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        }
+      ],
+      "gates": [
+        {
+          "path": "/var/lib/postfiat/gate931",
+          "bytes": 7713121912,
+          "mtime": "2026-09-02 18:36",
+          "contents": [
+            "backup-validator-1",
+            "validator-1"
+          ],
+          "origin": "Arc gate at height 931, 2026-09-02 (local tool ~/.postfiat/deployments/arc-gate-931/gate931.py); receipt docs/evidence/arc-mvp-20260828/devnet-20260902/gate-931-and-rollout-receipt.json; no handoff or runbook on main names it",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/lib/postfiat/gate926",
+          "bytes": 5486901044,
+          "mtime": "2026-08-31 02:23",
+          "contents": [
+            "activation",
+            "backup-validator-1",
+            "validator-1"
+          ],
+          "origin": "storage single-writer deployment-exact gate, 2026-08-31; docs/handoffs/2026-08-31___postfiatchad__storage_gate_passed_rollout_pending.md:65 lists removal as a cleanup owed",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/log/postfiat/gate931",
+          "bytes": 939733,
+          "mtime": "2026-09-02 18:37",
+          "contents": [
+            "validator-1"
+          ],
+          "origin": "Arc gate at height 931, 2026-09-02 (local tool ~/.postfiat/deployments/arc-gate-931/gate931.py); receipt docs/evidence/arc-mvp-20260828/devnet-20260902/gate-931-and-rollout-receipt.json; no handoff or runbook on main names it",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/log/postfiat/gate926",
+          "bytes": 1324634,
+          "mtime": "2026-08-31 01:21",
+          "contents": [
+            "validator-1"
+          ],
+          "origin": "storage single-writer deployment-exact gate, 2026-08-31; docs/handoffs/2026-08-31___postfiatchad__storage_gate_passed_rollout_pending.md:65 lists removal as a cleanup owed",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        }
+      ],
+      "logs": [
+        {
+          "path": "/var/log/postfiat/validator-1/transport-validator-events.ndjson",
+          "bytes": 13867827262,
+          "mtime": "2026-09-28T08:37",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-1/rpc-events.ndjson",
+          "bytes": 24545947,
+          "mtime": "2026-09-28T09:39",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-1/stdout.log",
+          "bytes": 7122469,
+          "mtime": "2026-09-28T07:40",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-1/rpc-stdout.log",
+          "bytes": 1552935,
+          "mtime": "2026-09-28T07:40",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-1/rpc-stderr.log",
+          "bytes": 1280926,
+          "mtime": "2026-09-25T02:41",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-1/stderr.log",
+          "bytes": 269160,
+          "mtime": "2026-09-28T07:40",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        }
+      ],
+      "incoming_file_types": [
+        "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming :: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, fo",
+        "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming2 :: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, fo",
+        "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming3 :: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, fo",
+        "/var/lib/postfiat/pre-rollout-snapshots/.resident-qc-view0-59cd3ee-validator-1.candidate-postfiat-node.incoming :: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, fo"
+      ],
+      "after": {
+        "size_bytes": 79941234688,
+        "used_bytes": 66519412736,
+        "avail_bytes": 9924419584,
+        "use_percent": "88%"
+      },
+      "cleanup": {
+        "groups": [
+          {
+            "group": "a",
+            "avail_after_bytes": 2947928064,
+            "deleted_count": 0,
+            "deleted_bytes": 0,
+            "note": "no rotated or compressed files exist under /var/log/postfiat; every log is the live file of the current release"
+          },
+          {
+            "group": "b",
+            "avail_after_bytes": 3004325888,
+            "deleted_count": 1,
+            "deleted_bytes": 56394136,
+            "note": null
+          },
+          {
+            "group": "c",
+            "avail_after_bytes": 9924403200,
+            "deleted_count": 69,
+            "deleted_bytes": 6918193498,
+            "note": null
+          }
+        ],
+        "deleted": [
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.resident-qc-view0-59cd3ee-validator-1.candidate-postfiat-node.incoming",
+            "bytes": 56394136,
+            "group": "b",
+            "reason": "safe_rollout partial upload older than 7 days"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-acceptance-25a20c4-validator-1.candidate-postfiat-node",
+            "bytes": 54851944,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-acceptance-98c81a9-validator-1.candidate-postfiat-node",
+            "bytes": 55270448,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-finalized-checkpoint-8949759-validator-1.candidate-postfiat-node",
+            "bytes": 53642912,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-joe-e2e-1312a94-validator-1.candidate-postfiat-node",
+            "bytes": 54823504,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-mainnet-0f0a621-validator-1.candidate-postfiat-node",
+            "bytes": 54714544,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-nav-overlay-bb905b7-validator-1.candidate-postfiat-node",
+            "bytes": 54714680,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-nav-overlay-cbbf53e-validator-1.candidate-postfiat-node",
+            "bytes": 56988816,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-opening-export-5879768-validator-1.candidate-postfiat-node",
+            "bytes": 54702728,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-primary-fill-8ae940f-validator-1.candidate-postfiat-node",
+            "bytes": 53644080,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-private-issue-92e2fcb-validator-1.candidate-postfiat-node",
+            "bytes": 55562192,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-private-receipt-1818a3c-validator-1.candidate-postfiat-node",
+            "bytes": 55562120,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-private-redeem-9061829-validator-1.candidate-postfiat-node",
+            "bytes": 55603640,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-public-reserve-e949f48-validator-1.candidate-postfiat-node",
+            "bytes": 54617344,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-redeem-custody-e0cf4f3-validator-1.candidate-postfiat-node",
+            "bytes": 55567080,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-route-fix-0737616-validator-1.candidate-postfiat-node",
+            "bytes": 54715000,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-v2-binding-7a43e3e-validator-1.candidate-postfiat-node",
+            "bytes": 55567232,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-v2-return-c871dfe-validator-1.candidate-postfiat-node",
+            "bytes": 55567184,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-v2-schema-36ffda1-validator-1.candidate-postfiat-node",
+            "bytes": 55566848,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-variable-nav-9ffdfb6-validator-1.candidate-postfiat-node",
+            "bytes": 55620728,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pftl-resident-swap-8ef86c4-validator-1.candidate-postfiat-node",
+            "bytes": 55982176,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pftl-resident-swap-e55434c-validator-1.candidate-postfiat-node",
+            "bytes": 55985256,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pfusdc-eth-l1-f30d368-validator-1.candidate-postfiat-node",
+            "bytes": 53824032,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pfusdc-pool-repair-8a62cf9-validator-1.candidate-postfiat-node",
+            "bytes": 54807192,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pnok-private-fix-2246d25-orchard1-validator-1.candidate-postfiat-node",
+            "bytes": 56988752,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.pnok-private-fix-2246d25-validator-1.candidate-postfiat-node",
+            "bytes": 56985480,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.resident-local-commit-777faa0-validator-1.candidate-postfiat-node",
+            "bytes": 56405440,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.resident-precommit-6ad587f-validator-1.candidate-postfiat-node",
+            "bytes": 56376128,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.resident-qc-view0-59cd3ee-validator-1.candidate-postfiat-node",
+            "bytes": 56394136,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.resident-remote-proposer-5548112-validator-1.candidate-postfiat-node",
+            "bytes": 56371720,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.shielded-atomic-governance-f1f174f-validator-1.candidate-postfiat-node",
+            "bytes": 55993240,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-acceptance-25a20c4-validator-1-finalized-checkpoint",
+            "bytes": 134970668,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-acceptance-98c81a9-validator-1-finalized-checkpoint",
+            "bytes": 134970668,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-finalized-checkpoint-8949759-validator-1-finalized-checkpoint",
+            "bytes": 112297212,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-joe-e2e-1312a94-validator-1-finalized-checkpoint",
+            "bytes": 131339297,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-mainnet-0f0a621-validator-1-finalized-checkpoint",
+            "bytes": 128823252,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-nav-overlay-cbbf53e-validator-1-finalized-checkpoint",
+            "bytes": 331992432,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-opening-export-5879768-validator-1-finalized-checkpoint",
+            "bytes": 130671776,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-primary-fill-8ae940f-validator-1-finalized-checkpoint",
+            "bytes": 114765015,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-private-issue-92e2fcb-validator-1-finalized-checkpoint",
+            "bytes": 140494975,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-private-receipt-1818a3c-validator-1-finalized-checkpoint",
+            "bytes": 141881052,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-private-redeem-9061829-validator-1-finalized-checkpoint",
+            "bytes": 149958376,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-public-reserve-e949f48-validator-1-finalized-checkpoint",
+            "bytes": 171273518,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-redeem-custody-e0cf4f3-validator-1-finalized-checkpoint",
+            "bytes": 143893417,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-route-fix-0737616-validator-1-finalized-checkpoint",
+            "bytes": 129998552,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-v2-binding-7a43e3e-validator-1-finalized-checkpoint",
+            "bytes": 143064605,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-v2-return-c871dfe-validator-1-finalized-checkpoint",
+            "bytes": 143064605,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-v2-schema-36ffda1-validator-1-finalized-checkpoint",
+            "bytes": 143064605,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-variable-nav-9ffdfb6-validator-1-finalized-checkpoint",
+            "bytes": 156736490,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/fastpay-payment-tier0-3c065ee5-validator-1",
+            "bytes": 67943322,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/journal-schema-ce0efb9d-validator-1",
+            "bytes": 47096246,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pftl-resident-swap-8ef86c4-validator-1-finalized-checkpoint",
+            "bytes": 181238916,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pftl-resident-swap-e55434c-validator-1-finalized-checkpoint",
+            "bytes": 181238916,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pfusdc-eth-l1-f30d368-validator-1-finalized-checkpoint",
+            "bytes": 117217879,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pfusdc-pool-repair-8a62cf9-validator-1-finalized-checkpoint",
+            "bytes": 199127238,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pnok-private-fix-2246d25-orchard1-validator-1-finalized-checkpoint",
+            "bytes": 291737125,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/pnok-private-fix-2246d25-validator-1-finalized-checkpoint",
+            "bytes": 262134971,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/resident-local-commit-777faa0-validator-1-finalized-checkpoint",
+            "bytes": 188896709,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/resident-precommit-6ad587f-validator-1-finalized-checkpoint",
+            "bytes": 186476364,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/resident-qc-view0-59cd3ee-validator-1-finalized-checkpoint",
+            "bytes": 187686460,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/resident-remote-proposer-5548112-validator-1-finalized-checkpoint",
+            "bytes": 182391971,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/shielded-atomic-governance-f1f174f-validator-1-finalized-checkpoint",
+            "bytes": 181238916,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage3-rounding-v3r4-topology-9500d28e-validator-1",
+            "bytes": 36994799,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-00d4918d-validator-1",
+            "bytes": 37199551,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-06897b60-validator-1",
+            "bytes": 36994799,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-5a55d6a1-validator-1",
+            "bytes": 36994799,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-75e18831-validator-1",
+            "bytes": 36994799,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-7c75ec1e-validator-1",
+            "bytes": 37199551,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-948dd5b2-validator-1",
+            "bytes": 37356538,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/stage5-validator-finality-a4fa18b5-validator-1",
+            "bytes": 37356538,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          }
+        ],
+        "freed_bytes": 6976446464,
+        "kept_for_other_lane": [
+          {
+            "path": "/var/backups/postfiat/a666-source-route-20260907-validator-1-1788743461",
+            "bytes": 3552732419,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/backups/postfiat/pfeth-replay-v4-20260905-validator-1-1788631637",
+            "bytes": 3534464215,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/backups/postfiat/rpc-status-cache-20260906-validator-1-1788724534",
+            "bytes": 3547991277,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/gate931",
+            "bytes": 7713121912,
+            "reason": "instruction: do not delete gate931/gate926; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/gate926",
+            "bytes": 5486901044,
+            "reason": "instruction: do not delete gate931/gate926; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming",
+            "bytes": 482183840,
+            "reason": "origin not established from the repository; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming2",
+            "bytes": 482185304,
+            "reason": "origin not established from the repository; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/.a666-checkpoint-verifier-experimental.incoming3",
+            "bytes": 482185312,
+            "reason": "origin not established from the repository; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/a666-opening-export-proof-h348",
+            "bytes": 131339297,
+            "reason": "origin not established from the repository; for the other lane"
+          },
+          {
+            "path": "/var/log/postfiat/validator-1/transport-validator-events.ndjson",
+            "bytes": 13867827262,
+            "reason": "live log, never rotated (no logrotate config); needs a rotation decision"
+          }
+        ],
+        "services_after": "validator and RPC units active on /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node; nothing restarted"
+      }
+    },
+    {
+      "validator": "validator-0",
+      "host": "64.176.220.75",
+      "running_executable": "/opt/postfiat/releases/combined-fastpay-20260928/postfiat-node",
+      "before": {
+        "size_bytes": 79941234688,
+        "used_bytes": 68782764032,
+        "avail_bytes": 7661068288,
+        "use_percent": "90%"
+      },
+      "backups": [
+        {
+          "path": "/var/backups/postfiat/a666-source-route-20260907-validator-0-1788743379",
+          "bytes": 3249270019,
+          "mtime": "2026-09-07 01:09",
+          "contents": [
+            "postfiat-validator-0-rpc.service",
+            "postfiat-validator-0.service",
+            "validator-state.tar"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        },
+        {
+          "path": "/var/backups/postfiat/pfeth-replay-v4-20260905-validator-0-1788631354",
+          "bytes": 1149837666,
+          "mtime": "2026-09-05 18:02",
+          "contents": [
+            "postfiat-validator-0-rpc.service",
+            "postfiat-validator-0.service",
+            "validator-state.tar.gz"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        },
+        {
+          "path": "/var/backups/postfiat/rpc-status-cache-20260906-validator-0-1788724699",
+          "bytes": 3244528877,
+          "mtime": "2026-09-06 19:58",
+          "contents": [
+            "postfiat-validator-0-rpc.service",
+            "postfiat-validator-0.service",
+            "validator-state.tar"
+          ],
+          "origin": "pre-deploy state dump (validator-state.tar + unit files); release named in directory",
+          "action": "keep",
+          "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+        }
+      ],
+      "pre_rollout_snapshots": [
+        {
+          "name": "atomic-swap-w6-395e28e5-validator-0",
+          "bytes": 58458163,
+          "mtime": "2026-07-13 15:56",
+          "type": "directory",
+          "kind": "checkpoint export (pre-2026-07-28 layout)",
+          "release": "atomic-swap-w6-395e28e5",
+          "origin": "python/postfiat_ops/safe_rollout.py@11839c14:562 (`{release_id}-{canary}`)",
+          "action": "deleted",
+          "group": "c",
+          "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+        },
+        {
+          "name": "cobalt-activation-8694b99d-validator-0-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-25 02:10",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-activation-8694b99d-validator-0-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-25 02:10",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-activation-8694b99d",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-adversarial-8cc7d15e-validator-0-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-26 05:03",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-adversarial-8cc7d15e-validator-0-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-26 05:02",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-adversarial-8cc7d15e",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-verifier-92b63f5a-validator-0-checkpoint.json",
+          "bytes": 831,
+          "mtime": "2026-08-25 02:43",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "cobalt-verifier-92b63f5a-validator-0-storage-migration.json",
+          "bytes": 6285,
+          "mtime": "2026-08-25 02:43",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "cobalt-verifier-92b63f5a",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "combined-fastpay-20260925-validator-0-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 13:48",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260925-validator-0-storage-migration.json",
+          "bytes": 8877,
+          "mtime": "2026-09-25 13:48",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260925",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "combined-fastpay-20260925 release and its signed backup (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260928-validator-0-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-28 07:45",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": "combined-fastpay-20260928-validator-0-storage-migration.json",
+          "bytes": 8877,
+          "mtime": "2026-09-28 07:45",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "combined-fastpay-20260928",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "current running release (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-0-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 02:31",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-0-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 02:25",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r2-validator-0-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 02:31",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r2",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-retained-payment",
+          "bytes": 228545624,
+          "mtime": "2026-09-25 03:25",
+          "type": "directory",
+          "kind": "unknown",
+          "release": null,
+          "origin": "not established from the repository",
+          "action": "keep",
+          "reason": "origin not established from the repository; for the other lane"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-0-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 03:39",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-0-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 03:33",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r3-validator-0-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 03:39",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r3",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        },
+        {
+          "name": "fastpay-committee-20260925-r4-validator-0-checkpoint.json",
+          "bytes": 832,
+          "mtime": "2026-09-25 06:04",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-r4-validator-0-storage-migration.json",
+          "bytes": 8836,
+          "mtime": "2026-09-25 06:04",
+          "type": "regular file",
+          "kind": "rollout report",
+          "release": "fastpay-committee-20260925-r4",
+          "origin": "python/postfiat_ops/safe_rollout.py:913-918",
+          "action": "keep",
+          "reason": "rollback release for combined-fastpay-20260925 (keep per instruction)"
+        },
+        {
+          "name": "fastpay-committee-20260925-validator-0-rollback",
+          "bytes": 5401,
+          "mtime": "2026-09-25 01:59",
+          "type": "directory",
+          "kind": "rollback record",
+          "release": "fastpay-committee-20260925",
+          "origin": "not traced (kept: not an export or staged binary)",
+          "action": "keep",
+          "reason": "small rollout record, not an export or staged binary"
+        }
+      ],
+      "gates": [
+        {
+          "path": "/var/lib/postfiat/gate931",
+          "bytes": 7099329283,
+          "mtime": "2026-09-02 19:18",
+          "contents": [
+            "backup-validator-0",
+            "ops",
+            "validator-0"
+          ],
+          "origin": "Arc gate at height 931, 2026-09-02 (local tool ~/.postfiat/deployments/arc-gate-931/gate931.py); receipt docs/evidence/arc-mvp-20260828/devnet-20260902/gate-931-and-rollout-receipt.json; no handoff or runbook on main names it",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/lib/postfiat/gate926",
+          "bytes": 4873117749,
+          "mtime": "2026-08-31 02:23",
+          "contents": [
+            "activation",
+            "backup-validator-0",
+            "ops",
+            "validator-0"
+          ],
+          "origin": "storage single-writer deployment-exact gate, 2026-08-31; docs/handoffs/2026-08-31___postfiatchad__storage_gate_passed_rollout_pending.md:65 lists removal as a cleanup owed",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/log/postfiat/gate931",
+          "bytes": 940315,
+          "mtime": "2026-09-02 18:37",
+          "contents": [
+            "validator-0"
+          ],
+          "origin": "Arc gate at height 931, 2026-09-02 (local tool ~/.postfiat/deployments/arc-gate-931/gate931.py); receipt docs/evidence/arc-mvp-20260828/devnet-20260902/gate-931-and-rollout-receipt.json; no handoff or runbook on main names it",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        },
+        {
+          "path": "/var/log/postfiat/gate926",
+          "bytes": 1347975,
+          "mtime": "2026-08-31 01:21",
+          "contents": [
+            "validator-0"
+          ],
+          "origin": "storage single-writer deployment-exact gate, 2026-08-31; docs/handoffs/2026-08-31___postfiatchad__storage_gate_passed_rollout_pending.md:65 lists removal as a cleanup owed",
+          "action": "keep",
+          "reason": "instruction: do not delete gate931/gate926; for the other lane"
+        }
+      ],
+      "logs": [
+        {
+          "path": "/var/log/postfiat/validator-0/transport-validator-events.ndjson",
+          "bytes": 13874780700,
+          "mtime": "2026-09-28T08:35",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-0/rpc-events.ndjson",
+          "bytes": 50389386,
+          "mtime": "2026-09-28T09:39",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-0/stdout.log",
+          "bytes": 6986260,
+          "mtime": "2026-09-28T07:45",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-0/rpc-stdout.log",
+          "bytes": 4694006,
+          "mtime": "2026-09-28T07:45",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-0/rpc-stderr.log",
+          "bytes": 1405138,
+          "mtime": "2026-09-25T06:32",
+          "rotated": false,
+          "open_by_validator": false,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        },
+        {
+          "path": "/var/log/postfiat/validator-0/stderr.log",
+          "bytes": 635543,
+          "mtime": "2026-09-28T07:45",
+          "rotated": false,
+          "open_by_validator": true,
+          "action": "keep",
+          "reason": "live log of the current release (not rotated); no logrotate config for postfiat on this host"
+        }
+      ],
+      "incoming_file_types": [],
+      "after": {
+        "size_bytes": 79941234688,
+        "used_bytes": 68724285440,
+        "avail_bytes": 7719546880,
+        "use_percent": "90%"
+      },
+      "cleanup": {
+        "groups": [
+          {
+            "group": "a",
+            "avail_after_bytes": 7661047808,
+            "deleted_count": 0,
+            "deleted_bytes": 0,
+            "note": "no rotated or compressed files exist under /var/log/postfiat; every log is the live file of the current release"
+          },
+          {
+            "group": "b",
+            "avail_after_bytes": 7661047808,
+            "deleted_count": 0,
+            "deleted_bytes": 0,
+            "note": null
+          },
+          {
+            "group": "c",
+            "avail_after_bytes": 7719538688,
+            "deleted_count": 1,
+            "deleted_bytes": 58458163,
+            "note": null
+          }
+        ],
+        "deleted": [
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/atomic-swap-w6-395e28e5-validator-0",
+            "bytes": 58458163,
+            "group": "c",
+            "reason": "export/staged binary of a release older than fastpay-committee-20260925-r4, not referenced by any local rollout state"
+          }
+        ],
+        "freed_bytes": 58478592,
+        "kept_for_other_lane": [
+          {
+            "path": "/var/backups/postfiat/a666-source-route-20260907-validator-0-1788743379",
+            "bytes": 3249270019,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/backups/postfiat/pfeth-replay-v4-20260905-validator-0-1788631354",
+            "bytes": 1149837666,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/backups/postfiat/rpc-status-cache-20260906-validator-0-1788724699",
+            "bytes": 3244528877,
+            "reason": "instruction: do not delete /var/backups/postfiat dumps; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/gate931",
+            "bytes": 7099329283,
+            "reason": "instruction: do not delete gate931/gate926; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/gate926",
+            "bytes": 4873117749,
+            "reason": "instruction: do not delete gate931/gate926; for the other lane"
+          },
+          {
+            "path": "/var/lib/postfiat/pre-rollout-snapshots/fastpay-committee-20260925-r3-retained-payment",
+            "bytes": 228545624,
+            "reason": "origin not established from the repository; for the other lane"
+          },
+          {
+            "path": "/var/log/postfiat/validator-0/transport-validator-events.ndjson",
+            "bytes": 13874780700,
+            "reason": "live log, never rotated (no logrotate config); needs a rotation decision"
+          }
+        ],
+        "services_after": "validator and RPC units active on /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node; nothing restarted"
+      }
+    }
+  ]
+}
