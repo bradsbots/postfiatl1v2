@@ -42,6 +42,32 @@ Status: **canonical operational-state reference**
     Records:
     [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/combined-fastpay-20260928/deployments/combined-fastpay-20260928/README.md).
 
+### Why `status` reports `deployment_manifest_verified=false`
+
+The field is `false` by design and does not contradict the rollout. `status` in
+`crates/node/src/lifecycle_queries.rs` fills it from
+`deployment_runtime_identity_from_env`. That function reads the
+`POSTFIAT_DEPLOYMENT_*` variables in each RPC unit's `validator-N.rpc.env`,
+hashes the current manifest file and checks the validator binding and the four
+runtime artifact hashes against it. Any mismatch makes `status` fail. The
+function does not check the publisher signature or the validity window, so it
+always returns `manifest_verified: false`. This has been so since `7095b393`
+(2026-09-16, finding SRV-03), and no code path sets the field to `true`.
+
+The signature check is `postfiat-node deployment-manifest-verify`. Every
+validator and RPC unit runs it as `ExecStartPre`, so a unit starts only if the
+check passes, but the result is not passed to the running process.
+`observe-fleet.py` also re-runs it over SSH. That is what "manifest verified on
+every host" above means. So the cause is neither an unused startup path nor a
+stale name: the field only says that `status` did not authenticate the
+manifest. The rollout evidence is the active units together with
+`deployment_manifest_sha256` and `deployment_runtime_artifacts`.
+
+Reproduced read-only at 09:51:50–09:51:55Z: all six validators at height 1062
+report `false`, manifest `d2fdb687…` and binary `1f8b332d…`. There was no repair
+and no restart. The misleading name remains; renaming the field or carrying a
+prestart verification record into `status` would be a node change.
+
 !!! success "2026-09-25: merged combined and FastPay release deployed to all six validators"
 
     Release `combined-fastpay-20260925` runs on all six validators: source
