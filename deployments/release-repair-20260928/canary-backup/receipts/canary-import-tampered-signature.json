@@ -1,0 +1,39 @@
+{
+  "name": "canary-import-tampered-signature",
+  "command": [
+    "/home/postfiatchad/.cache/release-repair-20260928/binaries/candidate-1",
+    "snapshot-import-signed-finalized-checkpoint",
+    "--data-dir",
+    "/home/postfiatchad/.cache/release-repair-20260928/canary-backup/tampered-import",
+    "--snapshot-dir",
+    "/home/postfiatchad/.cache/release-repair-20260928/canary-backup/tampered-signed",
+    "--trusted-publisher-key-file",
+    "/home/postfiatchad/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json",
+    "--node-id",
+    "validator-1"
+  ],
+  "cwd": "/home/postfiatchad/.cache/release-repair-20260928/canary-backup",
+  "started_at": "2026-09-28T06:03:31.801113+00:00",
+  "status": "PASS",
+  "stdout": "logs/canary-import-tampered-signature.stdout",
+  "stderr": "logs/canary-import-tampered-signature.stderr",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 4160835,
+  "exit_code": 1,
+  "completed_at": "2026-09-28T06:03:32.806131+00:00",
+  "elapsed_seconds": 1.0,
+  "minimum_available_memory_observed_bytes": 22289625088,
+  "expected": "nonzero exit (rejection)"
+}

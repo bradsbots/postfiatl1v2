@@ -1,0 +1,67 @@
+{
+  "started_at": "2026-09-28T06:02:53.448091+00:00",
+  "source_commit": "c93b213755f5889565fd1f77b9e45c149a07193a",
+  "binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+  "trusted_public_key_sha256": "adb52f49537ec65cb417ca1a8cd3debff1eb0d318790bc2f40bb5837855cea20",
+  "rollout_backup": {
+    "candidate_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+    "certificate_id": "ffd16df8af5e816c786ab3e7d618e0d7f3347d0cef7f4ae1927a64182a06f32c466a5d5ca2a5971163adcdd6348f1e17",
+    "consensus_v2_activation_height": 1,
+    "created_unix": 1790575370,
+    "finalized_checkpoint_verification_sha256": "7888774c5cc2f6102719e0773d89d1cd7fccb3fd93a24fc6865501f5eca31d02",
+    "height": 1050,
+    "remote_unsigned_snapshot": "/var/lib/postfiat/pre-rollout-snapshots/combined-fastpay-20260928-validator-1-finalized-checkpoint",
+    "signed_manifest_sha256": "a40d6a99358fea7c928c45b7a529f2d62b976ade045b3c6b737ff98f625a390d",
+    "signed_snapshot": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/evidence/pre-rollout-backup/backup-signed",
+    "source_validator": "validator-1",
+    "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+    "tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "verification_basis": "consensus-v2-finalized-checkpoint",
+    "verified": true
+  },
+  "signed_manifest_sha256": "a40d6a99358fea7c928c45b7a529f2d62b976ade045b3c6b737ff98f625a390d",
+  "tamper_applied": true,
+  "observed": {
+    "status_height": 1050,
+    "status_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "status_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+    "checkpoint_verified": true,
+    "checkpoint_height": 1050,
+    "checkpoint_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "checkpoint_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+    "replay_verified": true,
+    "replay_block_log_verified": true,
+    "replay_block_count": 1050,
+    "replay_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "replay_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+  },
+  "steps": {
+    "import-signed": {
+      "status": "PASS",
+      "exit_code": 0,
+      "elapsed_seconds": 38.0
+    },
+    "import-tampered-signature": {
+      "status": "PASS",
+      "exit_code": 1,
+      "elapsed_seconds": 1.0
+    },
+    "verify-checkpoint-signed": {
+      "status": "PASS",
+      "exit_code": 0,
+      "elapsed_seconds": 4.0
+    },
+    "status-signed": {
+      "status": "PASS",
+      "exit_code": 0,
+      "elapsed_seconds": 1.0
+    },
+    "verify-state-signed": {
+      "status": "PASS",
+      "exit_code": 0,
+      "elapsed_seconds": 197.1
+    }
+  },
+  "result": "PASS",
+  "completed_at": "2026-09-28T06:21:57.100093+00:00"
+}

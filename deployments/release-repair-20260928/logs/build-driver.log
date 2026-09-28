@@ -1,0 +1,10 @@
+2026-09-28T05:49:37.037320+00:00 WAIT node-build-1: another cargo process is running
+2026-09-28T05:55:40.809909+00:00 START node-build-1
+2026-09-28T05:59:02.894504+00:00 PASS node-build-1 (202.1s)
+Preparing worktree (detached HEAD c93b2137)
+HEAD is now at c93b2137 Let a registered validator that cannot sign hold certificate-verified FastPay effects so its own proposal anchors them
+2026-09-28T05:59:05.748540+00:00 START node-build-2
+2026-09-28T06:06:02.911135+00:00 PASS node-build-2 (417.2s)
+2026-09-28T06:06:03.055919+00:00 START node-reproducibility
+2026-09-28T06:06:04.061560+00:00 PASS node-reproducibility (1.0s)
+{"result": "PASS", "hashes": ["1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a", "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a"]}

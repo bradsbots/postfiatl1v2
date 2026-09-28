@@ -1518,9 +1518,9 @@ fn write_verified_fastpay_apply_v3(flags: &[String]) -> Result<(), String> {
         .collect::<Vec<_>>();
     let verified_votes = match operation {
         "transfer" => {
-            let certificate = serde_json::from_slice::<
-                postfiat_types::OwnedTransferCertificateV3,
-            >(&certificate_raw)
+            let certificate = serde_json::from_slice::<postfiat_types::OwnedTransferCertificateV3>(
+                &certificate_raw,
+            )
             .map_err(|error| format!("FastPay transfer certificate parse failed: {error}"))?;
             postfiat_execution::verify_owned_transfer_certificate_v3(
                 &certificate,
@@ -1533,11 +1533,10 @@ fn write_verified_fastpay_apply_v3(flags: &[String]) -> Result<(), String> {
             )
         }
         "unwrap" => {
-            let certificate =
-                serde_json::from_slice::<postfiat_types::OwnedUnwrapCertificateV3>(
-                    &certificate_raw,
-                )
-                .map_err(|error| format!("FastPay unwrap certificate parse failed: {error}"))?;
+            let certificate = serde_json::from_slice::<postfiat_types::OwnedUnwrapCertificateV3>(
+                &certificate_raw,
+            )
+            .map_err(|error| format!("FastPay unwrap certificate parse failed: {error}"))?;
             postfiat_execution::verify_owned_unwrap_certificate_v3(
                 &certificate,
                 &validator_pks,
@@ -2940,9 +2939,14 @@ mod atomic_swap_cli_tests {
         .expect("parse FastPay apply verification");
         assert_eq!(verification["quorum"], 3);
         let expected_outputs = postfiat_execution::owned_transfer_output_objects(
-            &certificate.owner_pubkey_hex, certificate.order.nonce, &certificate.order.outputs,
+            &certificate.owner_pubkey_hex,
+            certificate.order.nonce,
+            &certificate.order.outputs,
         );
-        assert_eq!(verification["verified_effects"]["created_objects"], serde_json::to_value(&expected_outputs).unwrap());
+        assert_eq!(
+            verification["verified_effects"]["created_objects"],
+            serde_json::to_value(&expected_outputs).unwrap()
+        );
         assert_eq!(
             verification["authenticated_acknowledgements"]
                 .as_array()
@@ -2976,7 +2980,10 @@ mod atomic_swap_cli_tests {
         )
         .expect("parse compact FastPay verification");
         assert_eq!(compact_verification["certificate_votes_verified"], 3);
-        assert_eq!(compact_verification["verified_effects"], verification["verified_effects"]);
+        assert_eq!(
+            compact_verification["verified_effects"],
+            verification["verified_effects"]
+        );
         assert_eq!(
             compact_verification["authenticated_acknowledgements"]
                 .as_array()
@@ -2993,9 +3000,14 @@ mod atomic_swap_cli_tests {
                 forged.votes[0].signature_hex = "00".into();
             }
             write_json_output(certificate_path.to_str().unwrap(), &forged).unwrap();
-            if verification_path.exists() { fs::remove_file(&verification_path).unwrap(); }
+            if verification_path.exists() {
+                fs::remove_file(&verification_path).unwrap();
+            }
             assert!(write_verified_fastpay_apply_v3(&verification_flags).is_err());
-            assert!(!verification_path.exists(), "failed verification must not publish expected outputs");
+            assert!(
+                !verification_path.exists(),
+                "failed verification must not publish expected outputs"
+            );
         }
         write_json_output(certificate_path.to_str().unwrap(), &certificate).unwrap();
 

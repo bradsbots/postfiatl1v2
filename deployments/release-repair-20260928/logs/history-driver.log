@@ -1,0 +1,57 @@
+2026-09-28T05:59:04.096129+00:00 START original-validator-02026-09-28T05:59:04.096233+00:00 START post-v2-validator-0
+
+2026-09-28T06:02:20.192771+00:00 PASS original-validator-0 (196.1s)
+2026-09-28T06:02:20.307303+00:00 START original-validator-1
+2026-09-28T06:02:21.193109+00:00 PASS post-v2-validator-0 (197.1s)
+2026-09-28T06:02:21.262127+00:00 START post-v2-validator-1
+2026-09-28T06:05:35.385354+00:00 PASS original-validator-1 (195.1s)
+2026-09-28T06:05:35.491449+00:00 START original-validator-2
+2026-09-28T06:05:36.345060+00:00 PASS post-v2-validator-1 (195.1s)
+2026-09-28T06:05:36.416514+00:00 START post-v2-validator-2
+2026-09-28T06:08:51.567157+00:00 PASS original-validator-2 (196.1s)
+2026-09-28T06:08:51.670559+00:00 START original-validator-3
+2026-09-28T06:08:52.491106+00:00 PASS post-v2-validator-2 (196.1s)
+2026-09-28T06:08:52.534532+00:00 START post-v2-validator-3
+2026-09-28T06:12:08.603937+00:00 PASS post-v2-validator-3 (196.1s)
+2026-09-28T06:12:08.698399+00:00 START post-v2-validator-4
+2026-09-28T06:12:08.741191+00:00 PASS original-validator-3 (197.1s)
+2026-09-28T06:12:08.783422+00:00 START original-validator-4
+2026-09-28T06:15:23.777836+00:00 PASS post-v2-validator-4 (195.1s)
+2026-09-28T06:15:23.879565+00:00 START post-v2-validator-5
+2026-09-28T06:15:24.860608+00:00 PASS original-validator-4 (196.1s)
+2026-09-28T06:15:24.931715+00:00 START original-validator-5
+2026-09-28T06:18:39.957896+00:00 PASS post-v2-validator-5 (196.1s)
+2026-09-28T06:18:40.009364+00:00 PASS original-validator-5 (195.1s)
+2026-09-28T06:18:40.065543+00:00 START old-binary-checkpoint-0
+2026-09-28T06:18:40.135503+00:00 START governance-prepare
+2026-09-28T06:18:44.074813+00:00 PASS old-binary-checkpoint-0 (4.0s)
+2026-09-28T06:18:44.149554+00:00 START old-binary-checkpoint-1
+2026-09-28T06:18:48.154175+00:00 PASS old-binary-checkpoint-1 (4.0s)
+2026-09-28T06:18:48.201924+00:00 START old-binary-checkpoint-2
+2026-09-28T06:18:50.145700+00:00 PASS governance-prepare (10.0s)
+2026-09-28T06:18:50.146503+00:00 START governance-gate
+2026-09-28T06:18:52.206226+00:00 PASS old-binary-checkpoint-2 (4.0s)
+2026-09-28T06:18:52.277265+00:00 START old-binary-checkpoint-3
+2026-09-28T06:18:56.281465+00:00 PASS old-binary-checkpoint-3 (4.0s)
+2026-09-28T06:18:56.324970+00:00 START old-binary-checkpoint-4
+2026-09-28T06:19:00.329693+00:00 PASS old-binary-checkpoint-4 (4.0s)
+2026-09-28T06:19:00.379072+00:00 START old-binary-checkpoint-5
+2026-09-28T06:19:04.383781+00:00 PASS old-binary-checkpoint-5 (4.0s)
+2026-09-28T06:19:31.166231+00:00 PASS governance-gate (41.0s)
+2026-09-28T06:19:31.168444+00:00 START fresh-v2-validator-0
+2026-09-28T06:19:32.431937+00:00 START rollback-services
+2026-09-28T06:20:03.447439+00:00 PASS rollback-services (31.0s)
+2026-09-28T06:21:57.473534+00:00 START final-candidate-on-rollback-validator-0
+2026-09-28T06:22:47.242993+00:00 PASS fresh-v2-validator-0 (196.1s)
+2026-09-28T06:22:47.354400+00:00 START fresh-v2-validator-1
+2026-09-28T06:25:13.554498+00:00 PASS final-candidate-on-rollback-validator-0 (196.1s)
+2026-09-28T06:26:04.435024+00:00 PASS fresh-v2-validator-1 (197.1s)
+2026-09-28T06:26:04.545048+00:00 START fresh-v2-validator-2
+2026-09-28T06:29:20.625551+00:00 PASS fresh-v2-validator-2 (196.1s)
+2026-09-28T06:29:20.734544+00:00 START fresh-v2-validator-3
+2026-09-28T06:32:35.815488+00:00 PASS fresh-v2-validator-3 (195.1s)
+2026-09-28T06:32:35.925528+00:00 START fresh-v2-validator-4
+2026-09-28T06:35:51.007288+00:00 PASS fresh-v2-validator-4 (195.1s)
+2026-09-28T06:35:51.118108+00:00 START fresh-v2-validator-5
+2026-09-28T06:39:05.200417+00:00 PASS fresh-v2-validator-5 (194.1s)
+2026-09-28T06:39:05.287423+00:00 operational sequence complete

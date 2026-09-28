@@ -921,6 +921,17 @@ mod owned_transfer_tests {
             assert_eq!(object.value, spec.value);
             assert_eq!(object.asset, spec.asset);
         }
+        // Frozen IDs from the pre-extraction implementation. Output order,
+        // owner, amount, asset, nonce and version must remain wire compatible.
+        assert_eq!(out.created[0].id, "04d5cbf9e4bbd9403688f1c4ab1556eaac70ef35a692abbf28abb4d74d534d98");
+        assert_eq!(out.created[1].id, "78392faf369acb000e0ced2d43b6542e081a8a10b63bd250df38424eb55f4ed3");
+        assert_eq!(out.created, owned_transfer_output_objects("ownerA", 1, &order.outputs));
+        for (object, spec) in out.created.iter().zip(&order.outputs) {
+            assert_eq!(object.version, 1);
+            assert_eq!(object.owner_pubkey_hex, spec.owner_pubkey_hex);
+            assert_eq!(object.value, spec.value);
+            assert_eq!(object.asset, spec.asset);
+        }
         assert_eq!(out.created.iter().map(|o| o.value).sum::<u64>(), 99);
         assert!(ledger.owned_objects.iter().all(|o| o.id != "aa"));
         assert_eq!(ledger.owned_objects.len(), 2);

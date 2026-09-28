@@ -1,0 +1,71 @@
+{
+  "rollout_state_dir": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928",
+  "rollout_state_file": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/evidence/rollout-state.json",
+  "rollout_state_sha256": "4d3a758637e13f6140751ea32e5104cc02f5eb98b92165b9e036dce1dc9f3f0a",
+  "release_id": "combined-fastpay-20260928",
+  "order": [
+    "validator-1",
+    "validator-0",
+    "validator-2",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+  ],
+  "applied": [],
+  "canary": "validator-1",
+  "stage_report": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/stage/stage-report.json",
+  "stage_report_sha256": "48565244bc99307bc80aaa17eaaaa0a0ce2a3984cb8700916436ce882a52a66b",
+  "inventory_file": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/inventory.txt",
+  "inventory_file_sha256": "6c11341d54aab5f9f473625d95af498df4d54202db04f7a2eff5fb3933d30b59",
+  "stage_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+  "signed_manifest_sha256": "d2fdb687311341450c9b4c87d4d66d9edf1b79d3302a7705e8be7155f8c85928",
+  "manifest_validity": "from=1790575214 until=1822111514",
+  "manifest_git_revision": "c93b213755f5889565fd1f77b9e45c149a07193a",
+  "keys_by_path": {
+    "deployment_publisher": "~/.postfiat/deployments/fastpay-committee-20260925-r4/keys/deployment-publisher.key.json",
+    "snapshot_publisher": "~/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.private.json",
+    "snapshot_publisher_public": "~/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json",
+    "vultr_api_key": "~/.postfiat/deployments/cobalt-activation-8694b99d/vultr-api-key"
+  },
+  "preflight": {
+    "verified": true,
+    "created_unix": 1790575253,
+    "fleet_height": 1050,
+    "fleet_tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "fleet_state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+    "validator_count": 6,
+    "rosters_valid": true,
+    "deletion_count": 0,
+    "files_per_validator": {
+      "validator-0": 11,
+      "validator-1": 11,
+      "validator-2": 11,
+      "validator-3": 11,
+      "validator-4": 11,
+      "validator-5": 11
+    },
+    "actions": [
+      "create",
+      "update"
+    ]
+  },
+  "backup": {
+    "candidate_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+    "certificate_id": "ffd16df8af5e816c786ab3e7d618e0d7f3347d0cef7f4ae1927a64182a06f32c466a5d5ca2a5971163adcdd6348f1e17",
+    "consensus_v2_activation_height": 1,
+    "created_unix": 1790575370,
+    "finalized_checkpoint_verification_sha256": "7888774c5cc2f6102719e0773d89d1cd7fccb3fd93a24fc6865501f5eca31d02",
+    "height": 1050,
+    "remote_unsigned_snapshot": "/var/lib/postfiat/pre-rollout-snapshots/combined-fastpay-20260928-validator-1-finalized-checkpoint",
+    "signed_manifest_sha256": "a40d6a99358fea7c928c45b7a529f2d62b976ade045b3c6b737ff98f625a390d",
+    "signed_snapshot": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/evidence/pre-rollout-backup/backup-signed",
+    "source_validator": "validator-1",
+    "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+    "tip": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+    "verification_basis": "consensus-v2-finalized-checkpoint",
+    "verified": true
+  },
+  "local_backup_dir": "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/evidence/pre-rollout-backup",
+  "fleet_writes": "validator-1 only, by the backup step: /var/lib/postfiat/pre-rollout-snapshots/combined-fastpay-20260928-validator-1-finalized-checkpoint (unsigned export by the running executable) and .combined-fastpay-20260928-validator-1.candidate-postfiat-node; no apply, no restart, no transaction",
+  "not_used": "deployments/combined-fastpay-20260925/local-preflight.py is bound to that release (binary hash, release id, golden rootfs); the preflight step ran deployment-manifest-verify for all six instead; stage-compare.json compares the stage with the 2026-09-25 stage"
+}
