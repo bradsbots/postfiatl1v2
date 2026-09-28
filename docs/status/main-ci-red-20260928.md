@@ -64,9 +64,23 @@ Clippy-clean. The only differences from the release branch are in `docs/` and
 ## After the push
 
 The merge (`6b8f6ea8`) and this document (`63a0550a`) were pushed together
-at 09:00Z. The verdict for each workflow on `main` is recorded below once
-the runs finish.
+at 09:00Z. The anchor fix (`1ef5356a`) followed at 09:02Z. These were the
+verdicts at 09:24Z, the end of the 25-minute watch:
 
-- `docs-build` on `63a0550a`: **fail**. The failing step was
+- `rust-ci` / `check`: **pass** on both `63a0550a` and `1ef5356a`
+  (runs `36400775793` and `36400939414`). This is the first green `check`
+  on `main` since 16 September. `test` was still running (`cargo test
+  --workspace`), which usually takes about 90 minutes.
+- `product-security-ci`: 6 of 7 jobs **pass** on both commits (runs
+  `36400775899` and `36400939500`). `open-reserve-proof-kit` was still
+  running. Its previously failing step, "Test and format-check the open proof
+  kit", passed. The fuzz, reader-candidate, Solana stake-reader and SP1 host
+  steps also passed. The job was rebuilding the guest identities with Docker,
+  which took about 38 minutes when green on 25 September.
+- `docs-build`: **pass** on `1ef5356a`. It failed on `63a0550a` at
   `scripts/public-doc-links`, because this document linked to an anchor
-  that did not exist. The next commit fixed the link.
+  that did not exist. That link was the only problem, and `1ef5356a` fixed it.
+- `official-mainnet-fork` passes without running anything, because the
+  repository has no `ETHEREUM_MAINNET_RPC_URL` secret. Only the repository
+  owner can add that secret. This is unchanged and was not a cause of the red
+  CI.
