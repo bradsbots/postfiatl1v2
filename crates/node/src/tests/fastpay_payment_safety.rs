@@ -91,7 +91,7 @@ fn transfer_order(
     }
 }
 
-fn commit_fastlane_primary_for_test(
+pub(super) fn commit_fastlane_primary_for_test(
     data_dir: &Path,
     label: &str,
     transaction: postfiat_types::FastLanePrimaryTransactionV1,
@@ -115,7 +115,7 @@ fn commit_fastlane_primary_for_test(
     receipts.remove(0)
 }
 
-fn copy_fastpay_node_dir(source: &Path, destination: &Path) {
+pub(super) fn copy_fastpay_node_dir(source: &Path, destination: &Path) {
     std::fs::create_dir_all(destination).expect("create copied FastPay node");
     for entry in std::fs::read_dir(source).expect("read FastPay source node") {
         let entry = entry.expect("read FastPay source entry");
@@ -128,7 +128,7 @@ fn copy_fastpay_node_dir(source: &Path, destination: &Path) {
     }
 }
 
-fn rewrite_fastpay_node_id(data_dir: &Path, node_id: &str) {
+pub(super) fn rewrite_fastpay_node_id(data_dir: &Path, node_id: &str) {
     let store = NodeStore::new(data_dir);
     let mut state = store.read_node_state().expect("read copied node state");
     state.node_id = node_id.to_string();
@@ -137,7 +137,7 @@ fn rewrite_fastpay_node_id(data_dir: &Path, node_id: &str) {
         .expect("write copied node identity");
 }
 
-fn signed_owned_deposit_for_test(
+pub(super) fn signed_owned_deposit_for_test(
     genesis: &postfiat_types::Genesis,
     source: &DevKeyFile,
     destination_owner_pubkey: Vec<u8>,
@@ -1107,7 +1107,7 @@ fn fastpay_v3_rotated_registry_preserves_five_signers_without_unauthorized_mutat
             assert_eq!(store.read_ledger().expect("unchanged apply ledger"), before);
             assert!(!data_dir.join(FASTPAY_SPECULATIVE_JOURNAL_FILE).exists());
         };
-        assert!(apply(options(), &certificate.to_string(), "validator-5").is_err());
+        assert!(apply(options(), &certificate.to_string(), "absent-validator").is_err());
         assert_no_apply();
         atomic_write(data_dir.join(VALIDATOR_KEYS_FILE), serde_json::to_vec(&wrong_keys).unwrap()).unwrap();
         set_private_file_permissions(&data_dir.join(VALIDATOR_KEYS_FILE)).unwrap();
@@ -1122,8 +1122,10 @@ fn fastpay_v3_rotated_registry_preserves_five_signers_without_unauthorized_mutat
                 "forged" => { invalid["votes"][4]["signature_hex"] = "00".into(); }
                 _ => { invalid["order"]["domain"]["chain_id"] = "different-chain".into(); }
             }
-            assert!(apply(options(), &invalid.to_string(), "validator-0").is_err(), "{attack}");
-            assert_no_apply();
+            for id in ["validator-0", "validator-5"] {
+                assert!(apply(options(), &invalid.to_string(), id).is_err(), "{attack} {id}");
+                assert_no_apply();
+            }
         }
         let cert_json = certificate.to_string();
         for (id, key) in validators.iter().take(5) {
@@ -1140,7 +1142,12 @@ fn fastpay_v3_rotated_registry_preserves_five_signers_without_unauthorized_mutat
         } else {
             assert_eq!(after.owned_objects.iter().map(|o| o.value).sum::<u64>(), 99);
         }
-        assert!(apply(options(), &cert_json, "validator-5").is_err());
+        // The rotated member holds the verified effect but never acknowledges it.
+        let held: serde_json::Value =
+            serde_json::from_str(&apply(options(), &cert_json, "validator-5").expect("held replay")).unwrap();
+        assert_eq!(held["schema"], FASTPAY_HELD_EFFECT_SCHEMA_V1);
+        assert_eq!(held["signed"], false);
+        assert!(held.get("signature_hex").is_none());
         assert_eq!(store.read_ledger().unwrap(), after);
         std::fs::remove_dir_all(data_dir).unwrap();
     }
@@ -1922,7 +1929,12 @@ fn six_validator_fastpay_anchor_fixture(rotate_member_five: bool) {
         }
         let sixth = NodeOptions { data_dir: data_dirs[5].clone() };
         assert!(owned_sign_v3(sixth.clone(), &signed_json, "validator-5").is_err());
-        assert!(owned_apply_v3(sixth, &certificate_json, "validator-5").is_err());
+        let held: serde_json::Value = serde_json::from_str(
+            &owned_apply_v3(sixth, &certificate_json, "validator-5").expect("rotated member holds"),
+        )
+        .unwrap();
+        assert_eq!(held["schema"], FASTPAY_HELD_EFFECT_SCHEMA_V1);
+        assert!(held.get("signature_hex").is_none());
     }
 
     let anchor_transaction = signed_owned_deposit_for_test(
