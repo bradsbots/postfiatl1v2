@@ -603,3 +603,35 @@ combined-fastpay backups, and the cobalt and registry-fix artifacts referenced b
 local rollout state. Inventory:
 `deployments/combined-fastpay-20260925/observed/disk-inventory-20260928.json` on
 `release/combined-fastpay-20260925` (`4d88956b`).
+
+## 2026-09-29: validator event log rotation
+
+Installed `/etc/logrotate.d/postfiat-validator-events` on all six validators:
+`transport-validator-events.ndjson` now rotates at `size 2G` with `rotate 3`,
+`compress`, `delaycompress`, `missingok`, `notifempty` and `copytruncate`, checked
+by the daily `logrotate.timer`. The node opens the file once with `O_APPEND` and
+never reopens it, so rotation copies then truncates. No service restarted; all
+12 PIDs are unchanged. No chain action was taken and no file was removed.
+
+A raw copy of the 13.87 GB backlog would not fit on validator-1 or validator-0.
+So on validators 0, 1, 3, 4 and 5 the backlog was first streamed into
+`transport-validator-events.ndjson.pre-rotation-20260929.zst` (4.18 GB,
+sha256-verified), then the live file was truncated in place. Validator-2's file
+was 40.7 MB, not 13.9 GB; the forced `logrotate` run copied it to `.1`.
+
+| Host | Free before | Free after |
+|---|---|---|
+| validator-0 | 7.67 GB | 17.36 GB |
+| validator-1 | 9.88 GB | 19.57 GB |
+| validator-2 | 24.51 GB | 24.51 GB |
+| validator-3 | 19.41 GB | 29.10 GB |
+| validator-4 | 14.50 GB | 24.19 GB |
+| validator-5 | 18.34 GB | 28.03 GB |
+
+`copytruncate` loses events written while the file is being copied. For a 2 GiB
+file that takes about 36 s, which is about 6 events at the long-run average of
+2.2 KB/s. No events were lost today: every file had been idle since
+2026-09-28 08:37Z. For the same reason, no new event had reached the fresh files
+by 12:39Z. Rollback: delete the rule on each host; rotated files stay. Record:
+`deployments/combined-fastpay-20260928/observed/event-log-rotation-20260929.json`
+on `release/combined-fastpay-20260928` (`4788ef1f`).
