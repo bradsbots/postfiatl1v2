@@ -118,6 +118,7 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - NEAR Intents Research And Live-Funds Readiness: handoffs/2026-09-29___dravlic__near_intents_research_and_live_funds_readiness.md
       - FastPay Stall Fixed Live And Main Line Caught Up: handoffs/2026-09-28___dravlic__fastpay_stall_fixed_live_and_main_line_caught_up.md
       - Merged FastPay And Combined Lines Qualified, Deployment Prepared: handoffs/2026-09-25___dravlic__merged_fastpay_and_combined_lines_qualified_and_deployed.md
       - Wallet Reviewed And Merged, Reserve-Proof Gaps, And Demo Runbook: handoffs/2026-09-24___dravlic__wallet_reviewed_and_merged_reserve_proof_gaps_and_demo_runbook.md
