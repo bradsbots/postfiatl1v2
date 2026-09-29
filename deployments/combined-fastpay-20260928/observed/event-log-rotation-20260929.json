@@ -1,0 +1,426 @@
+{
+ "schema": "postfiat-event-log-rotation-record-v1",
+ "recorded_at": "2026-09-29T12:39:20Z",
+ "release_id": "combined-fastpay-20260928",
+ "source_commit": "c93b2137",
+ "scope": "transport-validator-events.ndjson on the six validators; no service restart, no chain action, no file removed",
+ "code_findings": {
+  "writer": "crates/node/src/transport_protocol.rs open_transport_event_log: OpenOptions create+append, opened once at startup",
+  "descriptor": "crates/node/src/transport_runtime.rs transport_validator_serve_inner holds one File in Arc<Mutex<Option<File>>> for the process lifetime; each event is write_all + newline",
+  "size_cap_or_rotation": "none: only --event-log PATH; no setting in the unit or validator-N.transport.env; no reopen (only SIGTERM/SIGINT handlers, SIGHUP would terminate)",
+  "readers": "none in code; the 'last 200 events' reads were ad-hoc operator tails; RPC event_log_writable covers rpc-events.ndjson only; indices are in-memory counters, not byte offsets",
+  "truncation_safe": "yes: O_APPEND (observed fd flags 02102001) sends the next write to the new end of file, no sparse hole",
+  "unchanged_on_main": "transport_protocol.rs and transport_runtime.rs identical between c93b2137 and main"
+ },
+ "mechanism": {
+  "rule_path": "/etc/logrotate.d/postfiat-validator-events",
+  "rule_text": "/var/log/postfiat/validator-*/transport-validator-events.ndjson {\n    size 2G\n    rotate 3\n    compress\n    delaycompress\n    missingok\n    notifempty\n    copytruncate\n}\n",
+  "schedule": "logrotate.timer, daily at 00:00 UTC",
+  "why_copytruncate": "the node holds one O_APPEND descriptor and never reopens; rename rotation would keep writing to the renamed file",
+  "why_backlog_archive_first": "copytruncate first writes a raw copy; the 13.87 GB backlog exceeded free space on validator-1 (9.88 GB) and validator-0 (7.67 GB) on the root filesystem shared with /var/lib/postfiat, so the forced run or the next timer run would have filled the chain disk. The backlog was streamed into a sha256-verified zstd archive (about 4.18 GB), then the live file was truncated in place. validator-2 (40.7 MB) used the forced copytruncate directly",
+  "copytruncate_loss_window": "events written between the start of the copy and the truncate are lost. At 60 MB/s (slowest sequential read in the archive pass) a 2 GiB copy takes about 36 s; at the long-run average of about 2.2 KB/s (190 MB/day, 12.3 KB per event, validator-1 2026-07-17 to 2026-09-28) that is about 6 events. Burst rate is not measurable: events carry no timestamps and all six files were idle (0 bytes in 20 s, last write 2026-09-28 08:35-08:37Z)",
+  "archive_truncation_loss_window": "stat-then-truncate, with any growth appended to the archive first; no growth occurred on any host, so no event was lost"
+ },
+ "new_events_after_rotation": "not observed: no transport traffic reached any validator between the rotation and the final read at 12:39Z; each node's fd 3 still points at the live path (same inode) with O_APPEND",
+ "brief_correction": "validator-2's file was 40,702,967 bytes, not 13.9 GB",
+ "rollback": "rm /etc/logrotate.d/postfiat-validator-events on each host; archives and .1 files stay",
+ "hosts": [
+  {
+   "validator": "validator-1",
+   "host": "95.179.184.122",
+   "pre_read_at": "2026-09-29T12:13:34Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-1.service",
+     "main_pid": 698407,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-1-rpc.service",
+     "main_pid": 698426,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-1.service",
+     "main_pid": 698407,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-1-rpc.service",
+     "main_pid": 698426,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 9884262400,
+   "free_bytes_after": 19569381376,
+   "live_file_before": {
+    "bytes": 13867827262,
+    "last_write": "2026-09-28 08:37:28.381525641"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-1/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "one-off backlog archive (streamed zstd, sha256-verified) then in-place truncation; then the logrotate rule",
+   "backlog_archive": {
+    "path": "/var/log/postfiat/validator-1/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "source_bytes": 13867827262,
+    "archive_bytes": 4182665443,
+    "events": 1126482,
+    "compress_seconds": 166,
+    "source_sha256": "9b95803df09eea93e0d7f4650f36b2e0091740cf33e16625068bfe8653acf1d7",
+    "decompressed_sha256_matches": true,
+    "delta_bytes_appended_before_truncate": 0,
+    "truncated_at": "2026-09-29T12:18:13.825182243Z"
+   },
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-1/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "bytes": 4182665443
+   },
+   "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  },
+  {
+   "validator": "validator-0",
+   "host": "64.176.220.75",
+   "pre_read_at": "2026-09-29T12:18:57Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-0.service",
+     "main_pid": 4003667,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-0-rpc.service",
+     "main_pid": 4003672,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-0.service",
+     "main_pid": 4003667,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-0-rpc.service",
+     "main_pid": 4003672,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 7669657600,
+   "free_bytes_after": 17361285120,
+   "live_file_before": {
+    "bytes": 13874780700,
+    "last_write": "2026-09-28 08:35:25.471928255"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-0/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "one-off backlog archive (streamed zstd, sha256-verified) then in-place truncation; then the logrotate rule",
+   "backlog_archive": {
+    "path": "/var/log/postfiat/validator-0/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "source_bytes": 13874780700,
+    "archive_bytes": 4183114184,
+    "events": 1127016,
+    "compress_seconds": 157,
+    "source_sha256": "b98de5d049e393c3c9a0f0d100adfc346039be6d91c523f6c6cfc29e51a674e6",
+    "decompressed_sha256_matches": true,
+    "delta_bytes_appended_before_truncate": 0,
+    "truncated_at": "2026-09-29T12:23:12.264720819Z"
+   },
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-0/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "bytes": 4183114184
+   },
+   "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  },
+  {
+   "validator": "validator-2",
+   "host": "66.42.48.39",
+   "pre_read_at": "2026-09-29T12:23:32Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-2.service",
+     "main_pid": 1227295,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-2-rpc.service",
+     "main_pid": 1227321,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-2.service",
+     "main_pid": 1227295,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-2-rpc.service",
+     "main_pid": 1227321,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 24505565184,
+   "free_bytes_after": 24505561088,
+   "live_file_before": {
+    "bytes": 40702967,
+    "last_write": "2026-09-28 08:37:29.727329783"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-2/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "logrotate rule only; forced copytruncate rotation",
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-2/transport-validator-events.ndjson.1",
+    "bytes": 40702967
+   },
+   "forced_rotation_result": "rotated: copied to .1 then truncated (delaycompress leaves .1 uncompressed); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  },
+  {
+   "validator": "validator-3",
+   "host": "149.28.63.106",
+   "pre_read_at": "2026-09-29T12:24:07Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-3.service",
+     "main_pid": 2388315,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-3-rpc.service",
+     "main_pid": 2388321,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-3.service",
+     "main_pid": 2388315,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-3-rpc.service",
+     "main_pid": 2388321,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 19412312064,
+   "free_bytes_after": 29103702016,
+   "live_file_before": {
+    "bytes": 13876001731,
+    "last_write": "2026-09-28 08:37:28.156354115"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-3/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "one-off backlog archive (streamed zstd, sha256-verified) then in-place truncation; then the logrotate rule",
+   "backlog_archive": {
+    "path": "/var/log/postfiat/validator-3/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "source_bytes": 13876001731,
+    "archive_bytes": 4184577450,
+    "events": 1126976,
+    "compress_seconds": 171,
+    "source_sha256": "0fb5764b49efd19002f742ccac3f498c32a5a36e6354592963dfaf033b4656a3",
+    "decompressed_sha256_matches": true,
+    "delta_bytes_appended_before_truncate": 0,
+    "truncated_at": "2026-09-29T12:28:36.865358625Z"
+   },
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-3/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "bytes": 4184577450
+   },
+   "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  },
+  {
+   "validator": "validator-4",
+   "host": "95.179.179.206",
+   "pre_read_at": "2026-09-29T12:28:47Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-4.service",
+     "main_pid": 2532638,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-4-rpc.service",
+     "main_pid": 2532643,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-4.service",
+     "main_pid": 2532638,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-4-rpc.service",
+     "main_pid": 2532643,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 14500085760,
+   "free_bytes_after": 24191516672,
+   "live_file_before": {
+    "bytes": 13875560148,
+    "last_write": "2026-09-28 08:37:28.447035858"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-4/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "one-off backlog archive (streamed zstd, sha256-verified) then in-place truncation; then the logrotate rule",
+   "backlog_archive": {
+    "path": "/var/log/postfiat/validator-4/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "source_bytes": 13875560148,
+    "archive_bytes": 4184093365,
+    "events": 1127012,
+    "compress_seconds": 150,
+    "source_sha256": "1982a6b911ebb5f216fbc41856e14689148feccb62d04e331e71490f9e15700f",
+    "decompressed_sha256_matches": true,
+    "delta_bytes_appended_before_truncate": 0,
+    "truncated_at": "2026-09-29T12:32:45.510701999Z"
+   },
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-4/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "bytes": 4184093365
+   },
+   "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  },
+  {
+   "validator": "validator-5",
+   "host": "45.32.110.170",
+   "pre_read_at": "2026-09-29T12:33:00Z",
+   "services_before": [
+    {
+     "unit": "postfiat-validator-5.service",
+     "main_pid": 2891852,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-5-rpc.service",
+     "main_pid": 2891934,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "services_after": [
+    {
+     "unit": "postfiat-validator-5.service",
+     "main_pid": 2891852,
+     "n_restarts": 0,
+     "state": "active/running"
+    },
+    {
+     "unit": "postfiat-validator-5-rpc.service",
+     "main_pid": 2891934,
+     "n_restarts": 0,
+     "state": "active/running"
+    }
+   ],
+   "pids_unchanged": true,
+   "free_bytes_before": 18339028992,
+   "free_bytes_after": 28030439424,
+   "live_file_before": {
+    "bytes": 13875492376,
+    "last_write": "2026-09-28 08:37:29.123976220"
+   },
+   "live_file_after_bytes": 0,
+   "growth_in_20s_before": 0,
+   "node_fd": {
+    "fd": 3,
+    "path": "/var/log/postfiat/validator-5/transport-validator-events.ndjson",
+    "flags_octal": "02102001",
+    "o_append": true
+   },
+   "stderr_logs_unchanged": true,
+   "journal_lines_last_15min": 0,
+   "mechanism": "one-off backlog archive (streamed zstd, sha256-verified) then in-place truncation; then the logrotate rule",
+   "backlog_archive": {
+    "path": "/var/log/postfiat/validator-5/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "source_bytes": 13875492376,
+    "archive_bytes": 4183918750,
+    "events": 1126985,
+    "compress_seconds": 235,
+    "source_sha256": "b6232ea2eb1e16fd67a8915c10eda5b497ee00fcbc9f5fab369d7bb57d990f2c",
+    "decompressed_sha256_matches": true,
+    "delta_bytes_appended_before_truncate": 0,
+    "truncated_at": "2026-09-29T12:38:55.222089510Z"
+   },
+   "rotated_file_kept": {
+    "path": "/var/log/postfiat/validator-5/transport-validator-events.ndjson.pre-rotation-20260929.zst",
+    "bytes": 4183918750
+   },
+   "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
+   "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
+  }
+ ]
+}
