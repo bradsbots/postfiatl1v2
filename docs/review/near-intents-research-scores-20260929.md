@@ -9,8 +9,9 @@ Each gate ran the harness `score` with `--gate full --runs 5 --force --temperatu
 | r1, original | `22a3404e…` | 78, 78, 76, 79, 78 | 84, 85, 80, 84, 86 | 90, 88, 90, 92, 88 | 83.73 |
 | r2, first rewrite (`6a0084db`) | `7fde1d9d…` | 82, 81, 82, 82, 82 | 84, 84, 84, 84, 82 | 90, 90, 90, 90, 88 | 85.00 |
 | r3, quotations corrected, astra-pro rewrite | `90929d16…` | 84, 84, 84, 83, 84 | 84, 84, 82, 84, 86 | 91, 90, 91, 88, 90 | **85.93** |
+| r4, third rewrite from astra-pro and fable critiques (not kept) | `f20ed4c3…` | 84, 85, 85, 84, 84 | 82, 79, 84, 86, 83 | 90, 90, 90, 88, 89 | 85.53 |
 
-Run groups: `near-intents-research-20260929-r1`, `-r2`, `-r3`. The r3 version scored highest and is kept. It remains below the 86/100 gate, so the note is not locked.
+Run groups: `near-intents-research-20260929-r1` through `-r4`. The r3 version scored highest and is kept. It remains below the 86/100 gate, so the note is not locked.
 
 Before r3, every Part 2 quotation was checked verbatim against its cited page. The `token_diff` quote now uses the docs' wording. The unconfirmed "selected automatically" and Omni Bridge quotations are now plain paraphrases.
 
