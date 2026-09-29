@@ -1,4 +1,4 @@
-# NEAR Intents research and live-funds readiness
+# NEAR Intents research, wallet flows reviewed and live-funds readiness
 
 - **Operator:** Domagoj Ravlić (`dravlic`)
 - **Date:** 2026-09-29 UTC
@@ -15,9 +15,17 @@ ends with four recommendations and two design questions for the other lane.
 For the other lane's live end-to-end runs tonight, StakeHub
 [`docs/review/live-funds-readiness-20260929.md`][ready] (`0f139ac` on
 `master`) lists per flow what is repaired and merged, what is open, and how to
-run within the caps in the code. I took no fleet action today. The last
-observed fleet state is 2026-09-28T08:38Z, with all six validators on
-`combined-fastpay-20260928` ([Current State][state]).
+run within the caps in the code. I then reviewed the four wallet modules no
+earlier review covered, in StakeHub
+[`docs/review/wallet-flows-review-20260929.md`][flows]: 2 P1, 7 P2 and 7 P3.
+Six are repaired and merged as `6a79672` ([PR #18][pr18]). FW-04, FW-08 and
+the spending-cap proposal FW-09 are open, and the cap decision is the other
+lane's call before tonight's runs. Last, I installed a logrotate rule for
+`transport-validator-events.ndjson` on all six validators, with no restart and
+no chain action ([record][rotation], `4788ef1f`; [Current State][state],
+`0eab3d86`). The last observed chain state is 2026-09-28T08:38Z, with all six
+validators on `combined-fastpay-20260928`. The last observed host state is
+2026-09-29T12:39Z.
 
 ## Current state
 
@@ -204,51 +212,229 @@ observed fleet state is 2026-09-28T08:38Z, with all six validators on
     applies.
   - `~/.pft/campaign-spend.jsonl` does not exist yet.
   - The announced live funds had not arrived on this server by 11:00Z.
+- **Since the note:** prerequisite 12 and the "unreviewed" entries in the
+  per-flow table are covered by the wallet flows review below. StakeHub
+  `master` is now `6a79672`.
+
+### StakeHub wallet flows review
+
+- **Document:** StakeHub [`docs/review/wallet-flows-review-20260929.md`][flows].
+  - It covers the four modules no earlier review covered:
+    [`pft_wallet/fastpay.py`][fastpay], [`pft_wallet/swaps.py`][swaps],
+    [`pft_wallet/fastswap.py`][fastswap] and [`pft_wallet/orchard.py`][orchard].
+  - It also covers the paths they call: `submit_fastlane_primary` and
+    `submit_certified_shield_batch` in `pft_wallet/ce22.py`, `OperationStore`
+    in `pft_wallet/operations.py`, `limits.reserve` in `pft_wallet/limits.py`,
+    the API and CLI entry points, and `postfiat_rpc.wallet` (`wrap_fastpay`,
+    `send_fastpay`, `_collect_fastpay_votes_with`) in `postfiatl1v2` at
+    `657c6957`.
+  - Its line numbers refer to StakeHub `0f139ac`. Nothing ran against a
+    wallet, the fleet, a relay, a prover box or mainnet. Every test uses fakes.
+- **Commits on `review/wallet-flows-20260929`:**
+
+  | Commit | Content |
+  | --- | --- |
+  | `57f6ee8` | The review |
+  | `829b52c` | FW-01 |
+  | `9d0333a` | FW-03 |
+  | `461e330` | FW-02 |
+  | `e19c3b4` | FW-07 |
+  | `52db8ac` | FW-05 |
+  | `ab2f77e` | FW-06 |
+
+- **Merge:** `6a79672` on StakeHub `master`, a squash of [PR #18][pr18].
+  - I merged it on the full-suite result: 5,279 passed, 89 skipped and 84
+    failed.
+  - The 84 failures are the browser-bound and environment-bound set that fails
+    identically on unchanged `master`. I checked this by set comparison against
+    the 2026-09-23 run.
+  - Wallet suite (`tests/test_pft_*.py tests/test_generalized_wallet.py`): 149
+    passed before and 160 after. Of the 11 new tests, 8 are reproduce-first
+    regression tests that failed on `0f139ac`. The other 3 are positive-path
+    tests that pass on both.
+- **Task Node:** `task_4be4a1b7abe75fef0d3d9a57c9d1f74a`, Rewarded.
+- **P1 and P2 findings:**
+
+  | ID | Sev | Finding | State |
+  | --- | --- | --- | --- |
+  | FW-01 | P1 | A FastPay payment could be reconciled as accepted from recipient objects when no send was attempted: the wrapped coin was not yet visible and the recipient already held a coin of the same amount | Repaired, `829b52c` |
+  | FW-02 | P1 | The private round trip's final unshield broadcast whatever recipient, asset and amount the prover box returned, without binding them to the user | Repaired, `461e330` |
+  | FW-03 | P2 | A second FastPay deposit was signed after the first had consumed the account sequence | Repaired, `9d0333a` |
+  | FW-04 | P2 | A timed-out FastPay send cannot be re-applied, because the certificate is never saved | Open; the fix belongs in `postfiat_rpc.wallet` in `postfiatl1v2` |
+  | FW-05 | P2 | A recorded FastLane deposit was stranded on resume | Repaired, `52db8ac` |
+  | FW-06 | P2 | An interrupted FastSwap resumed by re-checking deposits the swap had already consumed | Repaired, `ab2f77e` |
+  | FW-07 | P2 | An Orchard shield or swap batch was re-broadcast when the note state was unknown after an attempt | Repaired, `e19c3b4` |
+  | FW-08 | P2 | A shield step's success is read from each validator's last receipt line (`pft_wallet/ce22.py:776-798`), not matched to the batch | Open |
+  | FW-09 | P2 | The flows have no spending cap | Proposal only |
+
+  - **FW-04 location:** `send_fastpay` in
+    [`python/postfiat_rpc/wallet.py:1052`][w1052] builds the certificate at
+    [`:1154`][w1154] and applies it at [`:1161`][w1161] without writing it to
+    disk. The review's suggested change: write the certificate to `work_dir`
+    before `owned_apply_v3`, or accept a prebuilt certificate, and have
+    `fastpay.resume` re-apply it.
+  - **FW-08:** the receipt must be bound to the batch's transaction id and
+    height `h`. The review does not guess the field names until the
+    `transport-peer-certified-batch-round` report and receipt schema are
+    confirmed in `postfiatl1v2`.
+- **P3 findings, recorded and open (7):**
+  - FW-10: a raw `pf…` recipient's key comes from the proxy without an address
+    check.
+  - FW-11: default operation ids are per second, so two identical requests in
+    one second become one operation.
+  - FW-12: the wallet records the vote count but never compares it with quorum;
+    `postfiat_rpc` enforces quorum.
+  - FW-13: `swaps.py` and `orchard.py` decrypt the venue/pool inventory wallet
+    with the user's passphrase.
+  - FW-14: `conserved=True` covers only the user. The pool's a651 stays
+    shielded after each run.
+  - FW-15: reconciled leg receipts carry a height only, with no transaction id.
+  - FW-16: `fastpay.py`, `swaps.resume` and the `orchard.py` resume paths had
+    no tests. This is partly addressed, since the new tests cover only the
+    repaired paths.
+- **`swaps.py`:** nothing above P3.
+- **Cap proposal (FW-09)**, for the other lane to decide before tonight's runs.
+  Nothing is added yet. Line numbers are at `0f139ac`.
+
+  | Flow | Proposed cap | Insertion point |
+  | --- | --- | --- |
+  | Private round trip | `limits.reserve(..., operation="shielded-swap", reservation_id=operation_id)` | `orchard.resume`, around the two `_ingress` calls (`pft_wallet/orchard.py:397-398`). Not inside a `roundtrip` child, whose bridge-in leg already reserves |
+  | Transparent swap (API/CLI) | `limits.reserve(..., operation="swap", reservation_id=operation_id)` | `swaps.resume`, around `execute_atomic_swap` (`pft_wallet/swaps.py:287`) |
+  | FastSwap | `limits.reserve(..., operation="fastpay-navswap", reservation_id=operation_id)` | `fastswap.resume`, before the first `_deposit_object` (`pft_wallet/fastswap.py:409`) |
+  | FastPay and PFT transfer | A new atom cap, `limits.pft_run_atoms` | `fastpay.start` before `store.create` (`pft_wallet/fastpay.py:125`); `transfer.start` before its `store.create` (`pft_wallet/transfer.py:62`) |
+
+  - `reservation_id=operation_id` makes a resume reuse its reservation instead
+    of counting twice.
+  - A failed run still keeps its reservation
+    ([`pft_wallet/limits.py:38-39`][lim38]).
+
+### Validator event log rotation
+
+- **Rule:** `/etc/logrotate.d/postfiat-validator-events` on all six
+  validators.
+  - It applies to
+    `/var/log/postfiat/validator-*/transport-validator-events.ndjson`.
+  - Options: `size 2G`, `rotate 3`, `compress`, `delaycompress`, `missingok`,
+    `notifempty` and `copytruncate`.
+  - The daily `logrotate.timer` (00:00 UTC) checks it.
+- **Code facts I established first**, at `c93b2137`. Both files are identical
+  on `main`.
+  - The node opens `transport-validator-events.ndjson` once, with create and
+    append ([`crates/node/src/transport_protocol.rs:613`][tp613]). It holds
+    that descriptor for the whole process life
+    ([`crates/node/src/transport_runtime.rs:933`][tr933]). The observed fd
+    flags are `02102001`, which includes `O_APPEND`.
+  - There is no size or rotation option, only `--event-log PATH`, and there is
+    no reopen. Rename-based rotation would keep writing to the renamed file,
+    so the rule uses `copytruncate`.
+  - Nothing reads the file back. Indices are in-memory counters, not byte
+    offsets. Truncation is therefore safe, and the next append goes to the new
+    end of the file.
+- **Loss window:** `copytruncate` loses events written during the copy. That is
+  about 36 s per 2 GiB copy, or about 6 events at the 2.2 KB/s long-run
+  average. No event was lost today, because every file had been idle since
+  2026-09-28 08:35–08:37Z.
+- **Backlog:** a forced copy of the 13.87 GB file would have filled the disk on
+  validator-1 and validator-0.
+  - On validators 0, 1, 3, 4 and 5, I compressed the existing log to
+    `transport-validator-events.ndjson.pre-rotation-20260929.zst` in the same
+    directory. Each archive is about 4.18 GB, with a verified SHA-256 round
+    trip. I then emptied the live file in place.
+  - Validator-2's file was 40.7 MB, so it got the forced rotation to
+    `transport-validator-events.ndjson.1`.
+- **Services:** validator and RPC PIDs were identical before and after on all
+  six. There was no restart and no new stderr or journal lines. No chain
+  action was taken and no file was removed.
+- **Free space:**
+
+  | Host | Before | After |
+  | --- | ---: | ---: |
+  | validator-0 | 7.67 GB | 17.36 GB |
+  | validator-1 | 9.88 GB | 19.57 GB |
+  | validator-2 | 24.51 GB | 24.51 GB |
+  | validator-3 | 19.41 GB | 29.10 GB |
+  | validator-4 | 14.50 GB | 24.19 GB |
+  | validator-5 | 18.34 GB | 28.03 GB |
+
+- **Records:**
+  - [`deployments/combined-fastpay-20260928/observed/event-log-rotation-20260929.json`][rotation]
+    on `release/combined-fastpay-20260928`, commit `4788ef1f`.
+  - The chain-state note, `0eab3d86` on `main`, in [Current State][state].
+- **Not yet confirmed:** that new events arrive in the fresh files. There has
+  been no validator traffic since 2026-09-28 08:37Z. Check after the live
+  runs.
+- **Open:**
+  - logrotate never prunes the `.zst` archives.
+  - `rpc-events.ndjson` (34–140 MB per host) is not rotated.
+- **Rollback:** delete the rule on each host. The rotated files stay.
 
 ### Fleet and repository boundary
 
-- **Last observed fleet state:** 2026-09-28T08:38Z, at the end of the live check
-  ([previous handoff][previous]).
-  - All six validators were on `combined-fastpay-20260928` at height 1062, tip
-    `9d08fd3e…`, root `6324f86e…`.
-  - Disk after the 2026-09-28 cleanup: validator-1 had 9.9 GB free and
-    validator-0 had 7.7 GB.
-  - The 13.9 GB live event log per host, `transport-validator-events.ndjson`,
-    is still unrotated.
-  - I took no fleet action today.
+- **Last observed chain state:** 2026-09-28T08:38Z, at the end of the live
+  check ([previous handoff][previous]). All six validators were on
+  `combined-fastpay-20260928` at height 1062, tip `9d08fd3e…`, root
+  `6324f86e…`. I did not re-read height, tip or root today.
+- **Last observed host state:** 2026-09-29, from 12:13Z to the final read at
+  12:39Z, during the log rotation. All 12 validator and RPC services were
+  active and running with unchanged PIDs. Free space is in the table above.
+- **Fleet action today:** the log rotation only. It was a host change, with no
+  restart and no chain action.
 - **Deployed:**
   - Executable `1f8b332d…` and signed manifest `d2fdb687…`.
   - Source `c93b2137` on `release/combined-fastpay-20260928`.
 - **Repository:**
-  - `main` was `f22e4313` before this handoff.
-  - `release/combined-fastpay-20260928` is at `209d1535` and
-    `release/combined-fastpay-20260925` is at `4d88956b`. Neither changed
-    today.
-  - Today's `main` commits are the three research-note commits above.
+  - `main` was `0eab3d86` before this handoff.
+  - Today's `main` commits:
+    - the three research-note commits above;
+    - `657c6957`, the interim version of this handoff, which this commit
+      removes;
+    - `0eab3d86`, the chain-state note on the log rotation.
+  - `release/combined-fastpay-20260928` is at `4788ef1f` (was `209d1535`). Its
+    only change today is the rotation record.
+  - `release/combined-fastpay-20260925` is at `4d88956b`, unchanged.
+  - StakeHub `master` is at `6a79672` (was `0f139ac`).
 - **Merged but undeployed:** no node code. `crates/` on `main` is identical to
   `c93b2137`.
-- **Live probe:** none. I made no fleet probe in this session.
+- **Live probe:** no chain or RPC probe. The only live reads were the host reads
+  for the log rotation on the six validators.
 
 ### Other lane and Task Node
 
 - The other lane has made no commit, handoff or session activity since
   2026-09-28.
-- Task Node: no task today. This was research and documentation only.
+- Task Node: one task today, `task_4be4a1b7abe75fef0d3d9a57c9d1f74a`, for the
+  wallet flows review. Its outcome is Rewarded. The research note, the
+  readiness note and this handoff had no Task Node task.
 
 ## Next decision or action
 
+### Operating advice for tonight's runs
+
+- The spending-cap decision (FW-09, item (m) below) is the other lane's call
+  before the runs.
+- FastPay is devnet only; the proxy must be in `proxy_broadcast_devnet` mode.
+  If a FastPay send times out, check `pft op status` and the recipient's
+  balance before any retry (FW-04).
+- The private round trip is not cleared for real money. Use devnet or `--demo`
+  only.
+- After the runs, check that new events arrive in each validator's fresh
+  `transport-validator-events.ndjson`.
+
 ### This lane's next steps, in order
 
-1. Rotate or cap the live event log on the six validators. This is a host
-   change and needs its own go.
-2. Address the 24 recorded StakeHub P3s after the other lane's live end-to-end
-   runs are done, so that the repairs do not cross those runs.
-3. Fix the `deployment_manifest_verified` field for the next release: rename it
+1. After the other lane's live runs, fix FW-04 in `postfiat_rpc.wallet`
+   ([`python/postfiat_rpc/wallet.py`][w1052]): save the FastPay certificate
+   before submission so that a timed-out send can be re-applied. Then fix
+   FW-08, the batch-bound shield receipt.
+2. Add the spending caps if the other lane says yes (item (m)).
+3. Address the recorded P3s: the 24 from earlier reviews and the 7 from the
+   wallet flows review.
+4. Fix the `deployment_manifest_verified` field for the next release: rename it
    or pass the `ExecStartPre` result into `status` ([Current State][state]).
-4. Run the first Z3 cycle once the other lane's keys, inputs and Arc route step
+5. Run the first Z3 cycle once the other lane's keys, inputs and Arc route step
    are in ([`docs/status/z3-cycle1-inputs-20260922.md`][z3]).
-5. If the other lane says yes to the intent-style swap screen, write a design
-   note before any code.
+6. If the other lane says yes to the intent-style swap screen, write the NEAR
+   Intents design note before any code.
 
 ### Only the other lane can provide
 
@@ -285,6 +471,10 @@ Each item was asked again tonight.
 - **(l)** The `ETHEREUM_MAINNET_RPC_URL` repository secret, if the
   `official-mainnet-fork` job should run
   ([`docs/status/main-ci-red-20260928.md`][ci]). First asked 2026-09-28.
+- **(m)** The spending-cap decision for FastPay, PFT transfers and the shielded
+  swap flows (FW-09, the cap proposal in
+  [`docs/review/wallet-flows-review-20260929.md`][flows]). First asked
+  2026-09-29.
 
 ## References
 
@@ -292,6 +482,13 @@ Each item was asked again tonight.
   source list.
 - [`docs/review/near-intents-research-scores-20260929.md`][scores].
 - StakeHub [`docs/review/live-funds-readiness-20260929.md`][ready].
+- StakeHub [`docs/review/wallet-flows-review-20260929.md`][flows] and
+  [PR #18][pr18].
+- [`deployments/combined-fastpay-20260928/observed/event-log-rotation-20260929.json`][rotation]
+  on `release/combined-fastpay-20260928` (`4788ef1f`).
+- [`python/postfiat_rpc/wallet.py`][w1052] (FW-04),
+  [`crates/node/src/transport_protocol.rs`][tp613] and
+  [`crates/node/src/transport_runtime.rs`][tr933] (event log writer).
 - StakeHub reviews:
   [`docs/review/wallet-bridge-review-20260924.md`][sh-wb],
   [`docs/review/private-funding-money-path-review-20260923.md`][sh-mp] and
@@ -312,6 +509,14 @@ Each item was asked again tonight.
 [successor]: https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/review/nav-reserve-proof-successor-proposal-20260924.md
 [inventory]: https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/review/defect-inventory-20260910.md
 [disk]: https://github.com/postfiatorg/postfiatl1v2/blob/release/combined-fastpay-20260925/deployments/combined-fastpay-20260925/observed/disk-inventory-20260928.json
+[rotation]: https://github.com/postfiatorg/postfiatl1v2/blob/4788ef1fb40ff259e5df2378ddeeb9c2e06b6366/deployments/combined-fastpay-20260928/observed/event-log-rotation-20260929.json
+[tp613]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/transport_protocol.rs#L613
+[tr933]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/transport_runtime.rs#L933
+[w1052]: https://github.com/postfiatorg/postfiatl1v2/blob/0eab3d86b1c075a070771d647a62e15d157ababf/python/postfiat_rpc/wallet.py#L1052
+[w1154]: https://github.com/postfiatorg/postfiatl1v2/blob/0eab3d86b1c075a070771d647a62e15d157ababf/python/postfiat_rpc/wallet.py#L1154
+[w1161]: https://github.com/postfiatorg/postfiatl1v2/blob/0eab3d86b1c075a070771d647a62e15d157ababf/python/postfiat_rpc/wallet.py#L1161
+[flows]: https://github.com/postfiatorg/StakeHub/blob/master/docs/review/wallet-flows-review-20260929.md
+[pr18]: https://github.com/postfiatorg/StakeHub/pull/18
 [pr49]: https://github.com/postfiatorg/postfiatl1v2/pull/49
 [ready]: https://github.com/postfiatorg/StakeHub/blob/master/docs/review/live-funds-readiness-20260929.md
 [custody]: https://github.com/postfiatorg/StakeHub/blob/master/docs/review/custody-and-archive-decision-proposal-20260923.md
