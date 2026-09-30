@@ -2,6 +2,9 @@
 
 - **Operator:** Domagoj Ravlić (`dravlic`)
 - **Date:** 2026-09-29 UTC
+- **Superseded:** FW-04, FW-08, FW-09, the event-log check and the fleet are
+  updated in the
+  [2026-09-30 handoff](2026-09-30___dravlic__fastpay_resume_repaired_wallet_caps_and_log_checks.md).
 
 ## BLUF
 
