@@ -481,7 +481,7 @@
    "fd": "fd 3 still points at the live path, same inode (1071149), flags 02102001 (O_APPEND); fdinfo pos is the pre-truncation offset 13867827262, which O_APPEND ignores",
    "journal": "journalctl -u postfiat-validator-1.service since 2026-09-29 12:00: no entries",
    "stderr_log": "unchanged since 2026-09-28 07:40Z; no event-log error",
-   "confirmation_owed": "the next block validator-1 does not propose (1064 goes to validator-2 at view 0) should write to its file; not done here, only one grant was authorized"
+   "confirmation_owed": "done: see validator_1_confirmation"
   },
   "rpc_events": {
    "decision": "rule added",
@@ -762,6 +762,111 @@
      "tip_height": 1063
     }
    }
-  ]
+  ],
+  "validator_1_confirmation": {
+   "result": "PASS: validator-1's refreshed transport-validator-events.ndjson received events once another validator proposed",
+   "grant": {
+    "started_at": "2026-09-30T11:08:10Z",
+    "finished_at": "2026-09-30T11:09:04Z",
+    "from": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+    "to": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+    "to_wallet": "testing",
+    "amount_atoms": 1000000,
+    "fee_atoms": 32,
+    "tx_id": "07cef4cb0f9192c8b6a0aebdc24d371787463404763e758b2d74ed8baf70e2115849093e039b29aba210cf22eaf36bee",
+    "faucet_balance_after_atoms": 74993972,
+    "faucet_sequence_after": 28,
+    "verified_6_of_6": true
+   },
+   "block": {
+    "height": 1064,
+    "proposer": "validator-2",
+    "view": 0,
+    "block_hash": "34ccbf7dd6bc8c192490d11525c12f465a3cefdd542976b44bf91c72ac6fbf006149d2f555a39423ddcb8d71c46f9216",
+    "state_root": "781db8c09228004cfd0c77c18dba68b37ea897a465094dd79ec944dcf76dcc3fa5c2d7ce9ae3d6dd338b2e8be7befbaf",
+    "parent_hash_prefix": "87c36773172808b7",
+    "certificate_voters": [
+     "validator-1",
+     "validator-2",
+     "validator-3",
+     "validator-4",
+     "validator-5"
+    ],
+    "precommit_qc_voters": [
+     "validator-0",
+     "validator-1",
+     "validator-2",
+     "validator-3",
+     "validator-4",
+     "validator-5"
+    ],
+    "identical_on_six": true
+   },
+   "validator_1": {
+    "read_before_at": "2026-09-30T11:08:01Z",
+    "read_after_at": "2026-09-30T11:09:15Z",
+    "bytes_before": 0,
+    "bytes_after": 50494,
+    "inode_unchanged": "1071149",
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    }
+   },
+   "transport_events_bytes": {
+    "validator-0": {
+     "bytes_before": 50499,
+     "bytes_after": 101022,
+     "delta_bytes": 50523,
+     "pids_unchanged": true
+    },
+    "validator-1": {
+     "bytes_before": 0,
+     "bytes_after": 50494,
+     "delta_bytes": 50494,
+     "pids_unchanged": true
+    },
+    "validator-2": {
+     "bytes_before": 50510,
+     "bytes_after": 50510,
+     "delta_bytes": 0,
+     "pids_unchanged": true
+    },
+    "validator-3": {
+     "bytes_before": 50558,
+     "bytes_after": 101027,
+     "delta_bytes": 50469,
+     "pids_unchanged": true
+    },
+    "validator-4": {
+     "bytes_before": 50511,
+     "bytes_after": 101047,
+     "delta_bytes": 50536,
+     "pids_unchanged": true
+    },
+    "validator-5": {
+     "bytes_before": 50443,
+     "bytes_after": 100919,
+     "delta_bytes": 50476,
+     "pids_unchanged": true
+    }
+   },
+   "note": "validator-2, this block's proposer, did not grow, the same proposer pattern seen at 1063",
+   "services": "no restart; all 12 PIDs unchanged"
+  }
  }
 }
