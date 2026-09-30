@@ -441,3 +441,7 @@ I asked for each item again tonight.
 [sh-sw254]: https://github.com/postfiatorg/StakeHub/blob/23a45d90799fb85901f62a490b3bd7eb3eb8390a/pft_wallet/swaps.py#L254-L259
 [sh-fs438]: https://github.com/postfiatorg/StakeHub/blob/23a45d90799fb85901f62a490b3bd7eb3eb8390a/pft_wallet/fastswap.py#L438
 [sh-rt172]: https://github.com/postfiatorg/StakeHub/blob/23a45d90799fb85901f62a490b3bd7eb3eb8390a/pft_wallet/roundtrip.py#L172
+
+## End of session (12:58 UTC)
+
+StakeHub PR #20 (the P3 sweep) was merged as `eb7388d` (squash) after its full-suite run on this server finished at 12:52Z with 5,336 passed, 89 skipped and 84 failed — the same browser and environment-bound set that fails identically on unchanged master. Because PR #19 had been squashed, I first merged `origin/master` into the branch (merge commit `9336484`, no conflict markers, wallet suite 203 passed on the merged tree) so that GitHub could merge it. StakeHub master is now `eb7388d`: FW-04 record 0c3a3ca, PR #19 23a45d9, PR #20 eb7388d on top of 6a79672. Nothing else changed after the handoff above; the fleet is unchanged at height 1064.
