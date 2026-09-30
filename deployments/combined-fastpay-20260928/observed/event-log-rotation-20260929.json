@@ -422,5 +422,346 @@
    "forced_rotation_result": "no-op: log is empty after the archive truncation (notifempty); exit 0",
    "dry_run": "log does not need rotating (log size is below the 'size' threshold)"
   }
- ]
+ ],
+ "verified-20260930": {
+  "recorded_at": "2026-09-30T11:04Z",
+  "scope": "one devnet faucet grant to make one block, a size read of both event logs on all six, and the rpc-events.ndjson logrotate rule; no restart, no forced rotation, no file removed",
+  "tooling": {
+   "grant_path": "StakeHub 0f139ac `pft --json faucet <testing> --asset PFT --amount 1000000` (pft_wallet/ce22.py faucet_pft -> send_pft)",
+   "config": "~/.pft/config.toml: ce22.runtime_binary and topology_file on combined-fastpay-20260928; local_node_binary ~/.local/lib/postfiat/releases/combined-fastpay-20260928/postfiat-node (sha256 1f8b332d\u2026)",
+   "sdk": "the PFT faucet path uses no RPC SDK: it signs with local_node_binary (wallet-sign-transfer) and runs transport-peer-certified-mempool-round on the proposer. The config names ce22.rpc_sdk_binary ~/.local/lib/postfiat/rpc-sdk/postfiat-rpc-sdk-a3b95b23 and fastpay.python_root ~/.local/lib/postfiat/rpc-sdk/postfiat-rpc-sdk-efc58090/python (installed 2026-09-30 10:24Z); neither is on this path"
+  },
+  "grant": {
+   "started_at": "2026-09-30T10:59:06Z",
+   "finished_at": "2026-09-30T10:59:44Z",
+   "from": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "to_wallet": "testing",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "tx_id": "f0f52eadfb9b3e446c96cc8d9cfd168bde2cd13a432a9a25047ecbdd57b615cfb93688dd0b2cba95bd19c4353f51f34d",
+   "faucet_balance_after_atoms": 75994004,
+   "faucet_sequence_after": 27,
+   "verified_6_of_6": true
+  },
+  "block": {
+   "height": 1063,
+   "proposer": "validator-1",
+   "view": 0,
+   "block_hash": "87c36773172808b710f809d5be397fc9331bfbc375496bcabac1308cdf5e26ebfd5be53239e8d3abbc1f9e9dffbef5fc",
+   "state_root": "4345173030156190d627ffc006070903ebf2af24be3eebd36eaa168e5792a47a453a89ed28d061a3469f35bc2ec1f608",
+   "parent_hash_prefix": "9d08fd3e20610d34",
+   "certificate_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "prepare_qc_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "precommit_qc_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-2",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "identical_on_six": true
+  },
+  "transport_events_result": "5 of 6 grew; validator-1 did not, as expected for the proposer",
+  "validator_1_not_grown": {
+   "cause": "validator-1 was the view-0 proposer. The round ran as a separate CLI process that signs the proposer's own vote in-process (crates/node/src/transport_runtime.rs:3066) and connects only to the other five validators' transport-validator-serve, so validator-1's serve process received no connection and wrote no event",
+   "fd": "fd 3 still points at the live path, same inode (1071149), flags 02102001 (O_APPEND); fdinfo pos is the pre-truncation offset 13867827262, which O_APPEND ignores",
+   "journal": "journalctl -u postfiat-validator-1.service since 2026-09-29 12:00: no entries",
+   "stderr_log": "unchanged since 2026-09-28 07:40Z; no event-log error",
+   "confirmation_owed": "the next block validator-1 does not propose (1064 goes to validator-2 at view 0) should write to its file; not done here, only one grant was authorized"
+  },
+  "rpc_events": {
+   "decision": "rule added",
+   "why": "rpc_serve_inner opens --event-log once with open_transport_event_log (create+append) and holds it for the process lifetime (crates/node/src/rpc_serve_runtime.rs:43-47); write_rpc_serve_event_or_degrade sets event_log_writable=false and degraded only when a write or flush fails (crates/node/src/rpc_cli.rs:655-674); the flag never reads the file's size or content, request_index is an in-memory counter, and nothing in crates/node reads the file (only tests). Observed RPC fd 4 flags 02102001 (O_APPEND) on all six",
+   "rule_path": "/etc/logrotate.d/postfiat-rpc-events",
+   "rule_text": "/var/log/postfiat/validator-*/rpc-events.ndjson {\n    size 512M\n    rotate 3\n    compress\n    delaycompress\n    missingok\n    notifempty\n    copytruncate\n}\n",
+   "rule_sha256": "a48c714e142d0e94ca054f35751e8ec18ec6b70e9acd8224d7e6feb17132b9a3",
+   "rule_mode": "root:root 0644",
+   "installed_at": "2026-09-30T11:01:59Z to 11:02:07Z",
+   "dry_run": "logrotate -d on the rule: log does not need rotating (below the 'size' threshold) on all six; logrotate -d /etc/logrotate.conf reported no error or duplicate entry. The 'Last rotated at' line is logrotate's default for a log with no state entry, not a rotation: no rpc-events.ndjson.* file exists",
+   "forced_rotation": "none (largest file 174.8 MB, validator-5)",
+   "readiness_after_rule": "ready true, degraded false, event_log_writable true, telemetry_failure_count 0 on all six",
+   "rollback": "rm /etc/logrotate.d/postfiat-rpc-events on each host"
+  },
+  "hosts": [
+   {
+    "validator": "validator-0",
+    "host": "64.176.220.75",
+    "before_read_at": "2026-09-30T10:57:33Z",
+    "after_read_at": "2026-09-30T11:00:45Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 50499,
+    "transport_events_delta_bytes": 50499,
+    "transport_events_last_write_after": "2026-09-30 10:59:32",
+    "grew": true,
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    },
+    "rpc_events_bytes_before": 67257629,
+    "rpc_events_bytes_after_rule": 67283899,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   },
+   {
+    "validator": "validator-1",
+    "host": "95.179.184.122",
+    "before_read_at": "2026-09-30T10:57:32Z",
+    "after_read_at": "2026-09-30T11:00:44Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 0,
+    "transport_events_delta_bytes": 0,
+    "transport_events_last_write_after": "2026-09-29 12:18:13",
+    "grew": false,
+    "new_events": {},
+    "rpc_events_bytes_before": 41413558,
+    "rpc_events_bytes_after_rule": 41439563,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   },
+   {
+    "validator": "validator-2",
+    "host": "66.42.48.39",
+    "before_read_at": "2026-09-30T10:57:35Z",
+    "after_read_at": "2026-09-30T11:00:47Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 50510,
+    "transport_events_delta_bytes": 50510,
+    "transport_events_last_write_after": "2026-09-30 10:59:33",
+    "grew": true,
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    },
+    "rpc_events_bytes_before": 41417694,
+    "rpc_events_bytes_after_rule": 41443929,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   },
+   {
+    "validator": "validator-3",
+    "host": "149.28.63.106",
+    "before_read_at": "2026-09-30T10:57:33Z",
+    "after_read_at": "2026-09-30T11:00:45Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 50558,
+    "transport_events_delta_bytes": 50558,
+    "transport_events_last_write_after": "2026-09-30 10:59:32",
+    "grew": true,
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    },
+    "rpc_events_bytes_before": 41353631,
+    "rpc_events_bytes_after_rule": 41379960,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   },
+   {
+    "validator": "validator-4",
+    "host": "95.179.179.206",
+    "before_read_at": "2026-09-30T10:57:32Z",
+    "after_read_at": "2026-09-30T11:00:44Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 50511,
+    "transport_events_delta_bytes": 50511,
+    "transport_events_last_write_after": "2026-09-30 10:59:32",
+    "grew": true,
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    },
+    "rpc_events_bytes_before": 41214108,
+    "rpc_events_bytes_after_rule": 41239872,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   },
+   {
+    "validator": "validator-5",
+    "host": "45.32.110.170",
+    "before_read_at": "2026-09-30T10:57:34Z",
+    "after_read_at": "2026-09-30T11:00:46Z",
+    "transport_events_bytes_before": 0,
+    "transport_events_bytes_after": 50443,
+    "transport_events_delta_bytes": 50443,
+    "transport_events_last_write_after": "2026-09-30 10:59:33",
+    "grew": true,
+    "new_events": {
+     "batch/accepted": 1,
+     "block_vote_request/accepted": 2
+    },
+    "last_event_shape": {
+     "schema": "postfiat-transport-validator-serve-event-v1",
+     "kind": "batch",
+     "outcome": "accepted",
+     "keys": [
+      "batch_ack",
+      "connection_index",
+      "kind",
+      "node_id",
+      "outcome",
+      "schema",
+      "topology_id"
+     ]
+    },
+    "rpc_events_bytes_before": 174661150,
+    "rpc_events_bytes_after_rule": 174775122,
+    "rpc_readiness": {
+     "ready": true,
+     "degraded": false,
+     "event_log_writable": true,
+     "telemetry_failure_count": 0
+    },
+    "rpc_rule_dry_run": "log does not need rotating (log size is below the 'size' threshold)",
+    "full_config_dry_run_errors": 0,
+    "pids_unchanged": true,
+    "n_restarts": [
+     0
+    ],
+    "block_1063": {
+     "block_hash": "87c36773172808b7\u2026",
+     "tip_height": 1063
+    }
+   }
+  ]
+ }
 }
