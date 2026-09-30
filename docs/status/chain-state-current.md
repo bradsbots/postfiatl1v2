@@ -635,3 +635,11 @@ file that takes about 36 s, which is about 6 events at the long-run average of
 by 12:39Z. Rollback: delete the rule on each host; rotated files stay. Record:
 `deployments/combined-fastpay-20260928/observed/event-log-rotation-20260929.json`
 on `release/combined-fastpay-20260928` (`4788ef1f`).
+
+On 2026-09-30 one 1 PFT faucet grant made height 1063 (proposer validator-1,
+view 0, identical on all six), and the fresh transport event files grew by about
+50 KB on validators 0 and 2–5 but not on validator-1, whose proposer round runs
+in a separate process and sends it no connection (fd, journal and stderr clean);
+`/etc/logrotate.d/postfiat-rpc-events` now rotates `rpc-events.ndjson` at
+`size 512M` with the same options (dry-run clean, no forced rotation), recorded in
+the same file's `verified-20260930` section (`1448eb12`).
