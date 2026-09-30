@@ -639,7 +639,9 @@ on `release/combined-fastpay-20260928` (`4788ef1f`).
 On 2026-09-30 one 1 PFT faucet grant made height 1063 (proposer validator-1,
 view 0, identical on all six), and the fresh transport event files grew by about
 50 KB on validators 0 and 2–5 but not on validator-1, whose proposer round runs
-in a separate process and sends it no connection (fd, journal and stderr clean);
+in a separate process and sends it no connection (fd, journal and stderr clean),
+and a second grant at height 1064 (proposer validator-2, view 0, identical block
+and root on all six) grew validator-1's file from 0 to 50,494 bytes (`7869a707`);
 `/etc/logrotate.d/postfiat-rpc-events` now rotates `rpc-events.ndjson` at
 `size 512M` with the same options (dry-run clean, no forced rotation), recorded in
 the same file's `verified-20260930` section (`1448eb12`).
