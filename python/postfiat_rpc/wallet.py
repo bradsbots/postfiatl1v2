@@ -44,6 +44,7 @@ NFT_COLLECTION_ALLOWED_FLAGS = (
 )
 TRUSTLINE_STATE_EXPANSION_FEE = 10
 FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT = 2048
+FASTPAY_SEND_JOURNAL_SCHEMA = "postfiat-fastpay-send-journal-v1"
 
 
 def _elapsed_ms(started: float) -> float:
@@ -52,6 +53,16 @@ def _elapsed_ms(started: float) -> float:
 
 class WalletCommandError(RuntimeError):
     """A local Rust wallet command failed."""
+
+
+class FastPayPendingError(WalletCommandError):
+    """A FastPay input was signed away but never certified; it stays locked until recovery."""
+
+    def __init__(self, message: str, *, object_id: str, version: int, journal_file: Path) -> None:
+        super().__init__(message)
+        self.object_id = object_id
+        self.version = version
+        self.journal_file = journal_file
 
 
 @dataclass(frozen=True)
@@ -1063,7 +1074,16 @@ def send_fastpay(
     object_limit: int = FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT,
     check_capabilities: bool = True,
 ) -> FastPayResult:
-    """Send FastPay owned value through the same RPC flow used by the web wallet."""
+    """Send FastPay owned value through the same RPC flow used by the web wallet.
+
+    With a caller-owned ``work_dir`` the send is resumable. The signed order
+    and then the assembled certificate are journaled durably before votes are
+    requested and before the certificate is submitted. Calling again with the
+    same ``work_dir`` re-applies the stored certificate, reconciles from the
+    chain when its input is already spent, or raises ``FastPayPendingError``
+    when no certificate was assembled. It never signs a second order for a
+    journaled input.
+    """
 
     if amount < 1:
         raise ValueError("amount must be positive")
@@ -1092,6 +1112,28 @@ def send_fastpay(
         available_objects = list(objects) if isinstance(objects, list) else []
     else:
         timings["object_lookup_ms"] = 0.0
+    request = {
+        "recipient_public_key_hex": recipient_public_key_hex,
+        "amount": amount,
+        "fee": fee,
+        "asset": asset,
+    }
+    journaled = _find_fastpay_send_journal(
+        work_dir,
+        owner_public_key_hex=wallet.public_key_hex,
+        request=request,
+        candidates=available_objects,
+    )
+    if journaled is not None:
+        return _resume_fastpay_send(
+            client,
+            wallet=wallet,
+            journal_file=journaled[0],
+            journal=journaled[1],
+            work_dir=work_dir,
+            timings=timings,
+            object_limit=object_limit,
+        )
     input_object = _select_fastpay_input(available_objects, amount + fee, asset)
     input_value = int(input_object["value"])
     change = input_value - amount - fee
@@ -1142,6 +1184,19 @@ def send_fastpay(
     )
     timings["owner_sign_ms"] = _elapsed_ms(started)
     signed_order_envelope = signed_order
+    # Journal the signed order before any validator can lock the input for it.
+    journal_file = _fastpay_send_journal_path(work_dir, input_object)
+    journal: dict[str, Any] = {
+        "schema": FASTPAY_SEND_JOURNAL_SCHEMA,
+        "state": "signed",
+        "owner_pubkey_hex": wallet.public_key_hex,
+        "request": request,
+        "input": {"id": str(input_object["id"]), "version": int(input_object["version"])},
+        "signed_order": signed_order,
+        "capabilities": recovery_capabilities,
+        "validators": validator_records,
+    }
+    _write_json_durable(journal_file, journal)
     quorum = int(recovery_capabilities["quorum"])
     started = time.monotonic()
     votes = _collect_fastpay_votes_v3(client, signed_order_envelope, validator_records, quorum)
@@ -1157,35 +1212,176 @@ def send_fastpay(
         "owner_signature_hex": signed_order["owner_signature_hex"],
         "votes": sorted(votes, key=lambda vote: str(vote["validator_id"])),
     }
+    # Journal the exact certificate bytes before submission so a timeout or an
+    # interruption can re-apply this certificate instead of losing it.
+    journal["state"] = "certified"
+    journal["certificate_json"] = json.dumps(certificate, separators=(",", ":"))
+    _write_json_durable(journal_file, journal)
+    return _apply_fastpay_send_journal(
+        client,
+        wallet=wallet,
+        journal_file=journal_file,
+        journal=journal,
+        work_dir=work_dir,
+        timings=timings,
+        objects_snapshot=objects_snapshot,
+    )
+
+
+def _fastpay_send_journal_path(work_dir: Path, input_object: dict[str, Any]) -> Path:
+    object_id = str(input_object["id"])
+    if not object_id or any(ch not in "0123456789abcdefABCDEF" for ch in object_id):
+        raise WalletCommandError("FastPay input object id must be hex")
+    return work_dir / f"fastpay-send-{object_id}-v{int(input_object['version'])}.json"
+
+
+def _find_fastpay_send_journal(
+    work_dir: Path,
+    *,
+    owner_public_key_hex: str,
+    request: dict[str, Any],
+    candidates: Sequence[dict[str, Any]],
+) -> tuple[Path, dict[str, Any]] | None:
+    """Return the journal for a candidate input, or an unfinished journal for this send."""
+
+    candidate_paths = set()
+    for obj in candidates:
+        if isinstance(obj, dict) and obj.get("id") is not None and obj.get("version") is not None:
+            try:
+                candidate_paths.add(_fastpay_send_journal_path(work_dir, obj))
+            except (WalletCommandError, TypeError, ValueError):
+                continue
+    matches = []
+    for path in sorted(work_dir.glob("fastpay-send-*.json")):
+        journal = _read_json(path)
+        if (
+            journal.get("schema") != FASTPAY_SEND_JOURNAL_SCHEMA
+            or journal.get("owner_pubkey_hex") != owner_public_key_hex
+        ):
+            continue
+        unfinished = journal.get("state") != "applied" and journal.get("request") == request
+        if path in candidate_paths or unfinished:
+            matches.append((path, journal))
+    if not matches:
+        return None
+    if len(matches) > 1:
+        raise WalletCommandError(
+            f"{len(matches)} FastPay send journals in {work_dir} match this send; reconcile before retry"
+        )
+    path, journal = matches[0]
+    if journal.get("request") != request:
+        raise WalletCommandError(
+            f"FastPay input in {path.name} is committed to a different send; refusing to sign again"
+        )
+    return path, journal
+
+
+def _resume_fastpay_send(
+    client: PostFiatRpcClient,
+    *,
+    wallet: TransparentWallet,
+    journal_file: Path,
+    journal: dict[str, Any],
+    work_dir: Path,
+    timings: dict[str, float],
+    object_limit: int,
+) -> FastPayResult:
+    state = journal.get("state")
+    if state == "applied":
+        return _fastpay_send_journal_result(wallet, journal, timings)
+    input_ref = journal["input"]
+    if state != "certified":
+        recovery = journal["signed_order"]["order"].get("recovery", {})
+        raise FastPayPendingError(
+            f"FastPay input {input_ref['id']} v{input_ref['version']} is pending: its signed "
+            "order never reached a certificate, so it stays locked until recovery closes at "
+            f"height {recovery.get('recovery_closes_at_height')}; not signing again",
+            object_id=str(input_ref["id"]),
+            version=int(input_ref["version"]),
+            journal_file=journal_file,
+        )
+    # Read the chain before resubmitting. Only a complete, untruncated owner
+    # view without the input proves the certified effect; otherwise re-apply
+    # the same certificate, which validators treat idempotently.
     started = time.monotonic()
-    apply_result = client.owned_apply_v3(json.dumps(certificate, separators=(",", ":")))
+    snapshot = client.owned_objects(
+        wallet.public_key_hex, asset=journal["request"]["asset"], limit=object_limit
+    )
+    timings["resume_object_lookup_ms"] = _elapsed_ms(started)
+    objects = snapshot.get("objects") if isinstance(snapshot, dict) else None
+    if (
+        isinstance(objects, list)
+        and snapshot.get("truncated") is False
+        and all(not isinstance(obj, dict) or str(obj.get("id")) != input_ref["id"] for obj in objects)
+    ):
+        journal["state"] = "applied"
+        journal["result"] = {"reconciled_from_chain": True, "spent_input": input_ref}
+        _write_json_durable(journal_file, journal)
+        return _fastpay_send_journal_result(wallet, journal, timings)
+    return _apply_fastpay_send_journal(
+        client,
+        wallet=wallet,
+        journal_file=journal_file,
+        journal=journal,
+        work_dir=work_dir,
+        timings=timings,
+        objects_snapshot=snapshot if isinstance(snapshot, dict) else None,
+    )
+
+
+def _apply_fastpay_send_journal(
+    client: PostFiatRpcClient,
+    *,
+    wallet: TransparentWallet,
+    journal_file: Path,
+    journal: dict[str, Any],
+    work_dir: Path,
+    timings: dict[str, float],
+    objects_snapshot: dict[str, Any] | None,
+) -> FastPayResult:
+    certificate = json.loads(journal["certificate_json"])
+    started = time.monotonic()
+    apply_result = client.owned_apply_v3(journal["certificate_json"])
     timings["apply_ms"] = _elapsed_ms(started)
     started = time.monotonic()
     verification = _verify_fastpay_apply_v3(
         operation="transfer",
         certificate=certificate,
         apply_response=apply_result,
-        capabilities=recovery_capabilities,
-        validators=validator_records,
+        capabilities=journal["capabilities"],
+        validators=journal["validators"],
         work_dir=work_dir,
     )
     timings["apply_verification_ms"] = _elapsed_ms(started)
+    journal["state"] = "applied"
+    journal["result"] = {
+        # Preserve the public apply-result fields consumed by wallet clients.
+        **apply_result,
+        "apply": apply_result,
+        **verification["verified_effects"],
+        "authenticated_acknowledgements": verification["authenticated_acknowledgements"],
+    }
+    _write_json_durable(journal_file, journal)
+    return _fastpay_send_journal_result(wallet, journal, timings, objects_snapshot)
+
+
+def _fastpay_send_journal_result(
+    wallet: TransparentWallet,
+    journal: dict[str, Any],
+    timings: dict[str, float],
+    objects_snapshot: dict[str, Any] | None = None,
+) -> FastPayResult:
+    certificate = json.loads(journal["certificate_json"])
     return FastPayResult(
         operation="send",
         owner_public_key_hex=wallet.public_key_hex,
-        result={
-            # Preserve the public apply-result fields consumed by wallet clients.
-            **apply_result,
-            "apply": apply_result,
-            **verification["verified_effects"],
-            "authenticated_acknowledgements": verification["authenticated_acknowledgements"],
-        },
-        object_id=str(input_object["id"]),
+        result=journal["result"],
+        object_id=str(journal["input"]["id"]),
         objects_snapshot=objects_snapshot,
-        order=signed_order["order"],
-        signed_order=signed_order,
+        order=certificate["order"],
+        signed_order=journal["signed_order"],
         certificate=certificate,
-        votes=tuple(votes),
+        votes=tuple(certificate["votes"]),
         timings=timings,
     )
 
@@ -3528,6 +3724,30 @@ def _write_private_text(path: Path, value: str) -> None:
         if fd >= 0:
             os.close(fd)
     path.chmod(0o600)
+
+
+def _write_json_durable(path: Path, value: dict[str, Any]) -> None:
+    """Atomically replace ``path`` and fsync it so a crash leaves the old or new record."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{secrets.token_hex(4)}.tmp")
+    fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            fd = -1
+            handle.write(json.dumps(value, indent=2, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        if fd >= 0:
+            os.close(fd)
+        temporary.unlink(missing_ok=True)
+    directory = os.open(path.parent, os.O_RDONLY)
+    try:
+        os.fsync(directory)
+    finally:
+        os.close(directory)
 
 
 def _required_str(value: dict[str, Any], key: str) -> str:

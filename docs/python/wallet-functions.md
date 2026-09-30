@@ -19,7 +19,7 @@ Rust `postfiat-node` and `postfiat-rpc-sdk` binaries used by the node.
 | `send_pft()` | Gets a fee quote, signs it, submits the signed transfer, and can finalize it locally. |
 | `send_payment()` | XRP-style alias for native PFT `Payment`, including bounded memo fields. |
 | `wrap_fastpay()` | Locally signs an account-to-FastPay PFT deposit, submits it through consensus, verifies the accepted receipt, and resolves the created owned object. |
-| `send_fastpay()` | Signs a recovery-safe FastPay v3 order, collects a distinct-validator certificate, and requires an authenticated durable-apply quorum. |
+| `send_fastpay()` | Signs a recovery-safe FastPay v3 order, collects a distinct-validator certificate, and requires an authenticated durable-apply quorum. With a caller-owned `work_dir`, a retry re-applies the journaled certificate instead of signing again. |
 | `unwrap_fastpay()` | Performs the recovery-safe v3 owned-to-account flow with automatic object selection, change, and authenticated durable-apply quorum. |
 | `create_issued_asset()` | Creates a ledger-native issued-asset definition. |
 | `mint_token()` | XRP-style alias for issuer-side token definition creation. |
