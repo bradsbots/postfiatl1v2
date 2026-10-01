@@ -110,6 +110,29 @@ Record: [live-fix-check.json](observed/live-fix-check.json).
   validator-5 as not applied for FastPay payments and retries it; each retry
   returns the same held receipt ([design](../../docs/status/fastpay-effect-anchoring-fix-20260928.md)).
 
+## Demo preflight
+
+`python3 demo-preflight.py` answers in about 10 seconds whether the fleet is
+ready for a demo. It is read-only and uses only the Python standard library. Run
+it on the work server that holds the RPC tunnels `127.0.0.1:27650`–`27655` and
+root SSH to the six hosts. It reuses the checks in `observe-fleet.py`: status
+identity, running executable hashes, `deployment-manifest-verify` and
+`apt-daily-upgrade`. It adds the following checks:
+
+- six-way agreement on height, tip and root;
+- validator and RPC unit state, uptime and `NRestarts`;
+- an archive `eth_getCode` through relay 28703, and how 28701 and 28702 were started;
+- whether the checkpoint key file exists on validators 0–4 (it never reads the
+  file), and the time of the newest signing record;
+- the RPC readiness flags;
+- free disk space (ATTENTION under 10 GB);
+- the two logrotate rules.
+
+It prints PASS, ATTENTION or FAIL for each check and a one-line verdict. The
+exit code is 0 for READY, 1 for ATTENTION and 2 for FAIL. `--json` prints the
+full result. `--wallet-url URL` adds an HTTP GET that reports only the status
+code. Readiness note: [demo-readiness-20261001](../../docs/status/demo-readiness-20261001.md).
+
 ## Caveats
 
 1. **No per-host data copies.** The rollout tool does not copy validator data.
