@@ -49,7 +49,7 @@ remote_node="/opt/postfiat/releases/$release_id/postfiat-node"
 remote_topology=${A666_PFTL_TOPOLOGY_PATH:-/etc/postfiat/releases/$release_id/topology.json}
 local_node=${A666_LOCAL_NODE_BIN:-target/release/postfiat-node}
 remote_root="/var/lib/postfiat/validator-2/$workflow_id-return-import"
-rpc=${A666_VALIDATOR_ETHEREUM_RPC:-http://127.0.0.1:28701}
+rpc=${A666_VALIDATOR_ETHEREUM_RPC:-http://127.0.0.1:28703}
 
 test -s "$hosts_file"
 test -s "$operator_key"

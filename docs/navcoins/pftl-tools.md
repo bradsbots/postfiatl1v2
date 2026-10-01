@@ -58,6 +58,25 @@ The vault-bridge path is the PFTL primitive behind source-labeled pfUSDC:
 The detailed bridge profile is tracked in the source tree at
 `docs/specs/vault-bridge-navcoin-profile.md`.
 
+## Ethereum relays on the validator hosts
+
+Each validator host runs up to three loopback Ethereum JSON-RPC relays:
+
+| Port | Upstream | How it runs |
+|---|---|---|
+| `127.0.0.1:28701` | `https://ethereum-rpc.publicnode.com` | Hand-started python3 process, except on validator-1, where it is the unit `navcoin-ethereum-rpc-proxy-20260907.service` |
+| `127.0.0.1:28702` | `https://eth.drpc.org` | Hand-started python3 process; absent on validator-1 |
+| `127.0.0.1:28703` | `https://eth.drpc.org` | The unit `navcoin-ethereum-archive-rpc-20260907.service`, on all six hosts |
+
+Since 2026-10-01, 28701 refuses archive reads: `eth_getCode` at a historical block
+returns HTTP 403, "Archive requests require a personal token". Plain block reads
+still succeed. `ethereum-checkpoint-vote-sign` makes such archive reads, so
+`scripts/a666-mainnet-return-import.sh` and
+`scripts/a666-mainnet-record-destination-consume.sh` default to 28703. Set
+`A666_VALIDATOR_ETHEREUM_RPC` to override the default. The observed relay state is
+recorded in
+[Current State](../status/chain-state-current.md#2026-10-01-fleet-after-the-other-lanes-navcoin-operator-tests).
+
 ## Python modules
 
 Python source under `python/postfiat_rpc/` mirrors the NAV operation builders and

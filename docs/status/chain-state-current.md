@@ -739,10 +739,11 @@ at block 26094220.
 - On validators 0 and 2–5, the hand-started 28701 and 28702 processes run
   `/tmp/a666-https-jsonrpc-loopback-proxy.py` inside root login-session scopes.
   That file no longer exists, so these relays do not survive a reboot.
-- 28703 is the only relay that answers archive reads. Use 28703 for checkpoint
-  signing until the default changes.
-- `scripts/a666-mainnet-return-import.sh` and
-  `scripts/a666-mainnet-record-destination-consume.sh` still default to 28701.
+- 28703 is the only relay that answers archive reads.
+- At this observation, `scripts/a666-mainnet-return-import.sh` and
+  `scripts/a666-mainnet-record-destination-consume.sh` defaulted to 28701. They
+  now default to 28703
+  ([PFTL tools](../navcoins/pftl-tools.md#ethereum-relays-on-the-validator-hosts)).
 
 **Watchdog user units.** These are the other lane's units, run by root's user
 manager. Linger was enabled on 2026-09-30 at 22:21Z (validator-0) and 22:22Z
