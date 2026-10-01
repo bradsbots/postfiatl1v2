@@ -119,6 +119,19 @@ pub struct DeploymentManifest {
     pub signature_hex: String,
 }
 
+/// Written by `deployment-manifest-verify` after the publisher signature and
+/// validity window pass; `status` trusts it only for the same manifest bytes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeploymentManifestVerifiedRecord {
+    pub schema: String,
+    pub manifest_sha256: String,
+    pub deployment_id: String,
+    pub publisher: String,
+    pub verified_at_unix: u64,
+    pub valid_from_unix: u64,
+    pub valid_until_unix: u64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeploymentValidatorBinding {
     pub validator_id: String,

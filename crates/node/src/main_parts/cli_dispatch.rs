@@ -138,7 +138,7 @@ use postfiat_node::{
     verify_block_proposal_equivocation, verify_block_timeout_certificate_file,
     verify_block_vote_equivocation, verify_blocks, verify_bridge,
     verify_signed_block_proposal,
-    verify_consensus_v2_proposal_matches_block, verify_deployment_manifest,
+    verify_consensus_v2_proposal_matches_block, verify_deployment_manifest_with_record,
     verify_finalized_checkpoint, verify_governance_amendment_replay_bundle,
     verify_governance_genesis_bundle, verify_governance_genesis_bundle_snapshot,
     verify_governance_replay_package,

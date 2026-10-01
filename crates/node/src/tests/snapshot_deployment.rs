@@ -17,7 +17,7 @@ fn runtime_manifest_identity_marks_replaced_unsigned_bytes_unverified() {
         "publisher": "untrusted", "algorithm_id": "", "public_key_hex": "", "signature_hex": ""
     });
     let read_identity = || deployment_runtime_identity_from_config(
-        Some(path.clone().into_os_string()), None, None, None, None, None, None
+        Some(path.clone().into_os_string()), None, None, None, None, None, None, None
     ).expect("current-file identity");
     fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
     let original = read_identity();
@@ -27,6 +27,189 @@ fn runtime_manifest_identity_marks_replaced_unsigned_bytes_unverified() {
     assert_ne!(original.manifest_sha256, replaced.manifest_sha256);
     assert!(!original.manifest_verified);
     assert!(!replaced.manifest_verified);
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// Signs a one-validator deployment manifest; returns the manifest and trusted key paths.
+fn signed_single_validator_deployment_manifest(root: &Path) -> (PathBuf, PathBuf) {
+    fs::create_dir_all(root).expect("create deployment record test root");
+    let publisher_key_file = root.join("publisher.private.json");
+    create_deployment_publisher_private_key(DeploymentPublisherKeyCreateOptions {
+        publisher_key_file: publisher_key_file.clone(),
+    })
+    .expect("create deployment publisher key");
+    let trusted_key_file = root.join("publisher.public.json");
+    export_deployment_publisher_public_key(DeploymentPublisherKeyExportOptions {
+        publisher_key_file: publisher_key_file.clone(),
+        public_key_file: trusted_key_file.clone(),
+    })
+    .expect("export deployment publisher key");
+    let path = |name: &str| root.join(name);
+    for name in [
+        "postfiat-node",
+        "rpc.service",
+        "rpc.env",
+        "transport.service",
+        "transport.env",
+        "swap.metadata.json",
+        "egress.metadata.json",
+    ] {
+        atomic_write(path(name), format!("{name}-v1")).expect("write deployment input");
+    }
+    let topology = serde_json::json!({
+        "topology_id": "record-test-topology", "chain_id": "postfiat-local",
+        "genesis_hash": "11".repeat(48), "protocol_version": 1,
+        "peers": [{"node_id": "validator-0", "host": "127.0.0.1", "p2p_port": 26650,
+                   "rpc_port": 27650, "p2p_address": "127.0.0.1:26650"}]
+    });
+    atomic_write(path("topology.json"), format!("{topology}\n")).expect("write topology");
+    let service = |id: &str| {
+        serde_json::json!({
+            "service_id": id,
+            "service_unit_file": path(&format!("{id}.service")).to_string_lossy(),
+            "environment_file": path(&format!("{id}.env")).to_string_lossy()
+        })
+    };
+    let bindings = serde_json::json!({
+        "schema": DEPLOYMENT_VALIDATOR_BINDINGS_SCHEMA,
+        "validators": [{"validator_id": "validator-0",
+                        "services": [service("rpc"), service("transport")]}]
+    });
+    atomic_write(path("bindings.json"), format!("{bindings}\n")).expect("write bindings");
+    let now = unix_now();
+    let manifest_file = path("deployment-manifest.json");
+    create_deployment_manifest(DeploymentManifestCreateOptions {
+        deployment_id: "record-test".to_string(),
+        valid_from_unix: now.saturating_sub(1),
+        valid_until_unix: now.saturating_add(3_600),
+        chain_id: "postfiat-local".to_string(),
+        genesis_hash: "11".repeat(48),
+        git_revision: "0123456789abcdef".to_string(),
+        binary_file: path("postfiat-node"),
+        build_profile: "release".to_string(),
+        build_features: vec!["transport".to_string()],
+        protocol_version: 1,
+        rpc_schema: "postfiat-local-rpc-v1".to_string(),
+        service_unit_file: path("rpc.service"),
+        environment_file: path("rpc.env"),
+        validator_bindings_file: path("bindings.json"),
+        topology_file: path("topology.json"),
+        swap_circuit_metadata_file: path("swap.metadata.json"),
+        private_egress_circuit_metadata_file: path("egress.metadata.json"),
+        publisher_key_file,
+        manifest_file: manifest_file.clone(),
+    })
+    .expect("create signed deployment manifest");
+    (manifest_file, trusted_key_file)
+}
+
+fn manifest_only_verify_options(
+    manifest_file: &Path,
+    trusted_key_file: &Path,
+) -> DeploymentManifestVerifyOptions {
+    DeploymentManifestVerifyOptions {
+        manifest_file: manifest_file.to_path_buf(),
+        trusted_publisher_key_file: trusted_key_file.to_path_buf(),
+        now_unix: None,
+        validator_id: None,
+        validator_bindings_file: None,
+        runtime_binary_file: None,
+        runtime_topology_file: None,
+        runtime_swap_circuit_metadata_file: None,
+        runtime_private_egress_circuit_metadata_file: None,
+    }
+}
+
+fn manifest_verified_with_record(manifest_file: &Path, record_file: &Path) -> bool {
+    deployment_runtime_identity_from_config(
+        Some(manifest_file.as_os_str().to_owned()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(record_file.as_os_str().to_owned()),
+    )
+    .expect("status identity must not fail on the verification record")
+    .manifest_verified
+}
+
+#[test]
+fn deployment_status_reports_signature_verified_manifest() {
+    let root = unique_test_dir("postfiat-deployment-verified-record");
+    let (manifest_file, trusted_key_file) = signed_single_validator_deployment_manifest(&root);
+    let record_file = root.join("readiness/rpc.deployment-verified.json");
+    verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect("verify signed manifest and write record");
+    assert!(
+        manifest_verified_with_record(&manifest_file, &record_file),
+        "a validly signed manifest with a matching record must report verified"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn deployment_status_rejects_stale_or_missing_verification_record() {
+    let root = unique_test_dir("postfiat-deployment-stale-record");
+    let (manifest_file, trusted_key_file) = signed_single_validator_deployment_manifest(&root);
+    let record_file = root.join("readiness/rpc.deployment-verified.json");
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect("verify signed manifest and write record");
+
+    // A bad signature: the old record no longer matches the replaced bytes.
+    let mut tampered: DeploymentManifest =
+        serde_json::from_slice(&fs::read(&manifest_file).unwrap()).unwrap();
+    tampered.binary_sha256 = "00".repeat(32);
+    atomic_write(
+        &manifest_file,
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    let error = verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect_err("tampered manifest must fail verification");
+    assert!(
+        error.to_string().contains("signature verification"),
+        "{error}"
+    );
+    assert!(
+        !record_file.exists(),
+        "failed verification must remove the record"
+    );
+
+    // A forged record naming the tampered bytes must not pass either.
+    let identity = deployment_runtime_identity_from_config(
+        Some(manifest_file.as_os_str().to_owned()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let forged = serde_json::json!({
+        "schema": "postfiat.deployment_manifest_verified.v0",
+        "manifest_sha256": identity.manifest_sha256, "deployment_id": tampered.deployment_id,
+        "publisher": tampered.publisher, "verified_at_unix": unix_now(),
+        "valid_from_unix": tampered.valid_from_unix, "valid_until_unix": tampered.valid_until_unix
+    });
+    atomic_write(&record_file, forged.to_string()).unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    atomic_write(&record_file, b"not json").unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -2525,6 +2708,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
             Some(topology.clone().into_os_string()),
             Some(swap_metadata.clone().into_os_string()),
             Some(egress_metadata.clone().into_os_string()),
+            None,
         )
         .expect("read local deployment runtime identity");
         assert!(runtime_identity.manifest_sha256.is_some());
@@ -2560,6 +2744,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         None,
         None,
         None,
+        None,
     )
     .expect_err("partial runtime deployment binding must fail");
     assert!(
@@ -2573,6 +2758,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some("validator-0".into()),
         Some(validator_bindings.clone().into_os_string()),
         Some(binary.clone().into_os_string()),
+        None,
         None,
         None,
         None,
@@ -2605,6 +2791,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some(topology.clone().into_os_string()),
         Some(swap_metadata.clone().into_os_string()),
         Some(egress_metadata.clone().into_os_string()),
+        None,
     )
     .expect_err("runtime status identity must fail on a changed binary");
     assert!(
@@ -2731,6 +2918,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some(topology.clone().into_os_string()),
         Some(swap_metadata.clone().into_os_string()),
         Some(egress_metadata.clone().into_os_string()),
+        None,
     )
     .expect_err("runtime status identity must fail on changed service artifacts");
     assert!(

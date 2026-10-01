@@ -189,6 +189,9 @@ pub(super) const SNAPSHOT_PUBLISHER_PUBLIC_KEY_SCHEMA: &str = "postfiat.snapshot
 pub(super) const SNAPSHOT_MANIFEST_SIGNATURE_CONTEXT: &[u8] =
     b"postfiat-l1-v2/snapshot-manifest/v1";
 pub(super) const DEPLOYMENT_MANIFEST_SCHEMA: &str = "postfiat.deployment_manifest.v2";
+pub(super) const DEPLOYMENT_MANIFEST_VERIFIED_RECORD_SCHEMA: &str =
+    "postfiat.deployment_manifest_verified.v1";
+const MAX_DEPLOYMENT_MANIFEST_VERIFIED_RECORD_BYTES: u64 = 64 * 1024;
 pub(super) const DEPLOYMENT_VALIDATOR_BINDINGS_SCHEMA: &str =
     "postfiat.deployment_validator_bindings.v1";
 pub(super) const DEPLOYMENT_VALIDATOR_UNIT_STAGE_SCHEMA: &str =
@@ -874,9 +877,11 @@ pub(super) fn deployment_runtime_identity_from_env() -> io::Result<DeploymentRun
         std::env::var_os("POSTFIAT_DEPLOYMENT_TOPOLOGY"),
         std::env::var_os("POSTFIAT_DEPLOYMENT_SWAP_CIRCUIT_METADATA"),
         std::env::var_os("POSTFIAT_DEPLOYMENT_PRIVATE_EGRESS_CIRCUIT_METADATA"),
+        std::env::var_os("POSTFIAT_DEPLOYMENT_VERIFIED_RECORD"),
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) fn deployment_runtime_identity_from_config(
     manifest_path: Option<std::ffi::OsString>,
     validator_id_value: Option<std::ffi::OsString>,
@@ -885,6 +890,7 @@ pub(super) fn deployment_runtime_identity_from_config(
     topology_file: Option<std::ffi::OsString>,
     swap_circuit_metadata_file: Option<std::ffi::OsString>,
     private_egress_circuit_metadata_file: Option<std::ffi::OsString>,
+    verified_record_file: Option<std::ffi::OsString>,
 ) -> io::Result<DeploymentRuntimeIdentity> {
     let has_partial_identity = validator_id_value.is_some()
         || bindings_file.is_some()
@@ -1030,14 +1036,58 @@ pub(super) fn deployment_runtime_identity_from_config(
             ))
         }
     };
+    let manifest_verified = verified_record_file
+        .filter(|path| !path.is_empty())
+        .is_some_and(|path| {
+            deployment_manifest_verified_record_matches(
+                Path::new(&path),
+                &manifest_sha256,
+                &manifest,
+                unix_now(),
+            )
+        });
     Ok(DeploymentRuntimeIdentity {
         manifest_sha256: Some(manifest_sha256),
-        // Runtime reads do not authenticate the publisher or the validity window.
-        manifest_verified: false,
+        manifest_verified,
         validator_id,
         service_artifacts,
         runtime_artifacts,
     })
+}
+
+/// True only when `deployment-manifest-verify` recorded these exact manifest
+/// bytes and the signed validity window still covers `now_unix`. Any read or
+/// parse failure is treated as unverified rather than an error.
+fn deployment_manifest_verified_record_matches(
+    record_file: &Path,
+    manifest_sha256: &str,
+    manifest: &DeploymentManifest,
+    now_unix: u64,
+) -> bool {
+    use std::io::Read as _;
+
+    let Ok(file) = std::fs::File::open(record_file) else {
+        return false;
+    };
+    let mut bytes = Vec::new();
+    if file
+        .take(MAX_DEPLOYMENT_MANIFEST_VERIFIED_RECORD_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .is_err()
+        || bytes.len() as u64 > MAX_DEPLOYMENT_MANIFEST_VERIFIED_RECORD_BYTES
+    {
+        return false;
+    }
+    let Ok(record) = serde_json::from_slice::<DeploymentManifestVerifiedRecord>(&bytes) else {
+        return false;
+    };
+    record.schema == DEPLOYMENT_MANIFEST_VERIFIED_RECORD_SCHEMA
+        && record.manifest_sha256 == manifest_sha256
+        && record.deployment_id == manifest.deployment_id
+        && record.publisher == manifest.publisher
+        && record.valid_from_unix == manifest.valid_from_unix
+        && record.valid_until_unix == manifest.valid_until_unix
+        && (manifest.valid_from_unix..=manifest.valid_until_unix).contains(&now_unix)
 }
 
 pub(super) fn current_replicated_state_root(

@@ -44,29 +44,33 @@ Status: **canonical operational-state reference**
 
 ### Why `status` reports `deployment_manifest_verified=false`
 
-The field is `false` by design and does not contradict the rollout. `status` in
-`crates/node/src/lifecycle_queries.rs` fills it from
-`deployment_runtime_identity_from_env`. That function reads the
-`POSTFIAT_DEPLOYMENT_*` variables in each RPC unit's `validator-N.rpc.env`,
-hashes the current manifest file and checks the validator binding and the four
-runtime artifact hashes against it. Any mismatch makes `status` fail. The
-function does not check the publisher signature or the validity window, so it
-always returns `manifest_verified: false`. This has been so since `7095b393`
-(2026-09-16, finding SRV-03), and no code path sets the field to `true`.
+On the deployed release `c93b2137` the field is always `false`, and this does
+not contradict the rollout. `status` in `crates/node/src/lifecycle_queries.rs`
+fills it from `deployment_runtime_identity_from_env`, which hashes the current
+manifest file and checks the validator binding and the four runtime artifact
+hashes (any mismatch makes `status` fail). In that build it never checks the
+publisher signature or the validity window, so the field has been `false` since
+`7095b393` (2026-09-16, finding SRV-03).
 
 The signature check is `postfiat-node deployment-manifest-verify`. Every
-validator and RPC unit runs it as `ExecStartPre`, so a unit starts only if the
-check passes, but the result is not passed to the running process.
-`observe-fleet.py` also re-runs it over SSH. That is what "manifest verified on
-every host" above means. So the cause is neither an unused startup path nor a
-stale name: the field only says that `status` did not authenticate the
-manifest. The rollout evidence is the active units together with
-`deployment_manifest_sha256` and `deployment_runtime_artifacts`.
-
+validator and RPC unit runs it as `ExecStartPre`, so a unit starts only if it
+passes, and `observe-fleet.py` re-runs it over SSH. That is what "manifest
+verified on every host" above means. The rollout evidence is the active units
+together with `deployment_manifest_sha256` and `deployment_runtime_artifacts`.
 Reproduced read-only at 09:51:50–09:51:55Z: all six validators at height 1062
-report `false`, manifest `d2fdb687…` and binary `1f8b332d…`. There was no repair
-and no restart. The misleading name remains; renaming the field or carrying a
-prestart verification record into `status` would be a node change.
+report `false`, manifest `d2fdb687…` and binary `1f8b332d…`.
+
+**Repaired on main** in the commit *Report the deployment manifest signature
+check in the validator status*. When `POSTFIAT_DEPLOYMENT_VERIFIED_RECORD` is
+set, `deployment-manifest-verify` writes a small record (manifest SHA-256,
+deployment ID, publisher, verification time, validity window) to that path
+after the check passes. On failure, it deletes the record. `status` then
+reports `true` only if the record names the current manifest bytes and the
+signed window still covers the current time. A missing, stale or malformed
+record keeps the field `false` and does not make `status` fail. Generated
+release env files set the record path under `<data-dir>/readiness/`. This
+change is not deployed: the fleet on `c93b2137` keeps reporting `false` until
+the next release.
 
 !!! success "2026-09-25: merged combined and FastPay release deployed to all six validators"
 

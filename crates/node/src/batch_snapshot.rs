@@ -2550,11 +2550,18 @@ pub fn stage_deployment_validator_units(
 
             let base_environment =
                 deployment_runtime_environment(&release_config_dir, &binary_path, validator_id);
-            write_public_deployment_artifact(&rpc_environment, &base_environment)?;
+            write_public_deployment_artifact(
+                &rpc_environment,
+                format!(
+                    "{base_environment}POSTFIAT_DEPLOYMENT_VERIFIED_RECORD={}/readiness/rpc.deployment-verified.json\n",
+                    data_dir.display(),
+                ),
+            )?;
             write_public_deployment_artifact(
                 &transport_environment,
                 format!(
-                    "{base_environment}POSTFIAT_PREWARM_SHIELDED_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_PRIVATE_EGRESS_VERIFIER=1\nPOSTFIAT_TRANSPORT_VALIDATOR_READY_FILE={}/readiness/transport-validator.ready.json\nPOSTFIAT_TRANSPORT_BLOCK_VOTE_READY_FILE={}/readiness/transport-block-vote.ready.json\n",
+                    "{base_environment}POSTFIAT_DEPLOYMENT_VERIFIED_RECORD={}/readiness/transport.deployment-verified.json\nPOSTFIAT_PREWARM_SHIELDED_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_PRIVATE_EGRESS_VERIFIER=1\nPOSTFIAT_TRANSPORT_VALIDATOR_READY_FILE={}/readiness/transport-validator.ready.json\nPOSTFIAT_TRANSPORT_BLOCK_VOTE_READY_FILE={}/readiness/transport-block-vote.ready.json\n",
+                    data_dir.display(),
                     data_dir.display(),
                     data_dir.display(),
                 ),
@@ -2961,6 +2968,48 @@ pub fn verify_deployment_manifest(
             ))
         }
     }
+    Ok(manifest)
+}
+
+/// Runs `verify_deployment_manifest` and, when it passes, records the verified
+/// manifest hash at `record_file` so `status` can report the result. Any earlier
+/// record is removed first, so a failed verification never leaves one behind.
+pub fn verify_deployment_manifest_with_record(
+    options: DeploymentManifestVerifyOptions,
+    record_file: Option<&Path>,
+) -> io::Result<DeploymentManifest> {
+    let Some(record_file) = record_file else {
+        return verify_deployment_manifest(options);
+    };
+    match std::fs::remove_file(record_file) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    let manifest_file = options.manifest_file.clone();
+    let manifest_sha256 = sha256_file_hex(&manifest_file, "deployment manifest")?;
+    let now_unix = options.now_unix.unwrap_or_else(unix_now);
+    let manifest = verify_deployment_manifest(DeploymentManifestVerifyOptions {
+        now_unix: Some(now_unix),
+        ..options
+    })?;
+    if sha256_file_hex(&manifest_file, "deployment manifest")? != manifest_sha256 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "deployment manifest changed during verification",
+        ));
+    }
+    let record = DeploymentManifestVerifiedRecord {
+        schema: DEPLOYMENT_MANIFEST_VERIFIED_RECORD_SCHEMA.to_string(),
+        manifest_sha256,
+        deployment_id: manifest.deployment_id.clone(),
+        publisher: manifest.publisher.clone(),
+        verified_at_unix: now_unix,
+        valid_from_unix: manifest.valid_from_unix,
+        valid_until_unix: manifest.valid_until_unix,
+    };
+    let json = serde_json::to_string_pretty(&record).map_err(invalid_data)?;
+    atomic_write(record_file, format!("{json}\n"))?;
     Ok(manifest)
 }
 
