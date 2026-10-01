@@ -80,6 +80,11 @@ entering or leaving the shielded pool.
 
 ## Reading order
 
+0. [NAVCoin Create and Swap: Product and Build Specification](navcoin-create-and-swap-spec.md)
+   specifies the next product: creating stock-plus-perp NAVCoins in the wallet,
+   buying and selling them at NAV, bridging them to Ethereum, and swapping them
+   privately. It starts with the BMNR carry NAVCoin (BMNRC), and it contains
+   the build plan, launch gates, and capital record.
 1. [A666 Current State](../status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md)
    records the deployed pfUSDC/A666/private-swap/bridge/Uniswap product and
    exact remaining release gates.

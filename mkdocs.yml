@@ -95,6 +95,7 @@ nav:
   - Legacy Whitepaper: whitepaper_legacy.md
   - NAVCoins:
       - Overview: navcoins/index.md
+      - Create And Swap Specification: navcoins/navcoin-create-and-swap-spec.md
       - A666 Current State: status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md
       - Legacy a651 Uniswap Pool: navcoins/uniswap-pool.md
       - Proof-of-Reserve Primitives: navcoins/reserve-primitives.md
@@ -118,6 +119,7 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - NAVCoin Create And Swap, Phase 0 Closing And BMNRC Opening: handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md
       - FastPay Resume Repaired, Wallet Caps And Log Checks: handoffs/2026-09-30___dravlic__fastpay_resume_repaired_wallet_caps_and_log_checks.md
       - NEAR Intents Research, Wallet Flows Reviewed And Live-Funds Readiness: handoffs/2026-09-29___dravlic__near_intents_research_wallet_flows_reviewed_and_live_funds_readiness.md
       - FastPay Stall Fixed Live And Main Line Caught Up: handoffs/2026-09-28___dravlic__fastpay_stall_fixed_live_and_main_line_caught_up.md
@@ -275,6 +277,7 @@ nav:
       - Threat Model: security/threat-model.md
       - Halo2 Dependency: security/halo2-dependency.md
       - Redaction Policy: security/redaction-policy.md
+      - SEC-20260930-01 Closure: security/SEC-20260930-01-closure.md
       - Public Launch Boundary: security/public-launch-boundary.md
       - Public History Publication: security/public-history-publication.md
   - Runbooks:
