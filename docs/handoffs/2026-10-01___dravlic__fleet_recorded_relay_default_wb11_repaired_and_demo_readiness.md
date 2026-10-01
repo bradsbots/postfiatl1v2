@@ -391,3 +391,49 @@ today.
 [inventory]: https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/review/defect-inventory-20260910.md
 [ci]: https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/status/main-ci-red-20260928.md
 [disk]: https://github.com/postfiatorg/postfiatl1v2/blob/release/combined-fastpay-20260925/deployments/combined-fastpay-20260925/observed/disk-inventory-20260928.json
+
+## End of session (13:09 UTC)
+
+The review of the NAVCoin specification's platform statements against
+`c93b2137` is on `main`. It is [`docs/review/navcoin-spec-platform-review-20261001.md`][spr],
+in commit `49f79328`. Task Node `task_26a59d52f0c14f41147bdcab6f03c38a` is
+Rewarded, but the backend returned no amount. The review checks 44 statements:
+
+- 13 hold.
+- 24 hold with a condition the specification does not state.
+- 3 do not hold.
+- 4 are not implemented.
+
+The review appears in the site navigation under NAVCoins, next to the
+[specification][spec]. It is the only review document included in the build. It
+closes item 2 of "My next steps, in order" above. Item 1, the relay units, still
+waits for your window.
+
+- **§3, the Paused row (R3), does not hold.** A paused route still accepts sells
+  because the sell handler skips the pause check
+  ([`nav_vault_asset_execution.rs:5302-5311`][v5302]). "Paused: Sell No" and
+  invariant I4 in §8.5 (R36) are wrong for sells.
+- **§8.1, Large proofs (R15), does not hold.** The 4,096-byte fee-quote limit
+  that the specification cites has not existed since `0f0a6214` (2026-07-27). The
+  asset quote now allows 96 KiB and the node allows 128 KiB. Item B2.2, quoting
+  by proof hash (R16, not implemented), therefore rests on a reason that no
+  longer holds.
+- **Gates B2.5 and B2.6 in "Status at a glance" (R43, R44) are not
+  implemented.** Only the issuer can finalize an epoch. No check rejects an
+  observation by its wall-clock age.
+- **§8.2 and §8.3 (R22, R29) hold only with conditions.** The
+  `sp1-nav-reserve-v1` binding and the exact `N` floor apply only while the
+  asset stays bound to a v1 profile. The floor is checked only when circulating
+  supply is non-zero. The issuer can rebind the profile with another
+  `nav_asset_register` ([`nft_escrow_asset_execution.rs:1144-1163`][n1144]).
+- **The §8.5 pause mechanism (R38) holds with a condition.** A pre-signed pause
+  expires once its key signs anything else, because each transaction must
+  carry the exact next sequence number ([`entrypoints.rs:951-958`][e951]).
+- **Nothing else changed after the handoff above.** I did not touch the fleet,
+  even to read it; the review read only code. There is no other commit on
+  `main`, and StakeHub `master` is still at `34aa078`.
+
+[spr]: ../review/navcoin-spec-platform-review-20261001.md
+[v5302]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/execution/src/nav_vault_asset_execution.rs#L5302-L5311
+[n1144]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/execution/src/nft_escrow_asset_execution.rs#L1144-L1163
+[e951]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/execution/src/entrypoints.rs#L951-L958
