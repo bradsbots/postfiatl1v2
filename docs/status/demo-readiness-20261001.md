@@ -38,8 +38,8 @@ come from relays that were started by hand.
 - **The bridge committee has no spare.** Ethereum checkpoint signing needs all
   five of validators 0–4. Validator-5 is outside both signer groups: its
   checkpoint key is not in the bridge committee, and it is not an eligible
-  FastPay signer. If any of validators 0–4 is down, Ethereum transfers stop. No
-  decision document for validator-5 is on main yet.
+  FastPay signer. If any of validators 0–4 is down, Ethereum transfers stop.
+  [Decision proposal](../review/validator-5-signer-committees-decision-proposal-20261001.md).
 - **RPC accept-budget restarts leave 5-second gaps.** Each RPC process exits
   after it has accepted 10,000 connections (`--max-requests 10000`), and systemd
   restarts it 5 seconds later. Restarts today:
