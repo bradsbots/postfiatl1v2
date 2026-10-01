@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-09-28T08:09:24Z` (combined-fastpay-20260928 deployed); latest fleet observation `2026-09-28T08:09:24Z`
+Updated: `2026-10-01T10:46:00Z` (fleet after the NAVCoin operator tests; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-01T10:32:42Z`
 
 Status: **canonical operational-state reference**
 
@@ -645,3 +645,116 @@ and root on all six) grew validator-1's file from 0 to 50,494 bytes (`7869a707`)
 `/etc/logrotate.d/postfiat-rpc-events` now rotates `rpc-events.ndjson` at
 `size 512M` with the same options (dry-run clean, no forced rotation), recorded in
 the same file's `verified-20260930` section (`1448eb12`).
+
+## 2026-10-01: fleet after the other lane's NAVCoin operator tests
+
+Read-only observation at `2026-10-01T10:32:42Z`. This lane made no restart,
+configuration change or transaction. Release unchanged: `combined-fastpay-20260928`,
+executable `1f8b332d…`, source `c93b2137`.
+
+**Agreement.** All six report height 1085, tip `b2c7f04e…`, root `b60665e9…`,
+0 pending.
+
+**Processes.** The six validator PIDs and the RPC PIDs of validators 1–4 are
+unchanged since the 2026-09-28 rollout (`observed/after.json`). Two RPC processes
+exited and were restarted by systemd:
+
+| RPC unit | PID | Exit | Restart |
+|---|---|---|---|
+| validator-0 | 4003672 → 4162646 | 07:40:35Z | 07:40:40Z |
+| validator-5 | 2891934 → 3034195 | 08:28:25Z | 08:28:31Z |
+
+- Both run the same executable (`1f8b332d…`).
+- The journal holds only systemd lines: "Deactivated successfully", which means
+  exit 0 or a clean signal, then a scheduled restart (`Restart=always`,
+  `RestartSec=5`, `NRestarts=1`).
+- There is no "Stopping" line and no `systemctl` command, unlike the planned
+  restarts on 2026-09-25 and 2026-09-28.
+- SSH port forwards logged `connect_to 127.0.0.1 port … failed` for the RPC
+  port at 07:40:35Z (validator-0, 27650) and 08:28:23–24Z (validator-5, 27655).
+- Validator-0 had short root SSH sessions at 07:35:36–07:36:08Z and
+  07:39:09–07:39:10Z. Validator-5 had none in that window.
+- The service writes to `rpc-stdout.log` and `rpc-stderr.log`, not the
+  journal; those files were not read. **Cause unknown.**
+- In `c93b2137`, the only clean-exit path in `rpc-serve` is its accept budget.
+  The unit passes `--max-requests 10000`
+  (`crates/node/src/batch_snapshot.rs:2403`), and the accept loop stops at that
+  count (`crates/node/src/rpc_serve_runtime.rs:105`,
+  `crates/node/src/rpc_cli.rs:608`). The command then prints its report and
+  returns 0 (`crates/node/src/main_parts/cli_dispatch_parts/group_03.rs:457`).
+  `rpc-serve` installs no signal handler. This path is consistent with the
+  journal but not verified.
+
+**Blocks 1065–1085.** Blocks 1065–1078 are the other lane's operator tests (see its
+[handoff](../handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md#what-this-lane-did-on-the-shared-fleet-please-read)).
+Blocks 1079–1085 came after its 03:35Z update. All seven are on route
+`pftl-a666-ethereum-wA666-usdc-v1`, were accepted with 22–23 atoms of fees, and
+are signed by `pfab9b92…` (sequences 230–236), the account that signed 1065–1067,
+1071, 1073–1075 and 1078. Block headers carry no time.
+
+| Height | Proposer (view) | Kind |
+|---|---|---|
+| 1079 | validator-5 (0) | `pftl_uniswap_order_reserve` |
+| 1080 | validator-1 (1, timeout certificate) | `pftl_uniswap_primary_subscribe_v2` |
+| 1081 | validator-1 (0) | `pftl_uniswap_order_release` |
+| 1082 | validator-2 (0) | `pftl_uniswap_primary_redeem` |
+| 1083 | validator-3 (0) | `pftl_uniswap_order_reserve` |
+| 1084 | validator-4 (0) | `pftl_uniswap_primary_subscribe_v2` |
+| 1085 | validator-5 (0) | `pftl_uniswap_order_release` |
+
+**Ethereum checkpoint signing.** Records are in
+`/var/lib/postfiat/validator-N/ethereum-checkpoint-signing/`.
+
+- Validators 0–4 each gained two records today: one at 01:54–01:56Z, and one at
+  02:25Z (validator-0) or 02:49–02:51Z (validators 1–4). Their totals are 55, 55,
+  55, 54 and 55.
+- Validator-5 has 50 records, the newest from 2026-08-12. Its key is not in the
+  bridge signer committee ([handoff](../handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md#what-this-lane-did-on-the-shared-fleet-please-read)).
+
+**Event logs and disk.** No file has rotated since 2026-09-30.
+
+| Host | `transport-validator-events.ndjson` | `rpc-events.ndjson` | Free on `/` |
+|---|---|---|---|
+| validator-0 | 5,347,754 B | 83.7 MB | 17.13 GB (78 %) |
+| validator-1 | 5,192,299 B | 53.7 MB | 19.53 GB (75 %) |
+| validator-2 | 959,832 B | 54.3 MB | 24.23 GB (69 %) |
+| validator-3 | 5,242,406 B | 53.6 MB | 28.91 GB (63 %) |
+| validator-4 | 5,242,682 B | 53.5 MB | 24.16 GB (69 %) |
+| validator-5 | 5,242,767 B | 215.4 MB | 27.86 GB (64 %) |
+
+Validator-2's transport file was last written at 04:31:38Z; the other five were
+last written at 09:25:33Z. The proposer rule (a proposer's own file is not written)
+does not account for this, because validator-2 proposed only 1082 of 1079–1085.
+The cause is unknown; the event files were not read.
+
+**Ethereum relays.** An archive read was run from validator-1: `eth_getCode` of USDC
+at block 26094220.
+
+| Port | Upstream | How it runs | Archive read |
+|---|---|---|---|
+| 28701 | `ethereum-rpc.publicnode.com` | Validator-1: unit `navcoin-ethereum-rpc-proxy-20260907.service`. Others: hand-started 2026-07-31 | HTTP 403, "Archive requests require a personal token" |
+| 28702 | `eth.drpc.org` | Missing on validator-1. Others: hand-started 2026-08-08 | not tested |
+| 28703 | `eth.drpc.org` | Unit `navcoin-ethereum-archive-rpc-20260907.service` on all six | HTTP 200, non-empty code |
+
+- On validators 0 and 2–5, the hand-started 28701 and 28702 processes run
+  `/tmp/a666-https-jsonrpc-loopback-proxy.py` inside root login-session scopes.
+  That file no longer exists, so these relays do not survive a reboot.
+- 28703 is the only relay that answers archive reads. Use 28703 for checkpoint
+  signing until the default changes.
+- `scripts/a666-mainnet-return-import.sh` and
+  `scripts/a666-mainnet-record-destination-consume.sh` still default to 28701.
+
+**Watchdog user units.** These are the other lane's units, run by root's user
+manager. Linger was enabled on 2026-09-30 at 22:21Z (validator-0) and 22:22Z
+(validator-3). They are left running.
+
+- Validator-0 host: `navcoin-proof-watchdog@normal`, since 2026-09-30 22:21:40Z.
+- Validator-3 host, `navcoin-proof-watchdog@` units:
+    - `normal` and `fallback`, since 2026-09-30 22:22Z;
+    - `fallbackd12`, since 02:10:49Z;
+    - `fallbackd16`, since 04:34:07Z;
+    - `fallbackd16c`, `d`, `f`, `g`, `h` and `j`, started 09:53:18–09:55:04Z.
+
+**Full-history replay.** The other lane's replay of the ce22 archive at height
+1033 is recorded under the
+[block-1011 note](https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/status/combined-fastpay-merge-20260925.md#why-the-lines-diverged).

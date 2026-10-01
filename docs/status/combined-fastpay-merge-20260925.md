@@ -12,6 +12,12 @@ burn-5/6/P3 repairs were qualified on the combined line. Lacking the history rep
 its full-history replay fails at block 1011, so r4 signs consensus-v2 timeout votes
 against the finalized checkpoint instead.
 
+New evidence on 2026-10-01, for one archive and source pair only: the other
+lane's PROOF agent imported the signed ce22 archive at height 1033 and replayed
+it through full history. The replay reproduced the exact root and all active NAV
+profiles under both deployed `c93b2137` and that lane's candidate
+([handoff](../handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md#on-your-2026-09-30-changes)).
+
 ## Resolution rule
 
 Keep our repaired behaviour, then re-apply his intent on top. His timeout-vote
