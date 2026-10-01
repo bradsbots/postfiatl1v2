@@ -15,6 +15,7 @@ outside the repository under `~/repos/postfiat-archive/postfiatl1v2/`.
 | `node-faucet` | Runs the node faucet command for the selected local node. See `docs/runbooks/faucet-testnet-transactions.md` for the full faucet send flow. |
 | `node-transfer` | Creates a simple transfer from the selected local node. |
 | `node-account` | Reads account state for an address from the selected local node. |
+| `node-helper-smoke` | Runs the single-node helper path end-to-end and verifies the devnet storage acknowledgement. |
 | `pftl-transfer.py` | One-command Python wrapper for `request_faucet_pft` and `send_pft` with env/flag-driven defaults. |
 | `devnet-up` | Builds and initializes a local multi-validator devnet. |
 | `devnet-submit-transfer` | Submits and applies a transfer batch across the local devnet. |

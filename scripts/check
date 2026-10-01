@@ -18,6 +18,7 @@ for script in \
   scripts/node-faucet \
   scripts/node-transfer \
   scripts/node-account \
+  scripts/node-helper-smoke \
   scripts/devnet-up \
   scripts/devnet-submit-transfer \
   scripts/devnet-cobalt-transition \
