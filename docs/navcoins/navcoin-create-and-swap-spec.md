@@ -69,6 +69,18 @@ B0.0 blocks both readiness levels. No other item deploys or moves money until B0
 | Independent security audit | B7.1 | Audit report on the Ethereum contracts, `sp1-nav-reserve-v1`, and the Orchard circuit, with every high-severity finding closed | open |
 | Legal review of issuance and holder eligibility | B7.2 | Written opinion on file for each launch jurisdiction; eligibility rules enforced by Create and Access | open |
 
+**Build progress (2026-10-01 03:35 UTC).**
+
+- **Done:**
+  - B0.0, B0.4 (operator scope), B0.5 and B0.7;
+  - B3.1–B3.3, including a live $20 pair open and close on the dedicated perimeter;
+  - B4.1–B4.3, on mainnet forks.
+- **Accepted for the operator demo on fork evidence:** Phase 5.
+- **In progress:** B0.1, and Phase 6 stage A, the BMNRC perimeter opening.
+- **RED:** B2.6, in the unreleased validator candidate. Production is unaffected.
+
+The authoritative per-item record is the [2026-10-01 handoff](../handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md).
+
 Passing every gate makes BMNRC eligible for outside money. Opening it to the public remains a separate, explicit decision by Post Fiat.
 
 Until then, only the operator's own money touches the product.
