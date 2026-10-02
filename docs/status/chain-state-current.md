@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-01T10:46:00Z` (fleet after the NAVCoin operator tests; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-01T10:32:42Z`
+Updated: `2026-10-02T11:10:00Z` (BMNRC created on the live network; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-02T11:00:00Z`
 
 Status: **canonical operational-state reference**
 
@@ -763,3 +763,32 @@ manager. Linger was enabled on 2026-09-30 at 22:21Z (validator-0) and 22:22Z
 **Full-history replay.** The other lane's replay of the ce22 archive at height
 1033 is recorded under the
 [block-1011 note](https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/status/combined-fastpay-merge-20260925.md#why-the-lines-diverged).
+
+## 2026-10-02: BMNRC created on the live network (blocks 1089–1101)
+
+The other lane created BMNRC on 2026-10-01. Release `combined-fastpay-20260928`
+(`c93b2137`) is unchanged. All rows were certified at view 0 and accepted. This
+lane read the chain over read-only RPC on validator-1 (10:58–11:03Z) and sent no
+transaction.
+
+| Height | Kind | Signer | Key facts |
+|---|---|---|---|
+| 1089 | `asset_create` | `pf9bd795…` | "BMNR Carry NAVCoin", `BMNRC`, precision 6, asset `43b9ba50…` |
+| 1090 | `nav_profile_register` | `pf9bd795…` | `sp1-nav-reserve-v1`, `groth16`, profile `4ff2afa5…` |
+| 1091 | `nav_asset_register` | `pf9bd795…` | profile `4ff2afa5…`, unit `USD_1E8`, reserve operator `pf7143fe…` |
+| 1099 | `nav_reserve_submit` | `pf7143fe…` | epoch 1, NAV 1.00000000, supply 640585238, net assets 64058523893, packet `ffd5c56b…` |
+| 1100 | `nav_epoch_finalize` | `pf9bd795…` | epoch 1, packet `ffd5c56b…` |
+| 1101 | `nav_mint_at_nav` | `pf9bd795…` | 640585238 atoms to `pf4b26fe…` |
+
+- Blocks 1086–1088 and 1092–1098 are plain PFT transfers.
+- At 1101: block `1b14c476…`, state root `e7122731…`. On the morning of
+  2026-10-02 the six validators agreed at 1101.
+- Two more blocks followed, both signed by `pf9bd795…` and certified at view 0:
+  1102 `pftl_uniswap_route_init_v2` (route `pftl-bmnrc-ethereum-wBMNRC-usdc-v1`)
+  and 1103 `pftl_uniswap_route_epoch_advance`.
+- At 11:00Z all six validators report height 1103, tip `c9469f05…`, root
+  `ad296a02…`, 0 pending.
+- Morning preflight: **READY WITH ATTENTION**, relays only. RPC accept-budget
+  restarts have now been seen on all six validators, twice on validator-0.
+- Protocol enforcement check:
+  [BMNRC protocol enforcement check, 2026-10-02](../review/bmnrc-protocol-enforcement-check-20261002.md).

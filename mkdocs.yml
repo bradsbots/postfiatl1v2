@@ -12,6 +12,7 @@ exclude_docs: |
   references/**
   review/**
   !review/navcoin-spec-platform-review-20261001.md
+  !review/bmnrc-protocol-enforcement-check-20261002.md
   specs/**
   status/**
   !status/chain-state-current.md
@@ -100,6 +101,7 @@ nav:
       - Overview: navcoins/index.md
       - Create And Swap Specification: navcoins/navcoin-create-and-swap-spec.md
       - Specification Platform Review 2026-10-01: review/navcoin-spec-platform-review-20261001.md
+      - BMNRC Protocol Enforcement Check 2026-10-02: review/bmnrc-protocol-enforcement-check-20261002.md
       - A666 Current State: status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md
       - Legacy a651 Uniswap Pool: navcoins/uniswap-pool.md
       - Proof-of-Reserve Primitives: navcoins/reserve-primitives.md
