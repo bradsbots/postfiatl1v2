@@ -50,7 +50,7 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 | STO-02 | Reproduced defect | P2 | Fixed — `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): FastSwap WAL append had no total growth fence; reopen and artifact reads allocated oversized files before enforcing bounds. |
 | STO-03 | Reproduced defect | P3 | Fixed — `7095b393` | [Storage review](storage-snapshots-review-20260911.md): a crash after deleting the legacy ordered-history index and before renaming its replacement leaves no usable index generation. Comparison-only backend. |
 | STO-04 | Reproduced defect | P3 | Recorded, not fixed | [Storage review](storage-snapshots-review-20260911.md): legacy receipt compaction performs the same atomic state write twice, doubling I/O without improving crash safety. Comparison-only backend. |
-| STO-05 | Evidence gap | P2 | Needs live environment — source clarification `69e1f1ce`; fleet export receipt missing | [Storage review](storage-snapshots-review-20260911.md): the block-924 source repair predates the deployed base, but no post-repair signed fleet snapshot export establishes backup usability. |
+| STO-05 | Evidence gap | P2 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing record; source clarification `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): the block-924 source repair predates the deployed base, but no post-repair signed fleet snapshot export establishes backup usability. Evidence: on 2026-09-28, with all six at height 1050 on `combined-fastpay-20260925` (source `f60e9639`, which contains `353156c3` and `69e1f1ce`), a finalized-checkpoint export from validator-1 was signed (manifest `a40d6a99…`), imported, checkpoint-verified and fully replayed to root `13d9e652…`; a copy with a changed signature was rejected ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md), [result](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/canary-backup/result.json)). Scope: one host's export of the six-way-agreed state. |
 | STO-06 | Reproduced defect | P1 | Fixed — `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): a torn FastSwap WAL suffix remained after replay, so a subsequent synced vote record appended behind it could not be replayed after restart. |
 | EXE-01 | Reproduced defect | P1 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): a repeated transaction generated duplicate receipt IDs eligible for certification but rejected at ordered commit, halting that height. |
 | EXE-02 | Reproduced defect | P2 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): ordered `OwnedDeposit` bypassed the 100,000-object cap and could commit object 100,001. |
@@ -174,8 +174,8 @@ The source is the historical [2026-09-06 review](https://github.com/postfiatorg/
 | SCT-03 | Reproduced defect | P2 | Fixed — `1267df6a` | Replacing the candidate key hash preserved an admitted shadow result because the registry key was not joined to the authenticated binding key. |
 | SCT-04 | Reproduced defect | P2 | Reproduced — fixed `acdbb1f2` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): publication hashes now resolve against immutable source revision `41202067`; consolidated and independent verifiers pass. |
 | SCT-05 | Reproduced defect | P2 | Reproduced — fixed `acdbb1f2` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a post-lock correction preserves the scored text while naming exclusive cross-process access and operation-scoped leases as the implemented mechanism. |
-| SCT-06 | Economic assumption | P2 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): sustained overlapping public traffic and observable writer-fairness measurements are required. |
-| SCT-07 | Evidence gap | P3 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): fleet disk-capacity and growth telemetry is not exposed by the permitted ledger/status endpoints. |
+| SCT-06 | Economic assumption | P2 | Needs a traffic campaign on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): sustained overlapping public traffic and observable writer-fairness measurements are required. Remaining need, not read-only (spends test PFT): about 2 h of concurrent transfers submitted through all six RPCs alongside continuous RPC reads, sampling each validator's `status.storage` transaction counters and `durable_commit_micros`, per-request latency, and `writer lease deadline exhausted` errors per host; about 3 h including setup and analysis. This lane can run it on this environment on request. It measures writer fairness under the chosen synthetic load, not public demand. |
+| SCT-07 | Evidence gap | P3 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): fleet disk-capacity and growth telemetry is not exposed by the permitted ledger/status endpoints. Source used instead: the read-only preflight's free space on `/` per host plus the dated records of 2026-09-29 and 2026-10-01. Free space fell 0.10–0.36 GB per host over 24.7 h; the lowest is 17.00 GB on validator-0 ([check](#live-environment-check-20261002)). The ledger/status endpoints still expose no disk telemetry. |
 | SCT-08 | Evidence gap | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a separately authorized evidence campaign is required; burn 2 permits no Task Node action. |
 | SCT-09 | Proposed capability | P2 | Dispositioned by the locked V2 shadow successor; not promoted | The September 3 model-flag direction and Admission Policy V1 had different eligibility semantics and no selected versioned successor policy. The [V2 milestone](../plans/completed/tasknode-unl-amendment-v2-milestone.md) now implements that successor as `SHADOW_ONLY`; this is not live adoption. |
 | SCT-10 | Proposed capability | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): independent operators and a separately authorized end-to-end rehearsal are prerequisites. |
@@ -226,7 +226,7 @@ inventory was committed in `80f2232b`.
 | PI-15 | Reproduced defect | P2 | Fixed — `80f2232b` | The source-qualification checker referenced a retired evidence tree; immutable full-packet fallback now rejects partial or corrupt working packets. |
 | PI-16 | Evidence gap | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an operator must assign an independent cryptography audit and define its YOLO scope. |
 | PI-17 | Evidence gap | P2 | Dispositioned | Archive integrity checks establish retained bytes and bindings, not fresh cryptographic re-verification of the historical proofs. |
-| PI-18 | Proposed capability | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): the local readiness checker still reports `qualified=0/6 stakehub_deprecated=false`. |
+| PI-18 | Proposed capability | P1 | Narrowed 2026-10-02 — needs six production-qualified A666 adapters, not a live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): the local readiness checker still reports `qualified=0/6 stakehub_deprecated=false`. Rerun on 2026-10-02: same output ([check](#live-environment-check-20261002)). The six counted items are the A666 public adapters in `docs/status/A666-PUBLIC-ADAPTER-READINESS-20260802.json`, all `partial`; the checker reads repository files only, so postfiat-wan-devnet-2 cannot change its result. The RPC readiness flags on the six validators (`ready=true`, `degraded=false`) are a different check. Remaining need: production qualification of the six adapters (plan gate `G3`). |
 
 ## Consensus signing-fix qualification
 
@@ -237,10 +237,36 @@ and its frozen [qualification receipt](https://github.com/postfiatorg/postfiatl1
 | --- | --- | --- | --- | --- |
 | SQ-01 | Reproduced defect | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local release link still embeds a randomized Rust temporary `RUNPATH`; a governed release-normalization or toolchain contract is required. |
 | SQ-02 | Evidence gap | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): deployed source remains outside main's ancestry and `pftl_source_settlement.rs` remains absent. |
-| SQ-03 | Evidence gap | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a current simultaneous all-six snapshot is still required. |
-| SQ-04 | Evidence gap | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local search found 0/50 matching node binaries; retrieval requires a separately authorized operational path. |
+| SQ-03 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing records | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a current simultaneous all-six snapshot is still required. Simultaneous all-six records: 2026-10-01T10:32:42Z, height 1085, tip `b2c7f04e…`, root `b60665e9…`, 0 pending ([fleet record](../status/chain-state-current.md#2026-10-01-fleet-after-the-other-lanes-navcoin-operator-tests), `dc734563`); 2026-10-02T11:13Z, height 1103, tip `c9469f05…`, root `ad296a02…`, 0 pending ([check](#live-environment-check-20261002)). The deployed release carrying `bbb291ce` (`c93b2137`) was qualified on six validator copies at 1020 and a fresh signed validator-1 backup at 1050, taken with six-way agreement ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md)). |
+| SQ-04 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local search found 0/50 matching node binaries; retrieval requires a separately authorized operational path. The exact binary SHA-256 `57b0f4d1…634eec83` is retained on all six hosts under release `a666-source-route-20260907` (hashed in place, not copied) and is present on the work server. The current rollback executable `d66cecc3…` is retained on all six; the running `1f8b332d…` matches two identical clean builds of `c93b2137` and is verified on all six ([check](#live-environment-check-20261002)). |
 | SQ-05 | Evidence gap | P1 | Dispositioned for current state; see RPC-01 | Validator-0 now answers at the same height and root previously observed on validators 1–5 after an out-of-campaign restart. This does not repair the diagnosed recurrence condition or replace a current simultaneous all-six rehearsal. |
 | SQ-06 | Proposed capability | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): source contains `bbb291ce`, but the combined lineage, reproducibility, snapshot, rollback, and rollout decision remains unmade. |
+
+## Live-environment check — 2026-10-02 { #live-environment-check-20261002 }
+
+Environment: controlled devnet `postfiat-wan-devnet-2`, six validators on release
+`combined-fastpay-20260928` (source `c93b2137`, executable `1f8b332d…`, signed
+manifest `d2fdb687…`). Every command was read-only: no transaction, restart or
+file write on any host.
+
+| Command (UTC) | Key output |
+| --- | --- |
+| `deployments/combined-fastpay-20260928/demo-preflight.py --json` (11:13:22Z) | `READY WITH ATTENTION`: 55 PASS, 5 ATTENTION (hand-started relays 28701/28702), 0 FAIL. 6/6 at height 1103, tip `c9469f05…`, root `ad296a02…`, 0 pending each; all six run `1f8b332d…` with the manifest verified |
+| `ssh root@<host> sha256sum` of `postfiat-node` under `/opt/postfiat/releases/combined-fastpay-20260925` and `…/a666-source-route-20260907`, six hosts | all six: `d66cecc3…` and `57b0f4d1…634eec83` |
+| RPC `status`, validator-1 | `storage` holds I/O and transaction counters; no free-space, capacity or database-size field |
+| `scripts/check-a666-public-adapter-readiness` | `a666_public_adapter_readiness=ok qualified=0/6 stakehub_deprecated=false` |
+
+Free space on `/` (GB), from the preflight and the dated
+[current-state](../status/chain-state-current.md) records:
+
+| Host | 2026-09-29, after rotation | 2026-10-01 10:32Z | 2026-10-02 11:13Z | Last 24.7 h |
+| --- | ---: | ---: | ---: | ---: |
+| validator-0 | 17.36 | 17.13 | 17.00 | −0.13 |
+| validator-1 | 19.57 | 19.53 | 19.40 | −0.13 |
+| validator-2 | 24.51 | 24.23 | 23.87 | −0.36 |
+| validator-3 | 29.10 | 28.91 | 28.76 | −0.15 |
+| validator-4 | 24.19 | 24.16 | 24.03 | −0.13 |
+| validator-5 | 28.03 | 27.86 | 27.76 | −0.10 |
 
 ## Final disposition
 
@@ -266,22 +292,28 @@ broader production claim.
 | Reproduced and retained (prior campaigns) | 5 |
 | Recorded, not fixed (burn 3–6 P3) | 14 |
 | Recorded, repair blocked by A4 scope (SMG-07) | 1 |
-| Needs live environment | 6 |
+| Closed 2026-10-02 on postfiat-wan-devnet-2 | 4 |
+| Narrowed 2026-10-02 (PI-18, not a live-environment need) | 1 |
+| Needs a traffic campaign on postfiat-wan-devnet-2 | 1 |
 | Needs operator decision | 6 |
 | Bare open | 0 |
 
 Burn 2 grounded all nineteen rows that entered it as open. Three received
 in-repository source or documentation repairs; five remain directly
 reproduced, comprising the two P3s and three findings in the read-only
-StakeHub lane; five name the exact missing live environment; and six name the
+StakeHub lane; five named the exact missing live environment; and six name the
 operator decision required before more work is authorized. The bounded
 commands and conditions are in the [burn 2 reproduction record](burn2-open-row-reproduction-20260910.md).
+On 2026-10-02 those five rows and STO-05 were checked read-only on
+`postfiat-wan-devnet-2`: STO-05, SCT-07, SQ-03 and SQ-04 are closed; PI-18 is
+narrowed to adapter qualification; SCT-06 needs a traffic campaign
+([check](#live-environment-check-20261002)).
 
 Burn 3 added 19 fixed source findings, one still-unproven fleet snapshot export,
 and eight P3 findings recorded without repair. The five consensus-affecting
 execution and Cobalt repairs are source-only, not activated or deployed. The
-fleet export receipt remains missing even though the deployed source contains
-the block-924 repair.
+fleet export receipt was then missing even though the deployed source contained
+the block-924 repair; STO-05 records the later signed export.
 
 Burn 4 added ten repaired P2 findings and five P3 findings recorded without
 repair. The finality, canonical types and recovery commitments, and shadow/swap
