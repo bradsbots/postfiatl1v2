@@ -491,9 +491,7 @@ use execution_actions::{
     ASSET_ORCHARD_NAV_USD_E8_ACTIVATION_HEIGHT,
 };
 #[cfg(test)]
-use execution_actions::{
-    execute_transparent_batch, validate_asset_orchard_swap_pricing_against_ledger,
-};
+use execution_actions::execute_transparent_batch;
 mod storage_commit;
 pub use storage_commit::*;
 #[allow(unused_imports)]
