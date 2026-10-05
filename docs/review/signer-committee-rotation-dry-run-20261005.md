@@ -82,14 +82,17 @@ The run took 18.1 s.
 
 ## What did not work or was not exercised
 
-- **No signer for the activation.** No production command signs the
-  `ActivateCommittee` control certificate (`FastLaneControlVoteV1`,
-  `FASTLANE_CONTROL_CONTEXT_V1`); only tests do. Checkpoint votes exist through
-  the FastSwap service request `fastswap_checkpoint_status`
-  (`crates/node/src/rpc_cli.rs:1200`, `fastswap_service.rs:1402`). Anchoring and
-  control go through `mempool_submit_fastlane_primary_finality`
-  (`AnchorCheckpoint`, `Control`). A control-vote sign and assemble command must
-  exist before release day.
+- **Missing tool, resolved.** No production command signed the
+  `ActivateCommittee` or `StopPrepare` control certificate
+  (`FastLaneControlVoteV1`, `FASTLANE_CONTROL_CONTEXT_V1`); only tests did.
+  `fastswap-control-prepare`, `fastswap-control-vote-sign` and
+  `fastswap-control-assemble` now do, one vote per validator key file
+  ([commands](../navcoins/pftl-tools.md#fastswap-control-certificates)).
+  Final-checkpoint votes still come from the FastSwap service request
+  `fastswap_checkpoint_status` (`crates/node/src/rpc_cli.rs:1200`,
+  `fastswap_service.rs:1402`), not from `ethereum-checkpoint-vote-sign`.
+  Anchoring and control go through `mempool_submit_fastlane_primary_finality`
+  (`AnchorCheckpoint`, `Control`).
 - **Bridge steps at the consensus layer.** The bridge steps called the consensus
   functions directly (`anchor_fastlane_checkpoint`, `execute_fastlane_control`,
   `execute_asset_transaction`), not RPC or blocks. The open handoff was set as a
@@ -116,9 +119,9 @@ validator keys; "issuer" means the other lane's A666 issuer key.
 | # | Step | Who signs | Rollback |
 | --- | --- | --- | --- |
 | 0 | Read-only: check that route `outstanding_bridge_claims_atoms` and pending returns are 0, list `fastswap_policy_snapshots`, and build epoch-2 `FastSwapCommitteeV1` from the six current registry keys (quorum 5) and record its root | none | none needed |
-| 1 | Bridge: one epoch-1 `StopPrepare` per FastSwap policy epoch, if any | validators 0–4 | not reversible; stops new epoch-1 FastSwap prepares, which the handoff requires |
+| 1 | Bridge: one epoch-1 `StopPrepare` per FastSwap policy epoch, if any: `fastswap-control-prepare --kind stop-prepare --policy-epoch N`, `fastswap-control-vote-sign` on each signer, `fastswap-control-assemble` | validators 0–4 | not reversible; stops new epoch-1 FastSwap prepares, which the handoff requires |
 | 2 | Bridge: final drained epoch-1 checkpoint (`fastswap_checkpoint_status` votes, `AnchorCheckpoint`) | validators 0–4 | none needed; epoch 1 keeps signing |
-| 3 | Bridge: `ActivateCommittee` epoch 2 with that checkpoint | validators 0–4 (validator-5 cannot) | not reversible, and harmless until step 4 because the route stays at epoch 1. A wrong committee is not followed by step 4; a correction is epoch 3 after a new drained checkpoint |
+| 3 | Bridge: `ActivateCommittee` epoch 2 with that checkpoint: `fastswap-control-prepare --kind activate-committee --epoch 2 --committee-root <step 0 root>`, `fastswap-control-vote-sign` on each of 0–4, `fastswap-control-assemble`, submit as `Control` | validators 0–4 (validator-5 cannot) | not reversible, and harmless until step 4 because the route stays at epoch 1. A wrong committee is not followed by step 4; a correction is epoch 3 after a new drained checkpoint |
 | 4 | Bridge: `pftl_uniswap_route_bridge_policy_update` (`scripts/a666-build-route-epoch-advance.py bridge-policy-update`, `--committee-root` from step 0) | issuer | no reverse operation: the epoch only increases. Undoing it means another update to epoch 3 after steps 1–3 |
 | 5 | Bridge: next checkpoint with `ethereum-checkpoint-vote-sign`, validator-5 using its current key; assemble 5 of 6 | validators | none needed |
 | 6 | FastPay: `fastpay-committee-prepare` on one validator; confirm valid from 10001, six members, quorum 5 | none | discard |

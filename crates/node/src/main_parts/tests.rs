@@ -23,6 +23,24 @@ fn fastpay_recovery_governance_commands_reach_their_cli_handler() {
     ])
     .expect_err("a non-numeric height must fail");
     assert_eq!(prepare, "--valid-from must be a u64");
+
+    let control = run_cli(vec![
+        "fastswap-control-prepare".to_string(),
+        "--control-file".to_string(),
+        "unused.json".to_string(),
+        "--kind".to_string(),
+        "activate-committee".to_string(),
+        "--epoch".to_string(),
+        "two".to_string(),
+    ])
+    .expect_err("a non-numeric epoch must fail");
+    assert_eq!(control, "--epoch must be a u64");
+    for (command, missing) in [
+        ("fastswap-control-vote-sign", "missing --control-file"),
+        ("fastswap-control-assemble", "missing --control-file"),
+    ] {
+        assert_eq!(run_cli(vec![command.to_string()]).unwrap_err(), missing);
+    }
 }
 
 #[test]

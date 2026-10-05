@@ -741,6 +741,10 @@ fn print_usage() {
   postfiat-node pftl-uniswap-mint-packet-digest --packet-file PATH
   postfiat-node ethereum-checkpoint-vote-sign [--data-dir PATH] --checkpoint-file PATH --ethereum-rpc http://HOST:PORT[/PATH] --validator NODE_ID --validator-key-file PATH --vote-file PATH
   postfiat-node ethereum-checkpoint-certificate-assemble [--data-dir PATH] --checkpoint-file PATH --vote-files CSV --certificate-file PATH
+  postfiat-node fastswap-control-prepare [--data-dir PATH] --kind activate-committee --epoch N --committee-root HEX --control-file PATH
+  postfiat-node fastswap-control-prepare [--data-dir PATH] --kind stop-prepare --policy-epoch N --control-file PATH
+  postfiat-node fastswap-control-vote-sign [--data-dir PATH] --control-file PATH --validator NODE_ID --validator-key-file PATH --vote-file PATH
+  postfiat-node fastswap-control-assemble [--data-dir PATH] --control-file PATH --vote-files CSV --certificate-file PATH
   postfiat-node validator-registry-root [--data-dir PATH] [--registry-file PATH] --validators CSV
   postfiat-node validator-registry-update [--data-dir PATH] --validators CSV [--support CSV] --activation-height N --previous-registry-root HASH --new-registry-root HASH [--previous-validators CSV] [--new-validators CSV] --operation admit|remove|suspend|reactivate|rotate_key --subject-node-id NODE_ID [--previous-record-file PATH] [--new-record-file PATH] --update-file PATH
   postfiat-node validator-registry-authorization-sign [--data-dir PATH] --update-file PATH --validator NODE_ID --validator-key-file PATH --proposal-slot H --expires-at-height H --authorization-file PATH

@@ -2062,6 +2062,104 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
+        "fastswap-control-prepare" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let epoch_flag = |flag: &str| {
+                flag_value(flags, flag)
+                    .ok_or(format!("missing {flag}"))?
+                    .parse::<u64>()
+                    .map_err(|_| format!("{flag} must be a u64"))
+            };
+            let kind = match flag_value(flags, "--kind").ok_or("missing --kind")? {
+                "activate-committee" => postfiat_node::FastSwapControlPrepareKind::ActivateCommittee {
+                    committee_epoch: epoch_flag("--epoch")?,
+                    committee_root_hex: flag_value(flags, "--committee-root")
+                        .ok_or("missing --committee-root")?
+                        .to_string(),
+                },
+                "stop-prepare" => postfiat_node::FastSwapControlPrepareKind::StopPrepare {
+                    policy_epoch: epoch_flag("--policy-epoch")?,
+                },
+                _ => return Err("--kind must be activate-committee or stop-prepare".to_string()),
+            };
+            let summary =
+                postfiat_node::fastswap_control_prepare(postfiat_node::FastSwapControlPrepareOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    kind,
+                    control_file: PathBuf::from(control_file),
+                })
+                .map_err(|error| format!("fastswap-control-prepare refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&summary)
+                    .map_err(|error| format!("control summary serialization failed: {error}"))?
+            );
+            Ok(())
+        }
+        "fastswap-control-vote-sign" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let validator = flag_value(flags, "--validator").ok_or("missing --validator")?;
+            let validator_key_file =
+                flag_value(flags, "--validator-key-file").ok_or("missing --validator-key-file")?;
+            let vote_file = flag_value(flags, "--vote-file").ok_or("missing --vote-file")?;
+            let vote = postfiat_node::fastswap_control_vote_sign(
+                postfiat_node::FastSwapControlVoteSignOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    control_file: PathBuf::from(control_file),
+                    validator: validator.to_string(),
+                    validator_key_file: PathBuf::from(validator_key_file),
+                    vote_file: PathBuf::from(vote_file),
+                },
+            )
+            .map_err(|error| format!("fastswap-control-vote-sign failed: {error}"))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "validator_id": vote.validator_id,
+                    "committee_epoch": vote.committee.committee_epoch,
+                    "action_digest": bytes_to_hex(&vote.action_digest.0),
+                    "vote_file": vote_file,
+                })
+            );
+            Ok(())
+        }
+        "fastswap-control-assemble" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let vote_files =
+                split_csv(flag_value(flags, "--vote-files").ok_or("missing --vote-files")?)
+                    .into_iter()
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>();
+            let certificate_file =
+                flag_value(flags, "--certificate-file").ok_or("missing --certificate-file")?;
+            let certificate = postfiat_node::fastswap_control_assemble(
+                postfiat_node::FastSwapControlAssembleOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    control_file: PathBuf::from(control_file),
+                    vote_files,
+                    certificate_file: PathBuf::from(certificate_file),
+                },
+            )
+            .map_err(|error| format!("fastswap-control-assemble failed: {error}"))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "signers": certificate
+                        .votes
+                        .iter()
+                        .map(|vote| vote.validator_id.clone())
+                        .collect::<Vec<_>>(),
+                    "certificate_file": certificate_file,
+                })
+            );
+            Ok(())
+        }
         "governance-amendment-assemble" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let amendment_file =

@@ -395,7 +395,7 @@ fn load_or_create_checkpoint_signing_state(
     }
 }
 
-fn create_file_once(path: &Path, contents: &[u8]) -> io::Result<()> {
+pub(crate) fn create_file_once(path: &Path, contents: &[u8]) -> io::Result<()> {
     let parent = path.parent().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::InvalidInput,
