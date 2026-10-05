@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-02T11:10:00Z` (BMNRC created on the live network; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-02T11:00:00Z`
+Updated: `2026-10-05T10:30:00Z` (weekend fleet state, blocks 1104–1115; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-05T07:21:55Z`
 
 Status: **canonical operational-state reference**
 
@@ -284,7 +284,11 @@ the next release.
     Source repair `353156c3` for the block-924 finalized-checkpoint snapshot
     export defect is an ancestor of deployed base `707e006f`. No post-repair
     fleet-wide signed export receipt is committed, so live snapshot usability
-    remains unverified even though the source defect is no longer open. See the
+    remains unverified even though the source defect is no longer open.
+    Inventory row STO-05 was closed on 2026-10-02 (`830dc9c7`) on a single-host,
+    post-repair receipt: the 2026-09-28 signed export from validator-1 at height
+    1050 (manifest `a40d6a99…`, replayed to root `13d9e652…`)
+    ([STO-05](../review/defect-inventory-20260910.md#live-environment-check-20261002)). See the
     [registry-continuation wedge postmortem](../postmortems/devnet-registry-continuation-wedge-2026-08-31.md)
     and `deployments/registry-fix-20260831/deploy-receipt.json`. Sections
     below describing the height-924 state are historical.
@@ -797,3 +801,41 @@ transaction.
   restarts have now been seen on all six validators, twice on validator-0.
 - Protocol enforcement check:
   [BMNRC protocol enforcement check, 2026-10-02](../review/bmnrc-protocol-enforcement-check-20261002.md).
+
+## 2026-10-05: weekend state before the other lane's conference day
+
+Release `combined-fastpay-20260928` (`c93b2137`) is unchanged; `main`, which now
+includes the other lane's PR #55 (`b1d1928c`), is not deployed. This lane read
+blocks 1104–1115 over read-only RPC on validator-1 (`blocks`, `tx`,
+`batch_archive`). All twelve were certified at view 0 and accepted, with fees of
+22–53 atoms. Block headers carry no time.
+
+| Height | Proposer (view) | Kind | Route or asset | Signer |
+|---|---|---|---|---|
+| 1104 | validator-0 (0) | `pftl_uniswap_export_debit` | `pftl-bmnrc-ethereum-wBMNRC-usdc-v1` | `pf4b26fe…` |
+| 1105 | validator-1 (0) | `pftl_uniswap_destination_consume` | `pftl-bmnrc-ethereum-wBMNRC-usdc-v1` | `pf9bd795…` |
+| 1106 | validator-2 (0) | `transparent_transfer` | PFT | `pffcb93d…` |
+| 1107 | validator-3 (0) | `pftl_uniswap_route_pause` (paused) | `pftl-a666-ethereum-wA666-usdc-v1` | `pfd0c86d…` |
+| 1108 | validator-4 (0) | `nav_reserve_submit` (epoch 9) | A666 `521c6c63…` | `pfd0c86d…` |
+| 1109 | validator-5 (0) | `nav_epoch_finalize` (epoch 9) | A666 `521c6c63…` | `pffcb93d…` |
+| 1110 | validator-0 (0) | `pftl_uniswap_route_epoch_advance` (10 → 11) | `pftl-a666-ethereum-wA666-usdc-v1` | `pffcb93d…` |
+| 1111 | validator-1 (0) | `pftl_uniswap_route_pause` (unpaused) | `pftl-a666-ethereum-wA666-usdc-v1` | `pfd0c86d…` |
+| 1112 | validator-2 (0) | `vault_bridge_deposit_propose` | pfUSDC `02c46a36…` | `pf23d883…` |
+| 1113 | validator-3 (0) | `vault_bridge_deposit_finalize` | pfUSDC `02c46a36…` | `pf23d883…` |
+| 1114 | validator-4 (0) | `vault_bridge_deposit_claim` | pfUSDC `02c46a36…` | `pf23d883…` |
+| 1115 | validator-5 (0) | `pftl_uniswap_return_import` | `pftl-bmnrc-ethereum-wBMNRC-usdc-v1` | `pf9bd795…` |
+
+- 1104 exported 640,585,238 BMNRC atoms, the full supply minted at 1101.
+  1115 imported 75,000,000 BMNRC atoms to `pff5e290…`; 1114 claimed 75,000,000
+  pfUSDC atoms to the same account.
+- Preflight `deployments/combined-fastpay-20260928/demo-preflight.py`
+  (07:21:55Z): **READY WITH ATTENTION**, 55 PASS, 5 ATTENTION (the hand-started
+  relays), 0 FAIL. All six report height 1115, tip `28e1175b…`, root
+  `a5287eaf…`.
+- Validators up 6 d 23 h with 0 restarts. RPC accept-budget restarts:
+  validator-0 four, validator-5 two, validators 1–4 one each.
+- Free disk on `/`: 16.8–28.6 GB across the six hosts.
+- The other lane's `navcoin-proof-watchdog@` user units on the validator-3 host:
+  14.
+- This lane changed nothing on the hosts or the chain after 2026-10-02 and will
+  change nothing before 2026-10-07.
