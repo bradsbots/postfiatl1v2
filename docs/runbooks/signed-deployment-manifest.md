@@ -67,6 +67,11 @@ arguments; the transport unit always prewarms both shielded verifiers before
 publishing readiness. Both units verify the signed manifest and the actual
 runtime binary, topology, and circuit metadata in `ExecStartPre`.
 
+The RPC unit passes `--max-requests 100000` with `Restart=always` and
+`RestartSec=1`. At that budget `rpc-serve` stops accepting, finishes in-flight
+connections, prints its end-of-run report while the port is still bound, and
+exits 0; systemd starts it again about a second later.
+
 Treat the generated units as the canonical release artifacts. Do not layer
 historical host-specific drop-ins over them: a needed setting belongs in this
 generator and its regression test, followed by a newly signed release.

@@ -339,6 +339,69 @@ mod rpc_serve_request_tests {
     }
 
     #[test]
+    fn rpc_serve_budget_drains_in_flight_request_and_reports_before_closing_listener() {
+        struct ListenerProbe {
+            port: u16,
+            bytes: Vec<u8>,
+            bound_during_write: bool,
+        }
+        impl Write for ListenerProbe {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                if self.bytes.is_empty() {
+                    self.bound_during_write = TcpStream::connect(("127.0.0.1", self.port)).is_ok();
+                }
+                self.bytes.extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let root = node_serving_read_only_root("budget-drain");
+        let port = TcpListener::bind(("127.0.0.1", 0))
+            .expect("reserve test port")
+            .local_addr().expect("test port address").port();
+        let mut options = node_serving_read_only_options(&root, port, true);
+        options.max_requests = 1;
+        let ready_file = options.ready_file.clone();
+        let server = std::thread::spawn(move || {
+            let mut probe = ListenerProbe { port, bytes: Vec::new(), bound_during_write: false };
+            rpc_serve_with_report(options, &mut probe).map(|()| probe)
+        });
+        for _ in 0..100 {
+            if ready_file.is_file() { break; }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(ready_file.is_file(), "RPC server must be ready");
+        // The only budgeted connection is accepted, then its request arrives
+        // after the accept loop has stopped: it is in flight during the drain.
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect RPC");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("read timeout");
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(!server.is_finished(), "drain must wait for the in-flight connection");
+        let mut line = serde_json::to_vec(&RpcRequest::empty("in-flight", "status"))
+            .expect("serialize status request");
+        line.push(b'\n');
+        stream.write_all(&line).expect("send in-flight request");
+        let mut reply = String::new();
+        BufReader::new(stream.try_clone().expect("clone RPC stream"))
+            .read_line(&mut reply)
+            .expect("read in-flight response");
+        let response: RpcResponse = serde_json::from_str(&reply).expect("parse response");
+        assert!(response.ok, "{:?}", response.error);
+        stream.shutdown(std::net::Shutdown::Write).expect("close request stream");
+        let probe = server.join().expect("join RPC server").expect("serve and report");
+        assert!(probe.bound_during_write, "report must be written before the listener closes");
+        let report: serde_json::Value = serde_json::from_slice(&probe.bytes).expect("parse report");
+        assert_eq!(report["schema"], "postfiat-rpc-serve-v1");
+        assert_eq!(report["request_count"], 1);
+        assert_eq!(report["max_requests"], 1);
+        assert_eq!(report["requests"][0]["id"], "in-flight");
+        assert!(TcpStream::connect(("127.0.0.1", port)).is_err(), "listener closes after the report");
+        fs::remove_dir_all(root).expect("cleanup fixture");
+    }
+
+    #[test]
     fn rpc_serve_accept_budget_is_exact_at_every_small_boundary() {
         for max_requests in 0..=1_024 {
             let mut accepted = 0;

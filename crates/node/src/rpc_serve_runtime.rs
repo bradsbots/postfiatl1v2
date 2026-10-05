@@ -1,15 +1,40 @@
+#[cfg(test)]
 fn rpc_serve(options: RpcServeOptions) -> Result<RpcServeReport, String> {
-    rpc_serve_inner(
+    rpc_serve_inner(options, None)
+}
+
+#[cfg(test)]
+fn rpc_serve_inner(
+    options: RpcServeOptions,
+    listener_for_test: Option<TcpListener>,
+) -> Result<RpcServeReport, String> {
+    rpc_serve_drain(options, listener_for_test).map(|(report, _listener)| report)
+}
+
+/// Serves until the accept budget, drains in-flight connections, then writes
+/// the end-of-run report while the listener is still bound, so the port closes
+/// only immediately before the process exits and systemd restarts it.
+fn rpc_serve_with_report(options: RpcServeOptions, out: &mut impl Write) -> Result<(), String> {
+    let (report, listener) = rpc_serve_drain(
         options,
         #[cfg(test)]
         None,
-    )
+    )?;
+    let json = serde_json::to_string_pretty(&report)
+        .map_err(|error| format!("rpc serve serialization failed: {error}"))?;
+    writeln!(out, "{json}")
+        .and_then(|()| out.flush())
+        .map_err(|error| format!("rpc serve report write failed: {error}"))?;
+    drop(listener);
+    Ok(())
 }
 
-fn rpc_serve_inner(
+/// Returns the report with the listener still bound; the caller decides when
+/// the port closes.
+fn rpc_serve_drain(
     options: RpcServeOptions,
     #[cfg(test)] listener_for_test: Option<TcpListener>,
-) -> Result<RpcServeReport, String> {
+) -> Result<(RpcServeReport, TcpListener), String> {
     clear_transport_ready_file(&options.ready_file, "rpc serve")?;
     let mut local_status = status(NodeOptions {
         data_dir: options.data_dir.clone(),
@@ -275,7 +300,7 @@ fn rpc_serve_inner(
         rpc_serve_error_class_count(&requests, "rpc_child_dispatch_concurrency_limited");
     let rpc_child_timeout_count = rpc_serve_error_class_count(&requests, "rpc_child_timeout");
     let method_not_allowed_count = rpc_serve_error_class_count(&requests, "method_not_allowed");
-    Ok(RpcServeReport {
+    let report = RpcServeReport {
         schema: "postfiat-rpc-serve-v1".to_string(),
         node_id: local_status.node_id,
         bind_address,
@@ -317,5 +342,6 @@ fn rpc_serve_inner(
         owned_lane_enabled: options.owned_lane_enabled,
         requests,
         verified: true,
-    })
+    };
+    Ok((report, listener))
 }

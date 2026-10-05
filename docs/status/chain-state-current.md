@@ -688,6 +688,11 @@ exited and were restarted by systemd:
   returns 0 (`crates/node/src/main_parts/cli_dispatch_parts/group_03.rs:457`).
   `rpc-serve` installs no signal handler. This path is consistent with the
   journal but not verified.
+- Main after `c93b2137` keeps the budget but shortens the gap for the next
+  release: the generated unit passes `--max-requests 100000` with
+  `RestartSec=1`, and `rpc-serve` finishes in-flight connections and writes
+  its report (same `request_count` and `max_requests` fields) before closing
+  the listener. The deployed `c93b2137` keeps the old behaviour until then.
 
 **Blocks 1065–1085.** Blocks 1065–1078 are the other lane's operator tests (see its
 [handoff](../handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md#what-this-lane-did-on-the-shared-fleet-please-read)).

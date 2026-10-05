@@ -421,41 +421,40 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
                 return Err("--max-child-dispatch-per-peer must be positive".to_string());
             }
             let keep_alive = flag_present(flags, "--keep-alive");
-            let report = rpc_serve(RpcServeOptions {
-                data_dir,
-                spool_dir,
-                ready_file,
-                bind_host,
-                port,
-                max_requests,
-                timeout_ms,
-                child_timeout_ms,
-                event_log,
-                allow_mempool_submit,
-                allow_mempool_submit_finality,
-                allow_orchard_batch_create,
-                owned_lane_enabled,
-                finality_topology_file,
-                finality_key_file,
-                finality_proposal_key_file,
-                finality_artifact_root,
-                finality_timeout_ms,
-                finality_send_retries,
-                finality_retry_backoff_ms,
-                finality_quorum_early_full_propagation,
-                max_mempool_submit_per_peer,
-                max_mempool_submit_total,
-                max_orchard_batch_create_per_peer,
-                max_orchard_batch_create_total,
-                max_orchard_batch_create_concurrent,
-                max_child_dispatch_concurrent,
-                max_child_dispatch_per_peer,
-                keep_alive,
-            })?;
-            let json = serde_json::to_string_pretty(&report)
-                .map_err(|error| format!("rpc serve serialization failed: {error}"))?;
-            println!("{json}");
-            Ok(())
+            rpc_serve_with_report(
+                RpcServeOptions {
+                    data_dir,
+                    spool_dir,
+                    ready_file,
+                    bind_host,
+                    port,
+                    max_requests,
+                    timeout_ms,
+                    child_timeout_ms,
+                    event_log,
+                    allow_mempool_submit,
+                    allow_mempool_submit_finality,
+                    allow_orchard_batch_create,
+                    owned_lane_enabled,
+                    finality_topology_file,
+                    finality_key_file,
+                    finality_proposal_key_file,
+                    finality_artifact_root,
+                    finality_timeout_ms,
+                    finality_send_retries,
+                    finality_retry_backoff_ms,
+                    finality_quorum_early_full_propagation,
+                    max_mempool_submit_per_peer,
+                    max_mempool_submit_total,
+                    max_orchard_batch_create_per_peer,
+                    max_orchard_batch_create_total,
+                    max_orchard_batch_create_concurrent,
+                    max_child_dispatch_concurrent,
+                    max_child_dispatch_per_peer,
+                    keep_alive,
+                },
+                &mut std::io::stdout().lock(),
+            )
         }
         "validator-keys" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
