@@ -556,3 +556,121 @@ tooling are left.
 [mp736]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/mempool_proposals.rs#L736-L835
 [flp205]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/execution/src/fastlane_primary.rs#L205-L215
 [lib155]: https://github.com/postfiatorg/postfiatl1v2/blob/672b707c2816ffa41d3340199a550b505f68b6dd/crates/storage/src/lib.rs#L155
+
+## Addendum (12:15 UTC)
+
+The offline FastSwap store conversion that release day needs is now on `main`.
+I also read the store files on all six validator hosts: all six need the
+conversion.
+
+- **Offline store conversion** (`d9c42a79`; [runbook section][storerun],
+  `docs/runbooks/fastpay-committee-recovery.md:115-154`).
+  - Usage: `postfiat-node fastswap-store-migrate --data-dir PATH [--dry-run]
+    [--backup-dir PATH]` ([`group_04.rs:1105-1125`][g04]).
+  - What it does, in order ([`legacy_migration.rs`][lm], new):
+    1. it takes the service's exclusive store lock and refuses when the lock
+       is held ([`fastswap_store.rs:433-450`][fss433]);
+    2. it scans every WAL record and the snapshot read-only. A truncated,
+       unreadable or unknown-checksum record is refused before any write;
+    3. it backs up `fastswap-v1/` (everything but the lock) with fsync and a
+       SHA3-384 comparison, and refuses an unsafe target. The default backup
+       is `<store>.pre-keyed-migration-<unix-seconds>`;
+    4. it converts through the `open_for_legacy_migration` path without
+       releasing the lock ([`open_locked`][fss526]). The WAL is written
+       atomically: temporary file, fsync, rename ([`:1825`][fss1825]);
+    5. it creates a missing key with mode 600 and reports only a 16-byte
+       fingerprint ([`integrity.rs:53`][int53], [`:111`][int111]);
+    6. it re-opens the store normally and verifies every record and the
+       record count. On failure it restores the originals.
+  - Report: JSON with the outcome (`converted`, `would-convert` or
+    `nothing-to-convert`), bytes, records, the key fingerprint, the backup path
+    and the verification. A second run is a no-op; a dry run writes nothing.
+  - Tests: six storage tests ([`legacy_migration/tests.rs`][lmt]) fail against
+    a stub and pass with the code:
+    - a conversion, then a normal open verifies every record, and the key
+      never appears in the report;
+    - a dry run writes nothing;
+    - a held lock refuses;
+    - a failed backup refuses before writing;
+    - corrupt records refuse and leave the original;
+    - a missing key is created owner-only.
+  - `cargo test --locked -p postfiat-storage fastswap_store`: 23 passed. The
+    node handler test passes, and fmt, clippy and the inventory check are
+    clean. I reran these on `d9c42a79` before this addendum: the same storage
+    result, the handler test passed, and fmt, storage clippy and the inventory
+    check were clean.
+  - Runbook, per host: stop both units, run with a backup directory, start,
+    then check that `fastswap_checkpoint_status` answers. Rollback: stop,
+    restore the backup, start. One host at a time, validator-5 first.
+  - [Release plan][plan] item 5 is ticked as "command exists, host step on
+    release day". Step 0 of the [dry run][dryrun]'s live procedure names the
+    command.
+  - Not covered:
+    - the command cannot tell whether a unit is running until that unit has
+      opened the store, so stopping both units is an operator step;
+    - it has not run on a copy of a real store; the fixture is one re-tagged
+      record;
+    - no test forces the restore after a failed verification;
+    - there is no snapshot conversion test;
+    - the runbook refers to "the validator's two units" without naming them.
+  - Task Node `task_dae3c58fcc873105a4325d8d6e9c80c3`: Rewarded 3 PFT.
+- **FastSwap store files on the six hosts** (12:11:23–12:11:38Z, `ssh` as
+  root, `ls -la --time-style=long-iso` and `stat` only, no file opened).
+  Directory `/var/lib/postfiat/validator-N/fastswap-v1/`; times are UTC.
+
+  | Host | `fastswap-v1.wal` | `committee.json` | `base-state.json` | Snapshot | `.integrity.key` | `fastswap-v1.lock` |
+  | --- | --- | --- | --- | --- | --- | --- |
+  | validator-0 `64.176.220.75` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | none | 12 B, 07-27 23:14 |
+  | validator-1 `95.179.184.122` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | 48 B, 10-05 10:53 | 11 B, 10-05 10:53 |
+  | validator-2 `66.42.48.39` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | none | 11 B, 07-23 03:10 |
+  | validator-3 `149.28.63.106` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | none | 11 B, 07-23 03:10 |
+  | validator-4 `95.179.179.206` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | none | 11 B, 07-23 03:10 |
+  | validator-5 `45.32.110.170` | 177,899 B, 07-23 03:41 | 42,673 B, 07-21 11:01 | 2,003 B, 07-21 11:01 | none | none | 11 B, 07-23 03:10 |
+
+  Each directory also holds `vote-artifacts/` (07-23 03:41), and every file
+  has mode 600. For release day this means:
+  - all six hosts need the conversion. Every WAL was last written on
+    2026-07-23, before keyed integrity landed on 2026-08-08 (`4dbd80c2`).
+    Validator-1's WAL was read as legacy this morning; the other five were not
+    opened, so for them this is inferred from the date. The dry run on each
+    host confirms it with `would-convert`;
+  - five hosts have no `.integrity.key`, so the conversion creates one there.
+    Validator-1 keeps the key that the 10:53Z RPC reads created (disclosure
+    above);
+  - no host has a snapshot (`fastswap-v1.snapshot.json`), so only WALs are
+    converted, and the missing snapshot test does not affect this fleet;
+  - every host has a lock file, but a file listing cannot show whether a unit
+    holds the lock. Stopping both units stays the operator's check.
+
+  The other lane's user units on the validator-0 and validator-3 hosts were
+  not touched.
+- **CI on `main`** (`gh run list --limit 60`, 12:14Z).
+  - `b1d1928c`, `ab4ec9ee`, `a683475a`, `78c7b2e9` and `df347288`:
+    `docs-build`, `rust-ci` and `product-security-ci` all succeeded.
+  - `9e4d80be` and `e3bb0dbf`: `product-security-ci` and the `rust-ci`
+    `check` job failed, as described above.
+  - `8d1c9c20`: the `rust-ci` `test` job failed on the `cobalt_shadow` test;
+    `docs-build` and `product-security-ci` succeeded.
+  - `672b707c`, `67d823e2` and `39180c08`: `docs-build` and
+    `product-security-ci` succeeded, and the `rust-ci` `check` job succeeded.
+    The `rust-ci` `test` job is still running.
+  - `770d5ca6`, `43f8c261` and `d9c42a79`: `docs-build` and the `rust-ci`
+    `check` job succeeded. The `rust-ci` `test` job and `product-security-ci`
+    are still running.
+  - The `cobalt_shadow` failure has not reproduced: every later commit whose
+    `test` job has finished (`a683475a`, `78c7b2e9`, `df347288`) passed. For
+    `672b707c` and later it is not known until their `test` jobs finish.
+- **Nothing changed on any host or on the chain.** The only host access was
+  the `ls` and `stat` read above, with no node command and no RPC call. The
+  deployed release is still `c93b2137`. `main` was at `d9c42a79` before this
+  addendum, and `d9c42a79` is merged but undeployed.
+
+[storerun]: ../runbooks/fastpay-committee-recovery.md#converting-the-fastswap-store-before-the-rotation
+[g04]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/node/src/main_parts/cli_dispatch_parts/group_04.rs#L1105-L1125
+[lm]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/fastswap_store/legacy_migration.rs
+[lmt]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/fastswap_store/legacy_migration/tests.rs
+[fss433]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/fastswap_store.rs#L433-L450
+[fss526]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/fastswap_store.rs#L526
+[fss1825]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/fastswap_store.rs#L1825
+[int53]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/integrity.rs#L53
+[int111]: https://github.com/postfiatorg/postfiatl1v2/blob/d9c42a794569ebcbc7396fd416508d4709798a8e/crates/storage/src/integrity.rs#L111
