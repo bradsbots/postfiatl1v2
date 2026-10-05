@@ -24,7 +24,7 @@ Done on main, undeployed:
 
 Being built on main (2026-10-05 and 2026-10-06):
 
-- [ ] (1) Issuer-signed operation that updates an asset's Ethereum bridge policy (new `authority_epoch` and `committee_root`). At `c93b2137` the policy is written only at route creation (`crates/execution/src/nav_vault_asset_execution.rs:4292`) and no operation changes it.
+- [x] (1) Issuer-signed operation that updates an asset's Ethereum bridge policy (new `authority_epoch` and `committee_root`). At `c93b2137` the policy is written only at route creation (`crates/execution/src/nav_vault_asset_execution.rs:4292`) and no operation changes it. Done: `pftl_uniswap_route_bridge_policy_update` (`crates/types/src/transactions_mempool_receipts.rs:3105`, `crates/execution/src/nav_vault_asset_execution.rs:5643`).
 - [ ] (2) FastPay committee record: six validators, quorum 5, under the recovery policy (`crates/types/src/fastpay_recovery_types.rs:130-140`, activation rule `:320`). This is a signed record, not new code; it is prepared with the release and submitted after it.
 - [ ] (3) RPC accept budget replaced by behaviour without restart gaps. Today the release generator passes `--max-requests 10000` (`crates/node/src/batch_snapshot.rs:2403`). The loop stops at that count (`crates/node/src/rpc_serve_runtime.rs:105`, `crates/node/src/rpc_cli.rs:608`) and systemd restarts the service after 5 s (`RestartSec=5`).
 - [ ] (3b) PR #55 follow-ups found in review on 2026-10-05:
@@ -39,7 +39,7 @@ Waiting on the other lane:
 
 Must land before the candidate is cut:
 
-- [ ] (1) on main with focused tests. It is the reason for this release; without it the bridge half of the signer-group change cannot happen.
+- [x] (1) on main with focused tests. It is the reason for this release; without it the bridge half of the signer-group change cannot happen.
 - [ ] CI green on main at the cut commit.
 
 Included if ready and reviewed by the cut, otherwise a later release:

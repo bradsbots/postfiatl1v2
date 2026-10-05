@@ -9,6 +9,7 @@ import importlib.util
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -83,7 +84,91 @@ def policy_hash(policy: dict[str, Any]) -> str:
     return hash_domain(POLICY_HASH_DOMAIN, preimage.encode())
 
 
+BRIDGE_POLICY_UPDATE_OPERATION = "pftl_uniswap_route_bridge_policy_update"
+
+
+def require_hex(value: object, length: int, field: str) -> str:
+    if not isinstance(value, str) or not re.fullmatch(f"[0-9a-f]{{{length}}}", value):
+        raise RuntimeError(f"{field} must be {length} lowercase hex characters")
+    if value == "0" * length:
+        raise RuntimeError(f"{field} must be nonzero")
+    return value
+
+
+def bridge_policy_update_body(
+    current_policy: dict[str, Any], committee_root: str, *, issuer: str, route_id: str
+) -> dict[str, Any]:
+    """Move a route to the next governed checkpoint committee.
+
+    Consensus requires authority_epoch == current + 1 and the three echoed
+    fields to equal the route's current policy byte for byte.
+    """
+    epoch = current_policy.get("authority_epoch")
+    confirmations = current_policy.get("minimum_confirmations")
+    if not isinstance(epoch, int) or epoch <= 0:
+        raise RuntimeError("current policy authority_epoch must be a positive integer")
+    if not isinstance(confirmations, int) or confirmations <= 0:
+        raise RuntimeError("current policy minimum_confirmations must be a positive integer")
+    current_root = require_hex(current_policy.get("committee_root"), 96, "current committee_root")
+    if require_hex(committee_root, 96, "committee_root") == current_root:
+        raise RuntimeError("committee_root must name a different committee")
+    return {
+        "operation": BRIDGE_POLICY_UPDATE_OPERATION,
+        "issuer": issuer,
+        "route_id": route_id,
+        "authority_epoch": epoch + 1,
+        "committee_root": committee_root,
+        "minimum_confirmations": confirmations,
+        "handoff_controller_code_hash": require_hex(
+            current_policy.get("handoff_controller_code_hash"), 64, "handoff_controller_code_hash"
+        ),
+        "wrapped_navcoin_code_hash": require_hex(
+            current_policy.get("wrapped_navcoin_code_hash"), 64, "wrapped_navcoin_code_hash"
+        ),
+    }
+
+
+def bridge_policy_main(argv: list[str]) -> None:
+    parser = argparse.ArgumentParser(prog="a666-build-route-epoch-advance.py bridge-policy-update")
+    parser.add_argument("--current-policy", type=Path, required=True,
+                        help="route ethereum_verification_policy as JSON with hex hashes")
+    parser.add_argument("--committee-root", required=True,
+                        help="root of the validator-activated successor committee")
+    parser.add_argument("--issuer-key-file", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--issuer", default=ISSUER)
+    parser.add_argument("--route-id", default=ROUTE_ID)
+    args = parser.parse_args(argv)
+    if args.output_dir.exists():
+        raise RuntimeError(f"refusing to overwrite {args.output_dir}")
+    if not args.issuer_key_file.is_file():
+        raise RuntimeError("issuer key file is unavailable")
+    body = bridge_policy_update_body(
+        json.loads(args.current_policy.read_text()),
+        args.committee_root,
+        issuer=args.issuer,
+        route_id=args.route_id,
+    )
+    request = {
+        "schema": "postfiat-certified-asset-ops-request-v1",
+        "operations": [
+            {
+                "label": f"route-bridge-policy-update-epoch-{body['authority_epoch']}",
+                "source": args.issuer,
+                "key_file": str(args.issuer_key_file.resolve()),
+                "operation": body,
+            }
+        ],
+    }
+    args.output_dir.mkdir(parents=True, mode=0o700)
+    write_json(args.output_dir / "route-bridge-policy-update.ops.json", request)
+    print(json.dumps(body, indent=2, sort_keys=True))
+
+
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "bridge-policy-update":
+        bridge_policy_main(sys.argv[2:])
+        return
     args = parse_args()
     if args.output_dir.exists():
         raise RuntimeError(f"refusing to overwrite {args.output_dir}")

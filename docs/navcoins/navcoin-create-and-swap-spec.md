@@ -509,6 +509,22 @@ The fee quote still enforces the limit. B2.2 therefore quotes submission by proo
 
 Finalization is issuer-only today. Until B2.5, each epoch appears as a one-tap **Finalize epoch N** prompt in the creator wallet. B2.5 permits reserve-operator finalization after an unchallenged window.
 
+#### Rotating the route's Ethereum bridge committee
+
+`pftl_uniswap_route_bridge_policy_update` moves a route's `ethereum_verification_policy` to the next checkpoint committee. Without it the policy is fixed at route init. The Ethereum verifier holds no committee, so no Ethereum transaction is needed.
+
+1. The validators activate committee `N+1` with FastLane `ActivateCommittee`. That needs epoch `N`'s final drained checkpoint (`fastswap_control.rs:167`, `:386`), so epoch `N` keeps signing until then.
+2. The issuer signs the update: `route_id`, `authority_epoch = N+1`, the new `committee_root`, and `minimum_confirmations`, `handoff_controller_code_hash` and `wrapped_navcoin_code_hash` copied unchanged from the current policy.
+3. Execution (`nav_vault_asset_execution.rs:5643`) rejects the update unless:
+   - the signer is the native NAV issuer;
+   - the epoch is current + 1;
+   - the echoed fields match exactly;
+   - the route has no outstanding export or return claim;
+   - `(N+1, root)` names a governed committee on this chain (`pftl_uniswap_ethereum_verification.rs:380`) that is the newest one, has no StopPrepare fence, and whose root recomputes from its roster (`fastswap_types.rs:177`).
+4. The receipt transition is `route_bridge_policy_updated`. The new epoch and root enter the canonical route string (`market_nav_asset_types.rs:3190`). Checkpoint signing then requires the new committee's keys.
+
+Build the operation with `scripts/a666-build-route-epoch-advance.py bridge-policy-update --current-policy <policy.json> --committee-root <hex> --issuer-key-file <key> --output-dir <dir>`.
+
 ### 8.2 Mandate commitment and visibility
 
 `AssetDefinition` in `L1/crates/types/src/account_owned_asset_types.rs:418` gives a PFTL asset:

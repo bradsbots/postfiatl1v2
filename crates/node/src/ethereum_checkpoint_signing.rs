@@ -1894,6 +1894,208 @@ mod tests {
         fs::remove_dir_all(root).expect("remove bridge E2E dir");
     }
 
+    #[test]
+    fn bridge_policy_update_moves_checkpoint_signing_to_rotated_committee() {
+        let root = std::env::temp_dir().join(format!(
+            "postfiat-ethereum-checkpoint-bridge-policy-update-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("create bridge policy update dir");
+
+        let genesis = Genesis::new("postfiat-ethereum-checkpoint-bridge-policy-update");
+        let issuer_key = ml_dsa_65_keygen_from_seed(&[0x41; 32]);
+        let issuer = address_from_public_key(&issuer_key.public_key);
+        let mut ledger = LedgerState::new(vec![Account::new(
+            issuer.clone(),
+            100_000,
+            Some(bytes_to_hex(&issuer_key.public_key)),
+        )]);
+        let settlement_asset =
+            AssetDefinition::new(&genesis.chain_id, issuer.clone(), "PUSDC", 1, 6)
+                .expect("settlement asset");
+        let native_asset = AssetDefinition::new(&genesis.chain_id, issuer.clone(), "A651", 1, 6)
+            .expect("native NAV asset");
+        let settlement_asset_id = settlement_asset.asset_id.clone();
+        let native_asset_id = native_asset.asset_id.clone();
+        ledger.asset_definitions = vec![settlement_asset, native_asset];
+        ledger.nav_assets = vec![NavTrackedAsset::new(
+            native_asset_id.clone(),
+            issuer.clone(),
+            issuer.clone(),
+            "bridge-policy-profile",
+            "USDC",
+            issuer.clone(),
+        )
+        .expect("NAV asset")];
+
+        // validator-3's genesis key (seed 0x94) was rotated to seed 0xa4.
+        let committee = |epoch: u64, seeds: [u8; 4]| {
+            let mut committee = FastSwapCommitteeV1 {
+                domain: FastSwapCommitteeDomainV1 {
+                    chain: FastSwapChainDomainV1 {
+                        chain_id: genesis.chain_id.clone(),
+                        genesis_hash: FastSwapOpaqueHashV1(
+                            exact_hex("genesis hash", &postfiat_execution::genesis_hash(&genesis))
+                                .expect("genesis hash bytes"),
+                        ),
+                        protocol_version: genesis.protocol_version,
+                    },
+                    fastswap_schema_version: FASTSWAP_SCHEMA_VERSION_V1,
+                    committee_epoch: epoch,
+                    committee_root: FastSwapCommitteeRootV1::ZERO,
+                    validator_count: 4,
+                    quorum: 3,
+                },
+                validators: seeds
+                    .iter()
+                    .enumerate()
+                    .map(|(index, seed)| FastSwapValidatorV1 {
+                        validator_id: format!("validator-{index}"),
+                        public_key: ml_dsa_65_keygen_from_seed(&[*seed; 32]).public_key,
+                    })
+                    .collect(),
+            };
+            committee.domain.committee_root = committee.computed_root().expect("committee root");
+            committee
+        };
+        let epoch1 = committee(1, [0x91, 0x92, 0x93, 0x94]);
+        let epoch2 = committee(2, [0x91, 0x92, 0x93, 0xa4]);
+        ledger.fastswap_committees = vec![epoch1.clone(), epoch2.clone()];
+
+        let controller_code = vec![0x60, 0x21, 0x60, 0x00];
+        let wrapped_code = vec![0x60, 0x22, 0x60, 0x00];
+        let policy = EthereumRouteVerificationPolicyV1 {
+            authority_epoch: 1,
+            committee_root: epoch1.domain.committee_root,
+            minimum_confirmations: 12,
+            handoff_controller_code_hash: Keccak256::digest(&controller_code).into(),
+            wrapped_navcoin_code_hash: Keccak256::digest(&wrapped_code).into(),
+        };
+        let route_id = "pftl-uniswap-bridge-policy-update";
+        ledger.pftl_uniswap_routes.push(PftlUniswapConsensusRouteState {
+            route_id: route_id.to_string(),
+            route_family: PFTL_UNISWAP_ROUTE_FAMILY_PRIMARY_MINT.to_string(),
+            route_config_digest: "14".repeat(48),
+            route_trust_class: ROUTE_TRUST_CLASS_BFT_CHECKPOINT.to_string(),
+            native_nav_asset_id: native_asset_id,
+            settlement_asset_id,
+            handoff_controller: format!("0x{}", "33".repeat(20)),
+            settlement_adapter: format!("0x{}", "34".repeat(20)),
+            wrapped_navcoin_token: format!("0x{}", "35".repeat(20)),
+            ethereum_chain_id: 1,
+            route_supply_cap_atoms: 1_000,
+            packet_notional_cap_atoms: 100,
+            latest_finalized_nav_epoch: 7,
+            return_finality_blocks: 12,
+            live_value_enabled: true,
+            ethereum_verification_policy: Some(policy.clone()),
+            authorized_valid_supply_atoms: 0,
+            pftl_spendable_supply_atoms: 0,
+            native_spendable_balances_atoms: BTreeMap::new(),
+            ethereum_spendable_supply_atoms: 0,
+            other_registered_venue_supply_atoms: 0,
+            outstanding_bridge_claims_atoms: 0,
+            pending_return_import_claims_atoms: 0,
+            settlement_reserve_atoms: 0,
+            primary_subscription_nonces: BTreeMap::new(),
+            export_packets: BTreeMap::new(),
+            export_nonces: BTreeMap::new(),
+            return_imports: BTreeMap::new(),
+            paused: false,
+            v2: None,
+        });
+
+        let update = signed_bridge_asset_transaction(
+            &genesis,
+            &ledger,
+            &issuer,
+            &issuer_key.public_key,
+            &issuer_key.private_key,
+            postfiat_types::PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND,
+            AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(
+                postfiat_types::PftlUniswapRouteBridgePolicyUpdateOperation {
+                    issuer: issuer.clone(),
+                    route_id: route_id.to_string(),
+                    authority_epoch: 2,
+                    committee_root: bytes_to_hex(&epoch2.domain.committee_root.0),
+                    minimum_confirmations: 12,
+                    handoff_controller_code_hash: bytes_to_hex(
+                        &policy.handoff_controller_code_hash,
+                    ),
+                    wrapped_navcoin_code_hash: bytes_to_hex(&policy.wrapped_navcoin_code_hash),
+                },
+            ),
+        );
+        let receipt =
+            postfiat_execution::execute_asset_transaction(&genesis, &mut ledger, &update, 5);
+        assert!(receipt.accepted, "{receipt:?}");
+        let store = NodeStore::new(&root);
+        store.write_genesis(&genesis).expect("write genesis");
+        store.write_ledger(&ledger).expect("write ledger");
+
+        let (rpc, rpc_thread) = spawn_test_ethereum_rpc(
+            controller_code.clone(),
+            wrapped_code.clone(),
+            [0x61; 32],
+            [0x62; 32],
+            100,
+            120,
+            5,
+        );
+        let checkpoint_file = root.join("checkpoint.json");
+        let checkpoint = observe_ethereum_checkpoint(EthereumCheckpointObserveOptions {
+            data_dir: root.clone(),
+            route_id: route_id.to_string(),
+            ethereum_rpc: rpc,
+            block_number: Some(100),
+            checkpoint_file: checkpoint_file.clone(),
+        })
+        .expect("observe checkpoint under the rotated committee");
+        rpc_thread.join().expect("Ethereum RPC test server");
+        assert_eq!(checkpoint.authority_epoch, 2);
+        assert_eq!(checkpoint.committee_root, epoch2.domain.committee_root);
+
+        let sign = |seed: u8, name: &str| {
+            let key = ml_dsa_65_keygen_from_seed(&[seed; 32]);
+            let key_file = root.join(format!("{name}.key.json"));
+            write_json(
+                &key_file,
+                &ValidatorKeyFile {
+                    validators: vec![ValidatorKeyRecord {
+                        node_id: "validator-3".to_string(),
+                        algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+                        public_key_hex: bytes_to_hex(&key.public_key),
+                        private_key_hex: bytes_to_hex(&key.private_key),
+                    }],
+                },
+            )
+            .expect("write validator key");
+            crate::set_private_file_permissions(&key_file).expect("protect validator key");
+            sign_checkpoint_vote_with_test_rpc(
+                EthereumCheckpointVoteSignOptions {
+                    data_dir: root.clone(),
+                    checkpoint_file: checkpoint_file.clone(),
+                    ethereum_rpc: String::new(),
+                    validator: "validator-3".to_string(),
+                    validator_key_file: key_file,
+                    vote_file: root.join(format!("{name}.vote.json")),
+                },
+                controller_code.clone(),
+                wrapped_code.clone(),
+                checkpoint.block_hash,
+                checkpoint.receipts_root,
+                checkpoint.block_number,
+                checkpoint.observed_head_number,
+            )
+        };
+        let stale = sign(0x94, "stale").expect_err("stale genesis key must not sign epoch 2");
+        assert_eq!(stale.kind(), io::ErrorKind::PermissionDenied);
+        let vote = sign(0xa4, "rotated").expect("rotated key signs for epoch 2");
+        assert_eq!(vote.validator_id, "validator-3");
+        let _ = fs::remove_dir_all(&root);
+    }
+
     fn signed_bridge_asset_transaction(
         genesis: &Genesis,
         ledger: &LedgerState,

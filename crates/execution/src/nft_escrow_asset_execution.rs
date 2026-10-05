@@ -3003,6 +3003,17 @@ fn apply_asset_operation(
             }
             apply_pftl_uniswap_return_import(genesis, ledger, operation, block_height)
         }
+        AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(operation) => {
+            if transaction.unsigned.transaction_kind
+                != PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND
+            {
+                return Err((
+                    "wrong_transaction_kind",
+                    "pftl_uniswap_route_bridge_policy_update transaction kind mismatch".to_string(),
+                ));
+            }
+            apply_pftl_uniswap_route_bridge_policy_update(genesis, ledger, operation, block_height)
+        }
     }
 }
 

@@ -237,5 +237,60 @@ class RouteEpochAdvanceTests(unittest.TestCase):
         self.assertIn("pinned successor profile", result.stderr)
 
 
+class BridgePolicyUpdateTests(unittest.TestCase):
+    CURRENT = {
+        "authority_epoch": 1,
+        "committee_root": "a2" * 48,
+        "minimum_confirmations": 12,
+        "handoff_controller_code_hash": "c1" * 32,
+        "wrapped_navcoin_code_hash": "c2" * 32,
+    }
+
+    def run_builder(self, current: dict[str, object], committee_root: str):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        (root / "policy.json").write_text(json.dumps(current))
+        (root / "issuer-key.json").write_text("fixture")
+        result = subprocess.run(
+            [sys.executable, str(PROGRAM), "bridge-policy-update",
+             "--current-policy", str(root / "policy.json"),
+             "--committee-root", committee_root,
+             "--issuer-key-file", str(root / "issuer-key.json"),
+             "--output-dir", str(root / "output")],
+            text=True, capture_output=True, check=False,
+        )
+        ops = root / "output" / "route-bridge-policy-update.ops.json"
+        return result, (json.loads(ops.read_text()) if ops.exists() else None)
+
+    def test_builder_json_round_trips_with_echoed_fields(self) -> None:
+        result, request = self.run_builder(self.CURRENT, "b3" * 48)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        body = request["operations"][0]["operation"]
+        self.assertEqual(json.loads(json.dumps(body, sort_keys=True)), body)
+        self.assertEqual(json.loads(result.stdout), body)
+        self.assertEqual(body, {
+            "operation": "pftl_uniswap_route_bridge_policy_update",
+            "issuer": "pffcb93d9f87a843a8aa34e1adf241f5d58143e81b",
+            "route_id": "pftl-a666-ethereum-wA666-usdc-v1",
+            "authority_epoch": 2,
+            "committee_root": "b3" * 48,
+            "minimum_confirmations": 12,
+            "handoff_controller_code_hash": "c1" * 32,
+            "wrapped_navcoin_code_hash": "c2" * 32,
+        })
+        self.assertEqual(request["operations"][0]["source"], body["issuer"])
+
+    def test_unchanged_or_malformed_committee_root_is_rejected(self) -> None:
+        result, request = self.run_builder(self.CURRENT, "a2" * 48)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("different committee", result.stderr)
+        self.assertIsNone(request)
+        result, _ = self.run_builder(self.CURRENT, "B3" * 48)
+        self.assertIn("lowercase hex", result.stderr)
+        result, _ = self.run_builder({**self.CURRENT, "wrapped_navcoin_code_hash": "c2"}, "b3" * 48)
+        self.assertIn("wrapped_navcoin_code_hash", result.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3102,6 +3102,91 @@ impl PftlUniswapRouteEpochAdvanceOperation {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PftlUniswapRouteBridgePolicyUpdateOperation {
+    pub issuer: String,
+    pub route_id: String,
+    pub authority_epoch: u64,
+    pub committee_root: String,
+    pub minimum_confirmations: u32,
+    pub handoff_controller_code_hash: String,
+    pub wrapped_navcoin_code_hash: String,
+}
+
+impl PftlUniswapRouteBridgePolicyUpdateOperation {
+    pub fn validate(&self) -> Result<(), String> {
+        validate_text_field("pftl_uniswap_route_bridge_policy_update.issuer", &self.issuer)?;
+        validate_text_field(
+            "pftl_uniswap_route_bridge_policy_update.route_id",
+            &self.route_id,
+        )?;
+        validate_lower_hex_len(
+            "pftl_uniswap_route_bridge_policy_update.committee_root",
+            &self.committee_root,
+            VAULT_BRIDGE_HEX_HASH_LEN,
+        )?;
+        validate_lower_hex_len(
+            "pftl_uniswap_route_bridge_policy_update.handoff_controller_code_hash",
+            &self.handoff_controller_code_hash,
+            64,
+        )?;
+        validate_lower_hex_len(
+            "pftl_uniswap_route_bridge_policy_update.wrapped_navcoin_code_hash",
+            &self.wrapped_navcoin_code_hash,
+            64,
+        )?;
+        self.ethereum_verification_policy()?
+            .validate()
+            .map_err(|error| format!("pftl_uniswap_route_bridge_policy_update policy: {error:?}"))?;
+        // Epoch 1 is the route-creation epoch, so an update always targets 2+.
+        if self.authority_epoch < 2 {
+            return Err(
+                "pftl_uniswap_route_bridge_policy_update authority epoch must follow an existing epoch"
+                    .to_string(),
+            );
+        }
+        Ok(())
+    }
+
+    /// The complete policy the route holds after this update is applied.
+    pub fn ethereum_verification_policy(
+        &self,
+    ) -> Result<EthereumRouteVerificationPolicyV1, String> {
+        fn fixed<const N: usize>(field: &str, value: &str) -> Result<[u8; N], String> {
+            decode_lower_hex_exact(field, value, N)?
+                .try_into()
+                .map_err(|_| format!("pftl_uniswap_route_bridge_policy_update.{field} must be {N} bytes"))
+        }
+        Ok(EthereumRouteVerificationPolicyV1 {
+            authority_epoch: self.authority_epoch,
+            committee_root: FastSwapCommitteeRootV1(fixed("committee_root", &self.committee_root)?),
+            minimum_confirmations: self.minimum_confirmations,
+            handoff_controller_code_hash: fixed(
+                "handoff_controller_code_hash",
+                &self.handoff_controller_code_hash,
+            )?,
+            wrapped_navcoin_code_hash: fixed(
+                "wrapped_navcoin_code_hash",
+                &self.wrapped_navcoin_code_hash,
+            )?,
+        })
+    }
+
+    fn signing_bytes(&self) -> Vec<u8> {
+        format!(
+            "issuer={}\nroute_id={}\nauthority_epoch={}\ncommittee_root={}\nminimum_confirmations={}\nhandoff_controller_code_hash={}\nwrapped_navcoin_code_hash={}\n",
+            self.issuer,
+            self.route_id,
+            self.authority_epoch,
+            self.committee_root,
+            self.minimum_confirmations,
+            self.handoff_controller_code_hash,
+            self.wrapped_navcoin_code_hash,
+        )
+        .into_bytes()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PftlUniswapRoutePauseOperation {
     pub operator: String,
     pub route_id: String,
@@ -3542,6 +3627,8 @@ pub enum AssetTransactionOperation {
     PftlUniswapRefundSource(PftlUniswapRefundSourceOperation),
     #[serde(rename = "pftl_uniswap_return_import")]
     PftlUniswapReturnImport(PftlUniswapReturnImportOperation),
+    #[serde(rename = "pftl_uniswap_route_bridge_policy_update")]
+    PftlUniswapRouteBridgePolicyUpdate(PftlUniswapRouteBridgePolicyUpdateOperation),
 }
 
 impl<'de> Deserialize<'de> for AssetTransactionOperation {
@@ -3710,6 +3797,10 @@ impl<'de> Deserialize<'de> for AssetTransactionOperation {
             "pftl_uniswap_return_import" => {
                 decode_operation!(PftlUniswapReturnImportOperation, PftlUniswapReturnImport)
             }
+            "pftl_uniswap_route_bridge_policy_update" => decode_operation!(
+                PftlUniswapRouteBridgePolicyUpdateOperation,
+                PftlUniswapRouteBridgePolicyUpdate
+            ),
             other => Err(serde::de::Error::custom(format!(
                 "unknown asset operation `{other}`"
             ))),
@@ -3789,6 +3880,9 @@ impl AssetTransactionOperation {
             }
             Self::PftlUniswapRefundSource(_) => PFTL_UNISWAP_REFUND_SOURCE_TRANSACTION_KIND,
             Self::PftlUniswapReturnImport(_) => PFTL_UNISWAP_RETURN_IMPORT_TRANSACTION_KIND,
+            Self::PftlUniswapRouteBridgePolicyUpdate(_) => {
+                PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND
+            }
         }
     }
 
@@ -3845,6 +3939,7 @@ impl AssetTransactionOperation {
             Self::PftlUniswapDestinationConsume(operation) => operation.validate(),
             Self::PftlUniswapRefundSource(operation) => operation.validate(),
             Self::PftlUniswapReturnImport(operation) => operation.validate(),
+            Self::PftlUniswapRouteBridgePolicyUpdate(operation) => operation.validate(),
         }
     }
 
@@ -3923,6 +4018,7 @@ impl AssetTransactionOperation {
             Self::PftlUniswapDestinationConsume(operation) => operation.operator == source,
             Self::PftlUniswapRefundSource(operation) => operation.operator == source,
             Self::PftlUniswapReturnImport(operation) => operation.operator == source,
+            Self::PftlUniswapRouteBridgePolicyUpdate(operation) => operation.issuer == source,
         }
     }
 
@@ -4058,6 +4154,9 @@ impl AssetTransactionOperation {
                 bytes.extend_from_slice(&operation.signing_bytes())
             }
             Self::PftlUniswapReturnImport(operation) => {
+                bytes.extend_from_slice(&operation.signing_bytes())
+            }
+            Self::PftlUniswapRouteBridgePolicyUpdate(operation) => {
                 bytes.extend_from_slice(&operation.signing_bytes())
             }
         }

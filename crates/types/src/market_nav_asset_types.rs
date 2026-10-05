@@ -3373,7 +3373,7 @@ impl PftlUniswapConsensusReceipt {
             | "route_epoch_advanced"
             | "route_paused"
             | "route_resumed" => {}
-            "export_entitlement_released" => {}
+            "export_entitlement_released" | "route_bridge_policy_updated" => {}
             _ => return Err("unsupported pftl_uniswap receipt transition".to_string()),
         }
         validate_text_field("pftl_uniswap_receipt.route_id", &self.route_id)?;

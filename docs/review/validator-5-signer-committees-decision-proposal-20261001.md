@@ -129,6 +129,10 @@ sign, and quorum 5 needs all of them.
   `c93b2137` can move A666 to `authority_epoch 2`, so B and the bridge half of A
   need a new operation and a release. A new route is no shortcut: the Ethereum
   verifier pins the route ID ([`PFTLReceiptFinalityVerifierV1.sol:115`][prfv115]).
+- **Update 2026-10-05:** the issuer-signed `pftl_uniswap_route_bridge_policy_update`
+  exists on `main` from the commit "Add an issuer-signed operation that updates a
+  route's Ethereum bridge committee". It ships in the next validator release
+  ([operation reference](../navcoins/navcoin-create-and-swap-spec.md#rotating-the-routes-ethereum-bridge-committee)).
 - **Bridge committee epoch 2.** It is activated by a FastLane control
   certificate from the epoch 1 committee
   ([`fastswap_control.rs:167-171`][fsc167]) and needs a drained final epoch 1

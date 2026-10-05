@@ -68,6 +68,8 @@ pub const PFTL_UNISWAP_PRIMARY_REDEEM_TRANSACTION_KIND: &str = "pftl_uniswap_pri
 pub const PFTL_UNISWAP_ROUTE_EPOCH_ADVANCE_TRANSACTION_KIND: &str =
     "pftl_uniswap_route_epoch_advance";
 pub const PFTL_UNISWAP_ROUTE_PAUSE_TRANSACTION_KIND: &str = "pftl_uniswap_route_pause";
+pub const PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND: &str =
+    "pftl_uniswap_route_bridge_policy_update";
 pub const PFTL_UNISWAP_EXPORT_DEBIT_TRANSACTION_KIND: &str = "pftl_uniswap_export_debit";
 pub const PFTL_UNISWAP_DESTINATION_CONSUME_TRANSACTION_KIND: &str =
     "pftl_uniswap_destination_consume";

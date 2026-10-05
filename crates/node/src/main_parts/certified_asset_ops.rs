@@ -375,6 +375,7 @@ fn certified_asset_op_source(
         postfiat_types::AssetTransactionOperation::PftlUniswapPrimaryRedeem(operation) => Ok(&operation.owner),
         postfiat_types::AssetTransactionOperation::PftlUniswapRouteEpochAdvance(operation) => Ok(&operation.operator),
         postfiat_types::AssetTransactionOperation::PftlUniswapRoutePause(operation) => Ok(&operation.operator),
+        postfiat_types::AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(operation) => Ok(&operation.issuer),
         postfiat_types::AssetTransactionOperation::PftlUniswapExportDebit(operation) => Ok(&operation.owner),
         postfiat_types::AssetTransactionOperation::PftlUniswapDestinationConsume(operation) => Ok(&operation.operator),
         postfiat_types::AssetTransactionOperation::PftlUniswapRefundSource(operation) => Ok(&operation.operator),

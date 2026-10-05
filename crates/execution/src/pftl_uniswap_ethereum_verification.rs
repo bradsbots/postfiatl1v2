@@ -377,7 +377,7 @@ fn verified_external_log(
     Ok((checkpoint.clone(), log))
 }
 
-fn committee_for_policy<'a>(
+pub(crate) fn committee_for_policy<'a>(
     genesis: &Genesis,
     ledger: &'a LedgerState,
     policy: &EthereumRouteVerificationPolicyV1,

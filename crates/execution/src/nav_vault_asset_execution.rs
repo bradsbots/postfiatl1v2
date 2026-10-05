@@ -5637,6 +5637,110 @@ fn apply_pftl_uniswap_route_pause(
     )
 }
 
+/// Moves a route's Ethereum return-verification authority to the next
+/// validator-governed checkpoint committee. Only the committee identity
+/// changes; every other policy field must be echoed unchanged.
+fn apply_pftl_uniswap_route_bridge_policy_update(
+    genesis: &Genesis,
+    ledger: &mut LedgerState,
+    operation: &PftlUniswapRouteBridgePolicyUpdateOperation,
+    block_height: u64,
+) -> Result<(), (&'static str, String)> {
+    let route_index = pftl_uniswap_route_index(ledger, &operation.route_id)?;
+    let mut next_route = ledger.pftl_uniswap_routes[route_index].clone();
+    let nav_asset =
+        ensure_pftl_uniswap_native_asset_policy(ledger, &next_route.native_nav_asset_id, &operation.issuer)?;
+    if operation.issuer != nav_asset.issuer {
+        return Err((
+            "unauthorized_pftl_uniswap_bridge_policy_issuer",
+            "only the native NAV asset issuer may update the route's Ethereum bridge policy"
+                .to_string(),
+        ));
+    }
+    let current = next_route.ethereum_verification_policy.clone().ok_or_else(|| {
+        (
+            "missing_pftl_uniswap_ethereum_policy",
+            "route has no Ethereum bridge policy to update".to_string(),
+        )
+    })?;
+    let next = operation
+        .ethereum_verification_policy()
+        .map_err(|error| ("bad_pftl_uniswap_bridge_policy_update", error))?;
+    if next.minimum_confirmations != current.minimum_confirmations
+        || next.handoff_controller_code_hash != current.handoff_controller_code_hash
+        || next.wrapped_navcoin_code_hash != current.wrapped_navcoin_code_hash
+    {
+        return Err((
+            "pftl_uniswap_bridge_policy_echo_mismatch",
+            "minimum confirmations and both Ethereum code hashes must equal the current policy"
+                .to_string(),
+        ));
+    }
+    if Some(next.authority_epoch) != current.authority_epoch.checked_add(1) {
+        return Err((
+            "pftl_uniswap_bridge_policy_epoch_mismatch",
+            "authority epoch must be exactly the current epoch plus one".to_string(),
+        ));
+    }
+    // An in-flight export or return was bound to checkpoints of the current
+    // committee; it must settle (or refund) before the committee changes.
+    if next_route.outstanding_bridge_claims_atoms != 0
+        || next_route.pending_return_import_claims_atoms != 0
+    {
+        return Err((
+            "pftl_uniswap_bridge_policy_handoff_active",
+            "route has an outstanding Ethereum handoff".to_string(),
+        ));
+    }
+    // The committee must already be governed state: validators admit it only
+    // through FastLane ActivateCommittee, which recomputes the roster root and
+    // requires the previous committee's final drained checkpoint.
+    let committee = crate::pftl_uniswap_ethereum_verification::committee_for_policy(
+        genesis, ledger, &next,
+    )
+    .map_err(|_| {
+        (
+            "pftl_uniswap_bridge_policy_committee_not_governed",
+            "authority epoch and committee root do not name a governed checkpoint committee"
+                .to_string(),
+        )
+    })?;
+    let committee_is_current = committee.validate().is_ok()
+        && ledger.fastswap_committees.last() == Some(committee)
+        && !ledger
+            .fast_lane_prepare_fences
+            .iter()
+            .any(|fence| fence.committee_epoch == next.authority_epoch);
+    if !committee_is_current {
+        return Err((
+            "pftl_uniswap_bridge_policy_committee_not_current",
+            "target committee must be the newest governed committee and not itself handing off"
+                .to_string(),
+        ));
+    }
+    let state_before_hash = pftl_uniswap_route_state_hash(&next_route);
+    next_route.ethereum_verification_policy = Some(next);
+    next_route
+        .validate()
+        .map_err(|error| ("bad_pftl_uniswap_route", error))?;
+    let state_after_hash = pftl_uniswap_route_state_hash(&next_route);
+    ledger.pftl_uniswap_routes[route_index] = next_route;
+    append_pftl_uniswap_consensus_receipt(
+        ledger,
+        PftlUniswapReceiptPlan {
+            transition: "route_bridge_policy_updated",
+            route_id: &operation.route_id,
+            state_before_hash,
+            state_after_hash,
+            packet_hash: None,
+            burn_event_hash: None,
+            wallet: Some(operation.issuer.clone()),
+            amount_atoms: None,
+            block_height,
+        },
+    )
+}
+
 fn apply_pftl_uniswap_export_debit(
     _genesis: &Genesis,
     ledger: &mut LedgerState,

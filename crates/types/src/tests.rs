@@ -3537,3 +3537,52 @@ fn pftl_source_governance_signs_unchanged_disabled_and_selected_states() {
     op.settlement_source_asset_ids = Some(vec!["33".repeat(48), "33".repeat(48)]);
     assert!(op.validate().is_err());
 }
+
+#[test]
+fn pftl_uniswap_route_bridge_policy_update_json_and_preimage_are_canonical() {
+    let wire = serde_json::json!({
+        "operation": "pftl_uniswap_route_bridge_policy_update",
+        "issuer": "pf-issuer",
+        "route_id": "pftl-a666-ethereum-wA666-usdc-v1",
+        "authority_epoch": 2,
+        "committee_root": "ab".repeat(48),
+        "minimum_confirmations": 12,
+        "handoff_controller_code_hash": "cd".repeat(32),
+        "wrapped_navcoin_code_hash": "ef".repeat(32),
+    });
+    let operation: AssetTransactionOperation =
+        serde_json::from_value(wire.clone()).expect("decode bridge policy update");
+    assert_eq!(
+        operation.transaction_kind(),
+        PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND
+    );
+    operation.validate().expect("valid bridge policy update");
+    assert_eq!(serde_json::to_value(&operation).expect("encode"), wire);
+    assert_eq!(
+        String::from_utf8(operation.signing_bytes()).expect("utf8 preimage"),
+        format!(
+            "operation=pftl_uniswap_route_bridge_policy_update\nissuer=pf-issuer\nroute_id=pftl-a666-ethereum-wA666-usdc-v1\nauthority_epoch=2\ncommittee_root={}\nminimum_confirmations=12\nhandoff_controller_code_hash={}\nwrapped_navcoin_code_hash={}\n",
+            "ab".repeat(48),
+            "cd".repeat(32),
+            "ef".repeat(32),
+        )
+    );
+    let AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(update) = &operation else {
+        panic!("wrong variant");
+    };
+    let policy = update.ethereum_verification_policy().expect("policy");
+    assert_eq!(policy.committee_root.0, [0xab; 48]);
+    assert_eq!(policy.handoff_controller_code_hash, [0xcd; 32]);
+    assert!(operation.source_matches("pf-issuer") && !operation.source_matches("pf-reserve"));
+    for (field, value) in [
+        ("authority_epoch", serde_json::json!(1)),
+        ("committee_root", serde_json::json!("AB".repeat(48))),
+        ("minimum_confirmations", serde_json::json!(0)),
+        ("wrapped_navcoin_code_hash", serde_json::json!("00".repeat(32))),
+    ] {
+        let mut bad = wire.clone();
+        bad[field] = value;
+        let decoded: AssetTransactionOperation = serde_json::from_value(bad).expect("decode");
+        assert!(decoded.validate().is_err(), "{field} must be rejected");
+    }
+}

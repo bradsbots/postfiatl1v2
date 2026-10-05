@@ -3085,6 +3085,15 @@ fn validate_asset_operation_fields(
         | PFTL_UNISWAP_PRIMARY_REDEEM_TRANSACTION_KIND
         | PFTL_UNISWAP_ROUTE_EPOCH_ADVANCE_TRANSACTION_KIND
         | PFTL_UNISWAP_ROUTE_PAUSE_TRANSACTION_KIND => {}
+        PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND => {
+            clean_string_field(value, "issuer")?;
+            clean_string_field(value, "route_id")?;
+            nonzero_u64_field(value, "authority_epoch")?;
+            lower_hex_field(value, "committee_root", 96)?;
+            nonzero_u64_field(value, "minimum_confirmations")?;
+            lower_hex_field(value, "handoff_controller_code_hash", 64)?;
+            lower_hex_field(value, "wrapped_navcoin_code_hash", 64)?;
+        }
         PFTL_UNISWAP_ROUTE_INIT_TRANSACTION_KIND => {
             clean_string_field(value, "operator")?;
             clean_string_field(value, "route_id")?;
@@ -3345,6 +3354,7 @@ fn is_supported_asset_transaction_kind(kind: &str) -> bool {
             | PFTL_UNISWAP_DESTINATION_CONSUME_TRANSACTION_KIND
             | PFTL_UNISWAP_REFUND_SOURCE_TRANSACTION_KIND
             | PFTL_UNISWAP_RETURN_IMPORT_TRANSACTION_KIND
+            | PFTL_UNISWAP_ROUTE_BRIDGE_POLICY_UPDATE_TRANSACTION_KIND
     )
 }
 

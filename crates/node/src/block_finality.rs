@@ -1461,6 +1461,15 @@ fn account_tx_rows_for_transparent_block(
                 None,
                 None,
             ),
+            AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(operation) => (
+                operation.issuer.clone(),
+                operation.route_id.clone(),
+                0,
+                None,
+                None,
+                None,
+                None,
+            ),
             AssetTransactionOperation::PftlUniswapExportDebit(operation) => (
                 operation.owner.clone(),
                 operation.ethereum_recipient.clone(),
