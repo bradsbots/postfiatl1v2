@@ -320,7 +320,7 @@ issuer-signed transaction, which I prepare.
     --locked --no-fail-fast`) has run since 10:47Z in the worktree
     `postfiatl1v2-dravlic` at `672b707c`; output goes to
     `~/.cache/suite-20261005/cargo-test.log`.
-  - Corbanu: our session was restarted once after an SSH drop froze its input.
+  - Corbanu: my Corbanu session was restarted once after an SSH drop froze its input.
     I skipped an update offer (0.1.44 → 0.1.48) so the shared binary stays as
     it is through the conference day.
 - **Task Node.**
@@ -347,7 +347,7 @@ issuer-signed transaction, which I prepare.
      2026-10-07.
    - The release candidate list, with the suite in the background on the work
      server.
-   - The dry-run follow-ups, including the membership note above, and our
+   - The dry-run follow-ups, including the membership note above, and my
      tooling.
 2. **2026-10-07 and after.**
    - Merge PR #54 after its Orchard test.
