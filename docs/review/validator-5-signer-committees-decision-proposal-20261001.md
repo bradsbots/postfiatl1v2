@@ -9,13 +9,15 @@
 1. The live network `postfiat-wan-devnet-2` has six validators, all on `c93b2137`
    (`release/combined-fastpay-20260928`). Ordinary blocks need five of the six
    votes, and validator-5 counts there.
-2. The **FastPay committee** (fast payments) lists validators 0–4 only, with
-   quorum 5: every one of the five must sign
+2. The **FastPay committee** (fast payments) lists six validators with quorum
+   5, but validator-5's entry holds its genesis key, which was rotated away.
+   Only validators 0–4 can sign, so every one of the five must
    ([r4 handoff][r4], "FastPay still needs validators 0–4 all online (quorum 5)").
    Since 2026-09-28 a payment before validator-5's turn no longer stalls the
    chain ([fix][fix28]), but validator-5 still signs no payment.
-3. The **Ethereum bridge checkpoint committee** (`authority_epoch 1`) expects a
-   checkpoint key with hash `b8d197ab…`; validator-5's key hash is `aad48519…`.
+3. The **Ethereum bridge checkpoint committee** (`authority_epoch 1`) also lists
+   six validators. For validator-5 it expects its genesis key `b8d197ab…`;
+   validator-5's current key hash is `aad48519…`.
    Checkpoint certificates for every export to Ethereum and every return are
    therefore quorum-5 certificates signed by validators 0–4
    ([the other lane's 2026-10-01 handoff][nazgul];
@@ -31,8 +33,8 @@
 
 | | What changes | What the other lane signs | What this lane prepares | Effort | Risk |
 | --- | --- | --- | --- | --- | --- |
-| **A. Both committees to six members, quorum stays 5** | FastPay: a new committee record (`committee_epoch` + 1, `valid_from_height`, six validators, quorum 5) under the recovery policy. Bridge: a new Ethereum policy with `authority_epoch 2` and a committee root that includes validator-5's checkpoint key, on the A666 asset. | The FastPay committee record (governance key); the bridge committee epoch 2 activation (a FastLane control certificate from validators 0–4); the A666 policy update, once an operation for it exists. No Ethereum transaction ([see below](#history-and-ethereum-side-2026-10-02)). | The unsigned transactions, a six-validator fork dry run of both rotations, the before and after read-backs, a rollback note (the previous committee stays valid until its `new_orders_through_height`). For the bridge: a governed route-policy update operation, which does not exist at `c93b2137`, and its release. | FastPay half: this lane 1–2 h. Bridge half: new code, tests and a six-validator release (days, estimated). The other lane: two or three signatures, no gas. | Low on PFTL (a committee record is additive and bounded by heights). The FastPay half takes effect only from height 10001. Nothing on the Ethereum side. Not during the conference week unless a quiet window exists. |
-| **B. Bridge committee only** | The bridge half of A. FastPay stays as it is (validators 0–4 must all sign). | The epoch 2 activation and the A666 policy update, as in A. | The bridge half of A, including the new operation. | This lane: new code and a release (days, estimated); one or two signatures. | As A for the bridge; payments keep the single point of failure. |
+| **A. Both committees take validator-5's current key (six members and quorum 5, as now)** | FastPay: a new committee record (`committee_epoch` + 1, `valid_from_height`, the six validators with validator-5's current key, quorum 5) under the recovery policy. Bridge: a new Ethereum policy with `authority_epoch 2` and a committee root that includes validator-5's current checkpoint key, on the A666 asset. | The FastPay committee record (governance key); the bridge committee epoch 2 activation (a FastLane control certificate from validators 0–4); the A666 policy update, once an operation for it exists. No Ethereum transaction ([see below](#history-and-ethereum-side-2026-10-02)). | The unsigned transactions, a six-validator fork dry run of both rotations, the before and after read-backs, a rollback note (the previous committee stays valid until its `new_orders_through_height`). For the bridge: a governed route-policy update operation, which does not exist at `c93b2137`, and its release. | FastPay half: this lane 1–2 h. Bridge half: new code, tests and a six-validator release (days, estimated). The other lane: two or three signatures, no gas. | Low on PFTL (a committee record is additive and bounded by heights). The FastPay half takes effect only from height 10001. Nothing on the Ethereum side. Not during the conference week unless a quiet window exists. |
+| **B. Bridge committee only** | The bridge half of A. FastPay stays as it is (six members with validator-5's stale key, so validators 0–4 must all sign). | The epoch 2 activation and the A666 policy update, as in A. | The bridge half of A, including the new operation. | This lane: new code and a release (days, estimated); one or two signatures. | As A for the bridge; payments keep the single point of failure. |
 | **C. Leave as is** | Nothing. | Nothing. | Nothing; the demo-day preflight command watches validators 0–4. | None. | One validator down stops payments and Ethereum transfers. That path is the demo path. |
 
 **Lean: A, prepared now and executed in the first quiet window after the
@@ -99,9 +101,10 @@ and it dropped out when its key was rotated twice after that.**
    ([`ethereum_checkpoint_signing.rs:223-231`][ecs223]), so it was rotated in
    both steps.
 
-Correction to line 2 above: the FastPay committee lists six validators, not
-0–4. Validator-5's entry holds its genesis key, so only validators 0–4 can
-sign, and quorum 5 needs all of them.
+Line 2 originally said the FastPay committee lists validators 0–4 only. It
+lists six; validator-5's entry holds its genesis key, so only validators 0–4
+can sign, and quorum 5 needs all of them. Lines 2–3 and the options table were
+corrected on 2026-10-05.
 
 **Ethereum side: option A needs no Ethereum transaction.**
 
