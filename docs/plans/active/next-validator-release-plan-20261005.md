@@ -33,7 +33,7 @@ Being built on main (2026-10-05 and 2026-10-06):
 
 Needed for the bridge activation, not started:
 
-- [ ] (5) Offline FastSwap WAL migration. On validator-1, every `fastswap_*` request fails with `fastswap_unavailable`. The cause is the WAL's legacy unkeyed tags, which a normal store open rejects (`crates/storage/src/fastswap_store.rs:1707-1718`). No command calls `FastSwapStore::open_for_legacy_migration`. No unit argument enables the service; it opens on first request. The release needs this command, and the rollout runs it on each validator while its units are stopped. Without it, there are no final-checkpoint votes and no `ActivateCommittee` ([read](../../review/signer-committee-rotation-dry-run-20261005.md#live-fastswap-control-path-2026-10-05-read)).
+- [x] (5) Offline FastSwap WAL migration: command exists, host step on release day (`postfiat-node fastswap-store-migrate`, `crates/storage/src/fastswap_store/legacy_migration.rs`; [runbook](../../runbooks/fastpay-committee-recovery.md#converting-the-fastswap-store-before-the-rotation)). On validator-1, every `fastswap_*` request fails with `fastswap_unavailable`. The cause is the WAL's legacy unkeyed tags, which a normal store open rejects (`crates/storage/src/fastswap_store.rs:1707-1718`). No command calls `FastSwapStore::open_for_legacy_migration`. No unit argument enables the service; it opens on first request. The release needs this command, and the rollout runs it on each validator while its units are stopped. Without it, there are no final-checkpoint votes and no `ActivateCommittee` ([read](../../review/signer-committee-rotation-dry-run-20261005.md#live-fastswap-control-path-2026-10-05-read)).
 
 Waiting on the other lane:
 

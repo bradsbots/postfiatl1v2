@@ -18,6 +18,11 @@ use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 
+mod legacy_migration;
+pub use legacy_migration::{
+    migrate_legacy_fastswap_store, FastSwapStoreMigrationOptions, FastSwapStoreMigrationReport,
+};
+
 const FASTSWAP_WAL_FILE: &str = "fastswap-v1.wal";
 const FASTSWAP_SNAPSHOT_FILE: &str = "fastswap-v1.snapshot.json";
 const FASTSWAP_LOCK_FILE: &str = "fastswap-v1.lock";
@@ -424,6 +429,26 @@ impl Drop for ProcessLock {
     }
 }
 
+/// Create the lock file if needed and take the exclusive non-blocking flock.
+fn lock_store_directory(directory: &Path) -> Result<File, FastSwapStoreError> {
+    let lock_file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(directory.join(FASTSWAP_LOCK_FILE))?;
+    acquire_process_lock(&lock_file).map_err(lock_error)?;
+    Ok(lock_file)
+}
+
+fn lock_error(error: io::Error) -> FastSwapStoreError {
+    if matches!(error.raw_os_error(), Some(libc::EACCES | libc::EAGAIN)) {
+        FastSwapStoreError::Conflict("FastSwap store is already locked")
+    } else {
+        FastSwapStoreError::Io(error)
+    }
+}
+
 fn acquire_process_lock(file: &File) -> io::Result<()> {
     #[cfg(unix)]
     {
@@ -492,21 +517,18 @@ impl FastSwapStore {
         allow_legacy_migration: bool,
     ) -> Result<Self, FastSwapStoreError> {
         fs::create_dir_all(directory)?;
-        let lock_path = directory.join(FASTSWAP_LOCK_FILE);
-        let mut lock_file = OpenOptions::new()
-            .create(true)
-            .read(true)
-            .write(true)
-            .truncate(false)
-            .open(&lock_path)
-            .map_err(FastSwapStoreError::Io)?;
-        acquire_process_lock(&lock_file).map_err(|error| {
-            if matches!(error.raw_os_error(), Some(libc::EACCES | libc::EAGAIN)) {
-                FastSwapStoreError::Conflict("FastSwap store is already locked")
-            } else {
-                FastSwapStoreError::Io(error)
-            }
-        })?;
+        let lock_file = lock_store_directory(directory)?;
+        Self::open_locked(directory, lock_file, key_path, allow_legacy_migration)
+    }
+
+    /// Open with the store lock already held by `lock_file`, so the offline
+    /// migration keeps one lock across its backup and the legacy open.
+    fn open_locked(
+        directory: &Path,
+        mut lock_file: File,
+        key_path: Option<&Path>,
+        allow_legacy_migration: bool,
+    ) -> Result<Self, FastSwapStoreError> {
         lock_file.set_len(0)?;
         writeln!(lock_file, "pid={}", std::process::id())?;
         lock_file.sync_all()?;
@@ -1757,7 +1779,7 @@ fn truncate_wal_to_verified_prefix(
     Ok(())
 }
 
-/// Re-write the WAL in place, replacing every legacy unkeyed tag with the
+/// Re-write the WAL atomically, replacing every legacy unkeyed tag with the
 /// keyed MAC. Only records that already parsed and verified (keyed or
 /// legacy) are re-emitted, so the byte stream is identical apart from the
 /// tag bytes. The caller supplies only the fully authenticated prefix, so an
@@ -1800,10 +1822,7 @@ fn upgrade_wal_tags(
     if output == bytes {
         return Ok(());
     }
-    let mut file = OpenOptions::new().write(true).truncate(true).open(path)?;
-    file.write_all(&output)?;
-    file.sync_all()?;
-    Ok(())
+    legacy_migration::write_atomically(path, &output)
 }
 
 fn checksum(payload: &[u8]) -> [u8; FASTSWAP_WAL_CHECKSUM_BYTES] {
@@ -1827,7 +1846,7 @@ mod tests {
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
 
-    fn test_dir(label: &str) -> PathBuf {
+    pub(super) fn test_dir(label: &str) -> PathBuf {
         std::env::temp_dir().join(format!(
             "postfiat-fastswap-store-{label}-{}-{}",
             std::process::id(),
@@ -1835,7 +1854,7 @@ mod tests {
         ))
     }
 
-    fn state() -> FastLaneStateV1 {
+    pub(super) fn state() -> FastLaneStateV1 {
         let domain = FastSwapCommitteeDomainV1 {
             chain: FastSwapChainDomainV1 {
                 chain_id: "test".to_owned(),

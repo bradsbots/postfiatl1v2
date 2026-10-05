@@ -1102,6 +1102,27 @@ fn run_cli_group_04(command: &str, flags: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
+        "fastswap-store-migrate" => {
+            // Offline only: both validator units must be stopped first (the
+            // store lock check below cannot see a unit that has not opened it).
+            let data_dir = flag_value(flags, "--data-dir").ok_or("missing --data-dir")?;
+            let options = postfiat_storage::fastswap_store::FastSwapStoreMigrationOptions {
+                dry_run: flag_present(flags, "--dry-run"),
+                backup_directory: flag_value(flags, "--backup-dir").map(PathBuf::from),
+            };
+            let report = postfiat_storage::fastswap_store::migrate_legacy_fastswap_store(
+                &Path::new(data_dir).join("fastswap-v1"),
+                &options,
+            )
+            .map_err(|error| format!("fastswap-store-migrate refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|error| {
+                    format!("FastSwap migration report serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
         "vault-bridge-route-profile-governance" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let validators =

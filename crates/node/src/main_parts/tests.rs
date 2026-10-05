@@ -44,6 +44,28 @@ fn fastpay_recovery_governance_commands_reach_their_cli_handler() {
 }
 
 #[test]
+fn fastswap_store_migrate_reaches_its_offline_handler() {
+    let args = |extra: &[&str]| {
+        std::iter::once("fastswap-store-migrate")
+            .chain(extra.iter().copied())
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(run_cli(args(&[])).unwrap_err(), "missing --data-dir");
+    let data_dir = std::env::temp_dir().join(format!(
+        "postfiat-fastswap-store-migrate-cli-{}",
+        std::process::id()
+    ));
+    let data = data_dir.to_str().expect("utf-8 path");
+    let missing = run_cli(args(&["--data-dir", data, "--dry-run"])).unwrap_err();
+    assert!(missing.starts_with("fastswap-store-migrate refused:"), "{missing}");
+    std::fs::create_dir_all(data_dir.join("fastswap-v1")).expect("store dir");
+    run_cli(args(&["--data-dir", data, "--dry-run"])).expect("dry run of an empty store");
+    run_cli(args(&["--data-dir", data])).expect("nothing to convert");
+    std::fs::remove_dir_all(&data_dir).expect("cleanup");
+}
+
+#[test]
 fn storage_activation_and_cancellation_commands_reach_their_cli_handlers() {
     let activation_template = run_cli(vec!["storage-activation-template".to_string()])
         .expect_err("missing activation height must fail in the command handler");

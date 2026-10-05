@@ -50,7 +50,7 @@ pub const JSONL_CHAIN_GENESIS: &str = "genesis";
 /// JSONL envelope schema tag.
 pub const JSONL_ENVELOPE_KIND: &str = "v1";
 
-const INTEGRITY_KEY_FILE: &str = ".integrity.key";
+pub(crate) const INTEGRITY_KEY_FILE: &str = ".integrity.key";
 // HMAC block size for SHA3-384. Python's `hmac` uses the digest constructor's
 // `block_size` attribute (104 bytes for sha3_384: the Keccak rate minus the
 // capacity-encoding suffix byte convention), and we match it so tags are
@@ -104,6 +104,12 @@ impl IntegrityKey {
             Some(key) => Ok(key),
             None => create_key_file(path),
         }
+    }
+
+    /// Non-secret identifier for operator reports: a keyed tag over a fixed
+    /// domain, truncated to 16 bytes. The key bytes are never revealed.
+    pub fn fingerprint(&self) -> String {
+        to_hex(&self.mac(b"postfiat.integrity.key.fingerprint.v1", b"")[..16])
     }
 
     /// Keyed HMAC-SHA3-384 over `domain || 0x00 || payload`.

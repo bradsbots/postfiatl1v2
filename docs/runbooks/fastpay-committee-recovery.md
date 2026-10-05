@@ -112,6 +112,46 @@ Completion requires verified quorum acknowledgements, a spent input and the exac
 recipient output. Check Activity in the wallet UI. Verify all six nodes after a
 subsequent certified ordered block; service health alone is insufficient.
 
+## Converting the FastSwap store before the rotation
+
+Since keyed integrity (`4dbd80c2`), a normal open rejects the legacy unkeyed
+record checksums in the July `fastswap-v1` stores, so every `fastswap_*` request
+answers `fastswap_unavailable`. The rotation needs `fastswap_checkpoint_status`
+on validators 0–4, so each store is converted offline during the rollout:
+
+```bash
+postfiat-node fastswap-store-migrate --data-dir PATH [--dry-run] [--backup-dir PATH]
+```
+
+The command refuses while the store lock is held, and refuses a torn or tampered
+record before writing anything. It copies `fastswap-v1/` (WAL, `committee.json`,
+`base-state.json`, `vote-artifacts/`, `.integrity.key`; not the lock) to the
+backup directory and compares digests. It then rewrites the WAL tags with the
+directory's keyed MAC (temporary file, fsync, rename) and re-opens the store
+normally to verify every record. A failed verification restores the original.
+The JSON report gives record counts, bytes, the key fingerprint (never the key),
+the backup path and the verification result. `--dry-run` writes nothing, and a
+second run reports `nothing-to-convert`. A running unit that has not yet opened
+the store holds no lock, so stopping both units is the operator's check.
+
+Run it one host at a time, validator-5 first, then validators 0–4. Use the
+binary from the release being rolled out.
+
+1. Stop the validator's two units and confirm both are inactive with
+   `systemctl is-active`.
+2. Dry run: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --dry-run`.
+   Expect `would-convert`, with `legacy_wal_records` equal to `wal_records`.
+3. Convert: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --backup-dir /var/lib/postfiat/fastswap-v1-backup-validator-N`.
+   Expect `converted` and `normal open verified N record(s) with the keyed MAC`.
+   Record the key fingerprint and backup path.
+4. Start both units.
+5. Call `fastswap_checkpoint_status` on that host's RPC; it must answer instead of
+   `fastswap_unavailable`. Continue with the next host only then.
+
+Rollback: stop both units, move `fastswap-v1/` aside, copy the backup back to
+`<data-dir>/fastswap-v1/` with `cp -a`, and start the units. The restored store
+is the legacy store again, so FastSwap stays unavailable on that host.
+
 ## Release and backup basis
 
 Use [the safe rollout runbook](safe-validator-rollout.md), preserving the signed
