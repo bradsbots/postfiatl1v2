@@ -459,3 +459,100 @@ Each item shows the date first asked.
 [py1609]: https://github.com/postfiatorg/postfiatl1v2/blob/672b707c2816ffa41d3340199a550b505f68b6dd/python/postfiat_rpc/client.py#L1609
 [py1637]: https://github.com/postfiatorg/postfiatl1v2/blob/672b707c2816ffa41d3340199a550b505f68b6dd/python/postfiat_rpc/client.py#L1637-L1639
 [bf577]: https://github.com/postfiatorg/postfiatl1v2/blob/672b707c2816ffa41d3340199a550b505f68b6dd/crates/node/src/block_finality.rs#L577
+
+## End of session (11:49 UTC)
+
+Three of the 2026-10-06 items in "My next steps" above are done: the StakeHub
+side branch, the FastSwap control path read and the suite result. For
+2026-10-06, the release candidate list, the remaining dry-run follow-ups and my
+tooling are left.
+
+- **StakeHub wallet branch, merging on 2026-10-07.** Branch
+  `wallet/readiness-and-route-check-20261005`, commit `9abec352`,
+  [PR #21][sh21]. The PR is open against `master` and not merged. `master` is
+  unchanged at `52eb686`, so the demo installs what it did before.
+  - `pft bridge route-check [--json]` does the same proxy route fetch and relay
+    readiness call as bridge-in. It then runs the same `parse_route` and
+    `check_relay_readiness`. It prints a table and a verdict, and it exits 1 on
+    a refusal. It sends, signs and reserves nothing, and it scrubs the
+    configured proxy and relay tokens from its output.
+  - The [live-funds readiness review][shready] now marks three sets of
+    findings repaired: PT-04–07 (`eb7388d`), PT-08 (`52eb686`) and WB-11
+    (`34aa078`). The open P3 list goes from 24 to 19. Item 3 names the command.
+    Live mode still needs the $5 live qualification and Q1.
+  - The demo runbook's live-mode section gains one sentence that names the
+    command.
+  - Tests: `tests/test_pft_mainnet_bridge.py` 49 passed (4 new); wallet suite
+    215 passed.
+  - The command has not been run against the real proxy. It covers the deposit
+    relay readiness only.
+  - Task Node `task_a8d6ae883ef748ec100718c4faf0d59d`: Rewarded 2.4 PFT.
+- **Live FastSwap control path** (`770d5ca6`). The details are in the
+  [dry-run note's section][fsread] and in [release plan][plan] item 5. The same
+  commit corrects the [proposal][v5]'s opening: both committees have six members,
+  and validator-5's entry holds its stale key.
+  - On validator-1 the FastSwap service does not open. Its local store
+    `fastswap-v1.wal` has 26 records and was last written on 2026-07-23. The
+    store uses the unkeyed checksum that the deployed release has refused since
+    keyed integrity landed (`4dbd80c2`). Only `open_for_legacy_migration`
+    ([`fastswap_store.rs:475`][fss475]) accepts that checksum, and no command
+    calls it.
+  - A `fastswap_*` RPC call tries to open the service. If the open fails, the
+    call returns `fastswap_unavailable` ([`rpc_cli.rs:686-706`][rpc686],
+    [`:1314`][rpc1314]).
+  - Control admission for `StopPrepare` and `ActivateCommittee` runs on ledger
+    state, without the service ([`mempool_proposals.rs:736-835`][mp736],
+    [`fastlane_primary.rs:205-215`][flp205]). Only the final-checkpoint votes
+    need the service.
+  - Committee epoch 1 lists validators 0–5 with quorum 5 and root
+    `a2eebcba…`, which is the A666 policy root. The WAL holds no anchored
+    checkpoint.
+  - Release day therefore needs an offline conversion command for that store.
+    It runs on each validator while that validator's units are stopped.
+    Release day also needs a new gate before step 1:
+    `fastswap_capabilities` and `fastswap_checkpoint_status` must answer on
+    validators 0–4.
+  - Disclosure: the two `fastswap_*` RPC reads at 10:53:21Z, before the
+    handoff above, made the service write `fastswap-v1.lock` and
+    `.integrity.key` into validator-1's `fastswap-v1/` directory. The host read
+    at 11:30–11:33Z wrote nothing. It used only `systemctl`, `ls`, `stat`,
+    `cat`, `jq` and `grep`.
+- **Full workspace suite on the candidate.** It ran in worktree
+  `postfiatl1v2-dravlic` at `672b707c`, from 10:47Z to 11:38Z, and exited 101.
+  - It ran 84 test groups with one failure:
+    `transport_batch_payload_tests::long_running_validator_service_requires_explicit_json_storage_acknowledgement`.
+  - The test panicked at [`crates/storage/src/lib.rs:155`][lib155] because the
+    integrity key `.postfiat/node0/.integrity.key` had mode 664.
+  - The cause is a stale test artifact in that worktree,
+    `crates/node/.postfiat/node0/.integrity.key`, dated 2026-08-31. Git ignores
+    the file and does not track it. After I removed it, the test passed and
+    recreated the key with mode 600 (rerun at 11:41Z: 1 passed).
+  - So the candidate's suite is green apart from that environment artifact. As
+    usual, qualification repeats the full run on the cut release branch. Log:
+    `~/.cache/suite-20261005/cargo-test.log`.
+- **CI on `main`** (`gh run list`, 11:48Z).
+  - `ab4ec9ee`, `a683475a`, `78c7b2e9` and `df347288`: `docs-build`,
+    `rust-ci` and `product-security-ci` all succeeded.
+  - `9e4d80be` and `e3bb0dbf`: `product-security-ci` failed, and the `rust-ci`
+    `check` job failed, as described above. Their `rust-ci` `test` jobs passed.
+  - `8d1c9c20`: `rust-ci` failed in its `test` job at 11:06Z. The failing test
+    was `cobalt_shadow::tests::catch_up_rejects_malformed_batches_without_durable_mutation`.
+    The same test passed in `rust-ci` on `a683475a`, `78c7b2e9` and
+    `df347288`. It also passed in the local suite on `672b707c`. I have not
+    investigated it yet. The plan requires CI to be green at the cut commit.
+  - `672b707c` and `67d823e2`: `rust-ci` is still running.
+  - `39180c08` and `770d5ca6`: `rust-ci` and `product-security-ci` are still
+    running.
+  - `docs-build` succeeded on every commit.
+- **Nothing else changed after the handoff above.** Nothing changed on any
+  host or on the chain. The only host access was the FastSwap read above.
+
+[sh21]: https://github.com/postfiatorg/StakeHub/pull/21
+[shready]: https://github.com/postfiatorg/StakeHub/blob/9abec3524244cd4921934c62990c452f39f10c09/docs/review/live-funds-readiness-20260929.md
+[fsread]: https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/review/signer-committee-rotation-dry-run-20261005.md#live-fastswap-control-path-2026-10-05-read
+[fss475]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/storage/src/fastswap_store.rs#L475
+[rpc686]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/rpc_cli.rs#L686-L706
+[rpc1314]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/rpc_cli.rs#L1314
+[mp736]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/node/src/mempool_proposals.rs#L736-L835
+[flp205]: https://github.com/postfiatorg/postfiatl1v2/blob/c93b213755f5889565fd1f77b9e45c149a07193a/crates/execution/src/fastlane_primary.rs#L205-L215
+[lib155]: https://github.com/postfiatorg/postfiatl1v2/blob/672b707c2816ffa41d3340199a550b505f68b6dd/crates/storage/src/lib.rs#L155
