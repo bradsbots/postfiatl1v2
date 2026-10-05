@@ -485,6 +485,31 @@ pub fn create_fastpay_recovery_governance_bootstrap(
             "FastPay recovery payload domain does not match genesis",
         ));
     }
+    let batch = unsigned_fastpay_recovery_governance_batch(
+        &genesis,
+        payload,
+        options.validators,
+        options.support,
+        options.veto_until_height,
+    )?;
+    write_amendment_file(
+        &options.amendment_file,
+        &batch.fastpay_recovery_bootstraps[0].amendment,
+    )?;
+    write_governance_action_batch_file(&options.batch_file, &batch)?;
+    Ok(batch)
+}
+
+/// Builds the unsigned governance batch that carries a FastPay recovery
+/// payload. Validator authorizations are added later by
+/// `governance-authorization-sign` and the `-assemble` command.
+pub(crate) fn unsigned_fastpay_recovery_governance_batch(
+    genesis: &Genesis,
+    payload: postfiat_types::FastPayRecoveryGovernancePayloadV1,
+    validators: Vec<String>,
+    support: Vec<String>,
+    veto_until_height: u64,
+) -> io::Result<GovernanceActionBatch> {
     let kind = format!(
         "{}{}",
         postfiat_types::FASTPAY_RECOVERY_GOVERNANCE_KIND_PREFIX_V1,
@@ -492,32 +517,29 @@ pub fn create_fastpay_recovery_governance_bootstrap(
             .payload_id()
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?
     );
-    let domain = cobalt_domain(&genesis);
-    let config = EssentialSubsetConfig::all_of(options.validators);
+    let domain = cobalt_domain(genesis);
+    let config = EssentialSubsetConfig::all_of(validators);
     let amendment = ratify_governance_amendment_with_lifecycle(
         &domain,
         &config,
         &kind,
         postfiat_types::FASTPAY_RECOVERY_GOVERNANCE_VERSION_V1,
-        options.support,
+        support,
         GovernanceAmendmentLifecycle {
             // The payload hash binds the future feature activation. The
             // governance action itself must be committable before that height.
             activation_height: 0,
-            veto_until_height: options.veto_until_height,
+            veto_until_height,
             paused: false,
         },
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    write_amendment_file(&options.amendment_file, &amendment)?;
     let bootstrap = postfiat_types::FastPayRecoveryGovernanceBootstrapV1 { amendment, payload };
     bootstrap
         .validate_payload_binding()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let batch =
-        build_governance_action_batch_with_fastpay_recovery_bootstrap(&genesis, bootstrap)?;
-    verify_governance_action_batch_id(&genesis, &batch)?;
-    write_governance_action_batch_file(&options.batch_file, &batch)?;
+    let batch = build_governance_action_batch_with_fastpay_recovery_bootstrap(genesis, bootstrap)?;
+    verify_governance_action_batch_id(genesis, &batch)?;
     Ok(batch)
 }
 

@@ -1078,6 +1078,30 @@ fn run_cli_group_04(command: &str, flags: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
+        "fastpay-committee-prepare" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let optional_height = |flag: &str| {
+                flag_value(flags, flag)
+                    .map(|value| value.parse::<u64>())
+                    .transpose()
+                    .map_err(|_| format!("{flag} must be a u64"))
+            };
+            let prepared =
+                postfiat_node::fastpay_committee_prepare(postfiat_node::FastPayCommitteePrepareOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    registry_file: flag_value(flags, "--registry-file").map(PathBuf::from),
+                    valid_from_height: optional_height("--valid-from")?,
+                    new_orders_through_height: optional_height("--new-orders-through")?,
+                })
+                .map_err(|error| format!("fastpay-committee-prepare refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&prepared).map_err(|error| {
+                    format!("FastPay committee preparation serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
         "vault-bridge-route-profile-governance" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let validators =

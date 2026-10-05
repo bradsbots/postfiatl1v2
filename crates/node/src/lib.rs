@@ -549,6 +549,7 @@ mod consensus_v2_finality;
 mod consensus_v2_store;
 mod ethereum_checkpoint_signing;
 mod ethereum_receipt_proof_builder;
+mod fastpay_committee_prepare;
 mod fastpay_recovery_node;
 #[cfg(test)]
 use consensus_artifacts::write_signed_transfer_file;
@@ -607,6 +608,7 @@ pub use consensus_v2_finality::*;
 pub use consensus_v2_store::*;
 pub use ethereum_checkpoint_signing::*;
 pub use ethereum_receipt_proof_builder::*;
+pub use fastpay_committee_prepare::*;
 pub use fastpay_recovery_node::*;
 
 #[cfg(test)]

@@ -15,6 +15,14 @@ fn fastpay_recovery_governance_commands_reach_their_cli_handler() {
     ])
     .expect_err("missing assembly flags must fail");
     assert_eq!(assemble, "missing --payload-file");
+
+    let prepare = run_cli(vec![
+        "fastpay-committee-prepare".to_string(),
+        "--valid-from".to_string(),
+        "soon".to_string(),
+    ])
+    .expect_err("a non-numeric height must fail");
+    assert_eq!(prepare, "--valid-from must be a u64");
 }
 
 #[test]

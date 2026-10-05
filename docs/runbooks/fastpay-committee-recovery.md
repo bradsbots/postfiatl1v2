@@ -38,7 +38,44 @@ loads the matching Python code.
 Epoch 1 still requires five signatures, and only validators 0–4 are eligible.
 Any additional signer outage stops new FastPay certificates. Validator-5 receives
 accepted FastPay effects through certified ordered blocks; it does not supply an
-epoch-1 acknowledgement. A governed committee replacement remains separate work.
+epoch-1 acknowledgement. The replacement is a governed committee rotation,
+described below.
+
+## Preparing the next committee
+
+A committee record (`FastPayRecoveryCommitteeV1`) is installed by a governance
+batch that carries one `FastPayRecoveryGovernanceBootstrapV1`: the unchanged
+recovery policy, the new record, and a Cobalt amendment of kind
+`fastpay_recovery_bootstrap_v1:<payload hash>`. Every active validator signs the
+amendment (`governance-authorization-sign`); each signature is checked against
+the signer's current registry key. The batch is ordered in a block, and every
+node applies it and commits the committee list to the state root.
+
+A rotation is accepted only when the record is the next epoch, keeps the
+chain, genesis and protocol of the previous record, has a new `registry_root`,
+and starts at exactly the previous `new_orders_through_height` + 1, in a block
+below that height. A node signs FastPay only when its committee entry equals its
+current `validator_registry.json` key.
+
+The read-only command below reads a data directory, builds epoch N+1 from the
+active validators' current registry keys (quorum 5 of 6), dry-runs the rotation
+against the next block and prints the record, its payload and the unsigned batch.
+It never signs and reads no key file. It refuses a key that is not the
+validator's current registered key, any committee other than 5 of 6, and a
+`--valid-from` other than the required start height. `--registry-file` takes member
+keys from a registry snapshot, and `--new-orders-through` overrides the default
+end height, which keeps the previous epoch's length.
+
+```bash
+postfiat-node fastpay-committee-prepare --data-dir PATH [--registry-file PATH] [--valid-from H] [--new-orders-through H]
+```
+
+Save `payload` as the payload file and the amendment from `unsigned_transaction`.
+Each validator signs the amendment with `governance-authorization-sign`.
+Combine the signatures with `governance-amendment-assemble`, then build the batch
+with `fastpay-recovery-governance-bootstrap-assemble`. On
+`postfiat-wan-devnet-2`, epoch 1 admits orders through height 10000, so epoch 2
+must start at height 10001 and be installed before then.
 
 ## Client recovery
 

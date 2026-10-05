@@ -143,6 +143,14 @@ sign, and quorum 5 needs all of them.
   ([`owned_transfer_recovery.rs:875-889`][otr875]). The chain was at about
   1078 on 2026-10-01, so the FastPay half has no effect for roughly 8,900
   blocks unless that rule changes. The 2026-09-25 handoff noted the same limit.
+- **Update 2026-10-05:** the read-only `postfiat-node fastpay-committee-prepare`
+  exists on `main` from the commit "Add a read-only command that prepares the
+  six-member FastPay committee record"
+  ([usage](../runbooks/fastpay-committee-recovery.md#preparing-the-next-committee)).
+  The exact rule: epoch 2's `valid_from_height` must equal epoch 1's
+  `new_orders_through_height` + 1 = 10001, and the installing block must be below
+  10001. The unchanged policy (activation 11) satisfies `:320`. All six active
+  validators sign the amendment with their current registry keys.
 
 ## References
 
