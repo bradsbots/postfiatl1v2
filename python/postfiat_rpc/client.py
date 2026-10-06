@@ -1594,6 +1594,10 @@ class PostFiatRpcClient:
         to_height: int | None,
         scan_limit: int,
     ) -> AccountTxScan:
+        # Same answer as the server archive scan: the oldest `scan_limit` blocks
+        # of the range with a start height, the newest without one. `truncated`
+        # means a matching row in that window was omitted, or the range continues
+        # past the window (possibly incomplete: those blocks are not read).
         blocks = self.blocks(from_height=from_height, limit=scan_limit)
         selected_blocks = []
         for block in blocks:
@@ -1604,9 +1608,14 @@ class PostFiatRpcClient:
                 continue
             selected_blocks.append(block)
 
-        rows: list[AccountTxRow] = []
+        truncated = len(blocks) >= scan_limit and self._account_tx_range_continues(
+            blocks, from_height, to_height
+        )
+        if from_height is None:
+            selected_blocks.reverse()
+        block_rows: list[list[AccountTxRow]] = []
+        row_count = 0
         archive_lookup_count = 0
-        truncated = len(blocks) >= scan_limit
         for block in selected_blocks:
             header = block.get("header", {})
             if not isinstance(header, dict):
@@ -1619,12 +1628,13 @@ class PostFiatRpcClient:
             if batch_kind != "transparent":
                 continue
             archive_lookup_count += 1
+            rows_in_block: list[AccountTxRow] = []
             for entry in self.batch_archive(
                 batch_kind=batch_kind,
                 batch_id=batch_id,
                 limit=1,
             ):
-                rows.extend(
+                rows_in_block.extend(
                     self._account_tx_rows_from_archive_entry(
                         address=address,
                         block=block,
@@ -1634,12 +1644,16 @@ class PostFiatRpcClient:
                         entry=entry,
                     )
                 )
-                if len(rows) >= scan_limit:
-                    truncated = True
-                    rows = rows[:scan_limit]
-                    break
-            if len(rows) >= scan_limit:
+            block_rows.append(rows_in_block)
+            row_count += len(rows_in_block)
+            if row_count > scan_limit:
+                truncated = True
                 break
+        if from_height is None:
+            block_rows.reverse()
+        rows = [row for rows_in_block in block_rows for row in rows_in_block]
+        if len(rows) > scan_limit:
+            rows = rows[:scan_limit] if from_height is not None else rows[-scan_limit:]
         return AccountTxScan(
             address=address,
             from_height=from_height,
@@ -1650,6 +1664,28 @@ class PostFiatRpcClient:
             archive_lookup_count=archive_lookup_count,
             truncated=truncated,
             rows=tuple(rows),
+        )
+
+    def _account_tx_range_continues(
+        self,
+        blocks: list[dict[str, Any]],
+        from_height: int | None,
+        to_height: int | None,
+    ) -> bool:
+        """Whether the height range holds a block outside a full scan window."""
+        heights = [h for h in map(self._block_height, blocks) if h is not None]
+        if not heights:
+            return False
+        if from_height is None:
+            first = self.blocks(from_height=0, limit=1)
+            first_height = self._block_height(first[0]) if first else None
+            return first_height is not None and first_height < min(heights)
+        if to_height is not None and max(heights) >= to_height:
+            return False
+        following = self.blocks(from_height=max(heights) + 1, limit=1)
+        following_height = self._block_height(following[0]) if following else None
+        return following_height is not None and (
+            to_height is None or following_height <= to_height
         )
 
     def _account_tx_scan_from_server_result(

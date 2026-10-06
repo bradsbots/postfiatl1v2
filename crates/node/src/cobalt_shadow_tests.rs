@@ -1373,9 +1373,10 @@ fn signed_protocol_transcript_rejects_tamper_and_wrong_root() {
     )
     .expect("build signed transcript");
     let mut tampered = transcript.clone();
-    tampered.rbc_echoes[0]
-        .signature_hex
-        .replace_range(0..2, "00");
+    // ML-DSA signatures are randomized, so a fixed "00" overwrite is a no-op in 1/256 runs.
+    let echo_signature = &mut tampered.rbc_echoes[0].signature_hex;
+    let first_byte = u8::from_str_radix(&echo_signature[0..2], 16).expect("signature hex");
+    echo_signature.replace_range(0..2, &format!("{:02x}", first_byte ^ 0xff));
     assert!(fleet[0].commit_protocol_transcript(&tampered).is_err());
     let valid_old = transcript.clone();
     let mut wrong_root = transcript;

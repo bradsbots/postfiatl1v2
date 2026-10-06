@@ -26,9 +26,9 @@ fn assert_truncation_matches_omitted_rows(data_dir: &Path, sender: &str, recipie
     assert!(!full.truncated, "exact-limit window reported truncated");
 }
 
-#[test]
-fn account_tx_truncated_only_when_rows_are_omitted() {
-    let data_dir = unique_test_dir("postfiat-account-tx-truncation");
+/// One transparent block at height 1 with two transfers from the same sender.
+fn two_transfer_chain(label: &str) -> (PathBuf, String, String) {
+    let data_dir = unique_test_dir(label);
     init(InitOptions {
         data_dir: data_dir.clone(),
         chain_id: "postfiat-local".to_string(),
@@ -71,6 +71,12 @@ fn account_tx_truncated_only_when_rows_are_omitted() {
     assert!(receipts.iter().all(|receipt| receipt.accepted), "{receipts:?}");
     let sender = pending[0].transfer.unsigned.from.clone();
     let recipient = pending[1].transfer.unsigned.to.clone();
+    (data_dir, sender, recipient)
+}
+
+#[test]
+fn account_tx_truncated_only_when_rows_are_omitted() {
+    let (data_dir, sender, recipient) = two_transfer_chain("postfiat-account-tx-truncation");
 
     assert!(!account_tx_window(&data_dir, &recipient, 1).index_used);
     assert_truncation_matches_omitted_rows(&data_dir, &sender, &recipient);
@@ -81,6 +87,39 @@ fn account_tx_truncated_only_when_rows_are_omitted() {
     .expect("build account tx index");
     assert!(account_tx_window(&data_dir, &recipient, 1).index_used);
     assert_truncation_matches_omitted_rows(&data_dir, &sender, &recipient);
+
+    fs::remove_dir_all(data_dir).expect("remove test data dir");
+}
+
+fn account_tx_rows_without_start(data_dir: &Path, address: &str, limit: usize) -> AccountTxReport {
+    account_tx(AccountTxQueryOptions {
+        data_dir: data_dir.to_path_buf(),
+        address: address.to_string(),
+        from_height: None,
+        to_height: Some(1),
+        limit: Some(limit),
+    })
+    .expect("account tx without start height")
+}
+
+#[test]
+fn account_tx_scan_and_index_return_the_newest_rows_without_a_start_height() {
+    let (data_dir, sender, _) = two_transfer_chain("postfiat-account-tx-newest");
+
+    let scan = account_tx_rows_without_start(&data_dir, &sender, 1);
+    assert!(!scan.index_used);
+    rebuild_account_tx_index(AccountTxIndexOptions {
+        data_dir: data_dir.clone(),
+    })
+    .expect("build account tx index");
+    let indexed = account_tx_rows_without_start(&data_dir, &sender, 1);
+    assert!(indexed.index_used);
+
+    // Without a start height both paths return the newest matching row.
+    assert_eq!(indexed.rows.len(), 1);
+    assert_eq!(indexed.rows[0].transaction_index, 1);
+    assert_eq!(scan.rows, indexed.rows, "scan and index disagree on order");
+    assert!(scan.truncated && indexed.truncated);
 
     fs::remove_dir_all(data_dir).expect("remove test data dir");
 }

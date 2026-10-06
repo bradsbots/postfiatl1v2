@@ -27,9 +27,10 @@ Being built on main (2026-10-05 and 2026-10-06):
 - [x] (1) Issuer-signed operation that updates an asset's Ethereum bridge policy (new `authority_epoch` and `committee_root`). At `c93b2137` the policy is written only at route creation (`crates/execution/src/nav_vault_asset_execution.rs:4292`) and no operation changes it. Done: `pftl_uniswap_route_bridge_policy_update` (`crates/types/src/transactions_mempool_receipts.rs:3105`, `crates/execution/src/nav_vault_asset_execution.rs:5643`).
 - [ ] (2) FastPay committee record (prepared by `fastpay-committee-prepare`, `a683475a`; install and payment dry-run 2026-10-05): six validators, quorum 5, under the recovery policy (`crates/types/src/fastpay_recovery_types.rs:130-140`, activation rule `:320`). This is a signed record, not new code; it is prepared with the release and submitted after it.
 - [x] (3) RPC accept budget restart gap shortened. At `c93b2137` the release generator passes `--max-requests 10000` and systemd restarts the service after 5 s. Done (short-gap variant; socket handover does not fit the single-process unit model): `--max-requests 100000` and `RestartSec=1` (`crates/node/src/batch_snapshot.rs:2403`); the report is written before the listener closes (`rpc_serve_with_report`, `crates/node/src/rpc_serve_runtime.rs:14-30`). About 1 s of closed port remains per budget.
-- [ ] (3b) PR #55 follow-ups found in review on 2026-10-05:
-    - [ ] Python fallback scan marks a result truncated when the matching rows exactly fill the limit (`python/postfiat_rpc/client.py:1609`, `:1636-1638`).
-    - [ ] The archive scan reports truncated whenever the height range has more blocks than the limit, even when the skipped blocks hold no matching rows. Without a start height it returns the oldest rows of the window; the disk index returns the newest (`crates/node/src/block_finality.rs:576`).
+- [x] (3b) PR #55 follow-ups found in review on 2026-10-05:
+    - [x] Python fallback scan marks a result truncated when the matching rows exactly fill the limit (`python/postfiat_rpc/client.py:1609`, `:1636-1638`). Done: truncated only when a further matching row or an unread block of the range exists; newest rows without a start height (`_account_tx_client_side_scan`, `python/tests/test_account_tx_fallback.py`).
+    - [x] Without a start height the archive scan returned the oldest rows of the window; the disk index returns the newest. Done: newest rows (`account_tx_scan`, `crates/node/src/block_finality.rs`; test `account_tx_scan_and_index_return_the_newest_rows_without_a_start_height`).
+    - [x] Not changed, documented: the archive scan reads at most `limit` blocks, so with more blocks in the range `truncated` means "possibly incomplete". An exact flag needs an unbounded scan of a public read that live validators serve whenever the index is stale ([account history](../../rpc/account-history.md#result-window-and-truncated)).
 
 Needed for the bridge activation, not started:
 
@@ -49,7 +50,7 @@ Must land before the candidate is cut:
 
 Included if ready and reviewed by the cut, otherwise a later release:
 
-- [ ] (3) and (3b). Neither blocks (1) or (2).
+- [ ] (3) and (3b) (both on main). Neither blocks (1) or (2).
 - [ ] (4), only after it is on main and reviewed.
 
 Does not depend on the binary:

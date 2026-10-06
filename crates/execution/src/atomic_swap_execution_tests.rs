@@ -737,11 +737,14 @@ fn atomic_swap_rejects_each_owner_auth_sequence_fee_and_line_failure_atomically(
     let mut cases: Vec<(&str, SignedAtomicSwapTransaction, LedgerState)> = Vec::new();
     for authorization in 0..2 {
         let mut tx = fixture.transaction.clone();
-        if authorization == 0 {
-            tx.authorization_0.signature_hex.replace_range(0..2, "00");
+        let signature = if authorization == 0 {
+            &mut tx.authorization_0.signature_hex
         } else {
-            tx.authorization_1.signature_hex.replace_range(0..2, "00");
-        }
+            &mut tx.authorization_1.signature_hex
+        };
+        // ML-DSA signatures are randomized, so a fixed "00" overwrite is a no-op in 1/256 runs.
+        let first_byte = u8::from_str_radix(&signature[0..2], 16).expect("signature hex");
+        signature.replace_range(0..2, &format!("{:02x}", first_byte ^ 0xff));
         cases.push(("bad_signature", tx, fixture.ledger.clone()));
     }
     for authorization in 0..2 {

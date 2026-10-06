@@ -574,32 +574,52 @@ fn account_tx_scan(
             Some(index)
         })
         .collect::<Vec<_>>();
+    // The scan reads at most `scan_limit` blocks, so blocks of the range outside
+    // that window are not read: `truncated` then means "possibly incomplete".
     let mut truncated = block_indexes.len() > scan_limit;
+    let newest_first = options.from_height.is_none();
     if block_indexes.len() > scan_limit {
-        if options.from_height.is_some() {
-            block_indexes.truncate(scan_limit);
+        if newest_first {
+            block_indexes.drain(..block_indexes.len() - scan_limit);
         } else {
-            block_indexes = block_indexes[block_indexes.len() - scan_limit..].to_vec();
+            block_indexes.truncate(scan_limit);
         }
     }
 
-    let mut rows = Vec::new();
+    // Without a start height keep the newest matching rows, as the index does.
+    let mut block_rows = Vec::new();
+    let mut row_count = 0_usize;
     let mut archive_lookup_count = 0_u64;
-    'blocks: for block_index in &block_indexes {
-        let block = &block_log.blocks[*block_index];
+    let mut scan_order = block_indexes.clone();
+    if newest_first {
+        scan_order.reverse();
+    }
+    for block_index in scan_order {
+        let block = &block_log.blocks[block_index];
         if block.header.batch_kind != "transparent" {
             continue;
         }
         archive_lookup_count = archive_lookup_count.saturating_add(1);
-        for row in account_tx_rows_for_transparent_block(block, &archive, &receipt_by_tx)? {
-            if row.from_address != options.address && row.to_address != options.address {
-                continue;
-            }
-            if rows.len() == scan_limit {
-                truncated = true;
-                break 'blocks;
-            }
-            rows.push(row);
+        let matching = account_tx_rows_for_transparent_block(block, &archive, &receipt_by_tx)?
+            .into_iter()
+            .filter(|row| row.from_address == options.address || row.to_address == options.address)
+            .collect::<Vec<_>>();
+        row_count += matching.len();
+        block_rows.push(matching);
+        if row_count > scan_limit {
+            truncated = true;
+            break;
+        }
+    }
+    if newest_first {
+        block_rows.reverse();
+    }
+    let mut rows = block_rows.into_iter().flatten().collect::<Vec<_>>();
+    if rows.len() > scan_limit {
+        if newest_first {
+            rows.drain(..rows.len() - scan_limit);
+        } else {
+            rows.truncate(scan_limit);
         }
     }
 
