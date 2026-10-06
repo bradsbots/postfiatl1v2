@@ -1,0 +1,29 @@
+2026-10-06T11:36:49.568958+00:00 START governance-gate
+2026-10-06T11:37:28.590778+00:00 PASS governance-gate (39.0s)
+2026-10-06T11:37:28.678461+00:00 START fresh-v2-validator-1
+2026-10-06T11:37:28.680617+00:00 START fresh-v2-validator-3
+2026-10-06T11:37:28.680894+00:00 START fresh-v2-validator-0
+2026-10-06T11:37:28.685779+00:00 START fresh-v2-validator-2
+2026-10-06T11:37:28.686846+00:00 START fresh-v2-validator-4
+2026-10-06T11:37:28.694336+00:00 START fresh-v2-validator-5
+2026-10-06T11:40:44.787111+00:00 PASS fresh-v2-validator-1 (196.1s)
+2026-10-06T11:40:44.788455+00:00 PASS fresh-v2-validator-2 (196.1s)
+2026-10-06T11:40:44.790951+00:00 PASS fresh-v2-validator-3 (196.1s)
+2026-10-06T11:40:44.791660+00:00 PASS fresh-v2-validator-0 (196.1s)
+2026-10-06T11:40:44.792163+00:00 PASS fresh-v2-validator-4 (196.1s)
+2026-10-06T11:40:44.792820+00:00 PASS fresh-v2-validator-5 (196.1s)
+2026-10-06T11:40:45.436527+00:00 START rollback-checkpoint-v2-validator-1
+2026-10-06T11:40:45.436686+00:00 START rollback-checkpoint-v2-validator-2
+2026-10-06T11:40:45.437131+00:00 START rollback-checkpoint-v2-validator-0
+2026-10-06T11:40:45.437201+00:00 START rollback-checkpoint-v2-validator-3
+2026-10-06T11:40:45.440335+00:00 START rollback-checkpoint-v2-validator-4
+2026-10-06T11:40:45.440135+00:00 START rollback-checkpoint-v2-validator-5
+2026-10-06T11:40:49.446492+00:00 PASS rollback-checkpoint-v2-validator-1 (4.0s)
+2026-10-06T11:40:49.454865+00:00 PASS rollback-checkpoint-v2-validator-2 (4.0s)
+2026-10-06T11:40:49.461442+00:00 PASS rollback-checkpoint-v2-validator-3 (4.0s)
+2026-10-06T11:40:49.461727+00:00 PASS rollback-checkpoint-v2-validator-0 (4.0s)
+2026-10-06T11:40:49.463513+00:00 PASS rollback-checkpoint-v2-validator-5 (4.0s)
+2026-10-06T11:40:49.464547+00:00 PASS rollback-checkpoint-v2-validator-4 (4.0s)
+2026-10-06T11:40:50.110843+00:00 START rollback-full-v2-validator-0
+2026-10-06T11:44:04.199578+00:00 PASS rollback-full-v2-validator-0 (194.1s)
+2026-10-06T11:44:04.314331+00:00 operational sequence complete

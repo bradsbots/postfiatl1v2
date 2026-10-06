@@ -1,0 +1,16 @@
+
+==================================== ERRORS ====================================
+__________ ERROR collecting python/tests/test_account_tx_fallback.py ___________
+ImportError while importing test module '/home/postfiatchad/repos/postfiatl1v2/python/tests/test_account_tx_fallback.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/usr/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+python/tests/test_account_tx_fallback.py:8: in <module>
+    from postfiat_rpc import PostFiatRpcClient, RpcError
+E   ModuleNotFoundError: No module named 'postfiat_rpc'
+=========================== short test summary info ============================
+ERROR python/tests/test_account_tx_fallback.py
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.08s

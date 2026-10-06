@@ -1,0 +1,16 @@
+{
+  "store_directory": "/home/postfiatchad/.cache/release-signer-rotation-20261007/store-migrate/validator-5/fastswap-v1",
+  "dry_run": false,
+  "outcome": "converted",
+  "wal_bytes": 177899,
+  "wal_records": 26,
+  "legacy_wal_records": 26,
+  "converted_wal_records": 26,
+  "legacy_snapshot": false,
+  "converted_snapshot": false,
+  "integrity_key_fingerprint": "d8b91300388a8e28156582414f3119e9",
+  "integrity_key_created": true,
+  "backup_directory": "/home/postfiatchad/.cache/release-signer-rotation-20261007/store-migrate/fastswap-v1-backup-validator-5",
+  "backup_files_verified": 33,
+  "verification": "normal open verified 26 record(s) with the keyed MAC"
+}

@@ -1,0 +1,92 @@
+Only in /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007: deployment-manifest.json
+Only in /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007: deployment.public.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-0.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-0.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-0/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-0.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-0.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-0/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-1.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-1.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-1/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-1.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-1.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-1/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-2.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-2.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-2/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-2.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-2.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-2/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-3.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-3.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-3/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-3.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-3.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-3/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-4.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-4.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-4/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-4.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-4.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-4/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-5.rpc.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-5.rpc.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-5/readiness/rpc.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-5.transport.env /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/postfiat/releases/signer-rotation-20261007/validator-5.transport.env
+7a8
+> POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-5/readiness/transport.deployment-verified.json
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-0-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-0-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-0 --spool-dir /var/lib/postfiat/validator-0/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-0/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27650 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-0/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-0/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-0/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-0/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-0 --spool-dir /var/lib/postfiat/validator-0/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-0/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27650 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-0/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-0/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-0/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-0/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-1-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-1-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-1 --spool-dir /var/lib/postfiat/validator-1/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-1/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27651 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-1/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-1/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-1/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-1/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-1 --spool-dir /var/lib/postfiat/validator-1/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-1/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27651 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-1/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-1/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-1/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-1/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-2-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-2-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-2 --spool-dir /var/lib/postfiat/validator-2/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-2/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27652 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-2/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-2/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-2/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-2/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-2 --spool-dir /var/lib/postfiat/validator-2/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-2/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27652 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-2/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-2/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-2/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-2/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-3-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-3-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-3 --spool-dir /var/lib/postfiat/validator-3/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-3/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27653 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-3/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-3/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-3/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-3/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-3 --spool-dir /var/lib/postfiat/validator-3/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-3/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27653 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-3/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-3/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-3/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-3/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-4-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-4-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-4 --spool-dir /var/lib/postfiat/validator-4/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-4/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27654 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-4/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-4/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-4/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-4/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-4 --spool-dir /var/lib/postfiat/validator-4/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-4/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27654 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-4/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-4/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-4/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-4/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1
+diff -r /home/postfiatchad/.cache/release-signer-rotation-20261007/cmp0928/rootfs/etc/systemd/system/postfiat-validator-5-rpc.service /home/postfiatchad/.postfiat/deployments/signer-rotation-20261007/stage/rootfs/etc/systemd/system/postfiat-validator-5-rpc.service
+16c16
+< ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-5 --spool-dir /var/lib/postfiat/validator-5/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-5/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27655 --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-5/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-5/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-5/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-5/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+---
+> ExecStart=/opt/postfiat/releases/signer-rotation-20261007/postfiat-node rpc-serve --unsafe-devnet-json-storage --data-dir /var/lib/postfiat/validator-5 --spool-dir /var/lib/postfiat/validator-5/runtime/rpc-spool --ready-file /var/lib/postfiat/validator-5/readiness/rpc.ready.json --bind-host 127.0.0.1 --port 27655 --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log /var/log/postfiat/validator-5/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology /etc/postfiat/releases/signer-rotation-20261007/topology.json --finality-key-file /var/lib/postfiat/validator-5/validator_keys.json --finality-proposal-key-file /var/lib/postfiat/validator-5/validator_keys.json --finality-artifact-root /var/lib/postfiat/validator-5/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive
+38c38
+< RestartSec=5
+---
+> RestartSec=1

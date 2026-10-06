@@ -1,0 +1,201 @@
+{
+  "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+  "suites": [
+    {
+      "name": "python-account-tx-fallback",
+      "command": [
+        "python3",
+        "-m",
+        "pytest",
+        "-q",
+        "python/tests/test_account_tx_fallback.py"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:02.201608+00:00",
+      "exit_code": 2,
+      "status": "FAIL",
+      "elapsed_seconds": 0.4,
+      "summary": [],
+      "log": "logs/focused-python-account-tx-fallback.log",
+      "completed_at": "2026-10-06T11:22:02.605121+00:00"
+    },
+    {
+      "name": "storage-fastswap-legacy-migration",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-storage",
+        "--lib",
+        "legacy_migration"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:02.609223+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 0.3,
+      "summary": [
+        "test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 95 filtered out; finished in 0.12s"
+      ],
+      "log": "logs/focused-storage-fastswap-legacy-migration.log",
+      "completed_at": "2026-10-06T11:22:02.892105+00:00"
+    },
+    {
+      "name": "execution-fastpay-epoch-boundary",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-execution",
+        "--lib",
+        "owned_transfer_recovery"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:02.896394+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 10.4,
+      "summary": [
+        "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 204 filtered out; finished in 10.17s"
+      ],
+      "log": "logs/focused-execution-fastpay-epoch-boundary.log",
+      "completed_at": "2026-10-06T11:22:13.307705+00:00"
+    },
+    {
+      "name": "node-fastswap-control-signing",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--lib",
+        "fastswap_control"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:13.310865+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 20.7,
+      "summary": [
+        "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 409 filtered out; finished in 10.15s"
+      ],
+      "log": "logs/focused-node-fastswap-control-signing.log",
+      "completed_at": "2026-10-06T11:22:34.040804+00:00"
+    },
+    {
+      "name": "node-account-tx-truncation",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--lib",
+        "account_tx"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:34.045493+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 7.6,
+      "summary": [
+        "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 405 filtered out; finished in 7.39s"
+      ],
+      "log": "logs/focused-node-account-tx-truncation.log",
+      "completed_at": "2026-10-06T11:22:41.689200+00:00"
+    },
+    {
+      "name": "node-cobalt-shadow",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--lib",
+        "cobalt_shadow"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:22:41.691611+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 70.9,
+      "summary": [
+        "test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 397 filtered out; finished in 70.60s"
+      ],
+      "log": "logs/focused-node-cobalt-shadow.log",
+      "completed_at": "2026-10-06T11:23:52.549483+00:00"
+    },
+    {
+      "name": "node-fastpay",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--lib",
+        "fastpay"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:23:52.555077+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 162.3,
+      "summary": [
+        "test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 385 filtered out; finished in 162.03s"
+      ],
+      "log": "logs/focused-node-fastpay.log",
+      "completed_at": "2026-10-06T11:26:34.860656+00:00"
+    },
+    {
+      "name": "node-bin-fastswap-store-migrate",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node",
+        "fastswap_store"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:26:34.865452+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 23.2,
+      "summary": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 178 filtered out; finished in 0.00s"
+      ],
+      "log": "logs/focused-node-bin-fastswap-store-migrate.log",
+      "completed_at": "2026-10-06T11:26:58.113211+00:00"
+    },
+    {
+      "name": "node-bin-transport-json-storage",
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node",
+        "long_running_validator_service_requires_explicit_json_storage_acknowledgement"
+      ],
+      "cwd": "/home/postfiatchad/repos/postfiatl1v2",
+      "started_at": "2026-10-06T11:26:58.117827+00:00",
+      "exit_code": 0,
+      "status": "PASS",
+      "elapsed_seconds": 0.2,
+      "summary": [
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 178 filtered out; finished in 0.00s"
+      ],
+      "log": "logs/focused-node-bin-transport-json-storage.log",
+      "completed_at": "2026-10-06T11:26:58.342341+00:00"
+    }
+  ]
+}

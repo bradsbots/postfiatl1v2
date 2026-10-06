@@ -1,0 +1,9 @@
+{
+  "schema": "postfiat.deployment_manifest_verified.v1",
+  "manifest_sha256": "fa4649aa842d0f7aadb4f13aa6dd6eba647f3a0ddc3004562bc3d45d989a203f",
+  "deployment_id": "signer-rotation-20261007",
+  "publisher": "pfc531e00ffefecb8fabe40c6f47c69148df31e49c",
+  "verified_at_unix": 1791285648,
+  "valid_from_unix": 1791285560,
+  "valid_until_unix": 1822821860
+}

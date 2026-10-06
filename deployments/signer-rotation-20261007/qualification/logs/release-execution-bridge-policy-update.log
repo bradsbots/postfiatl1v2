@@ -1,0 +1,14 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.14s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_execution-8272e39e1fe1c085)
+
+running 7 tests
+test tests::bridge_policy_update_issuer_advances_committee_and_keeps_echoed_fields ... ok
+test tests::bridge_policy_update_full_history_replay_reproduces_root ... ok
+test tests::bridge_policy_update_keeps_old_committee_until_final_checkpoint ... ok
+test tests::bridge_policy_update_rejects_changed_echo_fields_and_active_handoff ... ok
+test tests::bridge_policy_update_rejects_epoch_other_than_current_plus_one ... ok
+test tests::bridge_policy_update_rejects_non_issuer_signer ... ok
+test tests::bridge_policy_update_rejects_root_not_over_current_governed_keys ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 209 filtered out; finished in 1.95s
+

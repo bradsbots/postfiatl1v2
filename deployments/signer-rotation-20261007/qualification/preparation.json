@@ -1,0 +1,11 @@
+{
+  "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+  "completed_at": "2026-10-06T11:18:06.208130+00:00",
+  "scope": "new disposable clones of the 1020 originals; authenticated local database-pointer relocation only",
+  "working_source": "/home/postfiatchad/.cache/combined-release-20260915/raw",
+  "signers_source": "/home/postfiatchad/.cache/release-repair-20260928/isolated-signers",
+  "old_binary_source": "/home/postfiatchad/.local/lib/postfiat/releases/combined-fastpay-20260928/postfiat-node",
+  "old_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+  "topology_sha256": "f222915addedcc6322cb935816727b3b597807880e57df24a3e6a2d34f69e8eb",
+  "live_mutations": false
+}

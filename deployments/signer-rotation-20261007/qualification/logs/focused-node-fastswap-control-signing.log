@@ -1,0 +1,14 @@
+   Compiling postfiat-node v0.1.0 (/home/postfiatchad/repos/postfiatl1v2/crates/node)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.48s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_node-d8915e1a3b6c8f91)
+
+running 6 tests
+test fastswap_control_signing::tests::fastswap_control_assemble_refuses_rotated_validator_5_vote_and_four_votes ... ok
+test fastswap_control_signing::tests::fastswap_control_assembled_activation_is_admitted_by_six_validator_fixture ... ok
+test fastswap_control_signing::tests::fastswap_control_prepare_refuses_without_drained_final_checkpoint ... ok
+test fastswap_control_signing::tests::fastswap_control_stop_prepare_certificate_is_admitted_and_fences_the_policy ... ok
+test fastswap_control_signing::tests::fastswap_control_stop_prepare_refuses_rotated_validator_5_and_four_votes ... ok
+test fastswap_control_signing::tests::fastswap_control_vote_sign_refuses_second_different_vote_for_same_key ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 409 filtered out; finished in 10.15s
+

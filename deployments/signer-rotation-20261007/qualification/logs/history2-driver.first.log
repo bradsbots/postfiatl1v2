@@ -1,0 +1,17 @@
+2026-10-06T11:26:09.622223+00:00 START original-validator-4
+2026-10-06T11:26:09.623704+00:00 START original-validator-3
+2026-10-06T11:26:09.628530+00:00 START original-validator-2
+2026-10-06T11:26:09.632521+00:00 START saved-v2-validator-4
+2026-10-06T11:26:09.633200+00:00 START original-validator-5
+2026-10-06T11:26:09.635646+00:00 START saved-v2-validator-5
+2026-10-06T11:29:26.715386+00:00 PASS original-validator-5 (197.1s)
+2026-10-06T11:29:26.716587+00:00 PASS original-validator-2 (197.1s)
+2026-10-06T11:29:26.718559+00:00 PASS original-validator-3 (197.1s)
+2026-10-06T11:29:27.715884+00:00 PASS saved-v2-validator-4 (198.1s)
+2026-10-06T11:29:27.719225+00:00 PASS saved-v2-validator-5 (198.1s)
+2026-10-06T11:29:27.719935+00:00 PASS original-validator-4 (198.1s)
+2026-10-06T11:29:28.048814+00:00 START governance-prepare
+2026-10-06T11:29:38.060066+00:00 PASS governance-prepare (10.0s)
+2026-10-06T11:29:38.171721+00:00 START governance-gate
+2026-10-06T11:29:39.178599+00:00 FAIL governance-gate (1.0s)
+2026-10-06T11:29:39.289052+00:00 operational sequence complete

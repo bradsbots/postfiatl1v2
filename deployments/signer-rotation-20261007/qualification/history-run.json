@@ -1,0 +1,1253 @@
+{
+  "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+  "binary_sha256": "decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f",
+  "rollback_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+  "checks": [
+    {
+      "name": "canary-import-signed",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "snapshot-import-signed-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/signed-import",
+        "--snapshot-dir",
+        "/home/postfiatchad/.postfiat/deployments/combined-fastpay-20260928/evidence/pre-rollout-backup/backup-signed",
+        "--trusted-publisher-key-file",
+        "/home/postfiatchad/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json",
+        "--node-id",
+        "validator-1"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:18:18.351574+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-import-signed.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-import-signed.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 960477,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:18:59.372836+00:00",
+      "elapsed_seconds": 41.0,
+      "minimum_available_memory_observed_bytes": 23198597120
+    },
+    {
+      "name": "canary-import-tampered-signature",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "snapshot-import-signed-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/tampered-import",
+        "--snapshot-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/tampered-signed",
+        "--trusted-publisher-key-file",
+        "/home/postfiatchad/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json",
+        "--node-id",
+        "validator-1"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:18:59.479236+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-import-tampered-signature.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-import-tampered-signature.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 960871,
+      "exit_code": 1,
+      "completed_at": "2026-10-06T11:19:00.482518+00:00",
+      "elapsed_seconds": 1.0,
+      "minimum_available_memory_observed_bytes": 24828825600,
+      "expected": "nonzero exit (rejection)"
+    },
+    {
+      "name": "canary-1050-checkpoint-new",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/signed-import"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:19:00.604760+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-checkpoint-new.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-checkpoint-new.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 960929,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:19:04.610182+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 24118501376,
+      "verified": true,
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    {
+      "name": "original-validator-0",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-0"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:18:18.059742+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-0.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-0.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 960476,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:21:34.143944+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 23198138368,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "canary-1050-full-new",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/signed-import"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:19:04.692542+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-full-new.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-full-new.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 961039,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:22:20.777703+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 22960091136,
+      "verified": true,
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    {
+      "name": "canary-1050-checkpoint-rollback",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/signed-import"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:22:20.888849+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-checkpoint-rollback.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-checkpoint-rollback.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 963392,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:22:24.897058+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 23057997824,
+      "verified": true,
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    {
+      "name": "original-validator-1",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-1"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:21:34.256311+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-1.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-1.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 962548,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:24:50.339520+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 22925590528,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "canary-1050-full-rollback",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/canary-1050/signed-import"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:22:24.984600+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-full-rollback.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/canary-1050-full-rollback.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 963429,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:25:44.066595+00:00",
+      "elapsed_seconds": 199.1,
+      "minimum_available_memory_observed_bytes": 23588560896,
+      "verified": true,
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    {
+      "name": "original-validator-5",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-5"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.624078+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-5.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-5.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965729,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:26.714333+00:00",
+      "elapsed_seconds": 197.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "original-validator-2",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-2"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.620294+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-2.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-2.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965726,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:26.715175+00:00",
+      "elapsed_seconds": 197.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "original-validator-3",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-3"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.620942+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-3.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-3.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965724,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:26.716940+00:00",
+      "elapsed_seconds": 197.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "saved-v2-validator-4",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-repair-20260928/post-v2/validator-4"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.622539+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/saved-v2-validator-4.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/saved-v2-validator-4.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965727,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:27.715229+00:00",
+      "elapsed_seconds": 198.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      }
+    },
+    {
+      "name": "saved-v2-validator-5",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-repair-20260928/post-v2/validator-5"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.631546+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/saved-v2-validator-5.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/saved-v2-validator-5.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965728,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:27.718411+00:00",
+      "elapsed_seconds": 198.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      }
+    },
+    {
+      "name": "original-validator-4",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-4"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:26:09.621469+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-4.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/original-validator-4.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 965723,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:27.718883+00:00",
+      "elapsed_seconds": 198.1,
+      "minimum_available_memory_observed_bytes": 19586244608,
+      "verified": true,
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    {
+      "name": "governance-prepare",
+      "command": [
+        "python3",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools/governance_prepare.py"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools",
+      "started_at": "2026-10-06T11:29:28.048190+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-prepare.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-prepare.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 968484,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:29:38.059410+00:00",
+      "elapsed_seconds": 10.0,
+      "minimum_available_memory_observed_bytes": 25523273728
+    },
+    {
+      "name": "governance-gate",
+      "command": [
+        "python3",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools/services.py",
+        "governance"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools",
+      "started_at": "2026-10-06T11:29:38.171464+00:00",
+      "status": "FAIL",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-gate.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-gate.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 968526,
+      "exit_code": 1,
+      "completed_at": "2026-10-06T11:29:39.177971+00:00",
+      "elapsed_seconds": 1.0,
+      "minimum_available_memory_observed_bytes": 25530712064
+    },
+    {
+      "name": "governance-gate",
+      "command": [
+        "python3",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools/services.py",
+        "governance"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tools",
+      "started_at": "2026-10-06T11:36:49.568092+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-gate.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/governance-gate.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 972917,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:37:28.590377+00:00",
+      "elapsed_seconds": 39.0,
+      "minimum_available_memory_observed_bytes": 21611376640
+    },
+    {
+      "name": "fresh-v2-validator-1",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-1"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.676346+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-1.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-1.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973328,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.786448+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "fresh-v2-validator-2",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-2"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.676758+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-2.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-2.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973333,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.787677+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "fresh-v2-validator-3",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-3"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.677851+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-3.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-3.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973329,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.789214+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "fresh-v2-validator-0",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-0"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.677328+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-0.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-0.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973330,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.790376+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "fresh-v2-validator-4",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-4"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.679142+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-4.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-4.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973331,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.789567+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "fresh-v2-validator-5",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-5"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:37:28.681117+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-5.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/fresh-v2-validator-5.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 973332,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:44.790045+00:00",
+      "elapsed_seconds": 196.1,
+      "minimum_available_memory_observed_bytes": 21123096576,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-1",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-1"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.434013+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-1.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-1.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 974997,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.445759+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21515153408,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-2",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-2"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.433865+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-2.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-2.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 974998,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.454347+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21515038720,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-3",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-3"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.433603+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-3.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-3.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 974999,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.460678+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21515038720,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-0",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-0"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.434381+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-0.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-0.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 975000,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.460959+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21515038720,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-5",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-5"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.434829+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-5.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-5.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 975001,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.462050+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21515038720,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-checkpoint-v2-validator-4",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-finalized-checkpoint",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-4"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:45.435352+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-4.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-checkpoint-v2-validator-4.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 975002,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:40:49.463378+00:00",
+      "elapsed_seconds": 4.0,
+      "minimum_available_memory_observed_bytes": 21514981376,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    {
+      "name": "rollback-full-v2-validator-0",
+      "command": [
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/rollback",
+        "verify-state",
+        "--data-dir",
+        "/home/postfiatchad/.cache/release-signer-rotation-20261007/working/validator-0"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:40:50.110372+00:00",
+      "status": "PASS",
+      "stdout": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-full-v2-validator-0.stdout",
+      "stderr": "/home/postfiatchad/.cache/release-signer-rotation-20261007/logs/rollback-full-v2-validator-0.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1"
+      },
+      "address_space_limit_bytes": 21474836480,
+      "minimum_available_memory_bytes": 4294967296,
+      "pid": 975021,
+      "exit_code": 0,
+      "completed_at": "2026-10-06T11:44:04.198808+00:00",
+      "elapsed_seconds": 194.1,
+      "minimum_available_memory_observed_bytes": 24006799360,
+      "verified": true,
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    }
+  ],
+  "live_mutations": false,
+  "updated_at": "2026-10-06T11:44:04.312478+00:00"
+}

@@ -1,0 +1,388 @@
+{
+  "release_id": "signer-rotation-20261007",
+  "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+  "binary_sha256": "decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f",
+  "rollback_binary_sha256": "1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a",
+  "generated_at": "2026-10-06T11:45:39.026648+00:00",
+  "builds": "PASS",
+  "history": {
+    "canary-import-signed": {
+      "status": "PASS",
+      "observed": null,
+      "expected": null
+    },
+    "canary-import-tampered-signature": {
+      "status": "PASS",
+      "observed": null,
+      "expected": "nonzero exit (rejection)"
+    },
+    "canary-1050-checkpoint-new": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    "original-validator-0": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "canary-1050-full-new": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    "canary-1050-checkpoint-rollback": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    "original-validator-1": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "canary-1050-full-rollback": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      },
+      "expected": {
+        "block_height": 1050,
+        "block_tip_hash": "03a24230278caaf1740ee99782ad1868ed28453f84fd34efe9f9a9fe226b5daf56a87d3168058d6849f51772d0611259",
+        "state_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be"
+      }
+    },
+    "original-validator-5": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "original-validator-2": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "original-validator-3": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "saved-v2-validator-4": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      }
+    },
+    "saved-v2-validator-5": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "5323a2a5243f7be4a1c47ec5e308361898d1662ef20df0dc8fa4349843ffeba45908f4d8050a9dca334133bf0b68804e",
+        "state_root": "d19264ca4419df8826c7b1746b5042639b0d0dd493a0f34f8902b75811ede397ee1b241d59dacba42e69192a6aecca92"
+      }
+    },
+    "original-validator-4": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      },
+      "expected": {
+        "block_height": 1020,
+        "block_tip_hash": "9d02b8eecb78408e8f1de12ae1e2607ad4987c2c8d883f1718593df7c2d9ca529f0707bd581e3e414361f202b1768feb",
+        "state_root": "587c6526a2549c97458b371f42e849c49274a1f522e7dcb841b74cd74bdb3d6747c2e6ca646c08ac51733796d39bead6"
+      }
+    },
+    "governance-prepare": {
+      "status": "PASS",
+      "observed": null,
+      "expected": null
+    },
+    "governance-gate": {
+      "status": "PASS",
+      "observed": null,
+      "expected": null
+    },
+    "fresh-v2-validator-1": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "fresh-v2-validator-2": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "fresh-v2-validator-3": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "fresh-v2-validator-0": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "fresh-v2-validator-4": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "fresh-v2-validator-5": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-1": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-2": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-3": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-0": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-5": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-checkpoint-v2-validator-4": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    },
+    "rollback-full-v2-validator-0": {
+      "status": "PASS",
+      "observed": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      },
+      "expected": {
+        "block_height": 1021,
+        "block_tip_hash": "11427e603c9f957c5c08c14ec6f2917aa0726985298f58544971a02a92c97dfbe7bb356efcf77a74fd9e5937a5f335f1",
+        "state_root": "fda2546f9197db3410496f22faa4e374f95d17554fa3c82e1ac766577789b055f546db121ad1618d6f9d71d5c2e69397"
+      }
+    }
+  },
+  "focused_suites": {
+    "python-account-tx-fallback": "FAIL",
+    "storage-fastswap-legacy-migration": "PASS",
+    "execution-fastpay-epoch-boundary": "PASS",
+    "node-fastswap-control-signing": "PASS",
+    "node-account-tx-truncation": "PASS",
+    "node-cobalt-shadow": "PASS",
+    "node-fastpay": "PASS",
+    "node-bin-fastswap-store-migrate": "PASS",
+    "node-bin-transport-json-storage": "PASS"
+  },
+  "release_suites": {
+    "fix-reproduce-first": "PASS",
+    "view-recovery-bin": "PASS",
+    "timeout-votes-lib": "PASS",
+    "fastpay-committee-lib": "PASS",
+    "fastpay-types": "PASS",
+    "fastpay-execution": "PASS",
+    "cobalt-handoff-tests": "PASS",
+    "live-replay-supply": "PASS",
+    "types-bridge-policy-update": "PASS",
+    "execution-bridge-policy-update": "PASS"
+  },
+  "local_preflight": "PASS_SIGNED_LOCAL_INPUTS_ONLY",
+  "live_mutations": false,
+  "host_contact": false,
+  "not_done_today": [
+    "canary backup",
+    "fleet before-state",
+    "rollout",
+    "store conversion",
+    "activation"
+  ]
+}

@@ -1,0 +1,8 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.18s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_node-d8915e1a3b6c8f91)
+
+running 1 test
+test tests::fastpay_non_signer_anchor::fastpay_non_signer_view_zero_proposer_anchors_held_effect ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 414 filtered out; finished in 36.69s
+

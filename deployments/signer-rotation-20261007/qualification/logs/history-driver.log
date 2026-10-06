@@ -1,0 +1,18 @@
+2026-10-06T11:18:18.060484+00:00 START original-validator-0
+2026-10-06T11:18:18.351829+00:00 START canary-import-signed
+2026-10-06T11:18:59.373318+00:00 PASS canary-import-signed (41.0s)
+2026-10-06T11:18:59.479433+00:00 START canary-import-tampered-signature
+2026-10-06T11:19:00.483153+00:00 FAIL canary-import-tampered-signature (1.0s)
+2026-10-06T11:19:00.605011+00:00 START canary-1050-checkpoint-new
+2026-10-06T11:19:04.610939+00:00 PASS canary-1050-checkpoint-new (4.0s)
+2026-10-06T11:19:04.692765+00:00 START canary-1050-full-new
+2026-10-06T11:21:34.144639+00:00 PASS original-validator-0 (196.1s)
+2026-10-06T11:21:34.256525+00:00 START original-validator-1
+2026-10-06T11:22:20.778424+00:00 PASS canary-1050-full-new (196.1s)
+2026-10-06T11:22:20.889086+00:00 START canary-1050-checkpoint-rollback
+2026-10-06T11:22:24.897586+00:00 PASS canary-1050-checkpoint-rollback (4.0s)
+2026-10-06T11:22:24.984908+00:00 START canary-1050-full-rollback
+2026-10-06T11:24:50.340172+00:00 PASS original-validator-1 (196.1s)
+2026-10-06T11:24:50.426003+00:00 START original-validator-2
+2026-10-06T11:25:44.067336+00:00 PASS canary-1050-full-rollback (199.1s)
+2026-10-06T11:25:44.180865+00:00 START saved-v2-validator-4

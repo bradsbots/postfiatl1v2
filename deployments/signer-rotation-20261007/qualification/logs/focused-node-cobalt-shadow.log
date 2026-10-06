@@ -1,0 +1,25 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.17s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_node-d8915e1a3b6c8f91)
+
+running 18 tests
+test cobalt_shadow::tests::adversarial_drill_converges_without_live_authority ... ok
+test cobalt_shadow::tests::catch_up_rejects_malformed_batches_without_durable_mutation ... ok
+test cobalt_shadow::tests::authority_lineage_reset_archives_drills_and_requires_active_transition_binding ... ok
+test cobalt_shadow::tests::protocol_journal_recovers_journal_before_state_and_stable_state_restart ... ok
+test cobalt_shadow::tests::queue_bound_is_enforced_before_durable_acceptance ... ok
+test cobalt_shadow::tests::queued_shadow_reordered_sequences_property_preserves_maximum_after_restart ... ok
+test cobalt_shadow::tests::queued_shadow_round_order_cannot_lower_peer_sequence_after_restart ... ok
+test cobalt_shadow::tests::live_registry_binding_requires_validator_signed_sidecar_keys ... ok
+test cobalt_shadow::tests::restart_verifies_state_signature_and_private_permissions ... ok
+test cobalt_shadow::tests::signed_history_catch_up_refuses_gap_then_converges ... ok
+test cobalt_shadow::tests::signed_protocol_transcript_converges_and_replays_after_restart ... ok
+test cobalt_shadow::tests::signed_protocol_transcript_rejects_tamper_and_wrong_root ... ok
+test cobalt_shadow::tests::v2_state_migrates_without_relabeling_legacy_decisions ... ok
+test cobalt_shadow_runtime::tests::burn5_response_failures_do_not_stop_shadow_service ... ok
+test cobalt_shadow_runtime::tests::local_network_drill_runs_real_signed_protocol_over_three_sockets ... ok
+test cobalt_shadow_runtime::tests::public_listener_requires_explicit_private_network_and_rejects_public_ip ... ok
+test cobalt_shadow_runtime::tests::sidecar_policy_is_bounded_and_not_coupled_to_validator_lifecycle ... ok
+test cobalt_shadow::tests::registry_lineage_reset_preserves_global_dabc_anchor_with_local_history ... ok
+
+test result: ok. 18 passed; 0 failed; 0 ignored; 0 measured; 397 filtered out; finished in 70.60s
+

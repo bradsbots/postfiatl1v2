@@ -1,0 +1,130 @@
+{
+  "result": "PASS",
+  "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+  "toolchain": {
+    "rustc": [
+      "rustc 1.95.0 (59807616e 2026-04-14)",
+      "binary: rustc",
+      "commit-hash: 59807616e1fa2540724bfbac14d7976d7e4a3860",
+      "commit-date: 2026-04-14",
+      "host: x86_64-unknown-linux-gnu",
+      "release: 1.95.0",
+      "LLVM version: 22.1.2"
+    ],
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "gcc": "gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+    "rust_toolchain_file": "[toolchain]\nchannel = \"1.95.0\"\nprofile = \"minimal\"\ncomponents = [\"clippy\", \"rustfmt\"]\n"
+  },
+  "builds": [
+    {
+      "name": "node-build-1",
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1",
+      "started_at": "2026-10-06T11:15:05.542345+00:00",
+      "stdout": "logs/node-build-1.stdout",
+      "stderr": "logs/node-build-1.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "6",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "SOURCE_DATE_EPOCH": "1789514690",
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "/usr/bin/gcc",
+        "RUSTFLAGS": "--remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1=/src/postfiatl1v2 --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/source-2=/src/postfiatl1v2 --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/target-1=/target --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/target-2=/target",
+        "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/target-1"
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "completed_at": "2026-10-06T11:18:15.160034+00:00",
+      "elapsed_seconds": 189.6,
+      "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+      "source_tree": "4786a27f5d370257963e023d21621813fd2f1b2c",
+      "source_clean_at_collection": true,
+      "cargo_lock_sha256": "8a4b5e43056f021d07c6bf150c8cfd8c470d20ca9a076a31418fa34c14697d55",
+      "cache_origin": "/home/postfiatchad/.cache/release-repair-20260928/target-1/release",
+      "cache_scope": "separate copy of the 2026-09-28 release-profile cache; not empty-cache",
+      "binary_sha256": "decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f",
+      "binary_bytes": 62692328,
+      "binary_path": "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-1",
+      "has_rpath_or_runpath": false,
+      "zig_in_comment": false,
+      "gcc_in_comment": true,
+      "source_clean_after_build": true
+    },
+    {
+      "name": "node-build-2",
+      "command": [
+        "cargo",
+        "build",
+        "--release",
+        "--locked",
+        "-p",
+        "postfiat-node",
+        "--bin",
+        "postfiat-node"
+      ],
+      "cwd": "/home/postfiatchad/.cache/release-signer-rotation-20261007/source-2",
+      "started_at": "2026-10-06T11:15:05.542173+00:00",
+      "stdout": "logs/node-build-2.stdout",
+      "stderr": "logs/node-build-2.stderr",
+      "environment_overrides": {
+        "CARGO_BUILD_JOBS": "6",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_TERM_COLOR": "never",
+        "TMPDIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/tmp",
+        "RUST_TEST_THREADS": "2",
+        "RAYON_NUM_THREADS": "2",
+        "OMP_NUM_THREADS": "2",
+        "MALLOC_ARENA_MAX": "2",
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "SOURCE_DATE_EPOCH": "1789514690",
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_LINKER": "/usr/bin/gcc",
+        "RUSTFLAGS": "--remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/source-1=/src/postfiatl1v2 --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/source-2=/src/postfiatl1v2 --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/target-1=/target --remap-path-prefix=/home/postfiatchad/.cache/release-signer-rotation-20261007/target-2=/target",
+        "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-signer-rotation-20261007/target-2"
+      },
+      "exit_code": 0,
+      "status": "PASS",
+      "completed_at": "2026-10-06T11:18:16.334170+00:00",
+      "elapsed_seconds": 190.8,
+      "source_commit": "0fa55d0b650731d8617d62284946c73f72641cb7",
+      "source_tree": "4786a27f5d370257963e023d21621813fd2f1b2c",
+      "source_clean_at_collection": true,
+      "cargo_lock_sha256": "8a4b5e43056f021d07c6bf150c8cfd8c470d20ca9a076a31418fa34c14697d55",
+      "cache_origin": "/home/postfiatchad/.cache/release-repair-20260928/target-1/release",
+      "cache_scope": "separate copy of the 2026-09-28 release-profile cache; not empty-cache",
+      "binary_sha256": "decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f",
+      "binary_bytes": 62692328,
+      "binary_path": "/home/postfiatchad/.cache/release-signer-rotation-20261007/binaries/candidate-2",
+      "has_rpath_or_runpath": false,
+      "zig_in_comment": false,
+      "gcc_in_comment": true,
+      "source_clean_after_build": true
+    }
+  ],
+  "comparison": {
+    "name": "node-reproducibility",
+    "command": [
+      "cmp",
+      "binaries/candidate-1",
+      "binaries/candidate-2"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "status": "PASS"
+  },
+  "scope": "Two clean worktrees of the tip, built in parallel; distinct copied caches; identical remaps; GCC linker; SOURCE_DATE_EPOCH and RUSTFLAGS as on 2026-09-28; CARGO_BUILD_JOBS 6 instead of 2 (scheduling only, does not change codegen)"
+}

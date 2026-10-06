@@ -1,0 +1,17 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.19s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_node-d8915e1a3b6c8f91)
+
+running 10 tests
+test tests::account_tx_truncation::account_tx_scan_and_index_return_the_newest_rows_without_a_start_height ... ok
+test tests::account_tx_truncation::account_tx_truncated_only_when_rows_are_omitted ... ok
+test tests::consensus_history::account_tx_index_explicit_build_catches_up_after_archive_prune ... ok
+test tests::asset_transactions_apply_from_batch_replay_and_account_tx ... ok
+test tests::nft_collection_policy_flags_flow_through_rpc_account_tx_and_mempool ... ok
+test tests::issued_asset_escrow_fee_mempool_account_tx_and_replay_flow ... ok
+test tests::nft_fee_quote_mempool_batch_replay_and_account_tx_flow ... ok
+test tests::offer_create_matching_replay_and_maker_account_tx_flow ... ok
+test tests::offer_fee_quote_mempool_batch_replay_and_account_tx_flow ... ok
+test tests::payment_v2_memo_flows_through_mempool_batch_finality_and_account_tx ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 405 filtered out; finished in 7.39s
+

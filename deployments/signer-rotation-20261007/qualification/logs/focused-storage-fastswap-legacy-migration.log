@@ -1,0 +1,15 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.11s
+     Running unittests src/lib.rs (target/debug/deps/postfiat_storage-01904886460da305)
+
+running 8 tests
+test fastswap_store::legacy_migration::tests::migration_converts_legacy_store_so_normal_open_verifies_every_record ... ok
+test fastswap_store::legacy_migration::tests::migration_creates_a_missing_key_with_owner_only_mode ... ok
+test fastswap_store::legacy_migration::tests::migration_dry_run_reports_without_writing ... ok
+test fastswap_store::legacy_migration::tests::migration_converts_a_legacy_checksum_snapshot_so_normal_open_verifies ... ok
+test fastswap_store::legacy_migration::tests::migration_refuses_before_writing_when_the_backup_fails ... ok
+test fastswap_store::legacy_migration::tests::migration_refuses_truncated_or_corrupt_records_and_leaves_the_original ... ok
+test fastswap_store::legacy_migration::tests::migration_refuses_while_the_store_lock_is_held ... ok
+test fastswap_store::legacy_migration::tests::migration_restores_original_bytes_and_removes_new_key_when_verification_fails ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 95 filtered out; finished in 0.12s
+
