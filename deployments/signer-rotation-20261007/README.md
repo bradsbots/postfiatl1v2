@@ -1,4 +1,4 @@
-# Signer-rotation release inputs — cut 2026-10-06, rollout 2026-10-07
+# Signer-rotation release inputs — cut 2026-10-06, rollout 2026-10-09 at the earliest
 
 Release `signer-rotation-20261007` is `main` at `0fa55d0b` (branch
 `release/signer-rotation-20261007`): the deployed `combined-fastpay-20260928`
@@ -14,8 +14,10 @@ Rollback release: `combined-fastpay-20260928` (`1f8b332d…`). Identities:
 
 **Cut, not deployed.** Every check that runs on the work server passed on
 2026-10-06 ([qualification packet](qualification/README.md)). The host-facing
-steps run on 2026-10-07 with the operator's go at each step
-([DEPLOY-SHEET.md](DEPLOY-SHEET.md)).
+steps and the activation run on 2026-10-09 at the earliest, after TOKEN2049
+Singapore (7–8 October) and the objection window (until 2026-10-08 evening UTC),
+with the operator's go at each step ([DEPLOY-SHEET.md](DEPLOY-SHEET.md)). The
+release name keeps its date suffix; it is a name, not the rollout day.
 
 Not done today: canary backup, fleet before-state, rollout, store conversion, activation.
 
@@ -55,7 +57,7 @@ release-ID change, the 33 generated files differ only in:
 
 ## Contents
 
-- [DEPLOY-SHEET.md](DEPLOY-SHEET.md): the Wednesday sequence, go points and rollback.
+- [DEPLOY-SHEET.md](DEPLOY-SHEET.md): the release-day sequence, go points and rollback.
 - `rootfs/etc/`: the 33 generated files (12 units, 12 environment files, six
   runtime bindings, topology, both circuit metadata files).
 - [deployment-manifest.signed.json](deployment-manifest.signed.json): the signed

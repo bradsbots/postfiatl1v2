@@ -1,6 +1,6 @@
 # Deploy sheet — signer-rotation-20261007
 
-The Wednesday (2026-10-07) sequence, run from the signing workstation. It follows the
+The release-day sequence (2026-10-09 at the earliest), run from the signing workstation. It follows the
 [2026-09-28 sheet](../combined-fastpay-20260928/DEPLOY-SHEET.md), the
 [rollout runbook](../../docs/runbooks/safe-validator-rollout.md), the
 [store conversion runbook](../../docs/runbooks/fastpay-committee-recovery.md#converting-the-fastswap-store-before-the-rotation)
@@ -9,7 +9,9 @@ Keys are used by path only; no key material is printed, copied to a host or comm
 
 **Status: cut, not deployed.** Nothing below has run. Every step marked
 **GO** needs the operator's go on the day. Start only after the other lane's
-objection window closes (2026-10-07 evening UTC).
+objection window closes (2026-10-08 evening UTC). TOKEN2049 Singapore runs
+7–8 October 2026: nothing touches the six validator hosts, the chain or StakeHub
+`master` on those days. The name keeps its date suffix; it is not the rollout day.
 
 ```bash
 D=~/.postfiat/deployments/signer-rotation-20261007   # local, not in Git; stage prepared 2026-10-06
@@ -23,7 +25,7 @@ VULTR=~/.postfiat/deployments/cobalt-activation-8694b99d/vultr-api-key
 
 ## 0. Go/no-go — needs the operator's go on the day
 
-- [ ] **GO 0.** The objection window has closed; no other rollout or session is active on the fleet; `apt-daily-upgrade` is not running.
+- [ ] **GO 0.** The conference has ended (2026-10-08) and the objection window has closed (2026-10-08 evening UTC), so 2026-10-09 at the earliest; no other rollout or session is active on the fleet; `apt-daily-upgrade` is not running.
 
 ## 1. Before state (read-only)
 
@@ -142,6 +144,7 @@ on that host again).
 ## 8. Signer-group activation
 
 From the [release-day procedure](../../docs/review/signer-committee-rotation-dry-run-20261005.md#live-procedure-for-release-day).
+After the objection window, so 2026-10-09 at the earliest.
 Signatures are requested separately under the
 [decision proposal](../../docs/review/validator-5-signer-committees-decision-proposal-20261001.md).
 
