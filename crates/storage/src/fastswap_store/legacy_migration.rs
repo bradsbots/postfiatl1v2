@@ -132,6 +132,16 @@ pub fn migrate_legacy_fastswap_store(
     let key_created = existing_key.is_none();
     let converted = FastSwapStore::open_locked(directory, lock, None, true).map(drop);
     let verified = converted.and_then(|()| verify_normal_open(directory, wal.records));
+    #[cfg(test)]
+    let verified = verified.and_then(|verification| {
+        if tests::FAIL_VERIFICATION_AFTER_WRITE.with(|flag| flag.replace(false)) {
+            Err(FastSwapStoreError::StateInvariant(
+                "injected post-write verification failure",
+            ))
+        } else {
+            Ok(verification)
+        }
+    });
     report.integrity_key_created = key_created && directory.join(INTEGRITY_KEY_FILE).exists();
     report.integrity_key_fingerprint = IntegrityKey::load_existing(directory)
         .ok()

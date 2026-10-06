@@ -99,10 +99,34 @@ The run took 18.1 s.
   ledger field, not produced by a real export. The Ethereum votes were signed
   directly; the node signing path with a rotated key is covered by
   `bridge_policy_update_moves_checkpoint_signing_to_rotated_committee`.
-- **Drain with no FastSwap policy.** The fixture has no FastSwap policy, so
-  draining needs no `StopPrepare` fence. On the live chain, every policy epoch
-  in `fastswap_policy_snapshots` needs an epoch-1 `StopPrepare` fence (signed by
-  0–4) before the final checkpoint (`fastswap_control.rs:391-405`).
+- **Drain with no FastSwap policy.** The bridge fixture has no FastSwap
+  policy, so draining needs no `StopPrepare` fence. On the live chain, every
+  policy epoch in `fastswap_policy_snapshots` needs an epoch-1 `StopPrepare`
+  fence (signed by 0–4) before the final checkpoint
+  (`fastswap_control.rs:391-405`). Covered since 2026-10-06 on the six-validator
+  control fixture with one epoch-1 policy:
+  `fastswap_control_stop_prepare_certificate_is_admitted_and_fences_the_policy`
+  (prepare, five `fastswap-control-vote-sign` votes, assemble, mempool admission,
+  block execution `fastlane_control_applied`, fence present) and
+  `fastswap_control_stop_prepare_refuses_rotated_validator_5_and_four_votes`
+  (`crates/node/src/fastswap_control_signing.rs`). Not covered: the fixture
+  writes the policy and the tip height directly, without a `RegisterPolicy`
+  certificate or a committed block, and the fence is not followed by a final
+  checkpoint and `ActivateCommittee` in the same test.
+- **Store conversion.** `fastswap-store-migrate` is tested with a legacy
+  snapshot (old checksum, no MAC) plus a legacy WAL record, and with a forced
+  verification failure after the rewrite: the original WAL and snapshot bytes
+  come back, a newly created key is removed, and a rerun converts
+  (`crates/storage/src/fastswap_store/legacy_migration/tests.rs`). The failure is
+  injected by a test-only hook. Not covered: a copy of a real host store.
+- **FastPay deadline far above the tip.** The dry run shortened epoch 1 to
+  height 10. `fastpay_epoch_two_installed_far_below_deadline_activates_at_previous_end_plus_one`
+  (`crates/execution/src/owned_transfer_recovery.rs`) keeps the live 10000:
+  epoch 2 installed at height 100 must start at 10001 (10000 and 10002 are
+  refused), epoch 1 admits through 10000 and epoch 2 from 10001, and an epoch-2
+  payment is refused at 10000 (`NotYetValid`) and applied at 10001. Not covered:
+  this runs on the execution layer with explicit heights; no chain was advanced
+  to 10001, and the node's `owned_sign_v3` height check was not run there.
 - **Unsigned setup steps.** The FastPay epoch-1 bootstrap and the key rotation
   used the unsigned governance test fixture. Both are only setup; the epoch-2
   install was fully signed.

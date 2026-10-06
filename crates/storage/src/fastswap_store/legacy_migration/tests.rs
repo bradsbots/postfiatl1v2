@@ -273,3 +273,125 @@ fn migration_creates_a_missing_key_with_owner_only_mode() {
     drop(store);
     cleanup(&[&directory, &backup]);
 }
+
+thread_local! {
+    /// Set by a test to fail the verification that follows the rewrite once.
+    pub(super) static FAIL_VERIFICATION_AFTER_WRITE: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
+}
+
+/// A snapshot of the base state followed by one WAL record, both carrying
+/// only the old unkeyed checksum (snapshot without `mac`), as written before
+/// keyed integrity.
+fn legacy_snapshot_fixture(label: &str) -> (PathBuf, FastLaneStateV1, FastLaneStateV1) {
+    let directory = test_dir(label);
+    let base = state();
+    let mut live = base.clone();
+    let object = *live.objects.keys().next().expect("object");
+    {
+        let mut store = FastSwapStore::open(&directory).expect("open");
+        store.compact_snapshot(&base).expect("snapshot");
+        store
+            .reserve_all(
+                &mut live,
+                FastSwapIdV1([8; 48]),
+                FastSwapIntentIdV1([9; 48]),
+                FastSwapEffectsDigestV1([10; 48]),
+                100,
+                &[object],
+            )
+            .expect("reserve");
+    }
+    let wal = directory.join(FASTSWAP_WAL_FILE);
+    let mut bytes = fs::read(&wal).expect("read wal");
+    let mut offset = 0;
+    while let Some((payload, _, end)) = frame(&bytes, offset) {
+        let legacy = legacy_checksum(FASTSWAP_WAL_MAC_DOMAIN, payload);
+        bytes[end - FASTSWAP_WAL_CHECKSUM_BYTES..end].copy_from_slice(&legacy);
+        offset = end;
+    }
+    fs::write(&wal, &bytes).expect("write legacy wal");
+    let path = directory.join(FASTSWAP_SNAPSHOT_FILE);
+    let mut snapshot: serde_json::Value =
+        serde_json::from_slice(&fs::read(&path).expect("read snapshot")).expect("json");
+    snapshot.as_object_mut().expect("object").remove("mac");
+    fs::write(&path, serde_json::to_vec(&snapshot).expect("encode")).expect("write snapshot");
+    assert!(matches!(
+        FastSwapStore::open(&directory),
+        Err(FastSwapStoreError::CorruptSnapshot(_))
+    ));
+    (directory, base, live)
+}
+
+#[test]
+fn migration_converts_a_legacy_checksum_snapshot_so_normal_open_verifies() {
+    let (directory, base, live) = legacy_snapshot_fixture("migrate-legacy-snapshot");
+    let snapshot_path = directory.join(FASTSWAP_SNAPSHOT_FILE);
+    let original = fs::read(&snapshot_path).expect("read");
+    let backup = backup_for(&directory, "backup");
+    let report = migrate_legacy_fastswap_store(&directory, &convert(&backup)).expect("migrate");
+    assert_eq!(report.outcome, "converted");
+    assert!(report.legacy_snapshot && report.converted_snapshot);
+    assert_eq!(
+        (report.legacy_wal_records, report.converted_wal_records),
+        (1, 1)
+    );
+    assert_eq!(
+        fs::read(backup.join(FASTSWAP_SNAPSHOT_FILE)).expect("backup snapshot"),
+        original
+    );
+    let converted: serde_json::Value =
+        serde_json::from_slice(&fs::read(&snapshot_path).expect("read")).expect("json");
+    assert!(
+        converted.get("mac").is_some(),
+        "snapshot gains the keyed MAC"
+    );
+    let store = FastSwapStore::open(&directory).expect("normal open after migration");
+    assert_eq!(store.replay(&base).expect("replay"), live);
+    drop(store);
+    cleanup(&[&directory, &backup]);
+}
+
+#[test]
+fn migration_restores_original_bytes_and_removes_new_key_when_verification_fails() {
+    let (directory, _, _) = legacy_snapshot_fixture("migrate-restore");
+    fs::remove_file(directory.join(INTEGRITY_KEY_FILE)).expect("remove key");
+    let wal_path = directory.join(FASTSWAP_WAL_FILE);
+    let snapshot_path = directory.join(FASTSWAP_SNAPSHOT_FILE);
+    let wal_before = fs::read(&wal_path).expect("wal");
+    let snapshot_before = fs::read(&snapshot_path).expect("snapshot");
+    let backup = backup_for(&directory, "backup");
+
+    FAIL_VERIFICATION_AFTER_WRITE.with(|flag| flag.set(true));
+    let error = migrate_legacy_fastswap_store(&directory, &convert(&backup))
+        .expect_err("injected verification failure");
+    assert!(
+        matches!(
+            error,
+            FastSwapStoreError::StateInvariant("injected post-write verification failure")
+        ),
+        "{error:?}"
+    );
+    assert_eq!(fs::read(&wal_path).expect("wal"), wal_before);
+    assert_eq!(fs::read(&snapshot_path).expect("snapshot"), snapshot_before);
+    assert!(!directory.join(INTEGRITY_KEY_FILE).exists());
+    assert!(fs::read_dir(&directory).expect("dir").all(|entry| !entry
+        .expect("entry")
+        .file_name()
+        .to_string_lossy()
+        .contains("migrate-tmp")));
+
+    // The restored store converts on the next run (no normal open before it,
+    // since that would create the key).
+    let retry = backup_for(&directory, "retry");
+    let report = migrate_legacy_fastswap_store(&directory, &convert(&retry)).expect("retry");
+    assert_eq!(report.outcome, "converted");
+    assert!(report.integrity_key_created && report.converted_snapshot);
+    assert_eq!(report.converted_wal_records, 1);
+    assert_eq!(
+        fs::read(retry.join(FASTSWAP_WAL_FILE)).expect("retry backup wal"),
+        wal_before
+    );
+    FastSwapStore::open(&directory).expect("normal open after retry");
+    cleanup(&[&directory, &backup, &retry]);
+}

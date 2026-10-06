@@ -994,17 +994,30 @@ mod owned_transfer_recovery_tests {
         postfiat_types::OwnedTransferCertificateV3,
         Vec<(String, String)>,
     ) {
+        signed_certificate_with_window(input_id, certificate_domain, 7, 100)
+    }
+
+    /// Order valid from `valid_from` for 10 blocks, recovery closing 10 later.
+    fn signed_certificate_with_window(
+        input_id: &str,
+        certificate_domain: postfiat_types::OwnedCertificateDomain,
+        committee_epoch: u64,
+        valid_from: u64,
+    ) -> (
+        postfiat_types::OwnedTransferCertificateV3,
+        Vec<(String, String)>,
+    ) {
         let owner = postfiat_crypto_provider::ml_dsa_65_keygen().expect("owner keygen");
         let owner_pubkey_hex = postfiat_crypto_provider::bytes_to_hex(&owner.public_key);
         let mut order = postfiat_types::OwnedTransferOrderV3 {
             domain: certificate_domain,
             recovery: postfiat_types::FastPayOrderRecoveryV1 {
                 schema: postfiat_types::FASTPAY_ORDER_RECOVERY_SCHEMA_V1.to_string(),
-                committee_epoch: 7,
+                committee_epoch,
                 lock_id: "00".repeat(48),
-                valid_from_height: 100,
-                expires_at_height: 110,
-                recovery_closes_at_height: 120,
+                valid_from_height: valid_from,
+                expires_at_height: valid_from + 10,
+                recovery_closes_at_height: valid_from + 20,
             },
             inputs: vec![postfiat_types::OwnedObjectRef {
                 id: input_id.to_string(),
@@ -1514,5 +1527,161 @@ mod owned_transfer_recovery_tests {
         )
         .is_err());
         assert_eq!(ledger, before);
+    }
+
+    /// Release-day FastPay rotation: epoch 1 accepts new orders through a
+    /// height far above the tip (10000 on the live chain). The epoch-2 record
+    /// installed far below it activates exactly at 10001; a payment under
+    /// epoch 2 is refused at 10000 and accepted at 10001.
+    #[test]
+    fn fastpay_epoch_two_installed_far_below_deadline_activates_at_previous_end_plus_one() {
+        let policy = policy();
+        let validators = recovery_validator_keys()
+            .into_iter()
+            .map(|(validator_id, keypair)| {
+                (
+                    validator_id,
+                    postfiat_crypto_provider::bytes_to_hex(&keypair.public_key),
+                )
+            })
+            .collect::<Vec<_>>();
+        let committee = |epoch, from, through| {
+            postfiat_types::FastPayRecoveryCommitteeV1::from_public_keys(
+                domain().chain_id,
+                domain().genesis_hash,
+                domain().protocol_version,
+                epoch,
+                from,
+                through,
+                validators.clone(),
+            )
+            .expect("recovery committee")
+        };
+        let epoch1 = committee(1, 90, 10_000);
+        let epoch2 = committee(2, 10_001, 20_000);
+        let mut ledger = LedgerState::empty();
+        assert_eq!(
+            execute_fastpay_recovery_governance_update_v1(
+                &mut ledger,
+                &recovery_governance_update(policy.clone(), epoch1.clone()),
+                80,
+            ),
+            Ok(FastPayRecoveryGovernanceOutcomeV1::Bootstrapped)
+        );
+        // Only previous end + 1 is accepted, and the install is far below it.
+        for valid_from in [10_000, 10_002] {
+            let before = ledger.clone();
+            assert!(execute_fastpay_recovery_governance_update_v1(
+                &mut ledger,
+                &recovery_governance_update(
+                    policy.clone(),
+                    committee(2, valid_from, valid_from + 9_999)
+                ),
+                100,
+            )
+            .is_err());
+            assert_eq!(ledger, before);
+        }
+        assert_eq!(
+            execute_fastpay_recovery_governance_update_v1(
+                &mut ledger,
+                &recovery_governance_update(policy.clone(), epoch2.clone()),
+                100,
+            ),
+            Ok(FastPayRecoveryGovernanceOutcomeV1::CommitteeRotated)
+        );
+        let admitting = |height: u64| {
+            ledger
+                .fastpay_recovery_committees
+                .iter()
+                .filter(|c| c.valid_from_height <= height && height <= c.new_orders_through_height)
+                .map(|c| c.committee_epoch)
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(admitting(100), vec![1]);
+        assert_eq!(admitting(10_000), vec![1]);
+        assert_eq!(admitting(10_001), vec![2]);
+
+        let epoch2_domain = epoch2.certificate_domain();
+        let (certificate, validator_pks) =
+            signed_certificate_with_window("epoch2-input", epoch2_domain.clone(), 2, 10_001);
+        let context = FastPayRecoveryVerificationContext {
+            validator_public_keys: &validator_pks,
+            expected_domain: &epoch2_domain,
+            committee_epoch: 2,
+            policy: &policy,
+            quorum: epoch2.quorum,
+        };
+        ledger.owned_objects.push(postfiat_types::OwnedObject {
+            id: "epoch2-input".to_string(),
+            version: 1,
+            owner_pubkey_hex: certificate.owner_pubkey_hex.clone(),
+            value: 100,
+            asset: "PFT".to_string(),
+        });
+        let signed = postfiat_types::SignedOwnedTransferOrderV3 {
+            order: certificate.order.clone(),
+            owner_pubkey_hex: certificate.owner_pubkey_hex.clone(),
+            owner_signature_hex: certificate.owner_signature_hex.clone(),
+        };
+        // One block earlier: refused by admission and by apply, ledger unchanged.
+        assert_eq!(
+            validate_owned_transfer_v3_admission(
+                &ledger,
+                &signed,
+                &epoch2_domain,
+                2,
+                &policy,
+                10_000
+            ),
+            Err(OwnedTransferError::NotYetValid)
+        );
+        let before = ledger.clone();
+        assert_eq!(
+            apply_owned_transfer_certificate_v3(&mut ledger, &certificate, context, 10_000),
+            Err(OwnedTransferError::NotYetValid)
+        );
+        assert_eq!(ledger, before);
+        // An epoch-2 order dated 10000 is outside epoch 2's admission window,
+        // and an epoch-1 order dated 10001 is past epoch 1's.
+        let (early, _) =
+            signed_certificate_with_window("early-input", epoch2_domain.clone(), 2, 10_000);
+        let (late, _) =
+            signed_certificate_with_window("late-input", epoch1.certificate_domain(), 1, 10_001);
+        for (certificate, committee) in [(&early, &epoch2), (&late, &epoch1)] {
+            let recovery = &certificate.order.recovery;
+            assert_eq!(recovery.committee_epoch, committee.committee_epoch);
+            let reveal = postfiat_types::FastLanePrimaryTransactionV1 {
+                operation: postfiat_types::FastLanePrimaryOperationV1::FastPayRecoveryDecision {
+                    request: recovery_request(certificate, recovery.recovery_closes_at_height),
+                },
+            };
+            let mut scratch = ledger.clone();
+            let receipt = execute_fastlane_primary_transaction(
+                &mut scratch,
+                &reveal,
+                recovery.recovery_closes_at_height,
+            );
+            assert!(!receipt.accepted, "{receipt:?}");
+            assert_eq!(
+                receipt.message,
+                "FastPay order is outside its committee domain or admission window"
+            );
+            assert_eq!(scratch, ledger);
+        }
+        // Exactly previous end + 1: admitted and applied.
+        validate_owned_transfer_v3_admission(
+            &ledger,
+            &signed,
+            &epoch2_domain,
+            2,
+            &policy,
+            10_001,
+        )
+        .expect("admitted at 10001");
+        let outcome =
+            apply_owned_transfer_certificate_v3(&mut ledger, &certificate, context, 10_001)
+                .expect("epoch-2 payment applies at 10001");
+        assert_eq!(outcome.consumed, 1);
     }
 }

@@ -731,6 +731,180 @@ mod tests {
         assert!(!fx.root.join("control-certificate.json").exists());
     }
 
+    /// One epoch-1 FastSwap policy (the pair and rule values of the
+    /// `fastswap_service` fixture) and a finalized tip, so a fence can name it.
+    fn add_policy_and_tip(fx: &Fixture, tip_height: u64) {
+        use postfiat_types::{
+            FastAssetIdV1, FastAssetRuleHashV1, FastSwapMarketEnvelopeHashV1, FastSwapPolicyHashV1,
+            FastSwapPolicySnapshotV1, FastSwapQuoteRoundingV1,
+        };
+        let mut policy = FastSwapPolicySnapshotV1 {
+            domain: fx.epoch1.domain.chain.clone(),
+            policy_epoch: 1,
+            policy_hash: FastSwapPolicyHashV1::ZERO,
+            pair_asset_0: FastAssetIdV1([1; 48]),
+            pair_asset_1: FastAssetIdV1([2; 48]),
+            asset_rule_hash_0: FastAssetRuleHashV1([3; 48]),
+            asset_rule_hash_1: FastAssetRuleHashV1([4; 48]),
+            price_numerator: 1,
+            price_denominator: 8,
+            rounding: FastSwapQuoteRoundingV1::Exact,
+            nav_epoch: 59,
+            market_envelope_hash: FastSwapMarketEnvelopeHashV1([6; 48]),
+            valid_from_height: 1,
+            valid_through_height: 10_000,
+            fee_schedule_hash: FastSwapOpaqueHashV1([10; 48]),
+            max_inputs_per_party: 16,
+            max_outputs: 8,
+            paused: false,
+        };
+        policy.policy_hash = policy.computed_hash().unwrap();
+        policy.validate().unwrap();
+        let store = NodeStore::new(&fx.root);
+        let mut ledger = store.read_ledger().unwrap();
+        ledger.fastswap_policy_snapshots.push(policy);
+        store.write_ledger(&ledger).unwrap();
+        let genesis = store.read_genesis().unwrap();
+        store
+            .write_chain_tip(&ChainTipState {
+                schema: CHAIN_TIP_SCHEMA.to_string(),
+                chain_id: genesis.chain_id.clone(),
+                genesis_hash: genesis_hash(&genesis),
+                protocol_version: genesis.protocol_version,
+                height: tip_height,
+                block_hash: "aa".repeat(48),
+                state_root: "bb".repeat(48),
+                ordered_batch_count: 0,
+                receipt_count: 0,
+                history_base_height: 0,
+            })
+            .unwrap();
+    }
+
+    fn prepare_stop(fx: &Fixture, policy_epoch: u64) -> io::Result<PathBuf> {
+        let control_file = fx.root.join(format!("stop-prepare-{policy_epoch}.json"));
+        fastswap_control_prepare(FastSwapControlPrepareOptions {
+            data_dir: fx.root.clone(),
+            kind: FastSwapControlPrepareKind::StopPrepare { policy_epoch },
+            control_file: control_file.clone(),
+        })?;
+        Ok(control_file)
+    }
+
+    #[test]
+    fn fastswap_control_stop_prepare_certificate_is_admitted_and_fences_the_policy() {
+        let fx = fixture("stop-prepare");
+        add_policy_and_tip(&fx, 7);
+        let error = prepare_stop(&fx, 2).unwrap_err().to_string();
+        assert!(error.contains("InvalidFence"), "{error}");
+        let control = prepare_stop(&fx, 1).unwrap();
+        let expected_fence = FastLanePrepareFenceV1 {
+            committee_epoch: 1,
+            policy_epoch: 1,
+            finalized_primary_height: 7,
+        };
+        assert_eq!(
+            read_json_file::<FastLaneControlActionV1>(&control, "control").unwrap(),
+            FastLaneControlActionV1::StopPrepare {
+                fence: expected_fence.clone()
+            }
+        );
+        let votes = (0..5)
+            .map(|index| sign(&fx, &control, &format!("validator-{index}")).unwrap())
+            .collect::<Vec<_>>();
+        let certificate = assemble(&fx, &control, votes).unwrap();
+        assert_eq!(certificate.votes.len(), 5);
+
+        // Mempool admission and the block execution path both accept it.
+        let transaction = postfiat_types::FastLanePrimaryTransactionV1 {
+            operation: postfiat_types::FastLanePrimaryOperationV1::Control {
+                certificate: certificate.clone(),
+            },
+        };
+        admit_fastlane_primary_to_mempool(&fx.root, transaction.clone())
+            .expect("mempool admission");
+        let store = NodeStore::new(&fx.root);
+        let mut ledger = store.read_ledger().unwrap();
+        assert!(ledger.fast_lane_prepare_fences.is_empty());
+        let receipt = crate::execution_actions::execute_fastlane_primary_for_chain(
+            &store.read_genesis().unwrap(),
+            &mut ledger,
+            &transaction,
+            7,
+        );
+        assert!(receipt.accepted, "{receipt:?}");
+        assert_eq!(receipt.code, "fastlane_control_applied");
+        assert_eq!(ledger.fast_lane_prepare_fences, vec![expected_fence]);
+        // The fence is the one `ActivateCommittee` later requires.
+        assert!(ledger.fast_lane_prepare_fences.iter().any(|fence| {
+            fence.committee_epoch == fx.epoch1.domain.committee_epoch && fence.policy_epoch == 1
+        }));
+    }
+
+    #[test]
+    fn fastswap_control_stop_prepare_refuses_rotated_validator_5_and_four_votes() {
+        let fx = fixture("stop-prepare-refuse");
+        add_policy_and_tip(&fx, 7);
+        let control = prepare_stop(&fx, 1).unwrap();
+        // Validator-5's key file holds its rotated key; epoch 1 records the old one.
+        let error = sign(&fx, &control, "validator-5").unwrap_err().to_string();
+        assert!(
+            error.contains("does not match the active FastSwap committee"),
+            "{error}"
+        );
+        let mut votes = (0..4)
+            .map(|index| sign(&fx, &control, &format!("validator-{index}")).unwrap())
+            .collect::<Vec<_>>();
+        let error = assemble(&fx, &control, votes.clone())
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("4 valid votes, quorum is 5"), "{error}");
+
+        // A hand-built four-vote certificate is refused by consensus admission.
+        let action: FastLaneControlActionV1 = read_json_file(&control, "control").unwrap();
+        let four = FastLaneControlCertificateV1 {
+            action: action.clone(),
+            votes: votes
+                .iter()
+                .map(|path| read_json_file(path, "vote").unwrap())
+                .collect(),
+        };
+        let mut ledger = NodeStore::new(&fx.root).read_ledger().unwrap();
+        let before = ledger.clone();
+        assert!(execute_fastlane_control(&mut ledger, &four, 7).is_err());
+        assert_eq!(ledger, before);
+
+        // Validator-5's vote signed with its rotated key, bypassing vote-sign.
+        let mut vote = FastLaneControlVoteV1 {
+            committee: fx.epoch1.domain.clone(),
+            action_digest: action.digest().unwrap(),
+            validator_id: "validator-5".to_string(),
+            signature: Vec::new(),
+        };
+        vote.signature = ml_dsa_65_sign_with_context(
+            &private_key(&fx, "validator-5"),
+            &vote.signing_bytes().unwrap(),
+            FASTLANE_CONTROL_CONTEXT_V1,
+        )
+        .unwrap();
+        let v5_file = fx.root.join("validator-5.rotated-stop-vote.json");
+        write_json_file(&v5_file, &vote).unwrap();
+        votes.push(v5_file);
+        let error = assemble(&fx, &control, votes).unwrap_err().to_string();
+        assert!(
+            error.contains("vote from validator-5 does not verify"),
+            "{error}"
+        );
+        let mut with_v5 = four;
+        with_v5.votes.push(vote);
+        with_v5
+            .votes
+            .sort_by(|left, right| left.validator_id.cmp(&right.validator_id));
+        assert!(execute_fastlane_control(&mut ledger, &with_v5, 7).is_err());
+        assert_eq!(ledger, before);
+        assert!(!fx.root.join("control-certificate.json").exists());
+    }
+
     #[test]
     fn fastswap_control_vote_sign_refuses_second_different_vote_for_same_key() {
         let fx = fixture("equivocation");
