@@ -46,7 +46,7 @@ Must land before the candidate is cut:
 
 - [x] (1) on main with focused tests. It is the reason for this release; without it the bridge half of the signer-group change cannot happen.
 - [x] (5) on main with focused tests, for the same reason. Legacy snapshot conversion and the forced restore after a failed verification are tested (`crates/storage/src/fastswap_store/legacy_migration/tests.rs`).
-- [ ] CI green on main at the cut commit.
+- [ ] CI green on main at the cut commit. At `0fa55d0b` on 2026-10-06: `docs-build` green, `rust-ci` and `product-security-ci` still running at the cut.
 
 Included if ready and reviewed by the cut, otherwise a later release:
 
@@ -61,13 +61,13 @@ Does not depend on the binary:
 
 The 2026-09-28 pattern; about 90 min after the suite.
 
-- [ ] Full workspace suite on the work server at the cut commit, started the day before (several hours). This is the release gate for the full suite.
-- [ ] Cut `release/<new-release>` from that commit; create `deployments/<new-release>/` from `deployments/combined-fastpay-20260928/` (10 min).
-- [ ] Two identical clean builds: same executable hash (30–40 min).
-- [ ] History checks (15–20 min).
-- [ ] Rotation and rollback rehearsal, including `rollback-one.sh` back to `combined-fastpay-20260928` (15–20 min).
-- [ ] Signed deployment manifest; `deployment-manifest-verify` passes (10 min).
-- [ ] Evidence packet in the release directory (10–15 min).
+- [ ] Full workspace suite on the work server at the cut commit, started the day before (several hours). This is the release gate for the full suite. Ran at `672b707c` on 2026-10-05, not at the cut commit; the later changes were covered by focused suites ([packet](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/qualification/README.md)).
+- [x] Cut `release/<new-release>` from that commit; create `deployments/<new-release>/` from `deployments/combined-fastpay-20260928/` (10 min). Done 2026-10-06: `release/signer-rotation-20261007` at `0fa55d0b` ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/README.md)).
+- [x] Two identical clean builds: same executable hash (30–40 min). `decaa411…`.
+- [x] History checks (15–20 min). Signed 1050 canary, six 1020 originals, two saved V2 copies: roots match.
+- [x] Rotation and rollback rehearsal, including `rollback-one.sh` back to `combined-fastpay-20260928` (15–20 min). Its checks ran on local copies; the script itself runs on a host.
+- [x] Signed deployment manifest; `deployment-manifest-verify` passes (10 min). `fa4649aa…`, publisher `pfc531e0…`.
+- [x] Evidence packet in the release directory (10–15 min). Not done on 2026-10-06: canary backup, fleet before-state, rollout, store conversion, activation.
 
 ## Rollout
 

@@ -805,7 +805,10 @@ transaction.
 ## 2026-10-05: weekend state before the other lane's conference day
 
 Release `combined-fastpay-20260928` (`c93b2137`) is unchanged; `main`, which now
-includes the other lane's PR #55 (`b1d1928c`), is not deployed. This lane read
+includes the other lane's PR #55 (`b1d1928c`), is not deployed. On 2026-10-06
+the next candidate, `signer-rotation-20261007` (`main` at `0fa55d0b`, executable
+`decaa411…`), was cut and qualified locally; it is cut, not deployed
+([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/README.md)). This lane read
 blocks 1104–1115 over read-only RPC on validator-1 (`blocks`, `tx`,
 `batch_archive`). All twelve were certified at view 0 and accepted, with fees of
 22–53 atoms. Block headers carry no time.
