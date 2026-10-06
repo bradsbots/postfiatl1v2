@@ -1238,9 +1238,10 @@ fn catch_up_rejects_malformed_batches_without_durable_mutation() {
     assert!(fleet[2].catch_up_history(&conflicting_parent).is_err());
 
     let mut partially_valid = valid.clone();
-    partially_valid.entries[1].transcript.rbc_echoes[0]
-        .signature_hex
-        .replace_range(0..2, "00");
+    // ML-DSA signatures are randomized, so a fixed "00" overwrite is a no-op in 1/256 runs.
+    let echo_signature = &mut partially_valid.entries[1].transcript.rbc_echoes[0].signature_hex;
+    let first_byte = u8::from_str_radix(&echo_signature[0..2], 16).expect("signature hex");
+    echo_signature.replace_range(0..2, &format!("{:02x}", first_byte ^ 0xff));
     partially_valid.entries[1].transcript_hash = hash_serialized(
         "postfiat.cobalt.shadow.protocol-transcript.v1",
         &partially_valid.entries[1].transcript,
