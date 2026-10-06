@@ -125,6 +125,7 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - Release Candidate Cut And Locally Qualified: handoffs/2026-10-06___dravlic__release_candidate_cut_and_locally_qualified.md
       - Release After The Conference Prepared On Main: handoffs/2026-10-05___dravlic__release_after_the_conference_prepared_on_main.md
       - BMNRC Protocol Check, Inventory Rows Closed And Decisions Taken: handoffs/2026-10-02___dravlic__bmnrc_protocol_check_inventory_rows_closed_and_decisions_taken.md
       - Fleet Recorded, Relay Default, WB-11 Repaired And Demo Readiness: handoffs/2026-10-01___dravlic__fleet_recorded_relay_default_wb11_repaired_and_demo_readiness.md
