@@ -310,3 +310,26 @@ Each item shows the date first asked.
 [lmt327]: https://github.com/postfiatorg/postfiatl1v2/blob/d7212f34817dd8d9458ef12d0c7c266b81b9662e/crates/storage/src/fastswap_store/legacy_migration/tests.rs#L327
 [lm135]: https://github.com/postfiatorg/postfiatl1v2/blob/d7212f34817dd8d9458ef12d0c7c266b81b9662e/crates/storage/src/fastswap_store/legacy_migration.rs#L135
 [otr1537]: https://github.com/postfiatorg/postfiatl1v2/blob/d7212f34817dd8d9458ef12d0c7c266b81b9662e/crates/execution/src/owned_transfer_recovery.rs#L1537
+
+## Addendum (12:35 UTC)
+
+Date correction. The conference is [TOKEN2049 Singapore][t2049], Wednesday 7 and
+Thursday 8 October 2026 at Marina Bay Sands. The other lane speaks on
+Wednesday 7 October, 11:00–11:20 Singapore time ([agenda][t2049agenda]), and is
+at the venue on both days for live demos. This handoff assumed the stage day was
+2026-10-06 and the rollout 2026-10-07; both are wrong.
+
+- Today's work was done a day early under that wrong assumption. It changed
+  nothing live: the only host contact was the read-only 09:13Z health check.
+- Nothing live happens on 7–8 October: no contact with the six validator hosts,
+  no chain action, no StakeHub `master` commit ([PR #21][sh21] waits too).
+- The rollout and the activation move to 2026-10-09 at the earliest.
+- The objection window on the validator-5 reinstatement closes 2026-10-08
+  evening UTC (end of Thursday). "Next steps" and item (g)/(n) above read with
+  these dates.
+- The release name `signer-rotation-20261007` stays; it is a name, not a date.
+- Corrected: the [plan][plan] on `main`, and the release README and deploy sheet
+  in `b4d3ebde` on `release/signer-rotation-20261007`.
+
+[t2049]: https://www.token2049.com/singapore
+[t2049agenda]: https://www.token2049.com/singapore/agenda

@@ -1,7 +1,9 @@
 # Next validator release plan (after the conference)
 
-Written 2026-10-05. Read by both lanes on 2026-10-07. Nothing is deployed
-before 2026-10-07.
+Written 2026-10-05. The conference is [TOKEN2049 Singapore](https://www.token2049.com/singapore),
+Wednesday 7 and Thursday 8 October 2026; on those days nothing touches the six
+validator hosts, the chain or StakeHub `master`. Nothing is deployed before 2026-10-09.
+The release name `signer-rotation-20261007` keeps its date suffix; it is a name, not a date.
 
 ## Summary
 
@@ -71,7 +73,7 @@ The 2026-09-28 pattern; about 90 min after the suite.
 
 ## Rollout
 
-About 60 min, after the objection window closes.
+About 60 min, after the objection window closes; 2026-10-09 at the earliest.
 
 - [ ] Before: `observe-fleet.py` shows six validators on `1f8b332d…` with the same height, tip and root (5 min).
 - [ ] `scripts/postfiat-safe-rollout apply-next`, one validator at a time (validator-1 canary, then 0, 2, 3, 4, 5). One devnet faucet grant per validator; each must certify with the same tip and root on all six before the next (6 × 6–8 min).
@@ -92,12 +94,12 @@ Both changes depend on the decision on the [proposal](https://github.com/postfia
 ## Communication
 
 - [ ] Inform the other lane; do not ask. Send the handoff and a Telegram message, both carrying this plan.
-- [ ] The other lane may object until 2026-10-07 evening UTC. Rollout starts only after that.
+- [ ] The other lane may object until 2026-10-08 evening UTC (end of Thursday). Rollout starts only after that, on 2026-10-09 at the earliest.
 - [ ] Ask for the activation signatures separately, under the decision proposal, after the dry run.
 
 ## Not in this release
 
 - Relay units on the six hosts: host hygiene with its own window ([demo readiness](../../status/demo-readiness-20261001.md)).
 - The SCT-06 traffic campaign.
-- Anything that touches the conference-day setup.
+- Anything that touches the conference setup (7–8 October).
 - The other lane's unreleased candidate itself; at most the fix in (4).
