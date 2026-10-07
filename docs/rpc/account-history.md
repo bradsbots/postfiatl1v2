@@ -28,6 +28,20 @@ Wallets, explorers, custodians, and operators need a way to ask:
 newest. The disk index, the archive scan and the Python client fallback agree
 on this.
 
+The archive scan and the Python fallback read a window of at most `limit`
+blocks inside the requested range: the oldest blocks from `from_height`, or,
+without it, the newest blocks at or below `to_height` (the chain tip when
+`to_height` is absent). An end height below the tip therefore never reads
+blocks above it.
+
+The disk index and the archive scan build their rows with the same function
+(`account_tx_rows_for_transparent_block`) and list a row for an account when it
+is the row's `from` or `to`, so they return the same rows: transfers,
+`payment_v2`, asset, atomic swap, escrow, NFT and offer operations, including
+offer fills. The Python fallback reads the same kinds except atomic swaps, and
+in a block that holds an atomic swap its escrow, NFT and offer rows carry a
+`transaction_index` (and `tx_id`) shifted by the number of swaps.
+
 `truncated` is `true` when a matching row was omitted. The archive scan (used
 when no index is usable; `index_used: false`) and the Python fallback read at
 most `limit` blocks. If the height range holds more blocks than that, the

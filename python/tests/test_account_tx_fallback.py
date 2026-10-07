@@ -93,6 +93,22 @@ class AccountTxFallbackScanTests(unittest.TestCase):
         bounded = self._scan(_chain([["a"], [], []]), limit=2, to_height=2)
         self.assertFalse(bounded.truncated)
 
+    def test_end_height_below_tip_without_start_height_reads_that_range(self) -> None:
+        # The server reads the newest `limit` blocks at or below `to_height`.
+        chain = _chain([["a"], ["b"], ["c"], ["d"]])
+        whole = self._scan(chain, limit=3, from_height=None, to_height=3)
+        self.assertEqual(self._ids(whole), ["tx1-0", "tx2-0", "tx3-0"])
+        self.assertFalse(whole.truncated)
+        newest = self._scan(chain, limit=2, from_height=None, to_height=3)
+        self.assertEqual(self._ids(newest), ["tx2-0", "tx3-0"])
+        self.assertTrue(newest.truncated)
+
+    def test_start_and_end_height_read_the_exact_window(self) -> None:
+        chain = _chain([["a"], ["b"], ["c"], ["d"]])
+        scan = self._scan(chain, limit=3, from_height=2, to_height=3)
+        self.assertEqual(self._ids(scan), ["tx2-0", "tx3-0"])
+        self.assertFalse(scan.truncated)
+
 
 if __name__ == "__main__":
     unittest.main()

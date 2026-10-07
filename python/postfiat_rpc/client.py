@@ -1599,6 +1599,13 @@ class PostFiatRpcClient:
         # means a matching row in that window was omitted, or the range continues
         # past the window (possibly incomplete: those blocks are not read).
         blocks = self.blocks(from_height=from_height, limit=scan_limit)
+        if from_height is None and to_height is not None:
+            heights = [h for h in map(self._block_height, blocks) if h is not None]
+            if heights and max(heights) > to_height:
+                # The end height is below the tip: read the newest blocks at or
+                # below it, as the server does, not the chain's newest blocks.
+                window_start = max(0, to_height + 1 - scan_limit)
+                blocks = self.blocks(from_height=window_start, limit=scan_limit)
         selected_blocks = []
         for block in blocks:
             height = self._block_height(block)
@@ -1608,8 +1615,8 @@ class PostFiatRpcClient:
                 continue
             selected_blocks.append(block)
 
-        truncated = len(blocks) >= scan_limit and self._account_tx_range_continues(
-            blocks, from_height, to_height
+        truncated = len(selected_blocks) >= scan_limit and self._account_tx_range_continues(
+            selected_blocks, from_height, to_height
         )
         if from_height is None:
             selected_blocks.reverse()
