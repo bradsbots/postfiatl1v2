@@ -10,6 +10,26 @@
 
 **Parent gate:** [L1v2 Public Testnet Path, Gate Zero Z3](l1v2-public-testnet-path-milestone.md#gate-zero-operator-preconditions-recorded-2026-08-30)
 
+## Status 2026-10-07
+
+No live cycle has run and G4 is not authorized. The checkboxes below keep their meaning.
+
+Ready on this lane's side:
+
+- Tooling: the G3 driver, wrapper, cycle verifier and focused tests; the dry-run repairs `d825b4fb` and `048d23df` (2026-09-21) and the custody-check repair `25610696` (2026-09-28).
+- Dry run: the [second run](../../status/z3-dry-run-20260921.md#second-run) of 2026-09-21 printed and resolved all 39 commands.
+- Arc test wallet `0xC75Bf05Ce82d6f4b6139dd9446D6De5F5994a4CB`, funded with 20 testnet USDC on 2026-09-17 (re-read 2026-09-28).
+- [Cycle-1 inputs](../../status/z3-cycle1-inputs-20260922.md) read back on 2026-09-22 and re-read on 2026-09-28: 9 fields resolved, 8 need the other lane.
+- Still open here, at cycle time: the Arc allowance approval (allowance 0) and the decision on an active governed Arc ingress route (inputs, blocker 5).
+
+Waiting on the other lane (date first asked):
+
+- PFTL signer keys and custody, and cycle-input rows 4, 8, 11, 12, 13, 16 and 17 ([inputs](../../status/z3-cycle1-inputs-20260922.md#fixed-identities-and-remaining-envelope-inputs)). 2026-09-22.
+- The Arc source custody row on the A666 primary route, through a route-epoch advance signed by the A666 issuer key `pffcb93…`. 2026-09-28. The route advanced from epoch 10 to 11 at block 1110 on 2026-10-04 ([chain state](../../status/chain-state-current.md#2026-10-05-weekend-state-before-the-other-lanes-conference-day)), but its only custody row is still the Ethereum pfUSDC source `2bae082a…` (read 2026-10-05, [handoff](../../handoffs/2026-10-05___dravlic__release_after_the_conference_prepared_on_main.md)). The Arc row is still missing.
+- A compatible governed A666 NAV profile with fresh opening and post-subscription proofs. 2026-09-22. A666 NAV epoch 9 was finalized at block 1109; the profile last read (2026-09-28) is `a94a3929…`, `sp1-groth16`, with no schema or source-manifest binding. Reference pattern: BMNRC, live since 2026-10-01, is bound to the registered `sp1-nav-reserve-v1` profile `4ff2afa5…` with a Groth16 program key, and its proof's public values (`postfiat.nav_reserve_public_values.v1`) bind asset, profile, epoch, policy hash and source manifest ([BMNRC check](../../review/bmnrc-protocol-enforcement-check-20261002.md)). That is the shape `validate_nav_binding` requires.
+
+Release rule: the fleet runs `combined-fastpay-20260928` (`c93b2137`). Candidate `signer-rotation-20261007` (`0fa55d0b`) is cut and locally qualified and deploys on 2026-10-09 at the earliest ([release plan](next-validator-release-plan-20261005.md)). Because all ten cycles need one unchanged binary, the ten-cycle window starts only after that release is deployed and must not span a release.
+
 ## Purpose
 
 Z3 demands repeated end-to-end NAVCoin round trips in the order deposit, mint, swap, and redemption on one qualified release lineage without a consensus upgrade during the qualification window.
@@ -82,7 +102,7 @@ The plan composes existing code rather than authorizing a replacement:
 - docs/specs/pfusdc-arc-mvp-testnet-spec-20260828.md and docs/specs/pfusdc-arc-tier4-spec-20260828.md define the proof-verified Arc bridge boundary.
 - python/postfiat_rpc/testnet_path.py remains the user-facing status source; it must continue to report Z3 as OPEN until the final operator decision.
 
-The current demo driver hardcodes the Ethereum route ID and production identities.
+The current demo driver hardcodes the Ethereum route ID and production identities. *2026-10-07:* no longer; since `90fbc5da` (G3) it requires explicit route and source identities.
 Changing it for Z3 is tooling work only if the existing protocol can express the selected Arc-backed route.
 A tool must accept explicit route and asset identities, reject defaults during qualification, fail on overwrite, and write redaction-safe artifacts.
 It must never embed a private key or fetch one into an evidence file.
@@ -130,10 +150,10 @@ G0 performs no network call and no chain mutation.
 
 ### Gate G1 — operator authorizes the bounded SHADOW envelope
 
-- [x] The operator gives an explicit go for preparation and names the qualified PFTL release lineage. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: preparation may proceed. The lineage is the running release `combined-fastpay-20260928`: source `c93b213755f5889565fd1f77b9e45c149a07193a` and node executable SHA-256 `1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a`. Its deployment directory is `deployments/combined-fastpay-20260928/` on `release/combined-fastpay-20260928`, merged into main as `6b8f6ea8`. *Superseded 2026-09-28:* the lineage decided on 2026-09-23, the September 22 build (`1a0989ad`, `e7bb1afa…`, qualification `deployments/release-repair-20260922/`), was never deployed. The deployments of 2026-09-25 (`combined-fastpay-20260925`, `f60e9639`) and 2026-09-28 superseded it. The decided Arc pair, cap and route below are unchanged.
+- [x] The operator gives an explicit go for preparation and names the qualified PFTL release lineage. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: preparation may proceed. The lineage is the running release `combined-fastpay-20260928`: source `c93b213755f5889565fd1f77b9e45c149a07193a` and node executable SHA-256 `1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a`. Its deployment directory is `deployments/combined-fastpay-20260928/` on `release/combined-fastpay-20260928`, merged into main as `6b8f6ea8`. *Superseded 2026-09-28:* the lineage decided on 2026-09-23, the September 22 build (`1a0989ad`, `e7bb1afa…`, qualification `deployments/release-repair-20260922/`), was never deployed. The deployments of 2026-09-25 (`combined-fastpay-20260925`, `f60e9639`) and 2026-09-28 superseded it. The decided Arc pair, cap and route below are unchanged. *2026-10-07:* `signer-rotation-20261007` replaces this release on 2026-10-09 at the earliest; the window lineage is re-named from the release deployed when the window opens.
 - [x] The operator names the exact Arc testnet pair after full contract and route read-back. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff. These are the values read back on 2026-09-22 in the [cycle-1 inputs](../../status/z3-cycle1-inputs-20260922.md#fixed-identities-and-remaining-envelope-inputs): chain `5042002`; anchor `0x92390d3a2102cb74e4746c05b4d91f61093475d0`; vault `0x160307f3efead79b6a3629c4b8d90e8301fc250f`; verifier `0x1d436908516d15e3c55a936899b47a885e047f27`; USDC `0x3600000000000000000000000000000000000000`; route `pfusdc-arc-testnet-tier4-epoch9`, EVM binding `0xd9e0cd409c5d1e118d65c78ee059adcbba937616353e9675e350d52ee8d498b2`. Re-read them at preflight on the cycle day.
 - [x] The operator confirms the existing A666 primary route or an existing-operation-only testnet configuration that may accept the Arc source-labeled pfUSDC. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: use the existing A666 primary route `pftl-a666-ethereum-wA666-usdc-v1`, with no new testnet configuration. The NAV-profile compatibility blocker in the [cycle-1 inputs](../../status/z3-cycle1-inputs-20260922.md#fixed-identities-and-remaining-envelope-inputs) stays with the other lane, which owns the governed profile and the fresh proofs.
-- [x] The operator sets the per-cycle faucet/test value cap and the seven-day campaign window. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: the per-cycle cap is 2,000,000 source atoms of testnet USDC (2 USDC), the amount already used by the dry runs and the inputs record. The seven-day campaign window opens on the UTC day of the first live cycle and is stamped in the cycle-1 packet on that day. The seed window 2026-09-18–2026-09-25 lapses because the deployment is blocked.
+- [x] The operator sets the per-cycle faucet/test value cap and the seven-day campaign window. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: the per-cycle cap is 2,000,000 source atoms of testnet USDC (2 USDC), the amount already used by the dry runs and the inputs record. The seven-day campaign window opens on the UTC day of the first live cycle and is stamped in the cycle-1 packet on that day. The seed window 2026-09-18–2026-09-25 lapses because the deployment is blocked. *2026-10-07:* the window opens only after the next release is deployed and must not span a release.
 - [ ] The operator provides or controls the funded test wallet and signing flow without disclosing key material to evidence. 2026-09-23: the Arc side is the server wallet `0xC75Bf05Ce82d6f4b6139dd9446D6De5F5994a4CB`, with keystore `~/.foundry/keystores/arc-testnet-server` and password file `~/.postfiat/arc-testnet-server.password` (paths only, never contents), funded with 20 testnet USDC on 2026-09-17. On the PFTL side, the holder/owner, pfUSDC issuer, A666 issuer/NAV finalizer and NAV reserve submitter keys are only on the other lane's machine ([signer table](../../status/z3-cycle1-inputs-20260922.md#signer-bindings-and-file-presence)). This item stays with the other lane (first asked 2026-09-22) and remains open.
 - [x] The operator confirms that this authorization covers testnet/devnet only and does not authorize mainnet or production value. 2026-09-23, decided by this lane; the other lane is informed in the 2026-09-23 handoff: confirmed for Arc testnet chain `5042002` and `postfiat-wan-devnet-2` only. This lane authorizes no mainnet or production value.
 
@@ -142,13 +162,13 @@ Nothing after G0 begins without it.
 
 ### Gate G2 — prove route compatibility offline
 
-- [x] Pin the integrated source commit and verify that the selected qualified lineage contains the required Arc code or an operator-approved equivalent. Candidate `15126ac3` and recorded qualified node source `1c435f4f` verified 2026-09-17; G1 lineage selection remains open ([source verdict](../../review/z3-g2-route-compatibility-20260917.md#g21-pass-candidate-source-pinned-and-required-code-present)).
+- [x] Pin the integrated source commit and verify that the selected qualified lineage contains the required Arc code or an operator-approved equivalent. Candidate `15126ac3` and recorded qualified node source `1c435f4f` verified 2026-09-17; G1 lineage selection was open then and was decided on 2026-09-23 (updated 2026-10-07) ([source verdict](../../review/z3-g2-route-compatibility-20260917.md#g21-pass-candidate-source-pinned-and-required-code-present)).
 - [ ] Read back or replay the selected route, asset, proof-profile, policy, NAV, and source-domain identities from frozen fixtures.
 - [x] Prove that Arc source-labeled pfUSDC can fund the existing primary subscription and redemption operations without a new transaction kind or facility. Existing source selection and route maintenance supported 2026-09-17; the driver still needs G3 changes ([compatibility trace](../../review/z3-g2-route-compatibility-20260917.md#g23-pass-existing-operations-can-settle-the-governed-arc-source)).
 - [x] Prove that the route counts the same-cycle reserve exactly once and that its settlement asset ID cannot be substituted. Code trace and focused offline tests passed 2026-09-17; exact Arc cycle composition remains G3 work ([accounting and binding](../../review/z3-g2-route-compatibility-20260917.md#g24-pass-reserve-counted-once-settlement-identities-cannot-be-substituted)).
 - [x] Stop for the operator if compatibility requires consensus code, a generic NRRS facility, a new bridge contract, or a new settlement-price format. No prohibited expansion required by the candidate path, 2026-09-17; pair and lineage decisions remain with the operator ([stop verdict](../../review/z3-g2-route-compatibility-20260917.md#stop-verdict)).
 
-The 2026-09-17 [identity comparison](../../review/z3-g2-route-compatibility-20260917.md#identities-read-back) records both Arc pairs without selecting one. G2's selected-state readback remains open; no G1 authorization or integrated live cycle is claimed.
+The 2026-09-17 [identity comparison](../../review/z3-g2-route-compatibility-20260917.md#identities-read-back) records both Arc pairs without selecting one. G2's selected-state readback remains open; no integrated live cycle is claimed. *2026-10-07:* G1 selected the current-v2 pair on 2026-09-23.
 
 ### Gate G3 — complete focused tooling and local tests
 
