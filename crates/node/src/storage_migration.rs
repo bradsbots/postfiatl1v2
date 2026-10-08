@@ -1145,7 +1145,10 @@ mod storage_migration_tests {
         // itself, not its parent.
         let existing = root.join("existing-output");
         fs::create_dir_all(&existing).expect("create existing output");
-        assert_eq!(nearest_existing_location(&existing).expect("existing"), existing);
+        assert_eq!(
+            nearest_existing_location(&existing).expect("existing"),
+            existing
+        );
         let _ = fs::remove_dir_all(root);
     }
 
@@ -1166,7 +1169,9 @@ mod storage_migration_tests {
         let error = read_migration_manifest(&root).expect_err("oversized manifest must fail");
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(
-            error.to_string().starts_with("storage_migration_manifest_too_large: "),
+            error
+                .to_string()
+                .starts_with("storage_migration_manifest_too_large: "),
             "{error}"
         );
         let _ = fs::remove_dir_all(root);
@@ -1178,7 +1183,9 @@ mod storage_migration_tests {
         let error = read_migration_manifest(&root).expect_err("missing manifest must fail");
         assert_eq!(error.kind(), io::ErrorKind::NotFound);
         assert!(
-            error.to_string().starts_with("storage_migration_manifest_missing: "),
+            error
+                .to_string()
+                .starts_with("storage_migration_manifest_missing: "),
             "{error}"
         );
         let _ = fs::remove_dir_all(root);
@@ -1192,8 +1199,12 @@ mod storage_migration_tests {
         let exact = "a".repeat(STORAGE_MIGRATION_MANIFEST_CHECKSUM_MAX_BYTES as usize);
         fs::write(&path, &exact).expect("write exact");
         assert_eq!(
-            read_bounded_migration_text(&path, STORAGE_MIGRATION_MANIFEST_CHECKSUM_MAX_BYTES, reasons)
-                .expect("exactly at the cap is accepted"),
+            read_bounded_migration_text(
+                &path,
+                STORAGE_MIGRATION_MANIFEST_CHECKSUM_MAX_BYTES,
+                reasons
+            )
+            .expect("exactly at the cap is accepted"),
             exact
         );
         fs::write(&path, format!("{exact}b")).expect("write over");
@@ -1210,8 +1221,8 @@ mod storage_migration_tests {
         assert_eq!(error.kind(), io::ErrorKind::NotFound);
         assert!(error.to_string().starts_with("r_missing: "), "{error}");
         fs::write(&path, [0xff_u8, 0xfe]).expect("write invalid utf-8");
-        let error = read_bounded_migration_text(&path, 16, reasons)
-            .expect_err("invalid UTF-8 must fail");
+        let error =
+            read_bounded_migration_text(&path, 16, reasons).expect_err("invalid UTF-8 must fail");
         assert!(error.to_string().starts_with("r_failed: "), "{error}");
         let _ = fs::remove_dir_all(root);
     }
