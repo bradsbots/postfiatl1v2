@@ -267,9 +267,9 @@ fn is_utc_rfc3339_second_timestamp(value: &str) -> bool {
         if !digits.iter().all(u8::is_ascii_digit) {
             return None;
         }
-        digits
-            .iter()
-            .try_fold(0u32, |acc, byte| acc.checked_mul(10)?.checked_add(u32::from(byte - b'0')))
+        digits.iter().try_fold(0u32, |acc, byte| {
+            acc.checked_mul(10)?.checked_add(u32::from(byte - b'0'))
+        })
     };
     let (Some(year), Some(month), Some(day), Some(hour), Some(minute), Some(second)) = (
         field(0, 4),
@@ -463,12 +463,12 @@ mod tests {
     fn observed_at_rejects_wrong_shape() {
         for value in [
             "",
-            "2026-10-08T20:52:37",     // no Z
+            "2026-10-08T20:52:37",      // no Z
             "2026-10-08T20:52:37.000Z", // fractional seconds
-            "2026-10-08 20:52:37Z",    // space separator
+            "2026-10-08 20:52:37Z",     // space separator
             "2026-10-08T20:52:37+00:00",
             "2026-1-08T20:52:37Z",
-            "２026-10-08T20:52:37Z",   // non-ASCII digit
+            "２026-10-08T20:52:37Z", // non-ASCII digit
             "2026-10-08T20:52:3xZ",
         ] {
             assert!(!is_utc_rfc3339_second_timestamp(value), "{value}");
