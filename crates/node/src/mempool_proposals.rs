@@ -2265,12 +2265,18 @@ pub(super) fn enforce_mempool_state_limits(mempool: &MempoolState) -> io::Result
 fn mempool_latest_tx_id(mempool: &MempoolState) -> String {
     latest_tx_id_in_execution_order(MempoolFamilyTails {
         transfers: mempool.pending.last().map(|entry| entry.tx_id.as_str()),
-        payments_v2: mempool.pending_payment_v2.last().map(|entry| entry.tx_id.as_str()),
+        payments_v2: mempool
+            .pending_payment_v2
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
         asset: mempool
             .pending_asset_transactions
             .last()
             .map(|entry| entry.tx_id.as_str()),
-        atomic_swap: mempool.pending_atomic_swaps.last().map(|entry| entry.tx_id.as_str()),
+        atomic_swap: mempool
+            .pending_atomic_swaps
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
         fastlane_primary: mempool
             .pending_fastlane_primary
             .last()
@@ -3341,7 +3347,10 @@ mod burn5_tests {
             escrow: Some("escrow-2"),
             ..MempoolFamilyTails::default()
         };
-        assert_eq!(latest_tx_id_in_execution_order(with_escrow), Some("escrow-2"));
+        assert_eq!(
+            latest_tx_id_in_execution_order(with_escrow),
+            Some("escrow-2")
+        );
         // Full precedence, last family first.
         let all = MempoolFamilyTails {
             transfers: Some("t"),

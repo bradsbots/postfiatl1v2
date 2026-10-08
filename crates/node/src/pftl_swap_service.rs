@@ -1844,11 +1844,14 @@ mod tests {
         let quote = quote_fixture();
         let mut signed = signed_fixture("capacity-intent");
         signed.intent.quote_id = quote.quote_id.clone();
-        let keypair = ml_dsa_65_keygen_from_seed(&[9_u8; 32]);
+        let keypair = ml_dsa_65_keygen_from_seed(&[7_u8; 32]);
         signed.signature_hex = bytes_to_hex(
             &ml_dsa_65_sign_with_context(
                 &keypair.private_key,
-                &signed.intent.signing_bytes().expect("capacity signing bytes"),
+                &signed
+                    .intent
+                    .signing_bytes()
+                    .expect("capacity signing bytes"),
                 PFTL_SWAP_INTENT_SIGNATURE_CONTEXT_V1,
             )
             .expect("sign capacity intent"),
@@ -1898,8 +1901,7 @@ mod tests {
         );
         let journal = load_pftl_swap_journal(&path).expect("reload journal");
         assert_eq!(
-            journal.entries["capacity-intent"].timing,
-            recorded.timing,
+            journal.entries["capacity-intent"].timing, recorded.timing,
             "refused updates leave the recorded timing unchanged"
         );
         let _ = fs::remove_dir_all(root);
