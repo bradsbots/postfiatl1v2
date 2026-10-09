@@ -1510,6 +1510,64 @@ class PostFiatRpcClient:
         """Re-verify the local shielded-state commitment and accounting."""
         return self._verification_report("verify_shielded")
 
+    @staticmethod
+    def _required_text(value: object, field: str) -> str:
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{field} must be a non-empty string")
+        return value
+
+    def _object_read(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        result = self._call(method, params)
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        return result
+
+    def shield_scan(self, owner: str) -> list[dict[str, Any]]:
+        """List the shielded notes visible to `owner` (public read, `--owner`)."""
+        result = self._call("shield_scan", {"owner": self._required_text(owner, "owner")})
+        if not isinstance(result, list):
+            raise RpcProtocolError("shield_scan result must be a list")
+        return result
+
+    def shield_disclose(self, note_id: str) -> dict[str, Any]:
+        """Disclose one shielded note by id (public read, `--note-id`)."""
+        return self._object_read(
+            "shield_disclose", {"note_id": self._required_text(note_id, "note_id")}
+        )
+
+    def vault_bridge_route(self, asset_id: str) -> dict[str, Any]:
+        """Verify and report the governed vault bridge route for an asset."""
+        return self._object_read(
+            "vault_bridge_route", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def market_ops_status(self, asset_id: str, *, epoch: int | None = None) -> dict[str, Any]:
+        """Market-operations status for an asset, optionally pinned to an epoch."""
+        params: dict[str, Any] = {"asset_id": self._required_text(asset_id, "asset_id")}
+        if epoch is not None:
+            if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch < 0:
+                raise ValueError("epoch must be a non-negative integer")
+            params["epoch"] = epoch
+        return self._object_read("market_ops_status", params)
+
+    def asset_orchard_action_status(
+        self,
+        nullifiers: tuple[str, str] | list[str],
+        output_commitments: tuple[str, str] | list[str],
+    ) -> dict[str, Any]:
+        """Status of one Asset-Orchard action's two nullifiers and two output commitments.
+
+        The node takes exactly two of each (`--nullifier-1`, `--nullifier-2`,
+        `--output-commitment-1`, `--output-commitment-2`).
+        """
+        params: dict[str, Any] = {}
+        for prefix, values in (("nullifier", nullifiers), ("output_commitment", output_commitments)):
+            if not isinstance(values, (list, tuple)) or len(values) != 2:
+                raise ValueError(f"{prefix}s must hold exactly two values")
+            for index, value in enumerate(values, start=1):
+                params[f"{prefix}_{index}"] = self._required_text(value, f"{prefix}_{index}")
+        return self._object_read("asset_orchard_action_status", params)
+
     def account_tx(
         self,
         address: str,
