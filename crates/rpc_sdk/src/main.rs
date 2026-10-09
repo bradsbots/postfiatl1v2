@@ -991,6 +991,14 @@ fn write_request(flags: &[String]) -> Result<(), String> {
             ));
         }
     };
+    // Refuse to write a request this binary's own validator would reject, so a
+    // malformed id, hash or limit fails here instead of later at
+    // `validate-request --expect-kind` or at the node. A method whose kind the
+    // binary cannot derive is written unvalidated, as before.
+    if let Ok(Some(kind)) = request_kind_for_method(method, flags) {
+        postfiat_rpc_sdk::validate_request(&request, Some(id), Some(kind))
+            .map_err(|error| format!("request validation failed for `{method}`: {error}"))?;
+    }
     write_request_output(output, &request)
 }
 
@@ -1833,6 +1841,13 @@ fn request_kind(flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
     let Some(kind) = flag_value(flags, "--expect-kind") else {
         return Ok(None);
     };
+    request_kind_for_method(kind, flags)
+}
+
+/// The request kind for a method name; `flags` supplies kind parameters such
+/// as `--validators`. Shared by `validate-request --expect-kind` and by the
+/// `request` builder's pre-write validation.
+fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
     match kind {
         METHOD_STATUS => Ok(Some(RpcRequestKind::Status)),
         METHOD_SERVER_INFO => Ok(Some(RpcRequestKind::ServerInfo)),
@@ -2366,7 +2381,8 @@ Blocks request supports --from-height and --limit.
 Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: status, server_info, metrics, ledger, verify_state, validate_local_keys, account, account_tx, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
-Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout."#
+Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout.
+The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written."#
     );
 }
 
