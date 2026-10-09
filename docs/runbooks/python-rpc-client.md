@@ -115,6 +115,17 @@ report, and fails closed when method-specific checks fail.
   remaining parameterized public reads, sending the node's parameter names
   (`--owner`, `--note-id`, `--asset-id`, `--epoch`, `--nullifier-1/2`,
   `--output-commitment-1/2`) with the arguments validated client-side
+- `nav_reserve_proof_status(asset_id)`, `vault_bridge_status(asset_id)`,
+  `fx_fix_list(base_asset_id=None, quote_asset_id=None, active_only=False, limit=None)`,
+  `fx_fix_info(fix_packet_hash)`, `fx_fix_reservation_info(reservation_id)`,
+  `fx_fix_quote(fix_packet_hash, base_atoms)`,
+  `pfusdc_ingress_preflight(asset_id, recipient=..., depositor=..., amount_atoms=...)`,
+  `pfusdc_egress_witness(withdrawal_id, prior_checkpoint=None)`,
+  `yolo_target_receipt(registration_id)` -- the last of the documented public
+  reads; with these, every `public read` row of
+  [method-coverage.md](../rpc/method-coverage.md) has a wrapper of the same
+  name, and `tests/test_client_read_wrappers.py` fails if a row is added
+  without one
 - `account_tx(address, from_height=None, to_height=None, limit=None)`
 - `account_tx_history(address, from_height=0, to_height=None,
   window_size=100, limit_per_window=512, max_windows=1000)`

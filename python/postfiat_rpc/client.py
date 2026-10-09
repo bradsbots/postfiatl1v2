@@ -1568,6 +1568,116 @@ class PostFiatRpcClient:
                 params[f"{prefix}_{index}"] = self._required_text(value, f"{prefix}_{index}")
         return self._object_read("asset_orchard_action_status", params)
 
+    @staticmethod
+    def _required_u64(value: object, field: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{field} must be a non-negative integer")
+        return value
+
+    def nav_reserve_proof_status(self, asset_id: str) -> dict[str, Any]:
+        """NAV reserve-proof status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "nav_reserve_proof_status",
+            {"asset_id": self._required_text(asset_id, "asset_id")},
+        )
+
+    def vault_bridge_status(self, asset_id: str) -> dict[str, Any]:
+        """Vault bridge status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "vault_bridge_status", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def fx_fix_list(
+        self,
+        *,
+        base_asset_id: str | None = None,
+        quote_asset_id: str | None = None,
+        active_only: bool = False,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """List FX fix packets, optionally filtered by pair and activity.
+
+        `active_only` is a presence flag on the node (`--active-only`), so it is
+        sent only when true. `limit` is bounded like the other list reads.
+        """
+        params = self._limit_params(limit)
+        if base_asset_id is not None:
+            params["base_asset_id"] = self._required_text(base_asset_id, "base_asset_id")
+        if quote_asset_id is not None:
+            params["quote_asset_id"] = self._required_text(quote_asset_id, "quote_asset_id")
+        if active_only:
+            params["active_only"] = True
+        return self._object_read("fx_fix_list", params)
+
+    def fx_fix_info(self, fix_packet_hash: str) -> dict[str, Any]:
+        """One FX fix packet by hash (public read, `--fix-packet-hash`)."""
+        return self._object_read(
+            "fx_fix_info",
+            {"fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash")},
+        )
+
+    def fx_fix_reservation_info(self, reservation_id: str) -> dict[str, Any]:
+        """One FX fix reservation by id (public read, `--reservation-id`)."""
+        return self._object_read(
+            "fx_fix_reservation_info",
+            {"reservation_id": self._required_text(reservation_id, "reservation_id")},
+        )
+
+    def fx_fix_quote(self, fix_packet_hash: str, base_atoms: int) -> dict[str, Any]:
+        """Quote `base_atoms` against an FX fix packet (public read).
+
+        The node parses `--base-atoms` as a u64, so a negative, boolean or
+        non-integer value is rejected here before any request.
+        """
+        return self._object_read(
+            "fx_fix_quote",
+            {
+                "fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash"),
+                "base_atoms": self._required_u64(base_atoms, "base_atoms"),
+            },
+        )
+
+    def pfusdc_ingress_preflight(
+        self,
+        asset_id: str,
+        *,
+        recipient: str,
+        depositor: str,
+        amount_atoms: int,
+    ) -> dict[str, Any]:
+        """Preflight a pfUSDC ingress (public read; all four arguments required by the node)."""
+        return self._object_read(
+            "pfusdc_ingress_preflight",
+            {
+                "asset_id": self._required_text(asset_id, "asset_id"),
+                "recipient": self._required_text(recipient, "recipient"),
+                "depositor": self._required_text(depositor, "depositor"),
+                "amount_atoms": self._required_u64(amount_atoms, "amount_atoms"),
+            },
+        )
+
+    def pfusdc_egress_witness(
+        self, withdrawal_id: str, *, prior_checkpoint: str | None = None
+    ) -> dict[str, Any]:
+        """Export the proof-ready witness for a pfUSDC withdrawal.
+
+        `prior_checkpoint` (the node's optional `--prior-checkpoint` block id)
+        is sent only when given.
+        """
+        params: dict[str, Any] = {
+            "withdrawal_id": self._required_text(withdrawal_id, "withdrawal_id")
+        }
+        if prior_checkpoint is not None:
+            params["prior_checkpoint"] = self._required_text(prior_checkpoint, "prior_checkpoint")
+        return self._object_read("pfusdc_egress_witness", params)
+
+    def yolo_target_receipt(self, registration_id: str) -> dict[str, Any]:
+        """Target receipt for a YOLO registration (public read, `--registration-id`)."""
+        return self._object_read(
+            "yolo_target_receipt",
+            {"registration_id": self._required_text(registration_id, "registration_id")},
+        )
+
     def account_tx(
         self,
         address: str,
