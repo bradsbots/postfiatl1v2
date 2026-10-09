@@ -1017,10 +1017,29 @@ fn write_request_output(output: &str, request: &RpcRequest) -> Result<(), String
 fn validate_request(flags: &[String]) -> Result<(), String> {
     let input = flag_value(flags, "--input").ok_or("missing --input")?;
     let expected_id = flag_value(flags, "--expect-id");
-    let expected_kind = request_kind(flags)?;
+    // Without --expect-kind the library checks only the protocol envelope, so
+    // derive the kind from the file's own method and check its params rules
+    // too. --expect-kind keeps asserting the method on top of that.
+    let expected_kind = match request_kind(flags)? {
+        Some(kind) => Some(kind),
+        None => {
+            let request = read_request_file(input)
+                .map_err(|error| format!("request validation failed at {input}: {error}"))?;
+            request_kind_for_method(&request.method, flags)
+                .ok()
+                .flatten()
+        }
+    };
     let request = validate_request_file(input, expected_id, expected_kind)
         .map_err(|error| format!("request validation failed at {input}: {error}"))?;
-    println!("rpc_request=ok id={} method={}", request.id, request.method);
+    if expected_kind.is_some() {
+        println!("rpc_request=ok id={} method={}", request.id, request.method);
+    } else {
+        println!(
+            "rpc_request=ok id={} method={} params=unchecked",
+            request.id, request.method
+        );
+    }
     Ok(())
 }
 
@@ -2382,7 +2401,8 @@ Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: status, server_info, metrics, ledger, verify_state, validate_local_keys, account, account_tx, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
 Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout.
-The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written."#
+The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written.
+validate-request checks the params rules for the file's own method; --expect-kind additionally asserts the method. A method this binary cannot map to a kind is reported with params=unchecked."#
     );
 }
 
