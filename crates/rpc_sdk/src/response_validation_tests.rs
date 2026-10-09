@@ -3828,6 +3828,8 @@
         unusable_without_reason["reason"] = json!(null);
         let mut inverted_heights = usable_index_status();
         inverted_heights["indexed_from_height"] = json!(9);
+        let mut partial_heights = usable_index_status();
+        partial_heights["indexed_to_height"] = json!(null);
         let mut absent_with_tip = absent_index_status();
         absent_with_tip["tip_hash"] = json!(INDEX_HEX96);
         let mut absent_with_counts = absent_index_status();
@@ -3841,6 +3843,7 @@
             (usable_with_reason, "reason"),
             (unusable_without_reason, "reason"),
             (inverted_heights, "indexed_to_height"),
+            (partial_heights, "indexed_to_height"),
             (absent_with_tip, "tip_hash"),
             (absent_with_counts, "indexed_block_count"),
             (bad_current_tip, "current_tip_hash"),

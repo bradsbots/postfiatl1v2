@@ -426,13 +426,22 @@ fn validate_account_tx_index_status_result(result: &Value) -> Result<(), RpcResp
     u64_field(result, "disk_account_shard_count")?;
     let tip_hash = string_field(result, "tip_hash")?;
     if index_present {
-        if let (Some(from_height), Some(to_height)) = (indexed_from_height, indexed_to_height) {
-            if from_height > to_height {
+        // The node sets both heights per indexed block (`get_or_insert` for the
+        // first, `Some` for the latest) or leaves both unset for an empty index.
+        match (indexed_from_height, indexed_to_height) {
+            (Some(from_height), Some(to_height)) if from_height > to_height => {
                 return Err(invalid_result(
                     "indexed_to_height",
                     "expected indexed_to_height to be at least indexed_from_height",
                 ));
             }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(invalid_result(
+                    "indexed_to_height",
+                    "expected indexed_from_height and indexed_to_height to be set together",
+                ));
+            }
+            _ => {}
         }
         if tip_hash != "genesis" && !is_lower_hex_len(tip_hash, 96) {
             return Err(invalid_result(
