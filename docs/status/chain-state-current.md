@@ -1,8 +1,44 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-05T10:30:00Z` (weekend fleet state, blocks 1104–1115; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-05T07:21:55Z`
+Updated: `2026-10-09T12:40:00Z` (release `signer-rotation-20261007` deployed to all six, blocks 1116–1121); latest fleet observation `2026-10-09T12:32:09Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-09: signer-rotation release deployed to all six validators"
+
+    Release `signer-rotation-20261007` runs on all six validators: source
+    `0fa55d0b` on branch `release/signer-rotation-20261007`, executable
+    `decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f`,
+    signed manifest `fa4649aa…` (publisher `pfc531e0…`). It is
+    `combined-fastpay-20260928` plus what the signer-group change needs (the
+    issuer-signed bridge policy update, the offline FastSwap store conversion,
+    the committee builders), the `account_tx` fixes and the RPC unit change.
+    It replaced `combined-fastpay-20260928` (`1f8b332d…`) with
+    `scripts/postfiat-safe-rollout apply-next`, one validator at a time
+    (validator-1 canary, then 0, 2, 3, 4, 5), 12:06:38–12:28:03Z.
+
+    Before (`10:51:42Z`): six on `combined-fastpay-20260928` at height 1115,
+    tip `28e1175b…`, root `a5287eaf…`, mempools empty. Signed canary backup from validator-1 at 1115: manifest
+    `49b2b6cd…`, re-imported, checkpoint verified and fully replayed to the
+    same root. After (`12:32:09Z`): all 12 validator and RPC processes on
+    `decaa411…`, `deployment_manifest_verified=true` on every host, RPC units
+    with `--max-requests 100000` and `RestartSec=1`, height 1121, tip
+    `329bc2f1…`, root `aa462feb…`. No divergence at any step.
+
+    Grants used: six devnet faucet grants of 1 PFT from the faucet account to
+    the `testing` wallet (StakeHub `pft faucet`), one after each apply, at
+    heights 1116–1121 (proposers validator-0, 1, 2, 3, 4, 5). Each certified at
+    view 0 with quorum 5 of 6 and the same block, tip and root on all six
+    (`blocks` RPC). Total: 6 PFT plus 192 atoms of fees. Nothing else moved.
+
+    Rollback: the `combined-fastpay-20260928` executable and release
+    directory stay on every host. The per-validator path is `rollback-one.sh`
+    (data in place, verified by that executable first); the signed validator-1
+    backup at 1115 is the fallback. Rollback was not needed. Not done yet: the
+    FastSwap store conversion and the signer-group activation (sheet §7–§8).
+    Records:
+    [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/README.md),
+    [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/observed/rollout-record.json).
 
 !!! success "2026-09-28: FastPay effect-anchoring release deployed to all six validators"
 
@@ -68,9 +104,8 @@ after the check passes. On failure, it deletes the record. `status` then
 reports `true` only if the record names the current manifest bytes and the
 signed window still covers the current time. A missing, stale or malformed
 record keeps the field `false` and does not make `status` fail. Generated
-release env files set the record path under `<data-dir>/readiness/`. This
-change is not deployed: the fleet on `c93b2137` keeps reporting `false` until
-the next release.
+release env files set the record path under `<data-dir>/readiness/`. Deployed
+with `signer-rotation-20261007` on 2026-10-09: all six report `true`.
 
 !!! success "2026-09-25: merged combined and FastPay release deployed to all six validators"
 
