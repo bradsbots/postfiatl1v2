@@ -117,19 +117,19 @@ method lacks an explicit posture.
 | market_ops_status | read_only_public | yes | no | yes | no | no |  |
 | mempool_batch | operator_or_local_only | no | no | yes | yes | no | operator/proposer batch creation |
 | mempool_status | read_only_public | yes | no | yes | yes | yes | mempool read |
-| mempool_submit_fastlane_primary | controlled_write_gated | no | yes | yes | yes | no |  |
-| mempool_submit_fastlane_primary_finality | controlled_write_gated | no | yes | no | yes | no |  |
-| mempool_submit_signed_asset_transaction | controlled_write_gated | no | yes | yes | yes | no |  |
+| mempool_submit_fastlane_primary | controlled_write_gated | no | yes | yes | yes | yes |  |
+| mempool_submit_fastlane_primary_finality | controlled_write_gated | no | yes | no | yes | yes |  |
+| mempool_submit_signed_asset_transaction | controlled_write_gated | no | yes | yes | yes | yes |  |
 | mempool_submit_signed_asset_transaction_finality | controlled_write_gated | no | yes | no | no | no |  |
 | mempool_submit_signed_atomic_swap_transaction | controlled_write_gated | no | yes | yes | yes | no |  |
 | mempool_submit_signed_atomic_swap_transaction_finality | controlled_write_gated | no | yes | no | yes | no |  |
-| mempool_submit_signed_escrow_transaction | controlled_write_gated | no | yes | yes | yes | no |  |
-| mempool_submit_signed_escrow_transaction_finality | controlled_write_gated | no | yes | no | no | no |  |
-| mempool_submit_signed_nft_transaction | controlled_write_gated | no | yes | yes | yes | no |  |
-| mempool_submit_signed_offer_transaction | controlled_write_gated | no | yes | yes | yes | no |  |
-| mempool_submit_signed_payment_v2 | controlled_write_gated | no | yes | yes | yes | no |  |
+| mempool_submit_signed_escrow_transaction | controlled_write_gated | no | yes | yes | yes | yes |  |
+| mempool_submit_signed_escrow_transaction_finality | controlled_write_gated | no | yes | no | no | yes |  |
+| mempool_submit_signed_nft_transaction | controlled_write_gated | no | yes | yes | yes | yes |  |
+| mempool_submit_signed_offer_transaction | controlled_write_gated | no | yes | yes | yes | yes |  |
+| mempool_submit_signed_payment_v2 | controlled_write_gated | no | yes | yes | yes | yes |  |
 | mempool_submit_signed_payment_v2_finality | controlled_write_gated | no | yes | no | no | no |  |
-| mempool_submit_signed_transfer | controlled_write_gated | no | yes | yes | yes | no | controlled write edge; disabled unless explicitly enabled |
+| mempool_submit_signed_transfer | controlled_write_gated | no | yes | yes | yes | yes | controlled write edge; disabled unless explicitly enabled |
 | mempool_submit_signed_transfer_finality | controlled_write_gated | no | yes | no | no | no | controlled in-process write/finality edge; disabled unless explicitly enabled |
 | mempool_submit_transfer | operator_or_local_only | no | no | yes | yes | no | local wallet/debug helper; uses local key file |
 | metrics | read_only_public | yes | no | yes | yes | yes | public node metrics read |
@@ -140,7 +140,7 @@ method lacks an explicit posture.
 | navcoin_bridge_import_return | operator_or_local_only | no | no | yes | no | no |  |
 | navcoin_bridge_launch_config_init | operator_or_local_only | no | no | yes | no | no |  |
 | navcoin_bridge_launch_config_template | operator_or_local_only | no | no | yes | no | no |  |
-| navcoin_bridge_packet | read_only_public | yes | no | yes | yes | no |  |
+| navcoin_bridge_packet | read_only_public | yes | no | yes | yes | yes |  |
 | navcoin_bridge_packet_preflight | operator_or_local_only | no | no | yes | yes | no |  |
 | navcoin_bridge_primary_subscribe | operator_or_local_only | no | no | yes | no | no |  |
 | navcoin_bridge_receipt_replay | read_only_public | yes | no | yes | yes | yes |  |
@@ -164,12 +164,12 @@ method lacks an explicit posture.
 | owned_objects | read_only_public | yes | no | yes | no | yes |  |
 | owned_recovery_capabilities | read_only_public | yes | no | no | no | yes |  |
 | owned_recovery_status | read_only_public | yes | no | no | no | no |  |
-| owned_sign | owned_lane_gated | no | yes | yes | yes | no |  |
-| owned_sign_v3 | owned_lane_gated | no | yes | no | no | no |  |
+| owned_sign | owned_lane_gated | no | yes | yes | yes | yes |  |
+| owned_sign_v3 | owned_lane_gated | no | yes | no | no | yes |  |
 | owned_unwrap_apply | owned_lane_gated | no | yes | yes | no | yes |  |
 | owned_unwrap_apply_v3 | owned_lane_gated | no | yes | no | no | yes |  |
-| owned_unwrap_sign | owned_lane_gated | no | yes | yes | yes | no |  |
-| owned_unwrap_sign_v3 | owned_lane_gated | no | yes | no | no | no |  |
+| owned_unwrap_sign | owned_lane_gated | no | yes | yes | yes | yes |  |
+| owned_unwrap_sign_v3 | owned_lane_gated | no | yes | no | no | yes |  |
 | pftl_uniswap_receipt_witness | operator_or_local_only | no | no | yes | no | no |  |
 | pfusdc_checkpoint_witness | operator_or_local_only | no | no | yes | no | no |  |
 | pfusdc_egress_witness | read_only_public | yes | no | yes | no | no |  |
@@ -181,7 +181,7 @@ method lacks an explicit posture.
 | shield_batch_migrate | operator_or_local_only | no | no | yes | yes | no |  |
 | shield_batch_mint | operator_or_local_only | no | no | yes | yes | no |  |
 | shield_batch_orchard | privacy_alpha_gated | no | yes | yes | yes | no | privacy-alpha batch-create edge; disabled unless explicitly enabled |
-| shield_batch_orchard_deposit | privacy_alpha_gated | no | yes | yes | yes | no | privacy-alpha direct-deposit batch-create edge; disabled unless explicitly enabled |
+| shield_batch_orchard_deposit | privacy_alpha_gated | no | yes | yes | yes | yes | privacy-alpha direct-deposit batch-create edge; disabled unless explicitly enabled |
 | shield_batch_orchard_withdraw | privacy_alpha_gated | no | yes | yes | yes | no | privacy-alpha withdraw batch-create edge; disabled unless explicitly enabled |
 | shield_batch_spend | operator_or_local_only | no | no | yes | yes | no |  |
 | shield_batch_swap | privacy_alpha_gated | no | yes | yes | yes | no |  |

@@ -1,7 +1,8 @@
 """The committed RPC method inventory must match what the generator derives
 from the current source, so docs/runbooks/rpc-method-inventory.{json,md}
 cannot silently lag the node's method surface (they lagged by eleven methods
-between 2026-07-17 and 2026-10-09)."""
+between 2026-07-17 and 2026-10-09, and by fifteen python_client flags once the
+detector learned to read black-wrapped calls)."""
 
 from __future__ import annotations
 
@@ -50,13 +51,15 @@ class RpcMethodInventoryFreshnessTests(unittest.TestCase):
         )
         self.assertEqual(sorted(committed - generated), [], "stale methods in the committed inventory")
 
-    def test_committed_postures_and_counts_match_the_generator(self) -> None:
+    def test_committed_rows_and_counts_match_the_generator(self) -> None:
         committed = _methods(self.committed)
         generated = _methods(self.generated)
         for name, row in generated.items():
             with self.subTest(method=name):
-                self.assertEqual(committed[name]["posture"], row["posture"])
-                self.assertEqual(committed[name]["remote_enabled_by_default"], row["remote_enabled_by_default"])
+                # The whole derived row (posture, every gate flag, python_client,
+                # sdk_constant, notes), so a detector or posture change cannot
+                # leave the committed inventory stale in any column.
+                self.assertEqual(committed[name], row)
         self.assertEqual(self.committed["counts"], self.generated["counts"])
         self.assertTrue(all(self.committed["checks"].values()), self.committed["checks"])
 
