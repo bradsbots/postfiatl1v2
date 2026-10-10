@@ -713,12 +713,15 @@ fn validated_summary_result(
 /// (fences and reveals both pin `certificate.recovery().lock_id` to their
 /// `lock_id`), and when it selected by `certificate_digest` the certificate's
 /// own digest, recomputed with the SDK's existing digest helpers, must equal
-/// it. The CLI threads the request in through `--request-file`, the same way
-/// the atomic-swap response validations bind to their requests.
+/// it. Like the atomic-swap request-bound decoders, the response id is first
+/// required to equal the request id. The CLI threads the request in through
+/// `--request-file`, the same way the atomic-swap response validations bind
+/// to their requests.
 pub fn validate_owned_certificate_response(
     response: &RpcResponse,
     request: &RpcRequest,
 ) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
     validate_response_kind(response, RpcResponseKind::OwnedCertificate)?;
     if request.method != METHOD_OWNED_CERTIFICATE {
         return Err(invalid_result(

@@ -341,12 +341,28 @@ mod owned_certificate {
     #[test]
     fn rejects_binding_against_a_foreign_or_malformed_request() {
         let value = report(&transfer_certificate());
-        let foreign = RpcRequest::empty("status-1", METHOD_STATUS);
+        let foreign = RpcRequest::empty("owned-certificate-1", METHOD_STATUS);
         assert_eq!(rejected_field(bind(&value, &foreign)), "request.method");
         let malformed = RpcRequest::empty("owned-certificate-1", METHOD_OWNED_CERTIFICATE)
             .with_param_value("lock_id", string_value("ab".repeat(48)))
             .with_param_value("certificate_digest", string_value("cd".repeat(48)));
         assert_eq!(rejected_field(bind(&value, &malformed)), "request.params");
+    }
+
+    #[test]
+    fn rejects_response_whose_id_differs_from_the_request() {
+        let certificate = transfer_certificate();
+        let request = owned_certificate_request(
+            "owned-certificate-2",
+            OwnedCertificateSelector::LockId(certificate.recovery().lock_id.clone()),
+        );
+        match bind(&report(&certificate), &request) {
+            Err(RpcResponseValidationError::UnexpectedId { expected, found }) => {
+                assert_eq!(expected, "owned-certificate-2");
+                assert_eq!(found, "owned-certificate-1");
+            }
+            other => panic!("expected an UnexpectedId rejection, got {other:?}"),
+        }
     }
 
     #[test]

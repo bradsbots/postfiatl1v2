@@ -231,7 +231,7 @@ fn validate_response_binds_certificate_to_request_file() {
     write_request_file(
         &other_request_path,
         &owned_certificate_request(
-            "owned-certificate-cli-6",
+            "owned-certificate-cli-5",
             OwnedCertificateSelector::LockId("ab".repeat(48)),
         ),
     )
@@ -249,7 +249,37 @@ fn validate_response_binds_certificate_to_request_file() {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    for path in [request_path, response_path, other_request_path] {
+    // A request with the right lock but another id must be rejected on the id.
+    let other_id_request_path = temp_path("other-id-request.json");
+    write_request_file(
+        &other_id_request_path,
+        &owned_certificate_request(
+            "owned-certificate-cli-6",
+            OwnedCertificateSelector::LockId(certificate.recovery().lock_id.clone()),
+        ),
+    )
+    .expect("write other-id request");
+    let output = bin()
+        .args(["validate-response", "--input"])
+        .arg(&response_path)
+        .args(["--expect-kind", "owned_certificate", "--request-file"])
+        .arg(&other_id_request_path)
+        .output()
+        .expect("run validate-response with other-id request");
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains(
+            "rpc response id `owned-certificate-cli-5` did not match expected `owned-certificate-cli-6`"
+        ),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    for path in [
+        request_path,
+        response_path,
+        other_request_path,
+        other_id_request_path,
+    ] {
         let _ = fs::remove_file(path);
     }
 }
