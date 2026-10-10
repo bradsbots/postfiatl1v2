@@ -4925,6 +4925,44 @@ mod fastswap_optional_param_tests {
             None
         );
     }
+
+    /// Presence is judged by key: an explicit JSON null is a present key of
+    /// the wrong type and is rejected, while an absent key keeps the default.
+    /// Clients that want the default omit the key (the SDK never emits null
+    /// for an optional parameter), so a null is a malformed request, not a
+    /// second spelling of "absent".
+    #[test]
+    fn explicit_null_is_rejected_while_absent_key_is_default() {
+        let absent = json!({});
+        let null = json!({ "previous_checkpoint_id": null, "limit": null, "cursor_version": null });
+        assert_eq!(
+            fastswap_optional_str(&absent, "fastswap_checkpoint_status", "previous_checkpoint_id")
+                .expect("absent key"),
+            None
+        );
+        let error = fastswap_optional_str(&null, "fastswap_checkpoint_status", "previous_checkpoint_id")
+            .expect_err("explicit null");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(
+            error.to_string(),
+            "fastswap_checkpoint_status previous_checkpoint_id must be a string"
+        );
+        assert_eq!(
+            fastswap_optional_u64(&absent, "fastswap_objects", "cursor_version").expect("absent key"),
+            None
+        );
+        assert_eq!(
+            fastswap_optional_u64(&null, "fastswap_objects", "cursor_version")
+                .expect_err("explicit null")
+                .to_string(),
+            "fastswap_objects cursor_version must be an unsigned integer"
+        );
+        assert_eq!(fastswap_objects_limit(&absent).expect("absent limit"), 50);
+        assert_eq!(
+            fastswap_objects_limit(&null).expect_err("explicit null limit").to_string(),
+            "fastswap_objects limit must be an unsigned integer"
+        );
+    }
 }
 
 #[cfg(test)]
