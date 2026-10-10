@@ -2494,6 +2494,45 @@ fn run_rpc_serve_transfer_fee_quote(
     }
 }
 
+/// Reads an optional string parameter of `transfer_fee_quote` strictly: a key
+/// that is present must carry a JSON string. Previously a present key of the
+/// wrong type was silently treated as absent, so `"memo_data": 7` quoted a
+/// memo-less transfer (a lower fee than the memo'd transfer will need) and
+/// `"sequence": "12"` quoted the next pending sequence instead of the one the
+/// caller named. Presence is judged by key: an explicit JSON null is a present
+/// key of the wrong type; clients that want the default omit the key.
+fn transfer_fee_quote_optional_str<'a>(
+    params: &'a serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<&'a str>, (String, String)> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_str().map(Some).ok_or_else(|| {
+            (
+                "rpc_protocol_error".to_string(),
+                format!("transfer_fee_quote {key} must be a string"),
+            )
+        }),
+    }
+}
+
+/// Reads an optional unsigned-integer parameter of `transfer_fee_quote`
+/// strictly; see `transfer_fee_quote_optional_str`.
+fn transfer_fee_quote_optional_u64(
+    params: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<u64>, (String, String)> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_u64().map(Some).ok_or_else(|| {
+            (
+                "rpc_protocol_error".to_string(),
+                format!("transfer_fee_quote {key} must be an unsigned integer"),
+            )
+        }),
+    }
+}
+
 fn run_rpc_serve_transfer_fee_quote_inner(
     request: &RpcRequest,
     context: &RpcServeConnectionContext,
@@ -2531,24 +2570,18 @@ fn run_rpc_serve_transfer_fee_quote_inner(
                 "missing or invalid amount".to_string(),
             )
         })?;
-    let sequence = params.get("sequence").and_then(serde_json::Value::as_u64);
+    let sequence = transfer_fee_quote_optional_u64(params, "sequence")?;
     let report = transfer_fee_quote(TransferFeeQuoteOptions {
         data_dir: context.data_dir.clone(),
         from: from.to_string(),
         to: to.to_string(),
         amount,
         sequence,
-        memo_type: params
-            .get("memo_type")
-            .and_then(serde_json::Value::as_str)
+        memo_type: transfer_fee_quote_optional_str(params, "memo_type")?
             .map(ToString::to_string),
-        memo_format: params
-            .get("memo_format")
-            .and_then(serde_json::Value::as_str)
+        memo_format: transfer_fee_quote_optional_str(params, "memo_format")?
             .map(ToString::to_string),
-        memo_data: params
-            .get("memo_data")
-            .and_then(serde_json::Value::as_str)
+        memo_data: transfer_fee_quote_optional_str(params, "memo_data")?
             .map(ToString::to_string),
     })
     .map_err(|error| {
@@ -4771,7 +4804,7 @@ fn rpc_serve_error_class(method: &str, response: &RpcResponse) -> Option<String>
 mod child_dispatch_limit_tests {
     use super::*;
 
-    fn child_dispatch_test_context(
+    pub(super) fn child_dispatch_test_context(
         max_child_dispatch_concurrent: u64,
         max_child_dispatch_per_peer: u64,
     ) -> RpcServeConnectionContext {
@@ -4866,5 +4899,145 @@ mod child_dispatch_limit_tests {
             error.contains("global concurrent child dispatch limit 2"),
             "{error}"
         );
+    }
+}
+
+#[cfg(test)]
+mod transfer_fee_quote_param_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    #[test]
+    fn optional_params_are_read_strictly() {
+        let params = params_of(json!({
+            "sequence": "12",
+            "memo_type": 7,
+            "memo_format": ["text/plain"],
+            "memo_data": "hello",
+        }));
+        let (code, message) =
+            transfer_fee_quote_optional_u64(&params, "sequence").expect_err("string sequence");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "transfer_fee_quote sequence must be an unsigned integer");
+        let (code, message) =
+            transfer_fee_quote_optional_str(&params, "memo_type").expect_err("numeric memo type");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "transfer_fee_quote memo_type must be a string");
+        assert_eq!(
+            transfer_fee_quote_optional_str(&params, "memo_format")
+                .expect_err("array memo format")
+                .1,
+            "transfer_fee_quote memo_format must be a string"
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&params, "memo_data").expect("string memo data"),
+            Some("hello")
+        );
+    }
+
+    #[test]
+    fn negative_and_fractional_sequences_are_rejected() {
+        let params = params_of(json!({ "sequence": -1 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence")
+                .expect_err("negative sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        let params = params_of(json!({ "sequence": 1.5 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence")
+                .expect_err("fractional sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        let params = params_of(json!({ "sequence": 12 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence").expect("integer sequence"),
+            Some(12)
+        );
+    }
+
+    /// Presence is judged by key: an explicit JSON null is a present key of
+    /// the wrong type and is rejected, while an absent key keeps the default
+    /// (auto sequence, no memo). The Rust SDK and the Python client both omit
+    /// the key instead of sending null.
+    #[test]
+    fn explicit_null_is_rejected_while_absent_key_is_default() {
+        let absent = params_of(json!({}));
+        let null = params_of(json!({ "sequence": null, "memo_data": null }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&absent, "sequence").expect("absent sequence"),
+            None
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&absent, "memo_data").expect("absent memo"),
+            None
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&null, "sequence")
+                .expect_err("null sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&null, "memo_data")
+                .expect_err("null memo")
+                .1,
+            "transfer_fee_quote memo_data must be a string"
+        );
+    }
+}
+
+#[cfg(test)]
+mod transfer_fee_quote_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Arm-level check through `run_rpc_serve_transfer_fee_quote` with a data
+    /// directory that holds no ledger. A wrong-typed `memo_data` must be
+    /// rejected as a protocol error before the quote touches the data
+    /// directory; the well-typed control request reaches the quote and fails
+    /// there instead. On the previous code the wrong-typed request behaved
+    /// exactly like the control (the memo was silently dropped).
+    #[test]
+    fn wrong_typed_memo_is_rejected_before_the_quote_runs() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-transfer-fee-quote-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        let wrong_typed = RpcRequest::new(
+            "fee-quote-1",
+            "transfer_fee_quote",
+            json!({ "from": "rFrom", "to": "rTo", "amount": 1, "memo_data": 7 }),
+        );
+        let response = run_rpc_serve_transfer_fee_quote(&wrong_typed, &context);
+        assert_eq!(response.id, "fee-quote-1");
+        assert!(!response.ok);
+        let error = response.error.expect("wrong-typed memo is an error");
+        assert_eq!(error.code, "rpc_protocol_error");
+        assert_eq!(error.message, "transfer_fee_quote memo_data must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let control = RpcRequest::new(
+            "fee-quote-2",
+            "transfer_fee_quote",
+            json!({ "from": "rFrom", "to": "rTo", "amount": 1, "memo_data": "hello" }),
+        );
+        let response = run_rpc_serve_transfer_fee_quote(&control, &context);
+        assert!(!response.ok);
+        let error = response.error.expect("control reaches the quote and fails on the missing ledger");
+        assert_eq!(error.code, "rpc_transfer_fee_quote_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
     }
 }
