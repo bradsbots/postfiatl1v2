@@ -1190,10 +1190,10 @@ fn handle_rpc_serve_connection(
                         .and_then(|signed| service.exit(&signed))
                         .and_then(|vote| serde_json::to_value(vote).map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))),
                     "fastswap_checkpoint_status" => {
-                        let previous = request.params.get("previous_checkpoint_id")
-                            .and_then(serde_json::Value::as_str)
-                            .map(crate::fastswap_service::parse_checkpoint_id_hex)
-                            .transpose();
+                        let previous = fastswap_optional_str(&request.params, "fastswap_checkpoint_status", "previous_checkpoint_id")
+                            .and_then(|previous| previous
+                                .map(crate::fastswap_service::parse_checkpoint_id_hex)
+                                .transpose());
                         previous.and_then(|previous| {
                             postfiat_storage::NodeStore::new(&context.data_dir)
                                 .read_ledger()
@@ -1209,11 +1209,11 @@ fn handle_rpc_serve_connection(
                             .and_then(|value| postfiat_crypto_provider::hex_to_bytes(value)
                                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("FastSwap owner pubkey hex invalid: {error}"))));
                         owner.and_then(|owner| {
-                            let asset = fastswap_objects_optional_str(&request.params, "asset_id")?
+                            let asset = fastswap_optional_str(&request.params, "fastswap_objects", "asset_id")?
                                 .map(crate::fastswap_service::parse_asset_id_hex)
                                 .transpose()?;
-                            let cursor_id = fastswap_objects_optional_str(&request.params, "cursor_object_id")?;
-                            let cursor_version = fastswap_objects_optional_u64(&request.params, "cursor_version")?;
+                            let cursor_id = fastswap_optional_str(&request.params, "fastswap_objects", "cursor_object_id")?;
+                            let cursor_version = fastswap_optional_u64(&request.params, "fastswap_objects", "cursor_version")?;
                             let cursor = match (cursor_id, cursor_version) {
                                 (None, None) => None,
                                 (Some(id), Some(version)) => Some(crate::fastswap_service::parse_object_key(id, version)?),
@@ -1226,14 +1226,14 @@ fn handle_rpc_serve_connection(
                         })
                     },
                     "fastswap_policy" => {
-                        let policy_hash = request.params.get("policy_hash")
-                            .and_then(serde_json::Value::as_str)
-                            .map(crate::fastswap_service::parse_policy_hash_hex)
-                            .transpose();
+                        let policy_hash = fastswap_optional_str(&request.params, "fastswap_policy", "policy_hash")
+                            .and_then(|policy_hash| policy_hash
+                                .map(crate::fastswap_service::parse_policy_hash_hex)
+                                .transpose());
                         policy_hash.and_then(|policy_hash| {
-                            let asset_0 = request.params.get("asset_0").and_then(serde_json::Value::as_str)
+                            let asset_0 = fastswap_optional_str(&request.params, "fastswap_policy", "asset_0")?
                                 .map(crate::fastswap_service::parse_asset_id_hex).transpose()?;
-                            let asset_1 = request.params.get("asset_1").and_then(serde_json::Value::as_str)
+                            let asset_1 = fastswap_optional_str(&request.params, "fastswap_policy", "asset_1")?
                                 .map(crate::fastswap_service::parse_asset_id_hex).transpose()?;
                             let pair = match (asset_0, asset_1) {
                                 (None, None) => None,
@@ -4765,12 +4765,14 @@ fn rpc_serve_error_class(method: &str, response: &RpcResponse) -> Option<String>
     Some(error.code.clone())
 }
 
-/// Reads an optional string parameter of `fastswap_objects` strictly: a key
-/// that is present must carry a JSON string. Previously a present key of the
-/// wrong type was silently treated as absent, so `"asset_id": 5` queried every
-/// asset and `"cursor_object_id": 7` dropped the cursor.
-fn fastswap_objects_optional_str<'a>(
+/// Reads an optional string parameter of a FastSwap RPC method strictly: a
+/// key that is present must carry a JSON string. Previously a present key of
+/// the wrong type was silently treated as absent, so `"asset_id": 5` queried
+/// every asset, `"cursor_object_id": 7` dropped the cursor, and
+/// `"policy_hash": 7` returned the default policy.
+fn fastswap_optional_str<'a>(
     params: &'a serde_json::Value,
+    method: &str,
     key: &str,
 ) -> std::io::Result<Option<&'a str>> {
     match params.get(key) {
@@ -4778,16 +4780,17 @@ fn fastswap_objects_optional_str<'a>(
         Some(value) => value.as_str().map(Some).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("fastswap_objects {key} must be a string"),
+                format!("{method} {key} must be a string"),
             )
         }),
     }
 }
 
-/// Reads an optional unsigned-integer parameter of `fastswap_objects`
-/// strictly; see `fastswap_objects_optional_str`.
-fn fastswap_objects_optional_u64(
+/// Reads an optional unsigned-integer parameter of a FastSwap RPC method
+/// strictly; see `fastswap_optional_str`.
+fn fastswap_optional_u64(
     params: &serde_json::Value,
+    method: &str,
     key: &str,
 ) -> std::io::Result<Option<u64>> {
     match params.get(key) {
@@ -4795,7 +4798,7 @@ fn fastswap_objects_optional_u64(
         Some(value) => value.as_u64().map(Some).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("fastswap_objects {key} must be an unsigned integer"),
+                format!("{method} {key} must be an unsigned integer"),
             )
         }),
     }
@@ -4806,7 +4809,7 @@ fn fastswap_objects_optional_u64(
 /// `FastSwapService::objects`. Previously `"limit": "10"` or `"limit": -1`
 /// silently became 50.
 fn fastswap_objects_limit(params: &serde_json::Value) -> std::io::Result<usize> {
-    let limit = fastswap_objects_optional_u64(params, "limit")?.unwrap_or(50);
+    let limit = fastswap_optional_u64(params, "fastswap_objects", "limit")?.unwrap_or(50);
     limit.try_into().map_err(|_| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -4816,7 +4819,7 @@ fn fastswap_objects_limit(params: &serde_json::Value) -> std::io::Result<usize> 
 }
 
 #[cfg(test)]
-mod fastswap_objects_param_tests {
+mod fastswap_optional_param_tests {
     use super::*;
     use serde_json::json;
 
@@ -4824,11 +4827,11 @@ mod fastswap_objects_param_tests {
     fn absent_optional_params_stay_absent_and_limit_defaults() {
         let params = json!({ "owner_pubkey": "aa" });
         assert_eq!(
-            fastswap_objects_optional_str(&params, "asset_id").expect("absent asset"),
+            fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect("absent asset"),
             None
         );
         assert_eq!(
-            fastswap_objects_optional_u64(&params, "cursor_version").expect("absent cursor"),
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect("absent cursor"),
             None
         );
         assert_eq!(fastswap_objects_limit(&params).expect("default limit"), 50);
@@ -4843,15 +4846,15 @@ mod fastswap_objects_param_tests {
             "limit": 7
         });
         assert_eq!(
-            fastswap_objects_optional_str(&params, "asset_id").expect("asset"),
+            fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect("asset"),
             Some("ab")
         );
         assert_eq!(
-            fastswap_objects_optional_str(&params, "cursor_object_id").expect("cursor id"),
+            fastswap_optional_str(&params, "fastswap_objects", "cursor_object_id").expect("cursor id"),
             Some("cd")
         );
         assert_eq!(
-            fastswap_objects_optional_u64(&params, "cursor_version").expect("cursor version"),
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect("cursor version"),
             Some(3)
         );
         assert_eq!(fastswap_objects_limit(&params).expect("limit"), 7);
@@ -4873,20 +4876,53 @@ mod fastswap_objects_param_tests {
     #[test]
     fn wrong_typed_selectors_are_rejected_not_dropped() {
         let params = json!({ "asset_id": 5, "cursor_object_id": 7, "cursor_version": "3" });
-        let error = fastswap_objects_optional_str(&params, "asset_id").expect_err("asset");
+        let error = fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect_err("asset");
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
         assert_eq!(error.to_string(), "fastswap_objects asset_id must be a string");
         let error =
-            fastswap_objects_optional_str(&params, "cursor_object_id").expect_err("cursor id");
+            fastswap_optional_str(&params, "fastswap_objects", "cursor_object_id").expect_err("cursor id");
         assert_eq!(
             error.to_string(),
             "fastswap_objects cursor_object_id must be a string"
         );
         let error =
-            fastswap_objects_optional_u64(&params, "cursor_version").expect_err("cursor version");
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect_err("cursor version");
         assert_eq!(
             error.to_string(),
             "fastswap_objects cursor_version must be an unsigned integer"
+        );
+    }
+
+    #[test]
+    fn policy_and_checkpoint_optional_params_are_read_strictly() {
+        let params = json!({ "policy_hash": 7, "asset_0": "ab", "asset_1": null });
+        let error = fastswap_optional_str(&params, "fastswap_policy", "policy_hash")
+            .expect_err("policy hash");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(error.to_string(), "fastswap_policy policy_hash must be a string");
+        assert_eq!(
+            fastswap_optional_str(&params, "fastswap_policy", "asset_0").expect("asset_0"),
+            Some("ab")
+        );
+        let error =
+            fastswap_optional_str(&params, "fastswap_policy", "asset_1").expect_err("asset_1");
+        assert_eq!(error.to_string(), "fastswap_policy asset_1 must be a string");
+
+        let params = json!({ "previous_checkpoint_id": ["ab"] });
+        let error = fastswap_optional_str(
+            &params,
+            "fastswap_checkpoint_status",
+            "previous_checkpoint_id",
+        )
+        .expect_err("previous checkpoint id");
+        assert_eq!(
+            error.to_string(),
+            "fastswap_checkpoint_status previous_checkpoint_id must be a string"
+        );
+        assert_eq!(
+            fastswap_optional_str(&json!({}), "fastswap_checkpoint_status", "previous_checkpoint_id")
+                .expect("absent previous checkpoint id"),
+            None
         );
     }
 }
