@@ -839,7 +839,7 @@ mod rpc_serve_request_tests {
                 ready_file: server_root.join("readiness/fastpay-v3-rpc.json"),
                 bind_host: "127.0.0.1".to_string(),
                 port,
-                max_requests: 8,
+                max_requests: 10,
                 timeout_ms: 10_000,
                 child_timeout_ms: 10_000,
                 event_log: None,
@@ -980,6 +980,40 @@ mod rpc_serve_request_tests {
         assert_eq!(
             recovered_certificate,
             postfiat_types::FastPayCertificateV1::Transfer(certificate)
+        );
+
+        let certificate_by_lock = send_loopback_rpc(
+            port,
+            &RpcRequest::empty("v3-certificate-by-lock", "owned_certificate")
+                .with_param("lock_id", &lock_id)
+                .expect("lock parameter"),
+        )
+        .result_as::<postfiat_types::FastPayCertificateV1>()
+        .expect("recover certificate by lock id");
+        assert_eq!(certificate_by_lock, recovered_certificate);
+
+        // Both selectors at once is ambiguous and must be rejected, not
+        // silently answered from the lock_id lookup.
+        let ambiguous_certificate = send_loopback_rpc(
+            port,
+            &RpcRequest::empty("v3-certificate-ambiguous", "owned_certificate")
+                .with_param("lock_id", &lock_id)
+                .and_then(|request| {
+                    request.with_param("certificate_digest", &apply_ack.certificate_digest)
+                })
+                .expect("ambiguous certificate request"),
+        );
+        assert!(
+            !ambiguous_certificate.ok,
+            "owned_certificate must reject lock_id and certificate_digest together"
+        );
+        let ambiguous_error = ambiguous_certificate
+            .error
+            .expect("ambiguous-selector error");
+        assert_eq!(ambiguous_error.code, "rpc_protocol_error");
+        assert_eq!(
+            ambiguous_error.message,
+            "owned_certificate takes exactly one of lock_id or certificate_digest"
         );
 
         let malformed_sign = send_loopback_rpc(
