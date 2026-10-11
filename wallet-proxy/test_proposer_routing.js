@@ -716,6 +716,42 @@ function testSequencedReadCanUseFinalityResponderWhenEnabled() {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 }
 
+function testRouteTimingEnvIsValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "const {requestWithProxyReadiness}=require('./wallet-proxy/server');"
+    + "const r=requestWithProxyReadiness({id:'x',method:'mempool_submit_signed_transfer_finality',params:{}},{required_current_height:479});"
+    + "process.stdout.write(String(r.params.proxy_readiness_timeout_ms));";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  const malformed = run({ PROPOSER_ROUTE_TIMEOUT_MS: 'abc' });
+  assert.notStrictEqual(malformed.status, 0, 'a malformed route timeout must not start the proxy');
+  assert.ok(malformed.stderr.includes('PROPOSER_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), malformed.stderr);
+
+  const zero = run({ PROPOSER_ROUTE_TIMEOUT_MS: '0' });
+  assert.notStrictEqual(zero.status, 0, 'a zero route timeout must not start the proxy');
+  assert.ok(zero.stderr.includes('PROPOSER_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), zero.stderr);
+
+  const retry = run({ PROPOSER_READY_RETRY_MS: 'abc' });
+  assert.notStrictEqual(retry.status, 0, 'a malformed ready retry must not start the proxy');
+  assert.ok(retry.stderr.includes('PROPOSER_READY_RETRY_MS must be an integer between 0 and 60000'), retry.stderr);
+
+  const fastpay = run({ FASTPAY_ROUTE_TIMEOUT_MS: '-5' });
+  assert.notStrictEqual(fastpay.status, 0, 'a negative fastpay route timeout must not start the proxy');
+  assert.ok(fastpay.stderr.includes('FASTPAY_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), fastpay.stderr);
+
+  const valid = run({ PROPOSER_ROUTE_TIMEOUT_MS: '2500', PROPOSER_READY_RETRY_MS: '0', PROPOSER_ROUTE_CACHE_MS: '0' });
+  assert.strictEqual(valid.status, 0, valid.stderr);
+  assert.strictEqual(valid.stdout, '2500');
+
+  const unset = run({ PROPOSER_ROUTE_TIMEOUT_MS: '' });
+  assert.strictEqual(unset.status, 0, unset.stderr);
+  assert.strictEqual(unset.stdout, '10000');
+}
+
 function testFirstReadySequencedReadsDefaultOn() {
   primeNextProposerRouteCacheFromResponse(JSON.stringify({
     id: 'submit',
@@ -813,6 +849,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
   .then(() => {
     testFirstReadySequencedReadsDefaultOn();
     testFirstReadySequencedReadsCanBeDisabled();
+  })
+  .then(() => {
+    testRouteTimingEnvIsValidatedAtStartup();
   })
   .then(() => {
     console.log('proposer routing tests passed');

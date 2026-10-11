@@ -621,14 +621,18 @@ const MUTATION_CONCURRENCY = parseBoundedPositiveIntegerEnv(
 const mutationAdmissionByPrincipal = new Map();
 let activeMutationAdmissions = 0;
 
-function parseBoundedPositiveIntegerEnv(name, fallback, maximum) {
+function parseBoundedIntegerEnv(name, fallback, minimum, maximum) {
     const raw = process.env[name];
     if (raw === undefined || String(raw).trim() === '') return fallback;
     const value = Number.parseInt(String(raw), 10);
-    if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
-        throw new Error(`${name} must be an integer between 1 and ${maximum}`);
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+        throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
     }
     return value;
+}
+
+function parseBoundedPositiveIntegerEnv(name, fallback, maximum) {
+    return parseBoundedIntegerEnv(name, fallback, 1, maximum);
 }
 
 function boundedHttpBodyLimit(routeLimit) {
@@ -682,10 +686,10 @@ function clearMutationAdmissionForTest() {
 }
 // S3.4: TCP connection timeout
 const TCP_TIMEOUT_MS = 30000;
-const PROPOSER_ROUTE_TIMEOUT_MS = parseInt(process.env.PROPOSER_ROUTE_TIMEOUT_MS || '10000', 10);
-const PROPOSER_ROUTE_RETRY_MS = parseInt(process.env.PROPOSER_ROUTE_RETRY_MS || '250', 10);
-const PROPOSER_ROUTE_CACHE_MS = parseInt(process.env.PROPOSER_ROUTE_CACHE_MS || '10000', 10);
-const PROPOSER_READY_RETRY_MS = parseInt(process.env.PROPOSER_READY_RETRY_MS || '50', 10);
+const PROPOSER_ROUTE_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('PROPOSER_ROUTE_TIMEOUT_MS', 10_000, 600_000);
+const PROPOSER_ROUTE_RETRY_MS = parseBoundedIntegerEnv('PROPOSER_ROUTE_RETRY_MS', 250, 0, 60_000);
+const PROPOSER_ROUTE_CACHE_MS = parseBoundedIntegerEnv('PROPOSER_ROUTE_CACHE_MS', 10_000, 0, 600_000);
+const PROPOSER_READY_RETRY_MS = parseBoundedIntegerEnv('PROPOSER_READY_RETRY_MS', 50, 0, 60_000);
 const ENABLE_FIRST_READY_SEQUENCED_READ = process.env.ENABLE_FIRST_READY_SEQUENCED_READ !== 'false';
 const ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE = process.env.ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE !== 'false';
 const OPTIMISTIC_CACHED_FINALITY_ROUTE = process.env.OPTIMISTIC_CACHED_FINALITY_ROUTE === 'true';
@@ -708,8 +712,8 @@ const FASTPAY_ROUTE_REFRESH_MS = parseInt(
         || String(Math.max(250, Math.floor(FASTPAY_FLEET_STATUS_CACHE_MS / 2))),
     10,
 );
-const FASTPAY_ROUTE_TIMEOUT_MS = parseInt(process.env.FASTPAY_ROUTE_TIMEOUT_MS || String(PROPOSER_ROUTE_TIMEOUT_MS), 10);
-const FASTPAY_ROUTE_RETRY_MS = parseInt(process.env.FASTPAY_ROUTE_RETRY_MS || String(PROPOSER_READY_RETRY_MS), 10);
+const FASTPAY_ROUTE_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('FASTPAY_ROUTE_TIMEOUT_MS', PROPOSER_ROUTE_TIMEOUT_MS, 600_000);
+const FASTPAY_ROUTE_RETRY_MS = parseBoundedIntegerEnv('FASTPAY_ROUTE_RETRY_MS', PROPOSER_READY_RETRY_MS, 0, 60_000);
 const FASTPAY_REQUIRE_PRIMARY_SUCCESS = process.env.FASTPAY_REQUIRE_PRIMARY_SUCCESS === 'true';
 const ENABLE_UPSTREAM_KEEPALIVE = process.env.ENABLE_UPSTREAM_KEEPALIVE !== 'false';
 const FASTPAY_CERTIFICATE_FINALITY_ENABLED = process.env.FASTPAY_CERTIFICATE_FINALITY_ENABLED !== 'false';
