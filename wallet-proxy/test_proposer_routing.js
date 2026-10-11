@@ -625,6 +625,24 @@ function testWalletFeedAndTcpCapEnvAreValidatedAtStartup() {
   assert.notStrictEqual(tcpCap.status, 0, 'a malformed per-connection TCP cap must not start the proxy');
   assert.ok(tcpCap.stderr.includes('MAX_TCP_PER_WS must be an integer between 1 and 4096'), tcpCap.stderr);
 
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused, not truncated.
+  for (const [name, value, bounds] of [
+    ['WALLET_SUBSCRIPTION_INTERVAL_MS', '1500junk', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_MIN_INTERVAL_MS', '1.5', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_READ_TIMEOUT_MS', '5e3', '1 and 600000'],
+    ['MAX_TCP_PER_WS', '32junk', '1 and 4096'],
+    ['WALLET_PROXY_MUTATION_CONCURRENCY', '16ms', '1 and 4096'],
+  ]) {
+    const partial = run({ [name]: value });
+    assert.notStrictEqual(partial.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(partial.stderr.includes(`${name} must be an integer between ${bounds}`), partial.stderr);
+  }
+
+  const padded = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: ' 2000 ' });
+  assert.strictEqual(padded.status, 0, padded.stderr);
+  assert.strictEqual(padded.stdout, 'loaded');
+
   const valid = run({
     WALLET_SUBSCRIPTION_INTERVAL_MS: '2000',
     WALLET_SUBSCRIPTION_MIN_INTERVAL_MS: '1',

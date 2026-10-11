@@ -624,7 +624,10 @@ let activeMutationAdmissions = 0;
 function parseBoundedPositiveIntegerEnv(name, fallback, maximum) {
     const raw = process.env[name];
     if (raw === undefined || String(raw).trim() === '') return fallback;
-    const value = Number.parseInt(String(raw), 10);
+    // Number.parseInt reads only a numeric prefix ("5e3" -> 5, "1.5" -> 1, "1500junk" -> 1500),
+    // so the whole trimmed token must be an optionally signed run of decimal digits.
+    const token = String(raw).trim();
+    const value = /^[+-]?\d+$/.test(token) ? Number.parseInt(token, 10) : Number.NaN;
     if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
         throw new Error(`${name} must be an integer between 1 and ${maximum}`);
     }
