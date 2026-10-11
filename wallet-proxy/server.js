@@ -34,6 +34,19 @@ function compactFastpayVoteRequest(request) {
  params };
 }
 
+// On/off settings. The whole trimmed token must be true/false (any case) or
+// 1/0; an unset or empty variable keeps the default; anything else refuses to
+// start, so ENABLE_X=0, =off or =no never silently keeps a feature on and
+// FASTPAY_REQUIRE_PRIMARY_SUCCESS=1 or =yes never silently leaves it off.
+function parseBooleanEnv(name, fallback) {
+    const raw = process.env[name];
+    if (raw === undefined || String(raw).trim() === '') return fallback;
+    const token = String(raw).trim().toLowerCase();
+    if (token === 'true' || token === '1') return true;
+    if (token === 'false' || token === '0') return false;
+    throw new Error(`${name} must be true or false`);
+}
+
 const RPC_HOST = process.env.RPC_HOST || '127.0.0.1';
 const RPC_PORT = parseInt(process.env.RPC_PORT || '27650', 10);
 const LISTEN_PORT = parseInt(process.env.LISTEN_PORT || '8080', 10);
@@ -65,7 +78,7 @@ const DEFAULT_RPC_FLEET = [
     'validator-5=127.0.0.1:27655',
 ].join(',');
 const RPC_FLEET = parseRpcFleet(process.env.RPC_FLEET || DEFAULT_RPC_FLEET);
-const ENABLE_PROPOSER_ROUTING = process.env.ENABLE_PROPOSER_ROUTING !== 'false';
+const ENABLE_PROPOSER_ROUTING = parseBooleanEnv('ENABLE_PROPOSER_ROUTING', true);
 
 function parseListenHost(value) {
     const host = (value || '127.0.0.1').trim();
@@ -478,7 +491,7 @@ async function serveWalletStatic(req, res, url, staticDir = WALLET_STATIC_DIR) {
 // broadcasts. Keep the exposed rate limits aligned with the upstream validator
 // RPC limit; overstating them makes wallet/tooling latency runs fail with
 // server-side rate-limit errors after clients have already trusted server_info.
-const INJECT_RPC_CAPS = process.env.INJECT_RPC_CAPS !== 'false';
+const INJECT_RPC_CAPS = parseBooleanEnv('INJECT_RPC_CAPS', true);
 const RPC_CAPS = {
     read_only: false,
     mempool_submit_enabled: false,
@@ -686,11 +699,11 @@ const PROPOSER_ROUTE_TIMEOUT_MS = parseInt(process.env.PROPOSER_ROUTE_TIMEOUT_MS
 const PROPOSER_ROUTE_RETRY_MS = parseInt(process.env.PROPOSER_ROUTE_RETRY_MS || '250', 10);
 const PROPOSER_ROUTE_CACHE_MS = parseInt(process.env.PROPOSER_ROUTE_CACHE_MS || '10000', 10);
 const PROPOSER_READY_RETRY_MS = parseInt(process.env.PROPOSER_READY_RETRY_MS || '50', 10);
-const ENABLE_FIRST_READY_SEQUENCED_READ = process.env.ENABLE_FIRST_READY_SEQUENCED_READ !== 'false';
-const ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE = process.env.ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE !== 'false';
-const OPTIMISTIC_CACHED_FINALITY_ROUTE = process.env.OPTIMISTIC_CACHED_FINALITY_ROUTE === 'true';
-const ENABLE_FINALITY_RESPONDER_READ_CACHE = process.env.ENABLE_FINALITY_RESPONDER_READ_CACHE === 'true';
-const ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE = process.env.ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE !== 'false';
+const ENABLE_FIRST_READY_SEQUENCED_READ = parseBooleanEnv('ENABLE_FIRST_READY_SEQUENCED_READ', true);
+const ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE = parseBooleanEnv('ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE', true);
+const OPTIMISTIC_CACHED_FINALITY_ROUTE = parseBooleanEnv('OPTIMISTIC_CACHED_FINALITY_ROUTE', false);
+const ENABLE_FINALITY_RESPONDER_READ_CACHE = parseBooleanEnv('ENABLE_FINALITY_RESPONDER_READ_CACHE', false);
+const ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE = parseBooleanEnv('ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE', true);
 const PREFERRED_SEQUENCED_READ_VALIDATORS = (process.env.PREFERRED_SEQUENCED_READ_VALIDATORS || 'validator-2,validator-5')
     .split(',')
     .map((part) => part.trim())
@@ -702,7 +715,7 @@ const FIRST_READY_SEQUENCED_READ_PROPOSERS = new Set(
         .filter(Boolean),
 );
 const FASTPAY_FLEET_STATUS_CACHE_MS = parseInt(process.env.FASTPAY_FLEET_STATUS_CACHE_MS || '10000', 10);
-const FASTPAY_ROUTE_WARMUP_ENABLED = process.env.FASTPAY_ROUTE_WARMUP_ENABLED !== 'false';
+const FASTPAY_ROUTE_WARMUP_ENABLED = parseBooleanEnv('FASTPAY_ROUTE_WARMUP_ENABLED', true);
 const FASTPAY_ROUTE_REFRESH_MS = parseInt(
     process.env.FASTPAY_ROUTE_REFRESH_MS
         || String(Math.max(250, Math.floor(FASTPAY_FLEET_STATUS_CACHE_MS / 2))),
@@ -710,9 +723,9 @@ const FASTPAY_ROUTE_REFRESH_MS = parseInt(
 );
 const FASTPAY_ROUTE_TIMEOUT_MS = parseInt(process.env.FASTPAY_ROUTE_TIMEOUT_MS || String(PROPOSER_ROUTE_TIMEOUT_MS), 10);
 const FASTPAY_ROUTE_RETRY_MS = parseInt(process.env.FASTPAY_ROUTE_RETRY_MS || String(PROPOSER_READY_RETRY_MS), 10);
-const FASTPAY_REQUIRE_PRIMARY_SUCCESS = process.env.FASTPAY_REQUIRE_PRIMARY_SUCCESS === 'true';
-const ENABLE_UPSTREAM_KEEPALIVE = process.env.ENABLE_UPSTREAM_KEEPALIVE !== 'false';
-const FASTPAY_CERTIFICATE_FINALITY_ENABLED = process.env.FASTPAY_CERTIFICATE_FINALITY_ENABLED !== 'false';
+const FASTPAY_REQUIRE_PRIMARY_SUCCESS = parseBooleanEnv('FASTPAY_REQUIRE_PRIMARY_SUCCESS', false);
+const ENABLE_UPSTREAM_KEEPALIVE = parseBooleanEnv('ENABLE_UPSTREAM_KEEPALIVE', true);
+const FASTPAY_CERTIFICATE_FINALITY_ENABLED = parseBooleanEnv('FASTPAY_CERTIFICATE_FINALITY_ENABLED', true);
 const FASTPAY_CERTIFICATE_RETRY_MS = parseInt(process.env.FASTPAY_CERTIFICATE_RETRY_MS || '2000', 10);
 const FASTPAY_CERTIFICATE_OUTBOX_PATH = process.env.FASTPAY_CERTIFICATE_OUTBOX_PATH
     || path.join(os.homedir(), '.postfiat', 'wallet-proxy', 'fastpay-certificate-outbox.json');
