@@ -17,6 +17,29 @@ const request = normalizeRequest({
 assert(/^[0-9a-f]{64}$/.test(jobId(request)));
 assert.throws(() => normalizeRequest({ ...request, burn_tx_id: '22'.repeat(32) }, assetId), /Invalid pfUSDC/);
 assert.throws(() => normalizeRequest({ ...request, seed: 'must never cross the relay boundary' }, assetId), /Invalid pfUSDC/);
+// amount_atoms must be canonical decimal: BigInt() also parses prefixes and
+// leading zeros, which would give one burn several job_ids.
+for (const amount_atoms of [
+    '0100', '0x64', '0o144', '0b1100100', '1e2', '-1', '0', '+1', '1.0',
+    '18446744073709551616', '', 'abc', '9'.repeat(400),
+]) {
+    assert.throws(
+        () => normalizeRequest({ ...request, amount_atoms }, assetId),
+        /Invalid pfUSDC/,
+        `amount_atoms ${JSON.stringify(amount_atoms).slice(0, 40)} must be refused`,
+    );
+}
+for (const [amount_atoms, expected] of [
+    ['100', '100'], ['1', '1'], ['18446744073709551615', '18446744073709551615'],
+    [100, '100'], ['  100  ', '100'],
+]) {
+    assert.strictEqual(normalizeRequest({ ...request, amount_atoms }, assetId).amount_atoms, expected);
+}
+// The job_id hash scheme is unchanged for the canonical spelling.
+assert.strictEqual(
+    jobId(normalizeRequest({ ...request, amount_atoms: '100' }, assetId)),
+    '514a998f4c415f8bb81cf652f4d906e84029793795fd8f407bdef1547e8ea0ed',
+);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pfusdc-withdrawal-jobs-'));
 const script = path.join(root, 'worker.sh');
