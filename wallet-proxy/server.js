@@ -717,9 +717,9 @@ const FASTPAY_CERTIFICATE_RETRY_MS = parseInt(process.env.FASTPAY_CERTIFICATE_RE
 const FASTPAY_CERTIFICATE_OUTBOX_PATH = process.env.FASTPAY_CERTIFICATE_OUTBOX_PATH
     || path.join(os.homedir(), '.postfiat', 'wallet-proxy', 'fastpay-certificate-outbox.json');
 const fastpayCertificateOutbox = new FastpayCertificateOutbox(FASTPAY_CERTIFICATE_OUTBOX_PATH);
-const WALLET_SUBSCRIPTION_INTERVAL_MS = parseInt(process.env.WALLET_SUBSCRIPTION_INTERVAL_MS || '1500', 10);
-const WALLET_SUBSCRIPTION_MIN_INTERVAL_MS = parseInt(process.env.WALLET_SUBSCRIPTION_MIN_INTERVAL_MS || '750', 10);
-const WALLET_SUBSCRIPTION_READ_TIMEOUT_MS = parseInt(process.env.WALLET_SUBSCRIPTION_READ_TIMEOUT_MS || '5000', 10);
+const WALLET_SUBSCRIPTION_INTERVAL_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_INTERVAL_MS', 1500, 3_600_000);
+const WALLET_SUBSCRIPTION_MIN_INTERVAL_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_MIN_INTERVAL_MS', 750, 3_600_000);
+const WALLET_SUBSCRIPTION_READ_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_READ_TIMEOUT_MS', 5000, 600_000);
 const FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT = 2048;
 const NAVSWAP_IDEMPOTENCY_TTL_MS = parseInt(process.env.NAVSWAP_IDEMPOTENCY_TTL_MS || '86400000', 10);
 const NAVSWAP_QUOTE_FRESHNESS_TTL_MS = parseInt(process.env.NAVSWAP_QUOTE_FRESHNESS_TTL_MS || '300000', 10);
@@ -734,7 +734,7 @@ const NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS = parseInt(
 // S3.4: Max concurrent TCP connections per WS client. Dev React hydration can
 // briefly duplicate read effects; keep the bound explicit without stalling the
 // first user action behind startup reads.
-const MAX_TCP_PER_WS = parseInt(process.env.MAX_TCP_PER_WS || '32', 10);
+const MAX_TCP_PER_WS = parseBoundedPositiveIntegerEnv('MAX_TCP_PER_WS', 32, 4096);
 
 const FINALITY_METHODS = new Set([
     'mempool_submit_signed_transfer_finality',
