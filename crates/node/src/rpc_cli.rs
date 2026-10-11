@@ -399,6 +399,17 @@ fn wait_for_rpc_finality_required_parent(
         params,
         "proxy_required_current_height",
     )? else {
+        // A root or parent-hash pin only means something relative to the
+        // pinned height; without it the pin cannot be honoured, so it is
+        // rejected instead of being ignored. Null pins stay "no requirement".
+        for key in ["proxy_required_state_root", "proxy_required_parent_hash"] {
+            if rpc_finality_required_str_param(params, key)?.is_some() {
+                return Err((
+                    "rpc_protocol_error".to_string(),
+                    format!("{key} requires proxy_required_current_height"),
+                ));
+            }
+        }
         return Ok(0.0);
     };
     let required_state_root =
@@ -572,6 +583,23 @@ fn rpc_serve_method_accepts_proxy_parent_wait(method: &str) -> bool {
             | "nft_fee_quote"
             | "offer_fee_quote"
     )
+}
+
+/// True when the request carries any proxy parent pin. The rpc-serve
+/// dispatcher routes a pinned fee-quote request through the parent wait on
+/// this predicate (previously only on `proxy_required_current_height`), so a
+/// root or parent-hash pin sent without the height is rejected there instead
+/// of being ignored.
+fn rpc_serve_params_carry_proxy_parent_pins(
+    params: &serde_json::Map<String, serde_json::Value>,
+) -> bool {
+    [
+        "proxy_required_current_height",
+        "proxy_required_state_root",
+        "proxy_required_parent_hash",
+    ]
+    .iter()
+    .any(|key| params.contains_key(*key))
 }
 
 const RPC_OWNED_SIGN_DECOMPRESSED_MAX_BYTES: u64 = 128 * 1024;
@@ -921,7 +949,7 @@ fn handle_rpc_serve_connection(
         && request
             .params
             .as_object()
-            .map(|params| params.contains_key("proxy_required_current_height"))
+            .map(rpc_serve_params_carry_proxy_parent_pins)
             .unwrap_or(false)
     {
         match request.params.as_object() {
@@ -3884,6 +3912,121 @@ fn rpc_serve_method_allowed_with_owned_lane(
                     | "owned_unwrap_sign_v3"
                     | "owned_unwrap_apply_v3"
             ))
+}
+
+#[cfg(test)]
+mod proxy_parent_pin_gate_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// Any of the three pin keys routes the request through the parent wait,
+    /// a present-but-null pin included (the wait treats it as no
+    /// requirement); the timeout alone, or no pins, does not.
+    #[test]
+    fn any_pin_key_routes_through_the_parent_wait() {
+        for key in [
+            "proxy_required_current_height",
+            "proxy_required_state_root",
+            "proxy_required_parent_hash",
+        ] {
+            assert!(
+                rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({ key: "x" }))),
+                "{key} must route through the parent wait"
+            );
+        }
+        assert!(rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({
+            "proxy_required_state_root": null,
+        }))));
+        assert!(!rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({}))));
+        assert!(!rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({
+            "proxy_readiness_timeout_ms": 5,
+        }))));
+    }
+}
+
+#[cfg(test)]
+mod proxy_parent_pin_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// A root or parent-hash pin sent without `proxy_required_current_height`
+    /// must be rejected before the readiness loop reads local status instead
+    /// of being ignored; null pins and a pin-free request still mean "no
+    /// requirement" and return without waiting. The pinned control reaches
+    /// the loop and fails there on the missing ledger. On the previous code
+    /// the root-only and hash-only requests returned `Ok(0.0)` like the
+    /// pin-free request: the pins were silently dropped.
+    #[test]
+    fn pins_without_height_are_rejected_before_the_readiness_loop() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-proxy-parent-pin-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        context.finality_timeout_ms = 1;
+
+        let root_only = params_of(json!({ "proxy_required_state_root": "22".repeat(48) }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &root_only)
+            .expect_err("root pin without height is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(
+            message,
+            "proxy_required_state_root requires proxy_required_current_height"
+        );
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let hash_only = params_of(json!({
+            "proxy_required_parent_hash": "11".repeat(48),
+            "proxy_readiness_timeout_ms": 5,
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &hash_only)
+            .expect_err("parent-hash pin without height is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(
+            message,
+            "proxy_required_parent_hash requires proxy_required_current_height"
+        );
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let null_pins = params_of(json!({
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": null,
+        }));
+        assert_eq!(
+            wait_for_rpc_finality_required_parent(&context, &null_pins)
+                .expect("null pins are no requirement"),
+            0.0
+        );
+        let unpinned = params_of(json!({ "proxy_readiness_timeout_ms": 5 }));
+        assert_eq!(
+            wait_for_rpc_finality_required_parent(&context, &unpinned)
+                .expect("pin-free request does not wait"),
+            0.0
+        );
+        assert!(!data_dir.exists(), "unpinned requests must not touch the data directory");
+
+        let pinned = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": "22".repeat(48),
+        }));
+        let (code, _) = wait_for_rpc_finality_required_parent(&context, &pinned)
+            .expect_err("pinned control reaches the readiness loop and fails on the missing ledger");
+        assert_eq!(code, "rpc_finality_parent_wait_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
+    }
 }
 
 #[cfg(test)]
