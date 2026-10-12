@@ -297,6 +297,106 @@
         assert_eq!(request.params["fastlane_primary_json"], "{}");
     }
 
+    /// Five-vote epoch-1 AnchorCheckpoint refused by the RPC on 2026-10-07
+    /// (public votes only).
+    const EPOCH1_ANCHOR_JSON: &str =
+        include_str!("../tests/fixtures/final-checkpoint-epoch1.fastlane-primary.json");
+
+    /// ActivateCommittee shaped like signer-rotation §8.4: six ML-DSA-65
+    /// validator keys, the five-vote final checkpoint, and five control votes.
+    fn synthetic_activate_committee_json() -> String {
+        use postfiat_types::{
+            FastLaneControlActionV1, FastLaneControlCertificateV1, FastLaneControlVoteV1,
+            FastLanePrimaryOperationV1, FastLanePrimaryTransactionV1, FastSwapCommitteeV1,
+            FastSwapOpaqueHashV1, FastSwapValidatorV1,
+        };
+        let pattern = |len: usize, seed: usize| -> Vec<u8> {
+            (0..len).map(|i| ((i * 197 + seed * 89) % 256) as u8).collect()
+        };
+        let anchor: FastLanePrimaryTransactionV1 =
+            serde_json::from_str(EPOCH1_ANCHOR_JSON).expect("anchor fixture parses");
+        let FastLanePrimaryOperationV1::AnchorCheckpoint { certificate } = anchor.operation else {
+            panic!("fixture is an AnchorCheckpoint");
+        };
+        let current = certificate.votes[0].checkpoint.committee.clone();
+        let mut next = current.clone();
+        next.committee_epoch += 1;
+        next.validator_count = 6;
+        let mut committee = FastSwapCommitteeV1 {
+            domain: next,
+            validators: (0..6)
+                .map(|i| FastSwapValidatorV1 {
+                    validator_id: format!("validator-{i}"),
+                    public_key: pattern(1952, i),
+                })
+                .collect(),
+        };
+        committee.domain.committee_root = committee.computed_root().expect("committee root");
+        let transaction = FastLanePrimaryTransactionV1 {
+            operation: FastLanePrimaryOperationV1::Control {
+                certificate: FastLaneControlCertificateV1 {
+                    action: FastLaneControlActionV1::ActivateCommittee {
+                        committee,
+                        final_checkpoint: certificate,
+                    },
+                    votes: (0..5)
+                        .map(|i| FastLaneControlVoteV1 {
+                            committee: current.clone(),
+                            action_digest: FastSwapOpaqueHashV1([7; 48]),
+                            validator_id: format!("validator-{i}"),
+                            signature: pattern(3309, i + 10),
+                        })
+                        .collect(),
+                },
+            },
+        };
+        serde_json::to_string(&transaction).expect("serialize ActivateCommittee")
+    }
+
+    fn fastlane_primary_binary_len(json: &str) -> usize {
+        serde_json::from_str::<postfiat_types::FastLanePrimaryTransactionV1>(json)
+            .expect("FastLane primary JSON parses")
+            .canonical_bytes()
+            .expect("canonical bytes")
+            .len()
+    }
+
+    #[test]
+    fn fastlane_primary_json_cap_admits_signer_rotation_control_transactions() {
+        const MEMPOOL_CANONICAL_BYTES: usize = 128 * 1024;
+        let cap = MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES;
+        assert_eq!(cap, 256 * 1024);
+        let activate = synthetic_activate_committee_json();
+        assert_eq!(EPOCH1_ANCHOR_JSON.len(), 70_944);
+        assert!((170_000..=185_000).contains(&activate.len()), "{}", activate.len());
+        for (label, json) in [("anchor", EPOCH1_ANCHOR_JSON), ("activate", activate.as_str())] {
+            let binary = fastlane_primary_binary_len(json);
+            assert!(binary <= MEMPOOL_CANONICAL_BYTES, "{label} binary {binary}");
+            eprintln!("{label}: json {} binary {binary}", json.len());
+            let request = mempool_submit_fastlane_primary_finality_request(label, json);
+            request
+                .validate_protocol()
+                .unwrap_or_else(|error| panic!("{label} rejected: {error:?}"));
+            let path = std::env::temp_dir().join(format!(
+                "postfiat-rpc-sdk-fastlane-primary-{}-{label}.json",
+                std::process::id()
+            ));
+            write_request_file(&path, &request).expect("write request file");
+            read_request_file(&path).unwrap_or_else(|error| panic!("{label} file: {error}"));
+            fs::remove_file(path).expect("remove request file");
+        }
+        let at_cap = mempool_submit_fastlane_primary_finality_request("cap", "x".repeat(cap));
+        at_cap.validate_protocol().expect("exactly the cap is accepted");
+        let over = mempool_submit_fastlane_primary_finality_request("over", "x".repeat(cap + 1));
+        assert!(matches!(
+            over.validate_protocol(),
+            Err(RpcProtocolError::ParamStringTooLong { ref key, max_bytes })
+                if key == "fastlane_primary_json" && max_bytes == cap
+        ));
+        let other = mempool_submit_signed_transfer_json_request("other", "x".repeat(70_000));
+        assert!(other.validate_protocol().is_err(), "other caps unchanged");
+    }
+
     #[test]
     fn atomic_swap_transaction_tx_id_is_canonical_and_field_bound() {
         let swap = valid_signed_atomic_swap();

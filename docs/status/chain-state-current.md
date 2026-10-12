@@ -1,8 +1,75 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-05T10:30:00Z` (weekend fleet state, blocks 1104–1115; release `combined-fastpay-20260928` unchanged); latest fleet observation `2026-10-05T07:21:55Z`
+Updated: `2026-10-12T11:55:00Z` (signer committees: FastPay epoch 2 installed, bridge stopped at the checkpoint anchor); latest fleet observation `2026-10-12T11:51:52Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
+
+    The July `fastswap-v1` store (26 records, 177,899 B) was converted with
+    `fastswap-store-migrate` from release `signer-rotation-20261007`, one
+    host at a time (validator-5, then 0–4), 10:57–11:14Z: both units
+    stopped, dry run, conversion with a verified backup, a second dry run
+    `nothing-to-convert`, both units started. Every host rejoined within 22 s,
+    and the fleet stayed at height 1121, tip `329bc2f1…`, root `aa462feb…`
+    with six-way agreement after each host. `fastswap_checkpoint_status`
+    answers on validators 0–4 with the same checkpoint (committee epoch 1,
+    root `a2eebcba…`, `drain_ready`, no epoch-1 checkpoint anchored yet).
+    Validator-5 still answers `fastswap_unavailable`: its rotated key is not
+    its epoch-1 committee key, which is the signer-group activation, still to
+    do ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#7-fastswap-store-conversion-one-host-at-a-time)).
+
+    The signer-group activation ran at 11:40–11:52Z. **FastPay:** all six
+    validators signed the epoch-2 committee at proposal slot 1123, validator-5
+    with its current key; it was installed at height 1123 (batch `66746fa2…`,
+    `fastpay_recovery_committee_rotated` on all six). The committee has six members
+    with current keys, quorum 5, and orders 10001–19990. Epoch 1 serves through
+    10000, so payments are unchanged today. **Bridge:** the epoch-1 `StopPrepare`
+    for FastSwap policy epoch 1 committed at height 1122. The final drained
+    epoch-1 checkpoint was then refused before admission: `mempool_submit_fastlane_primary_finality`
+    caps `fastlane_primary_json` at 64 KiB, and the five-vote `AnchorCheckpoint`
+    is 70,944 B. `ActivateCommittee` and the issuer's route update were not run.
+    The bridge committee stays at epoch 1 (root `a2eebcba…`), so Ethereum
+    checkpoints still need validators 0–4, and new epoch-1 FastSwap prepares are
+    fenced. The epoch-2 root is `72836827…`. After the activation the fleet is at
+    height 1123, root `942d1fc2…`, with six-way agreement
+    ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
+
+!!! success "2026-10-09: signer-rotation release deployed to all six validators"
+
+    Release `signer-rotation-20261007` runs on all six validators: source
+    `0fa55d0b` on branch `release/signer-rotation-20261007`, executable
+    `decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f`,
+    signed manifest `fa4649aa…` (publisher `pfc531e0…`). It is
+    `combined-fastpay-20260928` plus what the signer-group change needs (the
+    issuer-signed bridge policy update, the offline FastSwap store conversion,
+    the committee builders), the `account_tx` fixes and the RPC unit change.
+    It replaced `combined-fastpay-20260928` (`1f8b332d…`) with
+    `scripts/postfiat-safe-rollout apply-next`, one validator at a time
+    (validator-1 canary, then 0, 2, 3, 4, 5), 12:06:38–12:28:03Z.
+
+    Before (`10:51:42Z`): six on `combined-fastpay-20260928` at height 1115,
+    tip `28e1175b…`, root `a5287eaf…`, mempools empty. Signed canary backup from validator-1 at 1115: manifest
+    `49b2b6cd…`, re-imported, checkpoint verified and fully replayed to the
+    same root. After (`12:32:09Z`): all 12 validator and RPC processes on
+    `decaa411…`, `deployment_manifest_verified=true` on every host, RPC units
+    with `--max-requests 100000` and `RestartSec=1`, height 1121, tip
+    `329bc2f1…`, root `aa462feb…`. No divergence at any step.
+
+    Grants used: six devnet faucet grants of 1 PFT from the faucet account to
+    the `testing` wallet (StakeHub `pft faucet`), one after each apply, at
+    heights 1116–1121 (proposers validator-0, 1, 2, 3, 4, 5). Each certified at
+    view 0 with quorum 5 of 6 and the same block, tip and root on all six
+    (`blocks` RPC). Total: 6 PFT plus 192 atoms of fees. Nothing else moved.
+
+    Rollback: the `combined-fastpay-20260928` executable and release
+    directory stay on every host. The per-validator path is `rollback-one.sh`
+    (data in place, verified by that executable first); the signed validator-1
+    backup at 1115 is the fallback. Rollback was not needed. Not done yet: the
+    FastSwap store conversion and the signer-group activation (sheet §7–§8).
+    Records:
+    [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/README.md),
+    [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/observed/rollout-record.json).
 
 !!! success "2026-09-28: FastPay effect-anchoring release deployed to all six validators"
 
@@ -68,9 +135,8 @@ after the check passes. On failure, it deletes the record. `status` then
 reports `true` only if the record names the current manifest bytes and the
 signed window still covers the current time. A missing, stale or malformed
 record keeps the field `false` and does not make `status` fail. Generated
-release env files set the record path under `<data-dir>/readiness/`. This
-change is not deployed: the fleet on `c93b2137` keeps reporting `false` until
-the next release.
+release env files set the record path under `<data-dir>/readiness/`. Deployed
+with `signer-rotation-20261007` on 2026-10-09: all six report `true`.
 
 !!! success "2026-09-25: merged combined and FastPay release deployed to all six validators"
 
