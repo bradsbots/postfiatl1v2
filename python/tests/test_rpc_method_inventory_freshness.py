@@ -6,6 +6,7 @@ detector learned to read black-wrapped calls)."""
 
 from __future__ import annotations
 
+import difflib
 import importlib.machinery
 import importlib.util
 import json
@@ -30,6 +31,45 @@ def _load_generator():
 
 def _methods(inventory: dict) -> dict[str, dict]:
     return {row["method"]: row for row in inventory["methods"]}
+
+
+def _markdown_drift(expected: str, actual: str) -> str:
+    """Unified diff of the rendered vs committed Markdown; empty when identical."""
+    return "".join(
+        difflib.unified_diff(
+            expected.splitlines(keepends=True),
+            actual.splitlines(keepends=True),
+            fromfile="render_markdown(rpc-method-inventory.json)",
+            tofile=str(INVENTORY_MD),
+        )
+    )
+
+
+# One in-memory corruption per rendered section: (section, exact committed
+# text, replacement). Each original must occur exactly once in the committed
+# Markdown; the committed file itself is never modified.
+MARKDOWN_ROW_CORRUPTIONS = (
+    (
+        "methods",
+        "| yolo_target_receipt | read_only_public |",
+        "| yolo_target_receipt | operator_or_local_only |",
+    ),
+    (
+        "xrp_like_coverage",
+        "| server_info | covered | server_info |",
+        "| server_info | missing | server_info |",
+    ),
+    (
+        "gaps",
+        "| public_write_edge_not_default | intentional_gate |",
+        "| public_write_edge_not_default | scale_follow_up |",
+    ),
+    (
+        "summary",
+        "- Operator/local-only methods: ",
+        "- Operator/local-only methods: 9",
+    ),
+)
 
 
 class RpcMethodInventoryFreshnessTests(unittest.TestCase):
@@ -70,12 +110,37 @@ class RpcMethodInventoryFreshnessTests(unittest.TestCase):
         wrong = {name: committed.get(name, {}).get("posture") for name in rows if committed.get(name, {}).get("posture") != "read_only_public"}
         self.assertEqual(wrong, {})
 
+    def _rendered_markdown(self) -> str:
+        return _load_generator().render_markdown(self.committed, INVENTORY_JSON)
+
     def test_markdown_report_matches_the_committed_json_summary(self) -> None:
-        markdown = INVENTORY_MD.read_text(encoding="utf-8")
-        counts = self.committed["counts"]
-        self.assertIn(f"- Total methods observed: {counts['total_methods']}", markdown)
-        self.assertIn(f"- Read-only public methods: {counts['read_only_public']}", markdown)
-        self.assertIn(f"Date: {self.committed['generated_utc'][:10]}", markdown)
+        # The whole document: header, date, every summary line, every
+        # XRP-like coverage row, every gap row, and every method row.
+        drift = _markdown_drift(self._rendered_markdown(), INVENTORY_MD.read_text(encoding="utf-8"))
+        if drift:
+            self.fail(
+                "docs/runbooks/rpc-method-inventory.md differs from render_markdown(committed json); "
+                "regenerate with scripts/testnet-rpc-method-inventory "
+                "--output docs/runbooks/rpc-method-inventory.json "
+                "--markdown docs/runbooks/rpc-method-inventory.md\n" + drift
+            )
+
+    def test_whole_document_comparison_detects_a_corrupted_row_in_every_section(self) -> None:
+        rendered = self._rendered_markdown()
+        committed = INVENTORY_MD.read_text(encoding="utf-8")
+        self.assertEqual(_markdown_drift(rendered, committed), "")
+        for section, original, corrupted in MARKDOWN_ROW_CORRUPTIONS:
+            with self.subTest(section=section):
+                self.assertEqual(committed.count(original), 1, original)
+                tampered = committed.replace(original, corrupted, 1)
+                drift = _markdown_drift(rendered, tampered)
+                self.assertTrue(drift, f"{section} corruption was not detected")
+                removed = [line for line in drift.splitlines() if line.startswith("-") and not line.startswith("---")]
+                added = [line for line in drift.splitlines() if line.startswith("+") and not line.startswith("+++")]
+                self.assertEqual(len(removed), 1, drift)
+                self.assertEqual(len(added), 1, drift)
+                self.assertIn(original, removed[0])
+                self.assertIn(corrupted, added[0])
 
 
 if __name__ == "__main__":
