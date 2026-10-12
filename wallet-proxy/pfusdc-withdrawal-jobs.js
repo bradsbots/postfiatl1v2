@@ -53,7 +53,12 @@ function normalizeRequest(body, assetId) {
     // its summary as text, so only the canonical decimal spelling is accepted.
     // BigInt() alone would also take 0x/0o/0b prefixes, a leading + and leading
     // zeros, giving one burn several job_ids.
-    const amountSyntaxValid = /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
+    // A JSON number above Number.MAX_SAFE_INTEGER has already been rounded by
+    // JSON.parse (9007199254740993 arrives as 9007199254740992), so numbers are
+    // accepted only while they are safe integers; larger amounts must be strings.
+    const rawAmount = body?.amount_atoms;
+    const amountNumberExact = typeof rawAmount !== 'number' || Number.isSafeInteger(rawAmount);
+    const amountSyntaxValid = amountNumberExact && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
     let amount = 0n;
     if (amountSyntaxValid) amount = BigInt(request.amount_atoms);
     if (!PFTL_TX_RE.test(request.burn_tx_id) || !PFTL_RE.test(request.owner)
