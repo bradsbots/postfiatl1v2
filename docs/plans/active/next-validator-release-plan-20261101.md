@@ -36,7 +36,9 @@ Included only when ready and reviewed by the cut; none is promised.
 - [ ] Archive scan `truncated` means "possibly incomplete" (`account_tx_scan`, `crates/node/src/block_finality.rs`). Changed only if an exact flag is wanted; it needs an unbounded scan of a public read. Owner: this lane, on request. Read-path.
 - [ ] The other lane's delayed-precommit fix for its unreleased candidate. Blocker: pushed to main and reviewed. **Consensus change: its own qualification.**
 - [ ] Testnet provisioning default of the RPC accept budget: `POSTFIAT_RPC_MAX_REQUESTS` is still `10000` in [public RPC operator policy](../../runbooks/public-rpc-operator-policy.md) and `systemd/postfiat-rpc.service.example`; the release generator uses `100000` (`crates/node/src/batch_snapshot.rs:2403`). Owner: this lane. Tooling/docs.
+- [ ] SCT-08: bounded read-only evidence campaign (complete signed bindings, publisher-attested work digests, exclusions, admission facts, native registry-root binding), authorized 2026-10-12 ([inventory](../../review/defect-inventory-20260910.md)). Owner: this lane.
 - Not in this repository: FW-13 and FW-14 (P3, StakeHub), owned by the other lane. Tracked here only.
+  Decision (2026-10-12), FW-14: I decided that the pool keeps its a651 in the shielded balance after each run, as the deployed release does.
 
 ## Not before
 

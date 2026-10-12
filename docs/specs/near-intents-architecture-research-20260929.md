@@ -92,6 +92,8 @@ Research note, 2026-09-29. Operator: Domagoj Ravlić (`dravlic`). Sources: the N
 3. **Consider NEAR Intents as a shelf, later.** Listing a NAVCoin as an asset inside their Verifier would expose it to 1.6 million users through one bridge integration; the bridge would then be the trusted party for the bridged NAVCoin, exactly the trade-off this note describes. Only after the NAVCoin is live and its reserve proof has moved to the successor profile.
 4. **Reuse the small things now.** Quote expiry and requote-on-failure semantics for the wallet's swap screen; a quote-specific deposit address for the bridge flow; one multi-asset balance list, which the wallet already has.
 
+**Decision (2026-10-12).** I decided that the wallet swap screen keeps the proof-based route and that no intent-style flow is built before the first live NAVCoin cycle. Listing a NAVCoin inside NEAR Intents is a partnership question and stays with the product owner.
+
 ## Sources
 
 - Verifier contract introduction: https://docs.near-intents.org/near-intents/market-makers/verifier/introduction
