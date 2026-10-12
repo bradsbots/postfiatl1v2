@@ -157,6 +157,10 @@ binary from the release being rolled out.
 2. Dry run: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --dry-run`.
    Expect `would-convert`, with `legacy_wal_records` equal to `wal_records`.
 3. Convert: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --backup-dir /var/lib/postfiat/fastswap-v1-backup-validator-N`.
+   `/var/lib/postfiat` is root-owned, so the `postfiat` user cannot create the
+   backup directory: root pre-creates it empty with
+   `install -d -o postfiat -g postfiat -m 700 /var/lib/postfiat/fastswap-v1-backup-validator-N`
+   (the command refuses a non-empty one).
    Expect `converted` and `normal open verified N record(s) with the keyed MAC`.
    Record the key fingerprint and backup path.
 4. Start both units.
