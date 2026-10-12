@@ -1,8 +1,23 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-09T12:40:00Z` (release `signer-rotation-20261007` deployed to all six, blocks 1116–1121); latest fleet observation `2026-10-09T12:32:09Z`
+Updated: `2026-10-12T11:17:00Z` (FastSwap store converted on all six); latest fleet observation `2026-10-12T11:14:04Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-12: FastSwap store converted on all six validators"
+
+    The July `fastswap-v1` store (26 records, 177,899 B) was converted with
+    `fastswap-store-migrate` from release `signer-rotation-20261007`, one
+    host at a time (validator-5, then 0–4), 10:57–11:14Z: both units
+    stopped, dry run, conversion with a verified backup, a second dry run
+    `nothing-to-convert`, both units started. Every host rejoined within 22 s,
+    and the fleet stayed at height 1121, tip `329bc2f1…`, root `aa462feb…`
+    with six-way agreement after each host. `fastswap_checkpoint_status`
+    answers on validators 0–4 with the same checkpoint (committee epoch 1,
+    root `a2eebcba…`, `drain_ready`, no epoch-1 checkpoint anchored yet).
+    Validator-5 still answers `fastswap_unavailable`: its rotated key is not
+    its epoch-1 committee key, which is the signer-group activation, still to
+    do ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#7-fastswap-store-conversion-one-host-at-a-time)).
 
 !!! success "2026-10-09: signer-rotation release deployed to all six validators"
 

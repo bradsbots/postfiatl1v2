@@ -38,7 +38,7 @@ Being built on main (2026-10-05 and 2026-10-06):
 
 Needed for the bridge activation, not started:
 
-- [x] (5) Offline FastSwap WAL migration: command exists, host step on release day (`postfiat-node fastswap-store-migrate`, `crates/storage/src/fastswap_store/legacy_migration.rs`; [runbook](../../runbooks/fastpay-committee-recovery.md#converting-the-fastswap-store-before-the-rotation)). On validator-1, every `fastswap_*` request fails with `fastswap_unavailable`. The cause is the WAL's legacy unkeyed tags, which a normal store open rejects (`crates/storage/src/fastswap_store.rs:1707-1718`). No command calls `FastSwapStore::open_for_legacy_migration`. No unit argument enables the service; it opens on first request. The release needs this command, and the rollout runs it on each validator while its units are stopped. Without it, there are no final-checkpoint votes and no `ActivateCommittee` ([read](../../review/signer-committee-rotation-dry-run-20261005.md#live-fastswap-control-path-2026-10-05-read)).
+- [x] (5) Offline FastSwap WAL migration: command exists, host step on release day (`postfiat-node fastswap-store-migrate`, `crates/storage/src/fastswap_store/legacy_migration.rs`; [runbook](../../runbooks/fastpay-committee-recovery.md#converting-the-fastswap-store-before-the-rotation)). On validator-1, every `fastswap_*` request fails with `fastswap_unavailable`. The cause is the WAL's legacy unkeyed tags, which a normal store open rejects (`crates/storage/src/fastswap_store.rs:1707-1718`). No command calls `FastSwapStore::open_for_legacy_migration`. No unit argument enables the service; it opens on first request. The release needs this command, and the rollout runs it on each validator while its units are stopped. Without it, there are no final-checkpoint votes and no `ActivateCommittee` ([read](../../review/signer-committee-rotation-dry-run-20261005.md#live-fastswap-control-path-2026-10-05-read)). Host step done on all six on 2026-10-12 ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#7-fastswap-store-conversion-one-host-at-a-time)): `fastswap_checkpoint_status` answers on validators 0–4; validator-5 stays `fastswap_unavailable` until the committee change, because its rotated key is not its epoch-1 committee key.
 
 Waiting on the other lane:
 
@@ -77,12 +77,12 @@ The 2026-09-28 pattern; about 90 min after the suite.
 
 About 60 min, after the objection window closes; 2026-10-09 at the earliest.
 
-- [ ] Before: `observe-fleet.py` shows six validators on `1f8b332d…` with the same height, tip and root (5 min).
-- [ ] `scripts/postfiat-safe-rollout apply-next`, one validator at a time (validator-1 canary, then 0, 2, 3, 4, 5). One devnet faucet grant per validator; each must certify with the same tip and root on all six before the next (6 × 6–8 min).
-- [ ] On divergence or a missed certification: stop, `rollback-one.sh` on the affected validator. The `combined-fastpay-20260928` executable and release directory stay on every host.
-- [ ] Live checks: all 12 validator and RPC processes on the new hash; `deployment_manifest_verified=true` on every host; `account_tx` truncation reads (10 min).
-- [ ] `deployments/combined-fastpay-20260928/demo-preflight.py` adapted to the new release directory, run read-only and passing (10 min).
-- [ ] Update `docs/status/chain-state-current.md` and the deployment README.
+- [x] Before: `observe-fleet.py` shows six validators on `1f8b332d…` with the same height, tip and root (5 min). 2026-10-09 10:51Z, height 1115.
+- [x] `scripts/postfiat-safe-rollout apply-next`, one validator at a time (validator-1 canary, then 0, 2, 3, 4, 5). One devnet faucet grant per validator; each must certify with the same tip and root on all six before the next (6 × 6–8 min). 2026-10-09 12:06–12:28Z; grants at 1116–1121, all six on `signer-rotation-20261007` at 1121.
+- [x] On divergence or a missed certification: stop, `rollback-one.sh` on the affected validator. The `combined-fastpay-20260928` executable and release directory stay on every host. No divergence; rollback not needed.
+- [ ] Live checks: all 12 validator and RPC processes on the new hash; `deployment_manifest_verified=true` on every host; `account_tx` truncation reads (10 min). The first two passed on 2026-10-09; no `account_tx` truncation read is recorded.
+- [x] `deployments/combined-fastpay-20260928/demo-preflight.py` adapted to the new release directory, run read-only and passing (10 min). 2026-10-09T12:43:09Z: READY WITH ATTENTION, 55 PASS, 5 ATTENTION (hand-started relays on validators 0, 2, 3, 4, 5), 0 FAIL.
+- [x] Update `docs/status/chain-state-current.md` and the deployment README. 2026-10-09.
 
 ## Activation after rollout
 
