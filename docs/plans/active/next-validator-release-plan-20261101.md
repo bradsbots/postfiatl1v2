@@ -47,3 +47,5 @@ Included only when ready and reviewed by the cut; none is promised.
 ## Qualification and rollout
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `signer-rotation-20261007`). A consensus candidate adds its own qualification before the cut.
+
+- [ ] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release

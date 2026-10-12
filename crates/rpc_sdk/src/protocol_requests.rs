@@ -195,6 +195,13 @@ pub const MAX_RPC_REQUEST_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RPC_PARAM_NAME_BYTES: usize = 64;
 pub const MAX_RPC_PARAM_STRING_BYTES: usize = 4096;
 pub const MAX_RPC_SIGNED_TRANSFER_JSON_BYTES: usize = 64 * 1024;
+/// FastLane primary control transactions carry ML-DSA-65 signatures and keys
+/// as JSON number arrays. Measured: the five-vote epoch-1 AnchorCheckpoint of
+/// 2026-10-07 is 70,944 JSON bytes for 19,705 canonical bytes (3.60x); a
+/// six-validator ActivateCommittee is 176,179 JSON for 17,989 canonical. At
+/// 3.6x, 256 KiB of JSON is about 71 KiB canonical, under the node's 128 KiB
+/// canonical-binary mempool limit, which stays the binding consensus bound.
+pub const MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES: usize = 256 * 1024;
 /// An asset operation can carry the consensus-bounded SP1 Groth16 proof and
 /// public-values byte arrays. Their JSON representation is larger than the
 /// binary payload, so keep a separate bounded quote limit.
@@ -2353,6 +2360,8 @@ fn max_rpc_param_string_bytes(method: &str, key: &str) -> usize {
     {
         if key == "order_json" || key == "order_json_gzip_base64" || key == "cert_json" {
             MAX_RPC_FASTPAY_JSON_BYTES
+        } else if key == "fastlane_primary_json" {
+            MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES
         } else {
             MAX_RPC_SIGNED_TRANSFER_JSON_BYTES
         }

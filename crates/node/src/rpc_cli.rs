@@ -2374,6 +2374,7 @@ fn run_rpc_serve_mempool_submit_fastlane_primary_finality_inner(
     require_rpc_finality_local_proposer(context, finality_view.view)?;
 
     let mempool_submit_start = Instant::now();
+    let operation = transaction.operation.clone();
     let entry = admit_fastlane_primary_to_mempool(&context.data_dir, transaction).map_err(|error| {
         (
             "rpc_finality_submit_failed".to_string(),
@@ -2423,16 +2424,18 @@ fn run_rpc_serve_mempool_submit_fastlane_primary_finality_inner(
         .find(|report| {
             report.tx_id == tx_id
                 && report.confirmed
-                && report.receipt.accepted
-                && report.receipt.code == "owned_deposit_applied"
+                && postfiat_node::fastlane_primary_receipt_is_success(&operation, &report.receipt)
         })
         .cloned()
         .ok_or_else(|| {
+            let expected =
+                postfiat_execution::fastlane_primary::fastlane_primary_accepted_receipt_codes(
+                    &operation,
+                )
+                .join(" or ");
             (
                 "rpc_finality_submit_failed".to_string(),
-                format!(
-                    "FastLane primary finality round did not emit owned_deposit_applied for `{tx_id}`"
-                ),
+                format!("FastLane primary finality round did not emit {expected} for `{tx_id}`"),
             )
         })?;
     let total_ms = monotonic_elapsed_ms(total_start);
