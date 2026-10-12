@@ -1,10 +1,10 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-12T11:17:00Z` (FastSwap store converted on all six); latest fleet observation `2026-10-12T11:14:04Z`
+Updated: `2026-10-12T11:55:00Z` (signer committees: FastPay epoch 2 installed, bridge stopped at the checkpoint anchor); latest fleet observation `2026-10-12T11:51:52Z`
 
 Status: **canonical operational-state reference**
 
-!!! success "2026-10-12: FastSwap store converted on all six validators"
+!!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
 
     The July `fastswap-v1` store (26 records, 177,899 B) was converted with
     `fastswap-store-migrate` from release `signer-rotation-20261007`, one
@@ -18,6 +18,22 @@ Status: **canonical operational-state reference**
     Validator-5 still answers `fastswap_unavailable`: its rotated key is not
     its epoch-1 committee key, which is the signer-group activation, still to
     do ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#7-fastswap-store-conversion-one-host-at-a-time)).
+
+    The signer-group activation ran at 11:40–11:52Z. **FastPay:** all six
+    validators signed the epoch-2 committee at proposal slot 1123, validator-5
+    with its current key; it was installed at height 1123 (batch `66746fa2…`,
+    `fastpay_recovery_committee_rotated` on all six). The committee has six members
+    with current keys, quorum 5, and orders 10001–19990. Epoch 1 serves through
+    10000, so payments are unchanged today. **Bridge:** the epoch-1 `StopPrepare`
+    for FastSwap policy epoch 1 committed at height 1122. The final drained
+    epoch-1 checkpoint was then refused before admission: `mempool_submit_fastlane_primary_finality`
+    caps `fastlane_primary_json` at 64 KiB, and the five-vote `AnchorCheckpoint`
+    is 70,944 B. `ActivateCommittee` and the issuer's route update were not run.
+    The bridge committee stays at epoch 1 (root `a2eebcba…`), so Ethereum
+    checkpoints still need validators 0–4, and new epoch-1 FastSwap prepares are
+    fenced. The epoch-2 root is `72836827…`. After the activation the fleet is at
+    height 1123, root `942d1fc2…`, with six-way agreement
+    ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
 
 !!! success "2026-10-09: signer-rotation release deployed to all six validators"
 
