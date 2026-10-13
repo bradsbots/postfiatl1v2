@@ -44,22 +44,22 @@ use postfiat_rpc_sdk::{
     shield_batch_spend_request, shield_batch_swap_json_request, shield_batch_swap_request,
     shield_disclose_request, shield_scan_request, shield_turnstile_request, status_request,
     transfer_fee_quote_request, tx_request_with_audit, validate_local_keys_request,
-    validate_request_file, validate_response_file, validate_response_kind_with_context,
-    validators_request, verify_blocks_request, verify_bridge_request, verify_mempool_request,
-    verify_shielded_request, verify_state_request, wallet_backup_from_master_seed,
-    wallet_dual_sign_fastswap_intent, wallet_fastpay_transfer_certificate_digest_v3,
-    wallet_fastpay_transfer_lock_id_v1, wallet_fastpay_unwrap_certificate_digest_v3,
-    wallet_fastpay_unwrap_lock_id_v1, wallet_identity_from_backup,
-    wallet_sign_asset_transaction_from_quote, wallet_sign_atomic_swap_from_quote,
-    wallet_sign_escrow_transaction_from_quote, wallet_sign_fast_asset_control_command,
-    wallet_sign_fastlane_deposit, wallet_sign_nft_transaction_from_quote,
-    wallet_sign_offer_transaction_from_quote, wallet_sign_owned_deposit,
-    wallet_sign_owned_transfer_order, wallet_sign_owned_transfer_order_v3,
-    wallet_sign_owned_unwrap_order, wallet_sign_owned_unwrap_order_v3,
-    wallet_sign_payment_v2_from_fields, wallet_sign_transfer_from_quote,
-    wallet_verify_fastpay_apply_ack_v1, write_request_file, BatchArchiveValidationContext,
-    BridgeBatchDomainParams, BridgeBatchTransferParams, NavcoinBridgeClaimsParams,
-    NavcoinBridgePacketParams, NavcoinBridgePacketPreflightParams,
+    validate_owned_objects_response, validate_request_file, validate_response_file,
+    validate_response_kind_with_context, validators_request, verify_blocks_request,
+    verify_bridge_request, verify_mempool_request, verify_shielded_request, verify_state_request,
+    wallet_backup_from_master_seed, wallet_dual_sign_fastswap_intent,
+    wallet_fastpay_transfer_certificate_digest_v3, wallet_fastpay_transfer_lock_id_v1,
+    wallet_fastpay_unwrap_certificate_digest_v3, wallet_fastpay_unwrap_lock_id_v1,
+    wallet_identity_from_backup, wallet_sign_asset_transaction_from_quote,
+    wallet_sign_atomic_swap_from_quote, wallet_sign_escrow_transaction_from_quote,
+    wallet_sign_fast_asset_control_command, wallet_sign_fastlane_deposit,
+    wallet_sign_nft_transaction_from_quote, wallet_sign_offer_transaction_from_quote,
+    wallet_sign_owned_deposit, wallet_sign_owned_transfer_order,
+    wallet_sign_owned_transfer_order_v3, wallet_sign_owned_unwrap_order,
+    wallet_sign_owned_unwrap_order_v3, wallet_sign_payment_v2_from_fields,
+    wallet_sign_transfer_from_quote, wallet_verify_fastpay_apply_ack_v1, write_request_file,
+    BatchArchiveValidationContext, BridgeBatchDomainParams, BridgeBatchTransferParams,
+    NavcoinBridgeClaimsParams, NavcoinBridgePacketParams, NavcoinBridgePacketPreflightParams,
     NavcoinBridgeReceiptReplayParams, NavcoinBridgeSupplyStatusParams, OwnedObjectsParams,
     RpcRequest, RpcRequestKind, RpcResponseKind, WalletBackupFile, WalletSignPaymentV2Fields,
     METHOD_ACCOUNT, METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS, METHOD_ACCOUNT_OFFERS,
@@ -1151,6 +1151,12 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
                 &finality.genesis_hash,
                 finality.protocol_version,
             )?;
+        } else if expected_kind == RpcResponseKind::OwnedObjects {
+            let request = bound_request.as_ref().ok_or(
+                "owned_objects response validation requires --request-file for owner, asset, and limit binding",
+            )?;
+            validate_owned_objects_response(&response, request)
+                .map_err(|error| format!("response validation failed at {input}: {error}"))?;
         } else {
             validate_response_kind_with_context(&response, expected_kind, archive_context.as_ref())
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
@@ -2471,7 +2477,7 @@ Offer_info request supports --offer-id. Account_offers request supports --accoun
 Escrow_info request supports --escrow-id. Account_escrows request supports --account, --role, --state, and --limit.
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
-Owned_objects request supports --owner-public-key-hex (hex ML-DSA-65 public key, 3904 characters), optional --asset, and optional --limit (1..=2048).
+Owned_objects request supports --owner-public-key-hex (hex ML-DSA-65 public key, 3904 characters), optional --asset, and optional --limit (1..=2048). Validating its response requires --request-file: the report owner, asset filter (absent when the request has none), and limit (the request value, or the node default 2048) must match the request.
 Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, owned_objects, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.

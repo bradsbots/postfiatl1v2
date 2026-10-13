@@ -708,3 +708,78 @@ fn validated_summary_result(
         .as_ref()
         .ok_or_else(|| invalid_result("result", "missing successful response result"))
 }
+
+/// Validates an `owned_objects` response against the request that produced
+/// it. `validate_owned_objects_result` (reachable through
+/// `validate_response_kind` with `RpcResponseKind::OwnedObjects`) checks the
+/// report against its own echoed `owner_public_key_hex`, `asset`, and
+/// `limit`; on its own that lets a complete report for another query pass.
+/// This function binds the report to the request: the response id must equal
+/// the request id, the request must be a valid `owned_objects` request, and
+/// the echoed selector must be exactly the one the node derives from it
+/// (crates/node lifecycle_queries.rs `owned_objects`):
+/// - `owner_public_key_hex` equals the requested string (the node echoes the
+///   request value and filters rows by exact string match);
+/// - `asset` equals the requested asset, or is absent/null when the request
+///   carried no asset filter;
+/// - `limit` equals the requested limit, or `OWNED_OBJECTS_MAX_LIMIT` (the
+///   node default) when the request omitted it.
+///
+/// The CLI requires `--request-file` for this kind and calls this function.
+pub fn validate_owned_objects_response(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
+    validate_request(
+        request,
+        Some(request.id.as_str()),
+        Some(RpcRequestKind::OwnedObjects),
+    )
+    .map_err(|error| invalid_result("request", error.to_string()))?;
+    let result = validated_summary_result(response, RpcResponseKind::OwnedObjects)?;
+    let params = request
+        .params
+        .as_object()
+        .ok_or_else(|| invalid_result("request.params", "expected object params"))?;
+
+    let requested_owner = params
+        .get("owner_public_key_hex")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.owner_public_key_hex", "missing owner"))?;
+    if string_field(result, "owner_public_key_hex")? != requested_owner {
+        return Err(invalid_result(
+            "owner_public_key_hex",
+            "expected the owner selected by the request",
+        ));
+    }
+
+    let requested_asset = params.get("asset").and_then(Value::as_str);
+    let result_asset = match result.get("asset") {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(clean_string_field(result, "asset")?),
+    };
+    if result_asset != requested_asset {
+        return Err(invalid_result(
+            "asset",
+            match requested_asset {
+                Some(_) => "expected the asset filter selected by the request",
+                None => "expected no asset filter because the request selected none",
+            },
+        ));
+    }
+
+    let requested_limit = match params.get("limit") {
+        Some(limit) => limit
+            .as_u64()
+            .ok_or_else(|| invalid_result("request.params.limit", "expected unsigned integer"))?,
+        None => OWNED_OBJECTS_MAX_LIMIT as u64,
+    };
+    if u64_field(result, "limit")? != requested_limit {
+        return Err(invalid_result(
+            "limit",
+            "expected the requested limit, or the node default when the request omitted it",
+        ));
+    }
+    Ok(())
+}

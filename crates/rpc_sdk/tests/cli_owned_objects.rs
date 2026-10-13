@@ -120,3 +120,131 @@ fn help_lists_owned_objects() {
     assert!(text.contains("owned_objects"), "help text: {text}");
     assert!(text.contains("Owned_objects request supports --owner-public-key-hex"));
 }
+
+/// A complete, internally consistent `owned_objects` response for owner
+/// `owner`, no asset filter, node default limit 2048.
+fn owned_objects_response(id: &str, owner: &str) -> serde_json::Value {
+    serde_json::json!({
+        "version": "postfiat-local-rpc-v1",
+        "id": id,
+        "ok": true,
+        "result": {
+            "schema": "postfiat-owned-objects-v1",
+            "chain_id": "postfiat-testnet",
+            "genesis_hash": "cd".repeat(48),
+            "protocol_version": 3,
+            "owner_public_key_hex": owner,
+            "asset": null,
+            "limit": 2048,
+            "truncated": false,
+            "object_count": 1,
+            "total_value": 100,
+            "objects": [{
+                "id": "01".repeat(32),
+                "version": 1,
+                "owner_pubkey_hex": owner,
+                "value": 100,
+                "asset": "PFT"
+            }]
+        },
+        "error": null,
+        "events": []
+    })
+}
+
+fn write_json(path: &PathBuf, value: &serde_json::Value) {
+    fs::write(path, serde_json::to_vec(value).expect("encode")).expect("write json");
+}
+
+fn owned_objects_request_file(name: &str, params: serde_json::Value) -> PathBuf {
+    let path = temp_path(name);
+    write_json(
+        &path,
+        &serde_json::json!({
+            "version": "postfiat-local-rpc-v1",
+            "id": "owned-objects-bind",
+            "method": "owned_objects",
+            "params": params
+        }),
+    );
+    path
+}
+
+fn validate_response_with(response: &PathBuf, request: Option<&PathBuf>) -> std::process::Output {
+    let mut command = bin();
+    command
+        .args(["validate-response", "--input"])
+        .arg(response)
+        .args(["--expect-kind", "owned_objects"]);
+    if let Some(request) = request {
+        command.arg("--request-file").arg(request);
+    }
+    command.output().expect("run validate-response")
+}
+
+#[test]
+fn validate_response_binds_owned_objects_to_request_file() {
+    let owner_a = "ab".repeat(1952);
+    let owner_b = "cd".repeat(1952);
+    let response = temp_path("bind-response.json");
+    write_json(
+        &response,
+        &owned_objects_response("owned-objects-bind", &owner_a),
+    );
+
+    let request_a = owned_objects_request_file(
+        "bind-request-a.json",
+        serde_json::json!({"owner_public_key_hex": owner_a}),
+    );
+    let output = validate_response_with(&response, Some(&request_a));
+    assert!(
+        output.status.success(),
+        "matching request must pass: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let mismatches = [
+        (
+            "bind-request-owner.json",
+            serde_json::json!({"owner_public_key_hex": owner_b}),
+            "owner_public_key_hex",
+        ),
+        (
+            "bind-request-asset.json",
+            serde_json::json!({"owner_public_key_hex": owner_a, "asset": "PFT"}),
+            "asset",
+        ),
+        (
+            "bind-request-limit.json",
+            serde_json::json!({"owner_public_key_hex": owner_a, "limit": 25}),
+            "limit",
+        ),
+    ];
+    for (name, params, field) in mismatches {
+        let request = owned_objects_request_file(name, params);
+        let output = validate_response_with(&response, Some(&request));
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(!output.status.success(), "{name} must fail");
+        assert!(stderr.contains(field), "{name}: stderr {stderr}");
+        let _ = fs::remove_file(&request);
+    }
+    let _ = fs::remove_file(&request_a);
+    let _ = fs::remove_file(&response);
+}
+
+#[test]
+fn validate_response_requires_request_file_for_owned_objects() {
+    let response = temp_path("unbound-response.json");
+    write_json(
+        &response,
+        &owned_objects_response("owned-objects-bind", &"ab".repeat(1952)),
+    );
+    let output = validate_response_with(&response, None);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success());
+    assert!(
+        stderr.contains("owned_objects response validation requires --request-file"),
+        "stderr: {stderr}"
+    );
+    let _ = fs::remove_file(&response);
+}
