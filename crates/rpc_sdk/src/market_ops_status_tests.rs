@@ -42,7 +42,19 @@ mod market_ops_status {
     fn inactive_fixture(status: &str) -> Value {
         let report = with(fixture(), "/market_operations_status", json!(status));
         let report = with(report, "/current_reserve_deploy_cap_usd_e8", json!(0));
-        with(report, "/current_mint_cap_atoms", json!(0))
+        let report = with(report, "/current_mint_cap_atoms", json!(0));
+        // Inputs consistent with the node builder reaching `status`.
+        match status {
+            "stale" | "missing_source_packet" => {
+                with(report, "/reserve_packet_fresh", json!(false))
+            }
+            "underfunded" => with(
+                report,
+                "/funded_alignment_reserve_usd_e8",
+                json!(199_999_999_999_u64),
+            ),
+            _ => report,
+        }
     }
 
     fn validate(report: &Value) -> Result<(), RpcResponseValidationError> {
@@ -245,6 +257,183 @@ mod market_ops_status {
         assert_eq!(rejected_field(report), "reserve_packet_fresh");
         let report = with(fixture(), "/supply_packet_fresh", json!(1));
         assert_eq!(rejected_field(report), "supply_packet_fresh");
+    }
+
+    #[test]
+    fn rejects_active_status_with_stale_reserve_packet() {
+        let report = with(fixture(), "/reserve_packet_fresh", json!(false));
+        assert_eq!(rejected_field(report), "reserve_packet_fresh");
+    }
+
+    #[test]
+    fn rejects_active_status_with_stale_supply_packet() {
+        let report = with(fixture(), "/supply_packet_fresh", json!(false));
+        assert_eq!(rejected_field(report), "supply_packet_fresh");
+    }
+
+    #[test]
+    fn rejects_active_status_with_underfunded_alignment_reserve() {
+        let report = with(fixture(), "/funded_alignment_reserve_usd_e8", json!(0));
+        assert_eq!(rejected_field(report), "funded_alignment_reserve_usd_e8");
+        let report = with(
+            fixture(),
+            "/funded_alignment_reserve_usd_e8",
+            json!(199_999_999_999_u64),
+        );
+        assert_eq!(rejected_field(report), "funded_alignment_reserve_usd_e8");
+    }
+
+    #[test]
+    fn accepts_active_status_funded_exactly_at_the_requirement() {
+        let report = with(
+            fixture(),
+            "/funded_alignment_reserve_usd_e8",
+            json!(200_000_000_000_u64),
+        );
+        validate(&report).expect("funded == required is active");
+    }
+
+    #[test]
+    fn rejects_inactive_status_the_report_contradicts() {
+        // The node only reports `stale` when a freshness flag is false,
+        // `missing_source_packet` with no fresh reserve packet, and
+        // `underfunded` / `expired` once both packets are fresh, with
+        // `underfunded` additionally requiring funded < required.
+        for (status, pointer, value) in [
+            ("stale", "/reserve_packet_fresh", json!(true)),
+            ("missing_source_packet", "/reserve_packet_fresh", json!(true)),
+            ("underfunded", "/funded_alignment_reserve_usd_e8", json!(200_000_000_000_u64)),
+            ("underfunded", "/reserve_packet_fresh", json!(false)),
+            ("underfunded", "/supply_packet_fresh", json!(false)),
+            ("expired", "/reserve_packet_fresh", json!(false)),
+            ("expired", "/supply_packet_fresh", json!(false)),
+        ] {
+            let report = with(inactive_fixture(status), pointer, value);
+            assert_eq!(
+                rejected_field(report),
+                "market_operations_status",
+                "{status} with {pointer}"
+            );
+        }
+    }
+
+    #[test]
+    fn accepts_inactive_statuses_the_builder_can_emit() {
+        // `paused` takes precedence over every other input.
+        let report = with(inactive_fixture("paused"), "/reserve_packet_fresh", json!(false));
+        let report = with(report, "/supply_packet_fresh", json!(false));
+        let report = with(report, "/funded_alignment_reserve_usd_e8", json!(0));
+        validate(&report).expect("paused with stale, underfunded inputs");
+        // `stale` with only the supply packet stale.
+        let report = with(inactive_fixture("stale"), "/reserve_packet_fresh", json!(true));
+        let report = with(report, "/supply_packet_fresh", json!(false));
+        validate(&report).expect("stale supply packet");
+        // `expired` is decided before the funding check.
+        let report = with(inactive_fixture("expired"), "/funded_alignment_reserve_usd_e8", json!(0));
+        validate(&report).expect("expired and underfunded");
+        // `missing_source_packet` with no nav asset: both flags false.
+        let report = with(
+            inactive_fixture("missing_source_packet"),
+            "/supply_packet_fresh",
+            json!(false),
+        );
+        validate(&report).expect("missing source packet without nav asset");
+    }
+
+    fn bound_request(asset: String, epoch: Option<u64>) -> RpcRequest {
+        market_ops_status_request(
+            "market-ops-status-1",
+            MarketOpsStatusParams {
+                asset_id: asset,
+                epoch,
+            },
+        )
+    }
+
+    fn bound(report: &Value, request: &RpcRequest) -> Result<(), RpcResponseValidationError> {
+        validate_market_ops_status_response_for_request(
+            &success_response("market-ops-status-1", report, vec![])
+                .expect("market ops status response"),
+            request,
+        )
+    }
+
+    fn bound_rejected_field(report: &Value, request: &RpcRequest) -> String {
+        match bound(report, request) {
+            Err(RpcResponseValidationError::InvalidResult { field, .. }) => field,
+            other => panic!("expected an InvalidResult rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn binds_response_to_requested_asset_and_epoch() {
+        bound(&fixture(), &bound_request(asset_id(), Some(7))).expect("explicit epoch 7");
+        // Omitted epoch = latest finalized envelope: any envelope epoch binds.
+        bound(&fixture(), &bound_request(asset_id(), None)).expect("latest envelope");
+        let later = with(fixture(), "/envelope_epoch", json!(9));
+        bound(&later, &bound_request(asset_id(), None)).expect("latest envelope 9");
+    }
+
+    #[test]
+    fn bound_validation_rejects_report_for_another_asset() {
+        assert_eq!(
+            bound_rejected_field(&fixture(), &bound_request("aa".repeat(48), Some(7))),
+            "asset_id"
+        );
+        assert_eq!(
+            bound_rejected_field(&fixture(), &bound_request("aa".repeat(48), None)),
+            "asset_id"
+        );
+    }
+
+    #[test]
+    fn bound_validation_rejects_report_for_another_explicit_epoch() {
+        assert_eq!(
+            bound_rejected_field(&fixture(), &bound_request(asset_id(), Some(8))),
+            "envelope_epoch"
+        );
+        assert_eq!(
+            bound_rejected_field(&fixture(), &bound_request(asset_id(), Some(6))),
+            "envelope_epoch"
+        );
+    }
+
+    #[test]
+    fn bound_validation_rejects_reviewer_wrong_asset_and_epoch() {
+        // Request: asset aa*48, epoch 8; response: asset ab*48, envelope_epoch 7.
+        assert!(bound(&fixture(), &bound_request("aa".repeat(48), Some(8))).is_err());
+    }
+
+    #[test]
+    fn bound_validation_rejects_other_response_id() {
+        let request = market_ops_status_request(
+            "market-ops-status-2",
+            MarketOpsStatusParams {
+                asset_id: asset_id(),
+                epoch: Some(7),
+            },
+        );
+        assert!(matches!(
+            bound(&fixture(), &request),
+            Err(RpcResponseValidationError::UnexpectedId { .. })
+        ));
+    }
+
+    #[test]
+    fn bound_validation_rejects_request_of_another_method() {
+        assert_eq!(
+            bound_rejected_field(&fixture(), &status_request("market-ops-status-1")),
+            "request"
+        );
+    }
+
+    #[test]
+    fn bound_validation_still_checks_the_report() {
+        let report = with(fixture(), "/reserve_packet_fresh", json!(false));
+        assert_eq!(
+            bound_rejected_field(&report, &bound_request(asset_id(), Some(7))),
+            "reserve_packet_fresh"
+        );
     }
 
     #[test]

@@ -5312,6 +5312,16 @@ const MARKET_OPS_STATUS_VALUES: [&str; 6] = [
 /// envelope epoch nonzero, the status drawn from the six published values,
 /// and both current caps zero unless the status is `active`.
 ///
+/// The status must also be one the builder could reach from the report's own
+/// freshness flags and alignment-reserve figures (the builder decides in the
+/// order paused, missing_source_packet, stale, expired, underfunded, active):
+/// `active` requires both packets fresh and funded >= required;
+/// `underfunded` requires both fresh and funded < required; `expired`
+/// requires both fresh; `stale` requires at least one stale packet; and
+/// `missing_source_packet` requires a stale reserve packet. `paused` takes
+/// precedence over every input. None of this needs the current time or
+/// block height.
+///
 /// The node declares the USD-e8 and atoms figures as `u128`; see
 /// `u128_field` for how values beyond `u64::MAX` are handled.
 fn validate_market_ops_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
@@ -5320,12 +5330,13 @@ fn validate_market_ops_status_result(result: &Value) -> Result<(), RpcResponseVa
     nonzero_u128_field(result, "nav_floor_usd_e8")?;
     nonzero_u128_field(result, "verified_net_assets_usd_e8")?;
     nonzero_u128_field(result, "valid_global_supply_atoms")?;
-    bool_field(result, "reserve_packet_fresh")?;
-    bool_field(result, "supply_packet_fresh")?;
+    let reserve_packet_fresh = bool_field(result, "reserve_packet_fresh")?;
+    let supply_packet_fresh = bool_field(result, "supply_packet_fresh")?;
     u64_field(result, "reserve_packet_age_blocks")?;
     u64_field(result, "supply_packet_age_blocks")?;
-    u128_field(result, "funded_alignment_reserve_usd_e8")?;
-    u128_field(result, "required_alignment_reserve_usd_e8")?;
+    let funded_alignment_reserve_usd_e8 = u128_field(result, "funded_alignment_reserve_usd_e8")?;
+    let required_alignment_reserve_usd_e8 =
+        u128_field(result, "required_alignment_reserve_usd_e8")?;
     let current_reserve_deploy_cap_usd_e8 = u128_field(result, "current_reserve_deploy_cap_usd_e8")?;
     let current_mint_cap_atoms = u128_field(result, "current_mint_cap_atoms")?;
     let market_operations_status = clean_string_field(result, "market_operations_status")?;
@@ -5349,10 +5360,119 @@ fn validate_market_ops_status_result(result: &Value) -> Result<(), RpcResponseVa
             ));
         }
     }
+    validate_market_ops_status_consistency(
+        market_operations_status,
+        reserve_packet_fresh,
+        supply_packet_fresh,
+        funded_alignment_reserve_usd_e8 >= required_alignment_reserve_usd_e8,
+    )?;
     lower_hex_field(result, "accepted_policy_hash", 64)?;
     lower_hex_field(result, "envelope_hash", 96)?;
     nonzero_u64_field(result, "envelope_epoch")?;
     u64_field(result, "packet_expires_at")?;
     expect_string_eq(result, "disclosure", MARKET_OPS_STATUS_RESULT_DISCLOSURE)?;
+    Ok(())
+}
+
+/// Rejects a status the node's `build_market_ops_public_status` cannot emit
+/// for the freshness flags and funding the report itself carries.
+fn validate_market_ops_status_consistency(
+    status: &str,
+    reserve_packet_fresh: bool,
+    supply_packet_fresh: bool,
+    funded: bool,
+) -> Result<(), RpcResponseValidationError> {
+    let both_fresh = reserve_packet_fresh && supply_packet_fresh;
+    match status {
+        MARKET_OPS_STATUS_ACTIVE_VALUE => {
+            if !reserve_packet_fresh {
+                return Err(invalid_result(
+                    "reserve_packet_fresh",
+                    "active market operations require a fresh reserve packet",
+                ));
+            }
+            if !supply_packet_fresh {
+                return Err(invalid_result(
+                    "supply_packet_fresh",
+                    "active market operations require a fresh supply packet",
+                ));
+            }
+            if !funded {
+                return Err(invalid_result(
+                    "funded_alignment_reserve_usd_e8",
+                    "active market operations require funded >= required alignment reserve",
+                ));
+            }
+        }
+        "underfunded" if !both_fresh || funded => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "underfunded requires both packets fresh and funded < required alignment reserve",
+            ));
+        }
+        "expired" if !both_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "expired requires both packets fresh; a stale packet reports stale",
+            ));
+        }
+        "stale" if both_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "stale requires a stale reserve or supply packet",
+            ));
+        }
+        "missing_source_packet" if reserve_packet_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "missing_source_packet cannot carry a fresh reserve packet",
+            ));
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Validates a `market_ops_status` response against the request that
+/// produced it: the request must itself be a valid `market_ops_status`
+/// request, the response id must equal the request id, the report must pass
+/// `validate_market_ops_status_result`, its `asset_id` must equal the
+/// requested asset, and, when the request names an `epoch`, its
+/// `envelope_epoch` must equal it. With no requested epoch the node serves
+/// the latest finalized envelope, so any envelope epoch binds.
+pub fn validate_market_ops_status_response_for_request(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_request(request, None, Some(RpcRequestKind::MarketOpsStatus))
+        .map_err(|error| invalid_result("request", error.to_string()))?;
+    validate_response(response, Some(&request.id), true)?;
+    validate_response_kind(response, RpcResponseKind::MarketOpsStatus)?;
+    let result = response
+        .result
+        .as_ref()
+        .ok_or_else(|| invalid_result("result", "missing successful response result"))?;
+    let requested_asset_id = request
+        .params
+        .get("asset_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.asset_id", "expected string"))?;
+    if string_field(result, "asset_id")? != requested_asset_id {
+        return Err(invalid_result(
+            "asset_id",
+            format!("expected the requested asset `{requested_asset_id}`"),
+        ));
+    }
+    if let Some(epoch) = request.params.get("epoch") {
+        let requested_epoch = epoch.as_u64().ok_or_else(|| {
+            invalid_result("request.params.epoch", "expected unsigned integer")
+        })?;
+        if u64_field(result, "envelope_epoch")? != requested_epoch {
+            return Err(invalid_result(
+                "envelope_epoch",
+                format!("expected the requested epoch {requested_epoch}"),
+            ));
+        }
+    }
     Ok(())
 }
