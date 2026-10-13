@@ -166,6 +166,18 @@ function harness(root) {
                 assert.strictEqual(amountJobs.navcoinExportRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, packet)), null,
                     `refused amount ${JSON.stringify(amount.slice(0, 24))} must not leave a job`);
             }
+            // JSON.parse rounds numbers above 2^53-1 (9007199254740993 -> 9007199254740992): refuse them.
+            for (const raw of ['9007199254740993', '9007199254740992', '18446744073709551615']) {
+                const packet = nextPacket();
+                await assert.rejects(amountJobs.submitNavcoinExportRelayJob(request(packet, JSON.parse(raw))),
+                    error => error.code === 'invalid_navcoin_export_relay_request',
+                    `JSON number amount ${raw} must be refused`);
+                assert.strictEqual(amountJobs.navcoinExportRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, packet)), null);
+            }
+            const safe = await amountJobs.submitNavcoinExportRelayJob(request(nextPacket(), JSON.parse('9007199254740991')));
+            assert.strictEqual(safe.request.amount_atoms, '9007199254740991');
+            const exact = await amountJobs.submitNavcoinExportRelayJob(request(nextPacket(), '9007199254740993'));
+            assert.strictEqual(exact.request.amount_atoms, '9007199254740993');
             // A refused non-canonical amount must not bind the packet: the canonical request still
             // queues instead of hitting navcoin_export_job_binding_conflict, and replays idempotently.
             const boundPacket = nextPacket();

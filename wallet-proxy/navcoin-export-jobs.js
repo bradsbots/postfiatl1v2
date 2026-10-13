@@ -169,7 +169,9 @@ function normalizeRequest(body, config) {
     };
     // Canonical unsigned decimal only (the worker driver re-checks /^[1-9][0-9]*$/): BigInt()
     // would also take 0x/0o/0b, leading zeros and a sign, and the raw string is bound into job.json.
-    const amountSyntaxValid = /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
+    // A JSON number above 2^53-1 was already rounded by JSON.parse, so larger amounts must be strings.
+    const amountSyntaxValid = (typeof body?.amount_atoms !== 'number' || Number.isSafeInteger(body.amount_atoms))
+        && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
     const amount = amountSyntaxValid ? BigInt(request.amount_atoms) : 0n;
     if (request.route_id !== config.route_id
         || request.route_config_digest !== config.route_config_digest
