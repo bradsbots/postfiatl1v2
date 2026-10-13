@@ -995,7 +995,7 @@ fn write_request(flags: &[String]) -> Result<(), String> {
         other => {
             return Err(format!(
                 "unsupported request builder method `{other}`; supported: {}",
-                supported_methods_list()
+                builder_methods_list()
             ));
         }
     };
@@ -2034,7 +2034,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         }
         other => Err(format!(
             "unsupported request kind `{other}`; supported: {}",
-            supported_methods_list()
+            kind_methods_list()
         )),
     }
 }
@@ -2176,7 +2176,7 @@ fn response_kind_for_method(
         }
         other => Err(format!(
             "unsupported response kind `{other}`; supported: {}",
-            supported_methods_list()
+            kind_methods_list()
         )),
     }
 }
@@ -2407,10 +2407,11 @@ fn u32_flag(args: &[String], flag: &str) -> Result<u32, String> {
     u32::try_from(value).map_err(|_| format!("{flag} must be a u32"))
 }
 
-/// Every method the `request` builder, `validate-request --expect-kind` and
-/// `validate-response --expect-kind` accept, outside the FastSwap family.
-/// This is the single source for the help text and the three
-/// "unsupported ..." error messages, so they cannot drift apart again.
+/// Every method the `request` builder accepts, outside the FastSwap family.
+/// With `FASTSWAP_REQUEST_METHODS` this is the single source for the help
+/// text and the three "unsupported ..." error messages, so they cannot drift
+/// apart again. `validate-request --expect-kind` and `validate-response
+/// --expect-kind` accept every builder method except `BUILDER_ONLY_METHODS`.
 const CORE_REQUEST_METHODS: &[&str] = &[
     METHOD_STATUS,
     METHOD_SERVER_INFO,
@@ -2481,7 +2482,7 @@ const CORE_REQUEST_METHODS: &[&str] = &[
     METHOD_APPLY_BRIDGE_BATCH,
 ];
 
-/// The FastSwap / FastLane methods the same three paths accept.
+/// The FastSwap / FastLane methods the `request` builder accepts.
 const FASTSWAP_REQUEST_METHODS: &[&str] = &[
     METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY,
     METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY,
@@ -2509,13 +2510,32 @@ const FASTSWAP_REQUEST_METHODS: &[&str] = &[
     METHOD_FASTSWAP_VOTES,
 ];
 
-fn supported_methods_list() -> String {
+/// Methods the `request` builder accepts that have no request or response
+/// kind: `request_kind_for_method` and `response_kind_for_method` reject them,
+/// so the builder writes them without params validation and the two kind
+/// errors must not list them.
+const BUILDER_ONLY_METHODS: &[&str] = &[METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY];
+
+/// Every method the `request` builder accepts, core then FastSwap.
+fn builder_methods() -> impl Iterator<Item = &'static str> {
     CORE_REQUEST_METHODS
         .iter()
         .chain(FASTSWAP_REQUEST_METHODS)
         .copied()
-        .collect::<Vec<_>>()
-        .join(", ")
+}
+
+/// Every method `--expect-kind` accepts in `validate-request` and in
+/// `validate-response`: the builder methods minus `BUILDER_ONLY_METHODS`.
+fn kind_methods() -> impl Iterator<Item = &'static str> {
+    builder_methods().filter(|method| !BUILDER_ONLY_METHODS.contains(method))
+}
+
+fn builder_methods_list() -> String {
+    builder_methods().collect::<Vec<_>>().join(", ")
+}
+
+fn kind_methods_list() -> String {
+    kind_methods().collect::<Vec<_>>().join(", ")
 }
 
 fn print_usage() {
@@ -2546,6 +2566,7 @@ fn print_usage() {
 
 Supported request methods: {core_request_methods}.
 FastSwap methods: {fastswap_request_methods}.
+Supported request kinds: {kind_methods}.
 FastLane primary submit requires exactly one of --fastlane-primary-json or --fastlane-primary-json-file.
 Account_tx request supports --address, --from-height, --to-height, and --limit.
 Escrow_fee_quote request supports --source, --operation-json, and --sequence.
@@ -2560,14 +2581,43 @@ Escrow_info request supports --escrow-id. Account_escrows request supports --acc
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
 Tx request supports --audit-block-log for full replay verification.
-Supported response kinds: {core_request_methods}.
+Supported response kinds: {kind_methods}.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
 Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout.
 The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written.
 validate-request checks the params rules for the file's own method; --expect-kind additionally asserts the method. A method this binary cannot map to a kind is reported with params=unchecked."#,
         core_request_methods = CORE_REQUEST_METHODS.join(", "),
         fastswap_request_methods = FASTSWAP_REQUEST_METHODS.join(", "),
+        kind_methods = kind_methods_list(),
     );
+}
+
+#[cfg(test)]
+mod method_list_tests {
+    use super::*;
+
+    #[test]
+    fn every_kind_method_is_accepted_by_both_kind_parsers() {
+        for method in kind_methods() {
+            assert!(
+                matches!(request_kind_for_method(method, &[]), Ok(Some(_))),
+                "request kind `{method}`"
+            );
+            assert!(
+                matches!(response_kind_for_method(method, &[]), Ok(Some(_))),
+                "response kind `{method}`"
+            );
+        }
+    }
+
+    #[test]
+    fn builder_only_methods_are_rejected_by_both_kind_parsers() {
+        for method in BUILDER_ONLY_METHODS {
+            assert!(builder_methods().any(|listed| listed == *method));
+            assert!(request_kind_for_method(method, &[]).is_err(), "{method}");
+            assert!(response_kind_for_method(method, &[]).is_err(), "{method}");
+        }
+    }
 }
 
 #[cfg(test)]
