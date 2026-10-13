@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+import pytest
 
 import postfiat_rpc.pftl_transfer as cli
 from postfiat_rpc.wallet import FaucetPftResult, SendPftResult, TransparentWallet
@@ -31,6 +36,42 @@ class PftlTransferCliTests(unittest.TestCase):
             cli.pft_to_atoms("0")
         with self.assertRaises(ValueError):
             cli.pft_to_atoms("1.0000001")
+
+    def test_pft_to_atoms_accepts_finite_positive_amounts(self) -> None:
+        self.assertEqual(cli.pft_to_atoms("1"), 1_000_000)
+        self.assertEqual(cli.pft_to_atoms("0.000001"), 1)
+        self.assertEqual(cli.pft_to_atoms("12.5"), 12_500_000)
+        self.assertEqual(cli.pft_to_atoms(" 3 "), 3_000_000)
+
+    def test_send_cli_reports_nan_amount_as_value_error(self) -> None:
+        stdout = io.StringIO()
+        with (
+            mock.patch.object(cli, "PostFiatRpcClient") as client_ctor,
+            mock.patch.object(cli, "load_wallet") as load,
+            mock.patch.object(cli, "send_pft") as send,
+            contextlib.redirect_stdout(stdout),
+        ):
+            exit_code = cli.main(
+                [
+                    "send",
+                    "--to",
+                    "pfrecipient",
+                    "--amount",
+                    "NaN",
+                    "--endpoint",
+                    "rpc.invalid:27650",
+                    "--wallet-dir",
+                    "/nonexistent",
+                ]
+            )
+
+        self.assertEqual(exit_code, 1)
+        report = json.loads(stdout.getvalue())
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["error"].startswith("ValueError: amount"), report["error"])
+        client_ctor.assert_not_called()
+        load.assert_not_called()
+        send.assert_not_called()
 
     def test_faucet_requires_explicit_apply_acknowledgement(self) -> None:
         args = cli.build_parser().parse_args(["faucet", "--to", "pfrecipient"])
@@ -124,6 +165,28 @@ class PftlTransferCliTests(unittest.TestCase):
         self.assertIs(kwargs["wallet"], wallet)
         self.assertEqual(kwargs["to_address"], "pfrecipient")
         self.assertEqual(kwargs["amount"], 1_250_000)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "NaN",
+        "sNaN",
+        "-NaN",
+        "Infinity",
+        "-Infinity",
+        "inf",
+        "1e400000000",
+        "",
+        "abc",
+        "0",
+        "-1",
+        "0.0000001",
+    ],
+)
+def test_pft_to_atoms_refuses_non_finite_and_invalid_amounts(value: str) -> None:
+    with pytest.raises(ValueError, match="amount"):
+        cli.pft_to_atoms(value)
 
 
 if __name__ == "__main__":

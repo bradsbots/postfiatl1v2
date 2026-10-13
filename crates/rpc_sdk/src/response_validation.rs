@@ -209,14 +209,7 @@ fn validate_state_verification_result(result: &Value) -> Result<(), RpcResponseV
     lower_hex_field(result, "genesis_hash", 96)?;
     nonzero_u32_field(result, "protocol_version")?;
 
-    expect_bool_eq(result, "block_log.verified", true)?;
-    let block_count = u64_field(result, "block_log.block_count")?;
-    validate_block_tip_hash(
-        block_count,
-        string_field(result, "block_log.tip_hash")?,
-        "block_log.tip_hash",
-    )?;
-    lower_hex_field(result, "block_log.state_root", 96)?;
+    validate_block_log_verification_section(result, "block_log")?;
 
     expect_bool_eq(result, "governance.verified", true)?;
     nonzero_u64_field(result, "governance.active_validator_count")?;
@@ -229,74 +222,145 @@ fn validate_state_verification_result(result: &Value) -> Result<(), RpcResponseV
         "governance.latest_amendment_id",
     )?;
 
-    expect_bool_eq(result, "bridge.verified", true)?;
-    u64_field(result, "bridge.domain_count")?;
-    let bridge_transfer_count = u64_field(result, "bridge.transfer_count")?;
-    let bridge_attestation_count = u64_field(result, "bridge.attestation_count")?;
+    validate_bridge_verification_section(result, "bridge")?;
+    validate_shielded_verification_section(result, "shielded")?;
+    validate_mempool_verification_section(result, "mempool")?;
+    Ok(())
+}
+
+/// `verify_blocks` returns the same report `verify_state` nests as `block_log`.
+fn validate_block_log_verification_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    validate_block_log_verification_section(result, "")
+}
+
+/// `verify_bridge` returns the same report `verify_state` nests as `bridge`.
+fn validate_bridge_verification_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    validate_bridge_verification_section(result, "")
+}
+
+/// `verify_mempool` returns the same report `verify_state` nests as `mempool`.
+fn validate_mempool_verification_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    validate_mempool_verification_section(result, "")
+}
+
+/// `verify_shielded` returns the same report `verify_state` nests as `shielded`.
+fn validate_shielded_verification_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    validate_shielded_verification_section(result, "")
+}
+
+/// Field path of `field` inside the `prefix` section, or `field` itself for a
+/// standalone report (`prefix == ""`).
+fn section_path(prefix: &str, field: &str) -> String {
+    if prefix.is_empty() {
+        field.to_string()
+    } else {
+        format!("{prefix}.{field}")
+    }
+}
+
+fn validate_block_log_verification_section(
+    result: &Value,
+    prefix: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let path = |field: &str| section_path(prefix, field);
+    expect_bool_eq(result, &path("verified"), true)?;
+    let block_count = u64_field(result, &path("block_count"))?;
+    validate_block_tip_hash(
+        block_count,
+        string_field(result, &path("tip_hash"))?,
+        &path("tip_hash"),
+    )?;
+    lower_hex_field(result, &path("state_root"), 96)?;
+    Ok(())
+}
+
+fn validate_bridge_verification_section(
+    result: &Value,
+    prefix: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let path = |field: &str| section_path(prefix, field);
+    expect_bool_eq(result, &path("verified"), true)?;
+    u64_field(result, &path("domain_count"))?;
+    let bridge_transfer_count = u64_field(result, &path("transfer_count"))?;
+    let bridge_attestation_count = u64_field(result, &path("attestation_count"))?;
     if bridge_attestation_count > bridge_transfer_count {
         return Err(invalid_result(
-            "bridge.attestation_count",
+            path("attestation_count"),
             "expected no more attestations than transfers",
         ));
     }
-    let bridge_replay_cache_count = u64_field(result, "bridge.replay_cache_count")?;
+    let bridge_replay_cache_count = u64_field(result, &path("replay_cache_count"))?;
     if bridge_replay_cache_count > bridge_transfer_count {
         return Err(invalid_result(
-            "bridge.replay_cache_count",
+            path("replay_cache_count"),
             "expected no more replay cache entries than transfers",
         ));
     }
-    u64_field(result, "bridge.inbound_used")?;
-    u64_field(result, "bridge.outbound_used")?;
+    u64_field(result, &path("inbound_used"))?;
+    u64_field(result, &path("outbound_used"))?;
     validate_optional_hash_for_count(
         bridge_transfer_count,
-        string_field(result, "bridge.latest_transfer_id")?,
-        "bridge.latest_transfer_id",
+        string_field(result, &path("latest_transfer_id"))?,
+        &path("latest_transfer_id"),
     )?;
+    Ok(())
+}
 
-    expect_bool_eq(result, "shielded.verified", true)?;
-    let note_count = u64_field(result, "shielded.note_count")?;
-    u64_field(result, "shielded.nullifier_count")?;
-    let turnstile_event_count = u64_field(result, "shielded.turnstile_event_count")?;
-    lower_hex_field(result, "shielded.tree_root", 96)?;
-    u64_field(result, "shielded.bootstrap_deposit_total")?;
-    u64_field(result, "shielded.migration_total")?;
-    u64_field(result, "shielded.orchard_deposit_total")?;
-    let spent_note_count = u64_field(result, "shielded.spent_note_count")?;
-    let live_note_count = u64_field(result, "shielded.live_note_count")?;
+fn validate_shielded_verification_section(
+    result: &Value,
+    prefix: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let path = |field: &str| section_path(prefix, field);
+    expect_bool_eq(result, &path("verified"), true)?;
+    let note_count = u64_field(result, &path("note_count"))?;
+    u64_field(result, &path("nullifier_count"))?;
+    let turnstile_event_count = u64_field(result, &path("turnstile_event_count"))?;
+    lower_hex_field(result, &path("tree_root"), 96)?;
+    u64_field(result, &path("bootstrap_deposit_total"))?;
+    u64_field(result, &path("migration_total"))?;
+    u64_field(result, &path("orchard_deposit_total"))?;
+    let spent_note_count = u64_field(result, &path("spent_note_count"))?;
+    let live_note_count = u64_field(result, &path("live_note_count"))?;
     match spent_note_count.checked_add(live_note_count) {
         Some(total) if total == note_count => {}
         _ => {
             return Err(invalid_result(
-                "shielded.live_note_count",
+                path("live_note_count"),
                 "expected spent_note_count plus live_note_count to equal note_count",
             ));
         }
     }
     validate_optional_hash_for_count(
         turnstile_event_count,
-        string_field(result, "shielded.latest_turnstile_event_id")?,
-        "shielded.latest_turnstile_event_id",
+        string_field(result, &path("latest_turnstile_event_id"))?,
+        &path("latest_turnstile_event_id"),
     )?;
+    Ok(())
+}
 
-    expect_bool_eq(result, "mempool.verified", true)?;
-    let pending_count = u64_field(result, "mempool.pending_count")?;
-    let sender_count = u64_field(result, "mempool.sender_count")?;
+fn validate_mempool_verification_section(
+    result: &Value,
+    prefix: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let path = |field: &str| section_path(prefix, field);
+    expect_bool_eq(result, &path("verified"), true)?;
+    let pending_count = u64_field(result, &path("pending_count"))?;
+    let sender_count = u64_field(result, &path("sender_count"))?;
     if pending_count
         .checked_mul(2)
         .is_some_and(|sender_count_limit| sender_count > sender_count_limit)
     {
         return Err(invalid_result(
-            "mempool.sender_count",
+            path("sender_count"),
             "expected no more than two senders per pending transaction",
         ));
     }
-    u64_field(result, "mempool.total_amount")?;
-    u64_field(result, "mempool.total_fee")?;
+    u64_field(result, &path("total_amount"))?;
+    u64_field(result, &path("total_fee"))?;
     validate_optional_hash_for_count(
         pending_count,
-        string_field(result, "mempool.latest_tx_id")?,
-        "mempool.latest_tx_id",
+        string_field(result, &path("latest_tx_id"))?,
+        &path("latest_tx_id"),
     )?;
     Ok(())
 }
@@ -367,6 +431,139 @@ fn validate_account_result(result: &Value) -> Result<(), RpcResponseValidationEr
         optional_lower_hex_string_field_value(result, "public_key_hex")?;
     }
     Ok(())
+}
+
+/// `account_tx_index_status` is the operator's index-freshness read. The checks
+/// mirror how the node builds `AccountTxIndexStatusReport` (an absent index file
+/// yields `index_present: false`, zero counts, no heights and an empty
+/// `tip_hash`; `index_usable` is exactly "no reason") and the Python client's
+/// refusal to accept a leaked filesystem path.
+fn validate_account_tx_index_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", ACCOUNT_TX_INDEX_STATUS_SCHEMA)?;
+    clean_string_field(result, "chain_id")?;
+    lower_hex_field(result, "genesis_hash", 96)?;
+    nonzero_u32_field(result, "protocol_version")?;
+
+    validate_index_file_name(clean_string_field(result, "index_path")?, "index_path")?;
+    validate_index_file_name(
+        clean_string_field_allow_empty(result, "disk_index_path")?,
+        "disk_index_path",
+    )?;
+
+    let index_present = bool_field(result, "index_present")?;
+    let index_usable = bool_field(result, "index_usable")?;
+    let reason = optional_reason_field(result, "reason")?;
+    if index_usable && !index_present {
+        return Err(invalid_result(
+            "index_usable",
+            "expected an absent index to be unusable",
+        ));
+    }
+    if index_usable == reason.is_some() {
+        return Err(invalid_result(
+            "reason",
+            "expected a reason exactly when the index is unusable",
+        ));
+    }
+
+    let disk_index_present = bool_field(result, "disk_index_present")?;
+    let disk_index_usable = bool_field(result, "disk_index_usable")?;
+    let disk_index_reason = optional_reason_field(result, "disk_index_reason")?;
+    if disk_index_usable && !disk_index_present {
+        return Err(invalid_result(
+            "disk_index_usable",
+            "expected an absent disk index to be unusable",
+        ));
+    }
+    if disk_index_usable == disk_index_reason.is_some() {
+        return Err(invalid_result(
+            "disk_index_reason",
+            "expected a reason exactly when the disk index is unusable",
+        ));
+    }
+
+    let indexed_from_height = optional_u64_field_value(result, "indexed_from_height")?;
+    let indexed_to_height = optional_u64_field_value(result, "indexed_to_height")?;
+    let indexed_block_count = u64_field(result, "indexed_block_count")?;
+    let indexed_row_count = u64_field(result, "indexed_row_count")?;
+    let account_count = u64_field(result, "account_count")?;
+    u64_field(result, "disk_account_shard_count")?;
+    let tip_hash = string_field(result, "tip_hash")?;
+    if index_present {
+        // The node sets both heights per indexed block (`get_or_insert` for the
+        // first, `Some` for the latest) or leaves both unset for an empty index.
+        match (indexed_from_height, indexed_to_height) {
+            (Some(from_height), Some(to_height)) if from_height > to_height => {
+                return Err(invalid_result(
+                    "indexed_to_height",
+                    "expected indexed_to_height to be at least indexed_from_height",
+                ));
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(invalid_result(
+                    "indexed_to_height",
+                    "expected indexed_from_height and indexed_to_height to be set together",
+                ));
+            }
+            _ => {}
+        }
+        if tip_hash != "genesis" && !is_lower_hex_len(tip_hash, 96) {
+            return Err(invalid_result(
+                "tip_hash",
+                "expected `genesis` or 96 lowercase hex characters",
+            ));
+        }
+    } else {
+        if indexed_from_height.is_some() || indexed_to_height.is_some() {
+            return Err(invalid_result(
+                "indexed_from_height",
+                "expected no indexed heights when the index is absent",
+            ));
+        }
+        if indexed_block_count != 0 || indexed_row_count != 0 || account_count != 0 {
+            return Err(invalid_result(
+                "indexed_block_count",
+                "expected zero index counts when the index is absent",
+            ));
+        }
+        if !tip_hash.is_empty() {
+            return Err(invalid_result(
+                "tip_hash",
+                "expected an empty tip_hash when the index is absent",
+            ));
+        }
+    }
+    let current_tip_hash = string_field(result, "current_tip_hash")?;
+    if current_tip_hash != "genesis" && !is_lower_hex_len(current_tip_hash, 96) {
+        return Err(invalid_result(
+            "current_tip_hash",
+            "expected `genesis` or 96 lowercase hex characters",
+        ));
+    }
+    Ok(())
+}
+
+/// The node reports index files by bare file name; a separator means a
+/// filesystem path leaked into the public read.
+fn validate_index_file_name(value: &str, field: &str) -> Result<(), RpcResponseValidationError> {
+    if value.contains('/') || value.contains('\\') {
+        return Err(invalid_result(field, "expected a bare file name, not a path"));
+    }
+    Ok(())
+}
+
+fn optional_reason_field<'a>(
+    value: &'a Value,
+    path: &str,
+) -> Result<Option<&'a str>, RpcResponseValidationError> {
+    let found = field(value, path)?;
+    if found.is_null() {
+        return Ok(None);
+    }
+    match found.as_str() {
+        Some(reason) if !reason.trim().is_empty() => Ok(Some(reason)),
+        _ => Err(invalid_result(path, "expected null or a non-empty reason")),
+    }
 }
 
 fn validate_account_tx_result(result: &Value) -> Result<(), RpcResponseValidationError> {

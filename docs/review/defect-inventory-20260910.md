@@ -37,7 +37,7 @@ must not be described as shipped or authoritative.
 | UNL-01 | Reproduced defect | P1 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#1-p1-a-complete-score-window-passes-without-a-renewed-vouch-or-post-epoch-co-work): accounts with no bilateral records return `READY` after score-only continuity. |
 | UNL-02 | Reproduced defect | P2 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#2-p2-a-stale-score-replay-can-suppress-fresh-score-evidence-by-input-order): stale-first and fresh-first orderings of the same digest produce different continuity decisions. |
 | UNL-03 | Reproduced defect | P2 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#3-p2-valid-identifiers-can-inject-markdown-structure-into-the-operator-report): an accepted newline/backtick identifier creates an attacker-chosen heading in the root-valid human report. |
-| UNL-04 | Reproduced defect | P3 | Reproduced — P3 recorded only | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an in-memory report candidate replacement still bypasses a saturated-group hold in caller-owned hypothetical state. |
+| UNL-04 | Reproduced defect | P3 | Reproduced — fixed `64e15108` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an in-memory report candidate replacement still bypasses a saturated-group hold in caller-owned hypothetical state. |
 
 ## Burn 3 campaign findings
 
@@ -176,7 +176,7 @@ The source is the historical [2026-09-06 review](https://github.com/postfiatorg/
 | SCT-05 | Reproduced defect | P2 | Reproduced — fixed `acdbb1f2` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a post-lock correction preserves the scored text while naming exclusive cross-process access and operation-scoped leases as the implemented mechanism. |
 | SCT-06 | Economic assumption | P2 | Needs a traffic campaign on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): sustained overlapping public traffic and observable writer-fairness measurements are required. Remaining need, not read-only (spends test PFT): about 2 h of concurrent transfers submitted through all six RPCs alongside continuous RPC reads, sampling each validator's `status.storage` transaction counters and `durable_commit_micros`, per-request latency, and `writer lease deadline exhausted` errors per host; about 3 h including setup and analysis. This lane can run it on this environment on request. It measures writer fairness under the chosen synthetic load, not public demand. |
 | SCT-07 | Evidence gap | P3 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): fleet disk-capacity and growth telemetry is not exposed by the permitted ledger/status endpoints. Source used instead: the read-only preflight's free space on `/` per host plus the dated records of 2026-09-29 and 2026-10-01. Free space fell 0.10–0.36 GB per host over 24.7 h; the lowest is 17.00 GB on validator-0 ([check](#live-environment-check-20261002)). The ledger/status endpoints still expose no disk telemetry. |
-| SCT-08 | Evidence gap | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a separately authorized evidence campaign is required; burn 2 permits no Task Node action. |
+| SCT-08 | Evidence gap | P2 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I authorized the evidence campaign (complete signed bindings, publisher-attested work digests, exclusions, admission facts, native registry-root binding) as a bounded read-only campaign of the operating lane; it is an item in the [next validator release plan](../plans/active/next-validator-release-plan-20261101.md#candidates). |
 | SCT-09 | Proposed capability | P2 | Dispositioned by the locked V2 shadow successor; not promoted | The September 3 model-flag direction and Admission Policy V1 had different eligibility semantics and no selected versioned successor policy. The [V2 milestone](../plans/completed/tasknode-unl-amendment-v2-milestone.md) now implements that successor as `SHADOW_ONLY`; this is not live adoption. |
 | SCT-10 | Proposed capability | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): independent operators and a separately authorized end-to-end rehearsal are prerequisites. |
 
@@ -235,12 +235,12 @@ and its frozen [qualification receipt](https://github.com/postfiatorg/postfiatl1
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
-| SQ-01 | Reproduced defect | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local release link still embeds a randomized Rust temporary `RUNPATH`; a governed release-normalization or toolchain contract is required. |
-| SQ-02 | Evidence gap | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): deployed source remains outside main's ancestry and `pftl_source_settlement.rs` remains absent. |
+| SQ-01 | Reproduced defect | P1 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I decided that the toolchain contract is the two-clean-build identity gate of the release qualification: `signer-rotation-20261007` passed it with one hash (`decaa411…`, `cmp` exit 0), and a release whose two builds differ is not cut. |
+| SQ-02 | Evidence gap | P1 | Closed 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). The deployed source `0fa55d0b` (release `signer-rotation-20261007`, deployed 2026-10-09) is in main's ancestry and `crates/execution/src/pftl_source_settlement.rs` is present. |
 | SQ-03 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing records | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a current simultaneous all-six snapshot is still required. Simultaneous all-six records: 2026-10-01T10:32:42Z, height 1085, tip `b2c7f04e…`, root `b60665e9…`, 0 pending ([fleet record](../status/chain-state-current.md#2026-10-01-fleet-after-the-other-lanes-navcoin-operator-tests), `dc734563`); 2026-10-02T11:13Z, height 1103, tip `c9469f05…`, root `ad296a02…`, 0 pending ([check](#live-environment-check-20261002)). The deployed release carrying `bbb291ce` (`c93b2137`) was qualified on six validator copies at 1020 and a fresh signed validator-1 backup at 1050, taken with six-way agreement ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md)). |
 | SQ-04 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local search found 0/50 matching node binaries; retrieval requires a separately authorized operational path. The exact binary SHA-256 `57b0f4d1…634eec83` is retained on all six hosts under release `a666-source-route-20260907` (hashed in place, not copied) and is present on the work server. The current rollback executable `d66cecc3…` is retained on all six; the running `1f8b332d…` matches two identical clean builds of `c93b2137` and is verified on all six ([check](#live-environment-check-20261002)). |
 | SQ-05 | Evidence gap | P1 | Dispositioned for current state; see RPC-01 | Validator-0 now answers at the same height and root previously observed on validators 1–5 after an out-of-campaign restart. This does not repair the diagnosed recurrence condition or replace a current simultaneous all-six rehearsal. |
-| SQ-06 | Proposed capability | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): source contains `bbb291ce`, but the combined lineage, reproducibility, snapshot, rollback, and rollout decision remains unmade. |
+| SQ-06 | Proposed capability | P1 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I decided that the release process used on 2026-09-25 and 2026-10-09 is the process: a release branch cut from main, two clean builds that must produce one identical executable hash, a signed deployment manifest, a signed canary backup with a full replay, `postfiat-safe-rollout` one validator at a time with a grant after each, and `rollback-one.sh` as the rollback ([DEPLOY-SHEET.md](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md)). |
 
 ## Live-environment check — 2026-10-02 { #live-environment-check-20261002 }
 
@@ -287,7 +287,7 @@ broader production claim.
 | P1 | 26 |
 | P2 | 77 |
 | P3 | 38 |
-| Fixed | 93 |
+| Fixed | 94 |
 | Dispositioned | 16 |
 | Reproduced and retained (prior campaigns) | 5 |
 | Recorded, not fixed (burn 3–6 P3) | 14 |
@@ -295,7 +295,9 @@ broader production claim.
 | Closed 2026-10-02 on postfiat-wan-devnet-2 | 4 |
 | Narrowed 2026-10-02 (PI-18, not a live-environment need) | 1 |
 | Needs a traffic campaign on postfiat-wan-devnet-2 | 1 |
-| Needs operator decision | 6 |
+| Closed 2026-10-12 (SQ-02) | 1 |
+| Decided 2026-10-12 (SQ-01, SQ-06, SCT-08) | 3 |
+| Needs operator decision | 2 |
 | Bare open | 0 |
 
 Burn 2 grounded all nineteen rows that entered it as open. Three received
@@ -308,6 +310,8 @@ On 2026-10-02 those five rows and STO-05 were checked read-only on
 `postfiat-wan-devnet-2`: STO-05, SCT-07, SQ-03 and SQ-04 are closed; PI-18 is
 narrowed to adapter qualification; SCT-06 needs a traffic campaign
 ([check](#live-environment-check-20261002)).
+On 2026-10-12 I closed SQ-02 and decided SQ-01, SQ-06 and SCT-08; SCT-10
+and PI-16 stay with the product owner.
 
 Burn 3 added 19 fixed source findings, one still-unproven fleet snapshot export,
 and eight P3 findings recorded without repair. The five consensus-affecting
