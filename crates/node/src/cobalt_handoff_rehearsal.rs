@@ -484,6 +484,7 @@ const NEGATIVE_SCOPE: &str = "in-memory verification against the clone's initial
 /// (`old_registry_root` and `cobalt_registry_root`) both commit to the active
 /// registry root for a set-preserving activation, together to one foreign
 /// root.
+#[cfg(test)]
 pub(super) const NEGATIVE_PROBE_VARIED_FIELDS: [(&str, &[&str]); 4] = [
     ("early", &[]),
     ("stale", &["activation_height"]),
