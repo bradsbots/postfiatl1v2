@@ -374,4 +374,98 @@ mod owned_certificate {
         let value = with(report(&transfer_certificate()), "/operation", json!("burn"));
         assert_eq!(rejected_field(bind(&value, &request)), "operation");
     }
+
+    // --- lock id recomputation ---
+
+    /// Mutate a committed order field while keeping the embedded lock id, so
+    /// `certificate.order.recovery.lock_id` no longer commits to the order.
+    fn mutated_transfer_report() -> (Value, String) {
+        let certificate = transfer_certificate();
+        let lock_id = certificate.recovery().lock_id.clone();
+        let value = with(
+            report(&certificate),
+            "/certificate/order/outputs/0/value",
+            json!(10),
+        );
+        (value, lock_id)
+    }
+
+    #[test]
+    fn rejects_mutated_order_that_keeps_the_requested_lock() {
+        let (value, lock_id) = mutated_transfer_report();
+        // The mutation is a real order change: the recomputed lock differs.
+        let mutated: FastPayCertificateV1 =
+            serde_json::from_value(value.clone()).expect("mutated certificate");
+        match &mutated {
+            FastPayCertificateV1::Transfer(certificate) => assert_ne!(
+                postfiat_types::fastpay_transfer_lock_id_v1(&certificate.order),
+                lock_id
+            ),
+            FastPayCertificateV1::Unwrap(_) => panic!("expected a transfer certificate"),
+        }
+        let request = owned_certificate_request(
+            "owned-certificate-1",
+            OwnedCertificateSelector::LockId(lock_id),
+        );
+        assert_eq!(
+            rejected_field(bind(&value, &request)),
+            "certificate.order.recovery.lock_id"
+        );
+        assert_eq!(
+            rejected_field(validate_shape(&value)),
+            "certificate.order.recovery.lock_id"
+        );
+    }
+
+    #[test]
+    fn rejects_mutated_order_on_every_committed_field() {
+        let transfer = report(&transfer_certificate());
+        let transfer_lock = transfer_certificate().recovery().lock_id.clone();
+        let unwrap = report(&unwrap_certificate());
+        let unwrap_lock = unwrap_certificate().recovery().lock_id.clone();
+        let cases = [
+            (&transfer, &transfer_lock, "/certificate/order/outputs/0/owner_pubkey_hex", json!("45".repeat(32))),
+            (&transfer, &transfer_lock, "/certificate/order/outputs/0/asset", json!("USDX")),
+            (&transfer, &transfer_lock, "/certificate/order/inputs/0/version", json!(10)),
+            (&transfer, &transfer_lock, "/certificate/order/fee", json!(2)),
+            (&transfer, &transfer_lock, "/certificate/order/nonce", json!(9)),
+            (&transfer, &transfer_lock, "/certificate/order/domain/chain_id", json!("other-chain")),
+            (&transfer, &transfer_lock, "/certificate/order/recovery/expires_at_height", json!(111)),
+            (&unwrap, &unwrap_lock, "/certificate/order/amount", json!(10)),
+            (&unwrap, &unwrap_lock, "/certificate/order/to_address", json!("pfother")),
+            (&unwrap, &unwrap_lock, "/certificate/order/asset", json!("USDX")),
+            (&unwrap, &unwrap_lock, "/certificate/order/fee", json!(2)),
+            (&unwrap, &unwrap_lock, "/certificate/order/nonce", json!(4)),
+        ];
+        for (base, lock_id, pointer, replacement) in cases {
+            let value = with((*base).clone(), pointer, replacement);
+            let request = owned_certificate_request(
+                "owned-certificate-1",
+                OwnedCertificateSelector::LockId((*lock_id).clone()),
+            );
+            assert_eq!(
+                rejected_field(bind(&value, &request)),
+                "certificate.order.recovery.lock_id",
+                "mutation at {pointer}"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_mutated_order_on_the_digest_selector_too() {
+        // The digest selector recomputes the digest of whatever certificate came
+        // back, so a request for the mutated certificate's own digest matches
+        // it; the lock recomputation is what rejects the inconsistent order.
+        let (value, _) = mutated_transfer_report();
+        let mutated: FastPayCertificateV1 =
+            serde_json::from_value(value.clone()).expect("mutated certificate");
+        let request = owned_certificate_request(
+            "owned-certificate-1",
+            OwnedCertificateSelector::CertificateDigest(digest_of(&mutated)),
+        );
+        assert_eq!(
+            rejected_field(bind(&value, &request)),
+            "certificate.order.recovery.lock_id"
+        );
+    }
 }

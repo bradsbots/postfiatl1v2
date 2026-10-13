@@ -5394,5 +5394,28 @@ fn validate_owned_certificate_result(result: &Value) -> Result<(), RpcResponseVa
     certificate
         .validate_commitment_shape()
         .map_err(|error| invalid_result("certificate.votes", error))?;
+    // The embedded lock id is a commitment to the order: recompute the
+    // operation-specific lock id from the committed order fields (domain,
+    // recovery window, inputs, outputs or unwrap target, fee, nonce, memos)
+    // and require it to equal `certificate.order.recovery.lock_id`, as the
+    // execution layer does before accepting a certificate
+    // (owned_transfer_recovery.rs). Without this a certificate whose order was
+    // changed after the lock was derived would still claim the original lock.
+    let (embedded_lock_id, expected_lock_id) = match &certificate {
+        postfiat_types::FastPayCertificateV1::Transfer(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_transfer_lock_id_v1(&certificate.order),
+        ),
+        postfiat_types::FastPayCertificateV1::Unwrap(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_unwrap_lock_id_v1(&certificate.order),
+        ),
+    };
+    if *embedded_lock_id != expected_lock_id {
+        return Err(invalid_result(
+            "certificate.order.recovery.lock_id",
+            "expected the lock id recomputed from the committed order",
+        ));
+    }
     Ok(())
 }

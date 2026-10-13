@@ -297,3 +297,50 @@ fn help_lists_owned_certificate() {
         "Owned_certificate request supports exactly one of --lock-id or --certificate-digest"
     ));
 }
+
+#[test]
+fn validate_response_rejects_mutated_order_with_unchanged_lock() {
+    let certificate = transfer_certificate();
+    let lock_id = certificate.recovery().lock_id.clone();
+    let request_path = temp_path("mutated-request.json");
+    let response_path = temp_path("mutated-response.json");
+    write_request_file(
+        &request_path,
+        &owned_certificate_request(
+            "owned-certificate-cli-7",
+            OwnedCertificateSelector::LockId(lock_id),
+        ),
+    )
+    .expect("write request");
+    let mut response =
+        success_response("owned-certificate-cli-7", &certificate, vec![]).expect("response");
+    // Change a committed order field; keep recovery.lock_id as it was.
+    *response
+        .result
+        .as_mut()
+        .expect("result")
+        .pointer_mut("/certificate/order/outputs/0/value")
+        .expect("output value") = serde_json::json!(10);
+    fs::write(
+        &response_path,
+        serde_json::to_vec_pretty(&response).expect("serialize response"),
+    )
+    .expect("write response");
+
+    let output = bin()
+        .args(["validate-response", "--input"])
+        .arg(&response_path)
+        .args(["--expect-kind", "owned_certificate", "--request-file"])
+        .arg(&request_path)
+        .output()
+        .expect("run validate-response");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!output.status.success(), "mutated order must fail");
+    assert!(
+        stderr.contains("certificate.order.recovery.lock_id"),
+        "stderr: {stderr}"
+    );
+    for path in [request_path, response_path] {
+        let _ = fs::remove_file(path);
+    }
+}
