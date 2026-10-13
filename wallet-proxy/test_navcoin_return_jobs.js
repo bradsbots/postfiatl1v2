@@ -90,6 +90,47 @@ function request(amount = '5000000') {
         subject.closeNavcoinReturnRelayJobs();
         fs.rmSync(root, { recursive: true, force: true });
     }
+    // amount_atoms must be a canonical unsigned decimal before BigInt(): the raw string is bound
+    // into job.json and the request fingerprint, and the worker driver refuses anything else.
+    const amountRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pft-navcoin-return-amount-'));
+    const amountJobs = create({}, {
+        ...options, root: amountRoot,
+        config: { ...config, max_amount_atoms: '18446744073709551615' },
+    });
+    try {
+        let txCounter = 0;
+        const nextTx = () => `0x${(0xa000 + (++txCounter)).toString(16).padStart(64, '0')}`;
+        const withAmount = (amount, tx) => ({ ...request(), amount_atoms: amount, transaction_hash: tx });
+        for (const [amount, stored] of [
+            ['100', '100'], ['1', '1'], ['18446744073709551615', '18446744073709551615'],
+            [100, '100'], [' 100 ', '100'],
+        ]) {
+            const job = await amountJobs.submitNavcoinReturnRelayJob(withAmount(amount, nextTx()));
+            assert.strictEqual(job.request.amount_atoms, stored, `amount ${JSON.stringify(amount)} must be accepted`);
+        }
+        for (const amount of [
+            '0100', '0x64', '0o144', '0b1100100', '1e2', '-1', '0', '+1', '1.0',
+            '18446744073709551616', '', 'abc', '9'.repeat(400),
+        ]) {
+            const tx = nextTx();
+            await assert.rejects(amountJobs.submitNavcoinReturnRelayJob(withAmount(amount, tx)),
+                error => error.code === 'invalid_navcoin_return_relay_request',
+                `amount ${JSON.stringify(amount.slice(0, 24))} must be refused`);
+            assert.strictEqual(amountJobs.navcoinReturnRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, tx)), null,
+                `refused amount ${JSON.stringify(amount.slice(0, 24))} must not leave a job`);
+        }
+        // A refused non-canonical amount must not bind the tx hash: the canonical request still queues.
+        const boundTx = nextTx();
+        await assert.rejects(amountJobs.submitNavcoinReturnRelayJob(withAmount('0x64', boundTx)),
+            error => error.code === 'invalid_navcoin_return_relay_request');
+        const canonical = await amountJobs.submitNavcoinReturnRelayJob(withAmount('100', boundTx));
+        assert.strictEqual(canonical.job_id, canonicalJobId(ROUTE_ID, boundTx));
+        assert.strictEqual(canonical.idempotent_replay, false);
+        assert.strictEqual(canonical.request.amount_atoms, '100');
+    } finally {
+        amountJobs.closeNavcoinReturnRelayJobs();
+        fs.rmSync(amountRoot, { recursive: true, force: true });
+    }
     const disabled = create({}, { env: {} });
     assert.strictEqual((await disabled.navcoinReturnRelayReadiness(ROUTE_ID)).ready, false);
     await assert.rejects(disabled.submitNavcoinReturnRelayJob(request()),
