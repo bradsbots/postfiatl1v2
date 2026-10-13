@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-12T11:55:00Z` (signer committees: FastPay epoch 2 installed, bridge stopped at the checkpoint anchor); latest fleet observation `2026-10-12T11:51:52Z`
+Updated: `2026-10-13T09:50:00Z` (Ethereum relays 28701 and 28702 run as systemd units); latest fleet observation `2026-10-13T09:45:09Z`
 
 Status: **canonical operational-state reference**
 
@@ -908,3 +908,22 @@ blocks 1104–1115 over read-only RPC on validator-1 (`blocks`, `tx`,
   14.
 - This lane changed nothing on the hosts or the chain after 2026-10-02 and will
   change nothing before 2026-10-07.
+
+## 2026-10-13: Ethereum relays run as systemd units
+
+At 09:41–09:45Z the loopback relays `127.0.0.1:28701` (publicnode) and
+`127.0.0.1:28702` (drpc) on validators 0, 2, 3, 4 and 5 were moved from
+hand-started python3 processes, which ran from the deleted
+`/tmp/a666-https-jsonrpc-loopback-proxy.py` and would not survive a reboot, to the
+enabled units `navcoin-ethereum-rpc-28701.service` and
+`navcoin-ethereum-rpc-28702.service` in `/etc/systemd/system` (`Restart=always`,
+`/opt/postfiat/route-tools/navcoin-20260907/https-jsonrpc-loopback-proxy.py
+--attempts 3`). Validator-1 gained only the 28702 unit. `eth_blockNumber` returned
+HTTP 200 through every relay afterwards. Validator and RPC PIDs, the 28703 units
+and the other lane's `navcoin-proof-watchdog@` user units did not change, and no
+transaction was sent. The release preflight `demo-preflight.py` then reported
+**READY**: 60 PASS, 0 ATTENTION, 0 FAIL, six-way agreement at height 1123, root
+`942d1fc2…`
+([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/observed/ethereum-relays-20261013.json)).
+The 28703 unit on all six hosts and validator-1's 28701 unit are still transient
+and do not survive a reboot.
