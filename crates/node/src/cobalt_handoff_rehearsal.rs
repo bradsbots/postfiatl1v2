@@ -455,10 +455,11 @@ fn abort_activation(
 /// Expected rejection markers for the negative rehearsal probes (CHO-05).
 ///
 /// Every probe starts from the verified positive signed fixture and varies one
-/// binding. The command fails if a probe is accepted or rejects for a different
-/// reason, so `all_rejected` can no longer be satisfied by a missing quorum
-/// alone (the previous implementation stripped every approval first, so each
-/// probe that reached the approval check failed only for
+/// binding, listed per case in `NEGATIVE_PROBE_VARIED_FIELDS`. The command
+/// fails if a probe is accepted or rejects for a different reason, so
+/// `all_rejected` can no longer be satisfied by a missing quorum alone (the
+/// previous implementation stripped every approval first, so each probe that
+/// reached the approval check failed only for
 /// "approval set is outside quorum bounds").
 const NEGATIVE_EXPECTED_EARLY: &str =
     "Cobalt authority transition must be ordered at its exact activation height";
@@ -473,6 +474,59 @@ const NEGATIVE_QUORUM_ONLY_REASON: &str =
     "Cobalt authority transition approval set is outside quorum bounds";
 const NEGATIVE_SCOPE: &str = "in-memory verification against the clone's initial governance \
      only; no durable clone state, consensus batch, or live validator was exercised";
+
+/// The transition fields each transition-verification probe varies from the
+/// positive signed fixture (`transition_id` is always recomputed and is not a
+/// binding). `early` changes no field: it orders the unchanged fixture one
+/// slot early. `wrong_root` moves the registry-root binding, whose two fields
+/// (`old_registry_root` and `cobalt_registry_root`) both commit to the active
+/// registry root for a set-preserving activation, together to one foreign
+/// root.
+pub(super) const NEGATIVE_PROBE_VARIED_FIELDS: [(&str, &[&str]); 4] = [
+    ("early", &[]),
+    ("stale", &["activation_height"]),
+    ("wrong_root", &["cobalt_registry_root", "old_registry_root"]),
+    ("self_authorized", &["validators"]),
+];
+
+/// The transition-verification probe candidates (CHO-05), each the positive
+/// signed fixture with only the fields in `NEGATIVE_PROBE_VARIED_FIELDS`
+/// changed and its approvals kept exactly as signed, paired with the proposal
+/// slot it is verified at.
+pub(super) fn negative_probe_candidates(
+    transition: &CobaltGovernanceAuthorityTransitionV1,
+) -> io::Result<[(&'static str, CobaltGovernanceAuthorityTransitionV1, u64); 4]> {
+    let early = transition.clone();
+    let early_slot = early.activation_height - 1;
+
+    let mut stale = transition.clone();
+    stale.activation_height -= 1;
+    stale.transition_id = cobalt_authority_transition_id(&stale)?;
+    let stale_slot = stale.activation_height;
+
+    let mut wrong_root = transition.clone();
+    wrong_root.old_registry_root = "ff".repeat(48);
+    wrong_root.cobalt_registry_root = wrong_root.old_registry_root.clone();
+    wrong_root.transition_id = cobalt_authority_transition_id(&wrong_root)?;
+    let wrong_root_slot = wrong_root.activation_height;
+
+    // Only the candidate validator set changes (the last active validator is
+    // dropped). The registry roots, approval quorum and approvals stay as
+    // signed, so this case can reject only through the validator-set binding:
+    // without that check the candidate would fall through to the approval
+    // signatures, which no longer cover the changed transition.
+    let mut self_authorized = transition.clone();
+    self_authorized.validators.pop();
+    self_authorized.transition_id = cobalt_authority_transition_id(&self_authorized)?;
+    let self_authorized_slot = self_authorized.activation_height;
+
+    Ok([
+        ("early", early, early_slot),
+        ("stale", stale, stale_slot),
+        ("wrong_root", wrong_root, wrong_root_slot),
+        ("self_authorized", self_authorized, self_authorized_slot),
+    ])
+}
 
 fn expect_rejection(case: &str, expected: &str, outcome: Result<(), String>) -> io::Result<String> {
     match outcome {
@@ -523,40 +577,20 @@ pub(super) fn negative_probe_report(
     };
 
     // One binding varied per case; the approvals stay exactly as signed.
-    let early_error = expect_rejection(
-        "early",
-        NEGATIVE_EXPECTED_EARLY,
-        verify(transition, transition.activation_height - 1),
-    )?;
-
-    let mut stale = transition.clone();
-    stale.activation_height -= 1;
-    stale.transition_id = cobalt_authority_transition_id(&stale)?;
-    let stale_error = expect_rejection(
-        "stale",
-        NEGATIVE_EXPECTED_STALE,
-        verify(&stale, stale.activation_height),
-    )?;
-
-    let mut wrong_root = transition.clone();
-    wrong_root.old_registry_root = "ff".repeat(48);
-    wrong_root.cobalt_registry_root = wrong_root.old_registry_root.clone();
-    wrong_root.transition_id = cobalt_authority_transition_id(&wrong_root)?;
+    let [early, stale, wrong_root, self_authorized] = negative_probe_candidates(transition)?;
+    let early_error =
+        expect_rejection(early.0, NEGATIVE_EXPECTED_EARLY, verify(&early.1, early.2))?;
+    let stale_error =
+        expect_rejection(stale.0, NEGATIVE_EXPECTED_STALE, verify(&stale.1, stale.2))?;
     let wrong_root_error = expect_rejection(
-        "wrong_root",
+        wrong_root.0,
         NEGATIVE_EXPECTED_WRONG_ROOT,
-        verify(&wrong_root, wrong_root.activation_height),
+        verify(&wrong_root.1, wrong_root.2),
     )?;
-
-    let mut self_authorized = transition.clone();
-    self_authorized.validators.pop();
-    self_authorized.approval_quorum = 4;
-    self_authorized.cobalt_registry_root = "ee".repeat(48);
-    self_authorized.transition_id = cobalt_authority_transition_id(&self_authorized)?;
     let self_authorized_error = expect_rejection(
-        "self_authorized",
+        self_authorized.0,
         NEGATIVE_EXPECTED_SELF_AUTHORIZED,
-        verify(&self_authorized, self_authorized.activation_height),
+        verify(&self_authorized.1, self_authorized.2),
     )?;
 
     // Apply the verified signed transition once to a temporary clone, then

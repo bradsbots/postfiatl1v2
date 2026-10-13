@@ -1638,6 +1638,121 @@ mod tests {
     }
 
     #[test]
+    fn burn5_negative_rehearsal_probes_each_vary_only_their_declared_binding() {
+        // CHO-05 follow-up: `self_authorized` used to remove a validator, set
+        // `approval_quorum` to 4 and replace `cobalt_registry_root` at once, so
+        // the root or quorum mismatch alone produced the same OR-combined
+        // binding rejection and the probe could not show that a
+        // candidate-chosen validator set is rejected.
+        use crate::cobalt_handoff_rehearsal::{
+            negative_probe_candidates, NEGATIVE_PROBE_VARIED_FIELDS,
+        };
+        let fixture = fixture();
+        let governance = fixture.governance.clone();
+        let lock_hash = "11".repeat(48);
+        let transition = signed_transition(
+            &fixture,
+            &governance,
+            10,
+            1,
+            lock_hash.clone(),
+            fixture.cobalt_binding.trust_graph.trust_graph_root.clone(),
+        );
+        verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &transition,
+            transition.activation_height,
+        )
+        .expect("positive signed fixture verifies");
+        let positive = serde_json::to_value(&transition).expect("positive json");
+        let positive = positive.as_object().expect("positive object");
+        let candidates = negative_probe_candidates(&transition).expect("probe candidates");
+        assert_eq!(candidates.len(), NEGATIVE_PROBE_VARIED_FIELDS.len());
+        for ((case, candidate, slot), (declared_case, declared_fields)) in
+            candidates.iter().zip(NEGATIVE_PROBE_VARIED_FIELDS)
+        {
+            assert_eq!(*case, declared_case);
+            assert_eq!(candidate.approvals, transition.approvals, "{case}");
+            let value = serde_json::to_value(candidate).expect("candidate json");
+            let value = value.as_object().expect("candidate object");
+            let mut varied = positive
+                .keys()
+                .filter(|key| {
+                    key.as_str() != "transition_id"
+                        && value.get(key.as_str()) != positive.get(key.as_str())
+                })
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            varied.sort_unstable();
+            assert_eq!(
+                varied, declared_fields,
+                "{case} varies exactly its declared binding"
+            );
+            assert!(
+                verify_cobalt_authority_transition(
+                    &fixture.genesis,
+                    &governance,
+                    &fixture.registry,
+                    candidate,
+                    *slot,
+                )
+                .is_err(),
+                "{case} must reject"
+            );
+        }
+
+        // The self-authorized candidate differs from the active registry only
+        // in its validator set: restoring the active set (and recomputing the
+        // id) yields the positive fixture, which verifies. If a root or quorum
+        // mismatch were still present, this restored candidate would reject.
+        let (_, self_authorized, slot) = candidates
+            .iter()
+            .find(|(case, _, _)| *case == "self_authorized")
+            .expect("self_authorized candidate");
+        let active = active_validator_ids(&governance).expect("active validators");
+        assert_ne!(self_authorized.validators, active);
+        assert_eq!(self_authorized.approval_quorum, transition.approval_quorum);
+        assert_eq!(
+            self_authorized.old_registry_root,
+            transition.old_registry_root
+        );
+        assert_eq!(
+            self_authorized.cobalt_registry_root,
+            transition.cobalt_registry_root
+        );
+        let error = verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            self_authorized,
+            *slot,
+        )
+        .expect_err("candidate-chosen validator set must reject");
+        assert!(
+            error
+                .to_string()
+                .contains("does not bind the active validator registry"),
+            "{error}"
+        );
+        let mut restored = self_authorized.clone();
+        restored.validators = active;
+        restored.transition_id =
+            cobalt_authority_transition_id(&restored).expect("restored transition id");
+        assert_eq!(restored, transition);
+        verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &restored,
+            *slot,
+        )
+        .expect("restoring only the validator set must verify");
+        std::fs::remove_dir_all(&fixture.cobalt_root).expect("cleanup");
+    }
+
+    #[test]
     fn handoff_requires_distinct_mldsa65_quorum_approvals() {
         let fixture = fixture();
         let transition = signed_transition(
