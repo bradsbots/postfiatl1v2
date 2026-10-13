@@ -48,7 +48,12 @@ def _connect_first_reachable(endpoint: Endpoint, deadline: float) -> socket.sock
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             raise RpcProbeError("connect timeout")
-        stream = socket.socket(family, socktype, proto)
+        try:
+            stream = socket.socket(family, socktype, proto)
+        except OSError as error:
+            # e.g. EAFNOSUPPORT for ::1 on a host without IPv6: try the next address.
+            last_error = error
+            continue
         try:
             stream.settimeout(remaining)
             stream.connect(address)

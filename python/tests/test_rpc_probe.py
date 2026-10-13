@@ -71,9 +71,6 @@ class RpcProbeTests(unittest.TestCase):
         self.assertEqual(main(["--endpoint", f"127.0.0.1:{port}", "--timeout-seconds", "0.1"]), 1)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 STATUS_REPLY = json.dumps(
     {
@@ -228,3 +225,32 @@ class RpcProbeResolvedAddressTests(unittest.TestCase):
         with mock.patch("postfiat_rpc.rpc_probe.socket.getaddrinfo", return_value=[]):
             with self.assertRaisesRegex(RpcProbeError, "address resolution failed: no addresses"):
                 rpc_probe(Endpoint("localhost", 27650), 2.0)
+
+    def _probe_with_failing_constructor(self, candidates, failing_families):
+        log: dict = {}
+
+        def make_socket(family, *_a, **_k):
+            if family in failing_families:
+                raise OSError(97, "Address family not supported by protocol")
+            return _ScriptedSocket(log, {})
+
+        with (
+            mock.patch("postfiat_rpc.rpc_probe.socket.getaddrinfo", return_value=candidates),
+            mock.patch("postfiat_rpc.rpc_probe.socket.socket", side_effect=make_socket),
+        ):
+            return rpc_probe(Endpoint("localhost", 27650), 2.0), log
+
+    def test_socket_constructor_failure_moves_to_the_next_address(self) -> None:
+        result, log = self._probe_with_failing_constructor([V6, V4], {socket.AF_INET6})
+        self.assertEqual(log["attempts"], [V4[4]])
+        self.assertEqual(result.height, 7)
+
+    def test_socket_constructor_failure_on_every_address_is_a_refusal(self) -> None:
+        with self.assertRaisesRegex(
+            RpcProbeError, r"^connect refused: \[Errno 97\] Address family not supported"
+        ):
+            self._probe_with_failing_constructor([V6], {socket.AF_INET6})
+
+
+if __name__ == "__main__":
+    unittest.main()
