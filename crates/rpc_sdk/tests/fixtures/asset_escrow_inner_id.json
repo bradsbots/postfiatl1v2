@@ -1,0 +1,1300 @@
+{
+  "schema": "sdk-asset-escrow-inner-id-regression-fixtures-v1",
+  "cases": [
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "AssetInfo",
+      "name": "asset_matching_complete",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: expected asset object to match asset_id",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "expected asset object to match asset_id"
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "AssetInfo",
+      "name": "asset_foreign_nested_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "AssetInfo",
+      "name": "asset_found_false_null",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": null,
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": false,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "AssetInfo",
+      "name": "asset_matching_public_extras",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_extra": {
+              "note": "harmless"
+            },
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "future_public_field": {
+            "revision": 2,
+            "status": "fixture"
+          },
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: expected asset object when found is true",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "expected asset object when found is true"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: expected asset object when found is true",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "expected asset object when found is true"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_found_true_null",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": null,
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: expected null asset when found is false",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "expected null asset when found is false"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: expected null asset when found is false",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "expected null asset when found is false"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_found_false_object",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": false,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: missing field segment `asset`",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "missing field segment `asset`"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `asset` invalid: missing field segment `asset`",
+        "error_variant": "InvalidResult",
+        "field": "asset",
+        "message": "missing field segment `asset`"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_missing_nested_field",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "asset_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `asset_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "asset_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_malformed_outer_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `asset_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "asset_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `asset_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "asset_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_uppercase_nested_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `found` invalid: expected boolean value",
+        "error_variant": "InvalidResult",
+        "field": "found",
+        "message": "expected boolean value"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `found` invalid: expected boolean value",
+        "error_variant": "InvalidResult",
+        "field": "found",
+        "message": "expected boolean value"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_non_boolean_found",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": "false",
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `outstanding_supply` invalid: expected outstanding_supply to be <= max_supply",
+        "error_variant": "InvalidResult",
+        "field": "outstanding_supply",
+        "message": "expected outstanding_supply to be <= max_supply"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `outstanding_supply` invalid: expected outstanding_supply to be <= max_supply",
+        "error_variant": "InvalidResult",
+        "field": "outstanding_supply",
+        "message": "expected outstanding_supply to be <= max_supply"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_existing_shape_constraint",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 3,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 1000001,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `holder_count` invalid: expected holder_count to be <= trustline_count",
+        "error_variant": "InvalidResult",
+        "field": "holder_count",
+        "message": "expected holder_count to be <= trustline_count"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `holder_count` invalid: expected holder_count to be <= trustline_count",
+        "error_variant": "InvalidResult",
+        "field": "holder_count",
+        "message": "expected holder_count to be <= trustline_count"
+      },
+      "kind": "AssetInfo",
+      "name": "asset_shape_failure_before_binding",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "asset": {
+            "asset_id": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
+            "clawback_enabled": false,
+            "code": "TSYN",
+            "display_name": "",
+            "freeze_enabled": false,
+            "holder_count": 6,
+            "issuer": "synthetic-asset-issuer",
+            "max_supply": 1000000,
+            "outstanding_supply": 42007,
+            "precision": 6,
+            "requires_authorization": false,
+            "trustline_count": 5,
+            "version": 1
+          },
+          "asset_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-asset-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_matching_complete",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: expected escrow object to match escrow_id",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "expected escrow object to match escrow_id"
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_foreign_nested_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_found_false_null",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": null,
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": false,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_matching_public_extras",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "display_extra": {
+              "note": "harmless"
+            },
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "future_public_field": {
+            "revision": 2,
+            "status": "fixture"
+          },
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: expected escrow object when found is true",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "expected escrow object when found is true"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: expected escrow object when found is true",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "expected escrow object when found is true"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_found_true_null",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": null,
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: expected null escrow when found is false",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "expected null escrow when found is false"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: expected null escrow when found is false",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "expected null escrow when found is false"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_found_false_object",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": false,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: missing field segment `escrow`",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "missing field segment `escrow`"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `escrow` invalid: missing field segment `escrow`",
+        "error_variant": "InvalidResult",
+        "field": "escrow",
+        "message": "missing field segment `escrow`"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_missing_nested_field",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "escrow_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `escrow_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "escrow_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_malformed_outer_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `escrow_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "escrow_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `escrow_id` invalid: expected 96 lowercase hex characters",
+        "error_variant": "InvalidResult",
+        "field": "escrow_id",
+        "message": "expected 96 lowercase hex characters"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_uppercase_nested_id",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D3D",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `found` invalid: expected boolean value",
+        "error_variant": "InvalidResult",
+        "field": "found",
+        "message": "expected boolean value"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `found` invalid: expected boolean value",
+        "error_variant": "InvalidResult",
+        "field": "found",
+        "message": "expected boolean value"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_non_boolean_found",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": "false",
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `state` invalid: expected open, finished, or canceled",
+        "error_variant": "InvalidResult",
+        "field": "state",
+        "message": "expected open, finished, or canceled"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `state` invalid: expected open, finished, or canceled",
+        "error_variant": "InvalidResult",
+        "field": "state",
+        "message": "expected open, finished, or canceled"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_existing_shape_constraint",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 71,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "pending"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `amount` invalid: expected nonzero unsigned integer value",
+        "error_variant": "InvalidResult",
+        "field": "amount",
+        "message": "expected nonzero unsigned integer value"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `amount` invalid: expected nonzero unsigned integer value",
+        "error_variant": "InvalidResult",
+        "field": "amount",
+        "message": "expected nonzero unsigned integer value"
+      },
+      "kind": "EscrowInfo",
+      "name": "escrow_shape_failure_before_binding",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "escrow": {
+            "amount": 0,
+            "asset_id": "PFT",
+            "cancel_after": 920,
+            "condition_hash": null,
+            "created_height": 809,
+            "escrow_id": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6",
+            "fee": 2,
+            "finish_after": 910,
+            "owner": "synthetic-escrow-owner",
+            "owner_sequence": 7,
+            "recipient": "synthetic-escrow-recipient",
+            "state": "open"
+          },
+          "escrow_id": "3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d3d",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "protocol_version": 3,
+          "schema": "postfiat-escrow-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "OfferInfo",
+      "name": "offer_prior_binding_matching_control",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "offer": {
+            "created_height": 400,
+            "expiration_height": 0,
+            "offer_id": "919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191",
+            "original_taker_gets_amount": 100,
+            "original_taker_pays_amount": 200,
+            "owner": "synthetic-offer-owner",
+            "owner_sequence": 11,
+            "reserve_paid": 9,
+            "state": "open",
+            "taker_gets_amount_remaining": 23,
+            "taker_gets_asset_id": "PFT",
+            "taker_pays_amount_remaining": 31,
+            "taker_pays_asset_id": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c"
+          },
+          "offer_id": "919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191",
+          "protocol_version": 3,
+          "schema": "postfiat-offer-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `offer` invalid: expected offer object to match requested offer_id",
+        "error_variant": "InvalidResult",
+        "field": "offer",
+        "message": "expected offer object to match requested offer_id"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `offer` invalid: expected offer object to match requested offer_id",
+        "error_variant": "InvalidResult",
+        "field": "offer",
+        "message": "expected offer object to match requested offer_id"
+      },
+      "kind": "OfferInfo",
+      "name": "offer_prior_binding_foreign_control",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "offer": {
+            "created_height": 400,
+            "expiration_height": 0,
+            "offer_id": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+            "original_taker_gets_amount": 100,
+            "original_taker_pays_amount": 200,
+            "owner": "synthetic-offer-owner",
+            "owner_sequence": 11,
+            "reserve_paid": 9,
+            "state": "open",
+            "taker_gets_amount_remaining": 23,
+            "taker_gets_asset_id": "PFT",
+            "taker_pays_amount_remaining": 31,
+            "taker_pays_asset_id": "7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c"
+          },
+          "offer_id": "919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191919191",
+          "protocol_version": 3,
+          "schema": "postfiat-offer-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "expected_original": {
+        "accepted": true,
+        "display": null,
+        "error_variant": null,
+        "field": null,
+        "message": null
+      },
+      "kind": "NftInfo",
+      "name": "nft_prior_binding_matching_control",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "nft": {
+            "burned": false,
+            "collection_burn_locked": false,
+            "collection_flags": 0,
+            "collection_id": "independent-collection",
+            "collection_transfer_locked": false,
+            "flags": 0,
+            "issuer": "synthetic-nft-issuer",
+            "issuer_burnable": false,
+            "issuer_transfer_fee": 0,
+            "metadata_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+            "metadata_uri": "",
+            "nft_id": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+            "owner": "synthetic-nft-owner",
+            "serial": 17,
+            "transferable": false
+          },
+          "nft_id": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+          "protocol_version": 3,
+          "schema": "postfiat-nft-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    },
+    {
+      "expected_corrected": {
+        "accepted": false,
+        "display": "rpc response result field `nft` invalid: expected nft object to match requested nft_id",
+        "error_variant": "InvalidResult",
+        "field": "nft",
+        "message": "expected nft object to match requested nft_id"
+      },
+      "expected_original": {
+        "accepted": false,
+        "display": "rpc response result field `nft` invalid: expected nft object to match requested nft_id",
+        "error_variant": "InvalidResult",
+        "field": "nft",
+        "message": "expected nft object to match requested nft_id"
+      },
+      "kind": "NftInfo",
+      "name": "nft_prior_binding_foreign_control",
+      "response": {
+        "error": null,
+        "events": [],
+        "id": "independent-sdk-inner-id",
+        "ok": true,
+        "result": {
+          "chain_id": "independent-sdk-inner-id",
+          "found": true,
+          "genesis_hash": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+          "nft": {
+            "burned": false,
+            "collection_burn_locked": false,
+            "collection_flags": 0,
+            "collection_id": "independent-collection",
+            "collection_transfer_locked": false,
+            "flags": 0,
+            "issuer": "synthetic-nft-issuer",
+            "issuer_burnable": false,
+            "issuer_transfer_fee": 0,
+            "metadata_hash": "8888888888888888888888888888888888888888888888888888888888888888",
+            "metadata_uri": "",
+            "nft_id": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+            "owner": "synthetic-nft-owner",
+            "serial": 17,
+            "transferable": false
+          },
+          "nft_id": "4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f",
+          "protocol_version": 3,
+          "schema": "postfiat-nft-info-v1"
+        },
+        "version": "postfiat-local-rpc-v1"
+      },
+      "response_json_unchanged": true
+    }
+  ]
+}
