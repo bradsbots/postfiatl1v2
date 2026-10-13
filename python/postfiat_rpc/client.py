@@ -19,6 +19,9 @@ RPC_VERSION = "postfiat-local-rpc-v1"
 DEFAULT_TIMEOUT_SECONDS = 8.0
 DEFAULT_RESPONSE_BYTE_CAP = 1_048_576
 DEFAULT_READ_LIMIT = 100
+# Mirrors crates/node/src/lifecycle_queries.rs MAX_READ_QUERY_LIMIT: the node
+# refuses an `archive_window` range longer than this many blocks.
+MAX_ARCHIVE_WINDOW_BLOCKS = 512
 MAX_ACCOUNT_TX_SCAN_LIMIT = 512
 ESCROW_ID_DOMAIN = "postfiat.escrow_id.v1"
 ESCROW_CONDITION_HASH_DOMAIN = "postfiat.escrow_condition_hash.v1"
@@ -1141,6 +1144,38 @@ class PostFiatRpcClient:
         """Read the governed FastPay v3 domain, committee, and recovery window."""
         return self._call("owned_recovery_capabilities")
 
+    def owned_recovery_status(self, lock_id: str) -> dict[str, Any]:
+        """Read the FastPay v3 recovery fence and reveal status for a lock."""
+        if not lock_id:
+            raise ValueError("lock_id is required")
+        return self._call("owned_recovery_status", {"lock_id": lock_id})
+
+    def owned_certificate(
+        self,
+        *,
+        lock_id: str | None = None,
+        certificate_digest: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a retained FastPay certificate by exactly one selector.
+
+        The node treats ``lock_id`` and ``certificate_digest`` as alternatives;
+        sending both is rejected client-side so the request can never be
+        answered from the wrong selector.
+        """
+        if (lock_id is None) == (certificate_digest is None):
+            raise ValueError(
+                "owned_certificate takes exactly one of lock_id or certificate_digest"
+            )
+        if lock_id is not None:
+            if not lock_id:
+                raise ValueError("lock_id must not be empty")
+            return self._call("owned_certificate", {"lock_id": lock_id})
+        if not certificate_digest:
+            raise ValueError("certificate_digest must not be empty")
+        return self._call(
+            "owned_certificate", {"certificate_digest": certificate_digest}
+        )
+
     def owned_sign_v3(
         self,
         order_json: str,
@@ -1343,9 +1378,20 @@ class PostFiatRpcClient:
         required_parent_hash: str | None = None,
         required_state_root: str | None = None,
     ) -> dict[str, Any]:
-        """Certify a shielded batch using the remote validator's sole proposer key."""
+        """Certify a shielded batch using the remote validator's sole proposer key.
+
+        The proxy parent pins are all-or-none around the height: a parent hash
+        or state root only means something relative to ``required_current_height``
+        and the node rejects a pin sent without it, so it is refused here instead
+        of being sent.
+        """
         if not isinstance(batch_json, str) or not batch_json.strip():
             raise ValueError("batch_json is required")
+        if required_current_height is None:
+            if required_parent_hash is not None:
+                raise ValueError("required_parent_hash requires required_current_height")
+            if required_state_root is not None:
+                raise ValueError("required_state_root requires required_current_height")
         params: dict[str, Any] = {"batch_json": batch_json}
         if required_current_height is not None:
             if required_current_height < 0:
@@ -1444,6 +1490,236 @@ class PostFiatRpcClient:
         if not isinstance(result, list):
             raise RpcProtocolError("batch_archive result must be a list")
         return result
+
+    def archive_window(
+        self,
+        from_height: int,
+        to_height: int,
+        *,
+        archive_uri: str | None = None,
+    ) -> dict[str, Any]:
+        """Build a bounded history handoff bundle for an inclusive height window.
+
+        Mirrors the node's `archive_window` read: both heights are
+        non-negative, `to_height >= from_height`, and the window spans at most
+        `MAX_ARCHIVE_WINDOW_BLOCKS` blocks, checked here so a bad range fails
+        before a request is sent. The bundle is returned as the node encodes
+        it; nothing is published.
+        """
+        for name, value in (("from_height", from_height), ("to_height", to_height)):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{name} must be non-negative")
+        if to_height < from_height:
+            raise ValueError("to_height must be >= from_height")
+        if to_height - from_height + 1 > MAX_ARCHIVE_WINDOW_BLOCKS:
+            raise ValueError(
+                f"archive window must not exceed {MAX_ARCHIVE_WINDOW_BLOCKS} blocks"
+            )
+        params: dict[str, Any] = {"from_height": from_height, "to_height": to_height}
+        if archive_uri is not None:
+            if not archive_uri:
+                raise ValueError("archive_uri must not be empty")
+            params["archive_uri"] = archive_uri
+        result = self._call("archive_window", params)
+        if not isinstance(result, dict):
+            raise RpcProtocolError("archive_window result must be an object")
+        return result
+
+    def _verification_report(self, method: str) -> dict[str, Any]:
+        result = self._call(method, {})
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        return result
+
+    def verify_blocks(self) -> dict[str, Any]:
+        """Re-verify the node's local block-log chain and signatures (public read)."""
+        return self._verification_report("verify_blocks")
+
+    def verify_state(self) -> dict[str, Any]:
+        """Re-verify the aggregate local state, including block-log integrity."""
+        return self._verification_report("verify_state")
+
+    def verify_bridge(self) -> dict[str, Any]:
+        """Re-verify local bridge-state invariants."""
+        return self._verification_report("verify_bridge")
+
+    def verify_mempool(self) -> dict[str, Any]:
+        """Re-verify admitted mempool entries against local policy."""
+        return self._verification_report("verify_mempool")
+
+    def verify_shielded(self) -> dict[str, Any]:
+        """Re-verify the local shielded-state commitment and accounting."""
+        return self._verification_report("verify_shielded")
+
+    @staticmethod
+    def _required_text(value: object, field: str) -> str:
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{field} must be a non-empty string")
+        return value
+
+    def _object_read(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        result = self._call(method, params)
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        return result
+
+    def shield_scan(self, owner: str) -> list[dict[str, Any]]:
+        """List the shielded notes visible to `owner` (public read, `--owner`)."""
+        result = self._call("shield_scan", {"owner": self._required_text(owner, "owner")})
+        if not isinstance(result, list):
+            raise RpcProtocolError("shield_scan result must be a list")
+        return result
+
+    def shield_disclose(self, note_id: str) -> dict[str, Any]:
+        """Disclose one shielded note by id (public read, `--note-id`)."""
+        return self._object_read(
+            "shield_disclose", {"note_id": self._required_text(note_id, "note_id")}
+        )
+
+    def vault_bridge_route(self, asset_id: str) -> dict[str, Any]:
+        """Verify and report the governed vault bridge route for an asset."""
+        return self._object_read(
+            "vault_bridge_route", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def market_ops_status(self, asset_id: str, *, epoch: int | None = None) -> dict[str, Any]:
+        """Market-operations status for an asset, optionally pinned to an epoch."""
+        params: dict[str, Any] = {"asset_id": self._required_text(asset_id, "asset_id")}
+        if epoch is not None:
+            if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch < 0:
+                raise ValueError("epoch must be a non-negative integer")
+            params["epoch"] = epoch
+        return self._object_read("market_ops_status", params)
+
+    def asset_orchard_action_status(
+        self,
+        nullifiers: tuple[str, str] | list[str],
+        output_commitments: tuple[str, str] | list[str],
+    ) -> dict[str, Any]:
+        """Status of one Asset-Orchard action's two nullifiers and two output commitments.
+
+        The node takes exactly two of each (`--nullifier-1`, `--nullifier-2`,
+        `--output-commitment-1`, `--output-commitment-2`).
+        """
+        params: dict[str, Any] = {}
+        for prefix, values in (("nullifier", nullifiers), ("output_commitment", output_commitments)):
+            if not isinstance(values, (list, tuple)) or len(values) != 2:
+                raise ValueError(f"{prefix}s must hold exactly two values")
+            for index, value in enumerate(values, start=1):
+                params[f"{prefix}_{index}"] = self._required_text(value, f"{prefix}_{index}")
+        return self._object_read("asset_orchard_action_status", params)
+
+    @staticmethod
+    def _required_u64(value: object, field: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{field} must be a non-negative integer")
+        return value
+
+    def nav_reserve_proof_status(self, asset_id: str) -> dict[str, Any]:
+        """NAV reserve-proof status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "nav_reserve_proof_status",
+            {"asset_id": self._required_text(asset_id, "asset_id")},
+        )
+
+    def vault_bridge_status(self, asset_id: str) -> dict[str, Any]:
+        """Vault bridge status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "vault_bridge_status", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def fx_fix_list(
+        self,
+        *,
+        base_asset_id: str | None = None,
+        quote_asset_id: str | None = None,
+        active_only: bool = False,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """List FX fix packets, optionally filtered by pair and activity.
+
+        `active_only` is a presence flag on the node (`--active-only`), so it is
+        sent only when true. `limit` is bounded like the other list reads.
+        """
+        params = self._limit_params(limit)
+        if base_asset_id is not None:
+            params["base_asset_id"] = self._required_text(base_asset_id, "base_asset_id")
+        if quote_asset_id is not None:
+            params["quote_asset_id"] = self._required_text(quote_asset_id, "quote_asset_id")
+        if active_only:
+            params["active_only"] = True
+        return self._object_read("fx_fix_list", params)
+
+    def fx_fix_info(self, fix_packet_hash: str) -> dict[str, Any]:
+        """One FX fix packet by hash (public read, `--fix-packet-hash`)."""
+        return self._object_read(
+            "fx_fix_info",
+            {"fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash")},
+        )
+
+    def fx_fix_reservation_info(self, reservation_id: str) -> dict[str, Any]:
+        """One FX fix reservation by id (public read, `--reservation-id`)."""
+        return self._object_read(
+            "fx_fix_reservation_info",
+            {"reservation_id": self._required_text(reservation_id, "reservation_id")},
+        )
+
+    def fx_fix_quote(self, fix_packet_hash: str, base_atoms: int) -> dict[str, Any]:
+        """Quote `base_atoms` against an FX fix packet (public read).
+
+        The node parses `--base-atoms` as a u64, so a negative, boolean or
+        non-integer value is rejected here before any request.
+        """
+        return self._object_read(
+            "fx_fix_quote",
+            {
+                "fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash"),
+                "base_atoms": self._required_u64(base_atoms, "base_atoms"),
+            },
+        )
+
+    def pfusdc_ingress_preflight(
+        self,
+        asset_id: str,
+        *,
+        recipient: str,
+        depositor: str,
+        amount_atoms: int,
+    ) -> dict[str, Any]:
+        """Preflight a pfUSDC ingress (public read; all four arguments required by the node)."""
+        return self._object_read(
+            "pfusdc_ingress_preflight",
+            {
+                "asset_id": self._required_text(asset_id, "asset_id"),
+                "recipient": self._required_text(recipient, "recipient"),
+                "depositor": self._required_text(depositor, "depositor"),
+                "amount_atoms": self._required_u64(amount_atoms, "amount_atoms"),
+            },
+        )
+
+    def pfusdc_egress_witness(
+        self, withdrawal_id: str, *, prior_checkpoint: str | None = None
+    ) -> dict[str, Any]:
+        """Export the proof-ready witness for a pfUSDC withdrawal.
+
+        `prior_checkpoint` (the node's optional `--prior-checkpoint` block id)
+        is sent only when given.
+        """
+        params: dict[str, Any] = {
+            "withdrawal_id": self._required_text(withdrawal_id, "withdrawal_id")
+        }
+        if prior_checkpoint is not None:
+            params["prior_checkpoint"] = self._required_text(prior_checkpoint, "prior_checkpoint")
+        return self._object_read("pfusdc_egress_witness", params)
+
+    def yolo_target_receipt(self, registration_id: str) -> dict[str, Any]:
+        """Target receipt for a YOLO registration (public read, `--registration-id`)."""
+        return self._object_read(
+            "yolo_target_receipt",
+            {"registration_id": self._required_text(registration_id, "registration_id")},
+        )
 
     def account_tx(
         self,
@@ -1871,6 +2147,9 @@ class PostFiatRpcClient:
         offer_transactions = payload.get("offer_transactions", [])
         if not isinstance(offer_transactions, list):
             offer_transactions = []
+        atomic_swap_transactions = payload.get("atomic_swap_transactions", [])
+        if not isinstance(atomic_swap_transactions, list):
+            atomic_swap_transactions = []
         receipt_ids = block.get("receipt_ids", [])
         if not isinstance(receipt_ids, list):
             receipt_ids = []
@@ -2077,6 +2356,73 @@ class PostFiatRpcClient:
                 )
             )
         offset += len(asset_transactions)
+        # Atomic swaps sit between asset and escrow transactions in the batch,
+        # so they occupy receipt ids here and shift every later kind's
+        # transaction_index. The archive scan emits one row per leg the
+        # account owns or receives, tagged with the leg as tx_role.
+        for swap_index, transaction in enumerate(atomic_swap_transactions):
+            if not isinstance(transaction, dict):
+                continue
+            unsigned = transaction.get("unsigned", {})
+            if not isinstance(unsigned, dict):
+                continue
+            index = offset + swap_index
+            tx_id = receipt_ids[index] if index < len(receipt_ids) else None
+            receipt: dict[str, Any] | None = None
+            for role in ("leg_0", "leg_1"):
+                leg = unsigned.get(role)
+                if not isinstance(leg, dict):
+                    continue
+                sender = leg.get("owner")
+                recipient = leg.get("recipient")
+                if sender != address and recipient != address:
+                    continue
+                if receipt is None:
+                    receipt = self._receipt_for_tx_id(tx_id)
+                rows.append(
+                    AccountTxRow(
+                        tx_id=tx_id,
+                        block_height=height,
+                        batch_kind=batch_kind,
+                        batch_id=batch_id,
+                        transaction_index=index,
+                        transaction_kind="atomic_swap",
+                        sender=sender if isinstance(sender, str) else None,
+                        recipient=recipient if isinstance(recipient, str) else None,
+                        amount=leg.get("amount") if isinstance(leg.get("amount"), int) else None,
+                        fee=leg.get("fee") if isinstance(leg.get("fee"), int) else None,
+                        sequence=(
+                            leg.get("sequence") if isinstance(leg.get("sequence"), int) else None
+                        ),
+                        memo_hash=None,
+                        memo_count=None,
+                        memo_bytes=None,
+                        asset_id=(
+                            leg.get("asset_id") if isinstance(leg.get("asset_id"), str) else None
+                        ),
+                        issuer=leg.get("issuer") if isinstance(leg.get("issuer"), str) else None,
+                        trustline_authorized=None,
+                        trustline_frozen=None,
+                        nft_id=None,
+                        nft_issuer_transfer_fee=None,
+                        nft_collection_flags=None,
+                        escrow_id=None,
+                        offer_id=None,
+                        tx_role=role,
+                        counterparty_offer_id=None,
+                        fill_index=None,
+                        condition_hash=None,
+                        accepted=(
+                            receipt.get("accepted")
+                            if isinstance(receipt.get("accepted"), bool)
+                            else None
+                        ),
+                        receipt_code=(
+                            receipt.get("code") if isinstance(receipt.get("code"), str) else None
+                        ),
+                    )
+                )
+        offset += len(atomic_swap_transactions)
         for escrow_index, transaction in enumerate(escrow_transactions):
             if not isinstance(transaction, dict):
                 continue

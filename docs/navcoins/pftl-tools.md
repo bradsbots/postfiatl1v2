@@ -60,13 +60,17 @@ The detailed bridge profile is tracked in the source tree at
 
 ## Ethereum relays on the validator hosts
 
-Each validator host runs up to three loopback Ethereum JSON-RPC relays:
+Each validator host runs three loopback Ethereum JSON-RPC relays:
 
 | Port | Upstream | How it runs |
 |---|---|---|
-| `127.0.0.1:28701` | `https://ethereum-rpc.publicnode.com` | Hand-started python3 process, except on validator-1, where it is the unit `navcoin-ethereum-rpc-proxy-20260907.service` |
-| `127.0.0.1:28702` | `https://eth.drpc.org` | Hand-started python3 process; absent on validator-1 |
-| `127.0.0.1:28703` | `https://eth.drpc.org` | The unit `navcoin-ethereum-archive-rpc-20260907.service`, on all six hosts |
+| `127.0.0.1:28701` | `https://ethereum-rpc.publicnode.com` | The enabled unit `navcoin-ethereum-rpc-28701.service`, except on validator-1, where it is the transient unit `navcoin-ethereum-rpc-proxy-20260907.service` |
+| `127.0.0.1:28702` | `https://eth.drpc.org` | The enabled unit `navcoin-ethereum-rpc-28702.service`, on all six hosts |
+| `127.0.0.1:28703` | `https://eth.drpc.org` | The transient unit `navcoin-ethereum-archive-rpc-20260907.service`, on all six hosts |
+
+All three run `/opt/postfiat/route-tools/navcoin-20260907/https-jsonrpc-loopback-proxy.py
+--attempts 3`. The enabled units are in `/etc/systemd/system` and restart on boot;
+the transient units do not survive a reboot.
 
 Since 2026-10-01, 28701 refuses archive reads: `eth_getCode` at a historical block
 returns HTTP 403, "Archive requests require a personal token". Plain block reads
@@ -75,7 +79,7 @@ still succeed. `ethereum-checkpoint-vote-sign` makes such archive reads, so
 `scripts/a666-mainnet-record-destination-consume.sh` default to 28703. Set
 `A666_VALIDATOR_ETHEREUM_RPC` to override the default. The observed relay state is
 recorded in
-[Current State](../status/chain-state-current.md#2026-10-01-fleet-after-the-other-lanes-navcoin-operator-tests).
+[Current State](../status/chain-state-current.md#2026-10-13-ethereum-relays-run-as-systemd-units).
 
 ## FastSwap control certificates
 
