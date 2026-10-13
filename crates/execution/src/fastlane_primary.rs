@@ -8,6 +8,35 @@ use postfiat_types::{
     OwnedCertificateDomain, Receipt,
 };
 
+pub const FASTLANE_DEPOSIT_APPLIED: &str = "fastlane_deposit_applied";
+pub const OWNED_DEPOSIT_APPLIED: &str = "owned_deposit_applied";
+pub const FASTLANE_EXIT_REDEEMED: &str = "fastlane_exit_redeemed";
+pub const FASTLANE_CHECKPOINT_ANCHORED: &str = "fastlane_checkpoint_anchored";
+pub const FASTLANE_CONTROL_APPLIED: &str = "fastlane_control_applied";
+pub const FASTPAY_RECOVERY_CERTIFICATE_REVEALED: &str = "fastpay_recovery_certificate_revealed";
+pub const FASTPAY_RECOVERY_CONFIRMED: &str = "fastpay_recovery_confirmed";
+pub const FASTPAY_RECOVERY_CANCELLED: &str = "fastpay_recovery_cancelled";
+
+/// Accepted receipt codes [`execute_fastlane_primary_transaction`] emits for
+/// `operation`; finality reporting matches against these.
+pub fn fastlane_primary_accepted_receipt_codes(
+    operation: &FastLanePrimaryOperationV1,
+) -> &'static [&'static str] {
+    match operation {
+        FastLanePrimaryOperationV1::Deposit { .. } => &[FASTLANE_DEPOSIT_APPLIED],
+        FastLanePrimaryOperationV1::OwnedDeposit { .. } => &[OWNED_DEPOSIT_APPLIED],
+        FastLanePrimaryOperationV1::Redeem { .. } => &[FASTLANE_EXIT_REDEEMED],
+        FastLanePrimaryOperationV1::AnchorCheckpoint { .. } => &[FASTLANE_CHECKPOINT_ANCHORED],
+        FastLanePrimaryOperationV1::Control { .. } => &[FASTLANE_CONTROL_APPLIED],
+        FastLanePrimaryOperationV1::FastPayRecoveryReveal { .. } => {
+            &[FASTPAY_RECOVERY_CERTIFICATE_REVEALED]
+        }
+        FastLanePrimaryOperationV1::FastPayRecoveryDecision { .. } => {
+            &[FASTPAY_RECOVERY_CONFIRMED, FASTPAY_RECOVERY_CANCELLED]
+        }
+    }
+}
+
 fn fastpay_recovery_context(
     ledger: &LedgerState,
     domain: &OwnedCertificateDomain,
@@ -98,9 +127,9 @@ pub fn execute_fastlane_primary_transaction(
                 &rule,
                 finalized_height,
             ) {
-                Ok(receipt) if receipt.accepted && receipt.code == "fastlane_deposit_applied" => {
+                Ok(receipt) if receipt.accepted && receipt.code == FASTLANE_DEPOSIT_APPLIED => {
                     Receipt::accepted(tx_id, "FastLane deposit applied")
-                        .with_code("fastlane_deposit_applied")
+                        .with_code(FASTLANE_DEPOSIT_APPLIED)
                         .with_fee_policy(signed.deposit.fee_pft, signed.deposit.fee_pft, 1, 0)
                 }
                 Ok(_) => Receipt::rejected(
@@ -118,7 +147,7 @@ pub fn execute_fastlane_primary_transaction(
         FastLanePrimaryOperationV1::OwnedDeposit { signed } => {
             match apply_owned_deposit(ledger, signed, finalized_height) {
                 Ok(_) => Receipt::accepted(tx_id, "signed account-to-FastPay deposit applied")
-                    .with_code("owned_deposit_applied")
+                    .with_code(OWNED_DEPOSIT_APPLIED)
                     .with_fee_policy(signed.deposit.fee_pft, signed.deposit.fee_pft, 1, 0),
                 Err(error) => Receipt::rejected(
                     tx_id,
@@ -147,9 +176,9 @@ pub fn execute_fastlane_primary_transaction(
             // claims remain redeemable normally; retired claims fail closed.
             let authorized = fastlane_redemption_committee_active(ledger, &committee);
             match execute_fastlane_redeem(ledger, signed, &committee, authorized) {
-                Ok(receipt) if receipt.accepted && receipt.code == "fastlane_exit_redeemed" => {
+                Ok(receipt) if receipt.accepted && receipt.code == FASTLANE_EXIT_REDEEMED => {
                     Receipt::accepted(tx_id, "FastLane exit redeemed")
-                        .with_code("fastlane_exit_redeemed")
+                        .with_code(FASTLANE_EXIT_REDEEMED)
                 }
                 Ok(_) => Receipt::rejected(
                     tx_id,
@@ -188,7 +217,7 @@ pub fn execute_fastlane_primary_transaction(
             match anchor_fastlane_checkpoint(ledger, certificate) {
                 Ok(_) => {
                     let receipt = Receipt::accepted(tx_id, "FastLane checkpoint anchored")
-                        .with_code("fastlane_checkpoint_anchored");
+                        .with_code(FASTLANE_CHECKPOINT_ANCHORED);
                     if native_fee_burn == 0 {
                         receipt
                     } else {
@@ -205,7 +234,7 @@ pub fn execute_fastlane_primary_transaction(
         FastLanePrimaryOperationV1::Control { certificate } => {
             match execute_fastlane_control(ledger, certificate, finalized_height) {
                 Ok(()) => Receipt::accepted(tx_id, "FastLane control applied")
-                    .with_code("fastlane_control_applied"),
+                    .with_code(FASTLANE_CONTROL_APPLIED),
                 Err(error) => Receipt::rejected(
                     tx_id,
                     "fastlane_control_rejected",
@@ -244,7 +273,7 @@ pub fn execute_fastlane_primary_transaction(
                 Ok(_) => {
                     *ledger = prospective;
                     Receipt::accepted(tx_id, "FastPay recovery certificate revealed")
-                        .with_code("fastpay_recovery_certificate_revealed")
+                        .with_code(FASTPAY_RECOVERY_CERTIFICATE_REVEALED)
                 }
                 Err(error) => Receipt::rejected(
                     tx_id,
@@ -286,11 +315,11 @@ pub fn execute_fastlane_primary_transaction(
                     match fence.decision {
                         postfiat_types::FastPayRecoveryDecisionV1::Confirmed { .. } => {
                             Receipt::accepted(tx_id, "FastPay recovery confirmed certified payment")
-                                .with_code("fastpay_recovery_confirmed")
+                                .with_code(FASTPAY_RECOVERY_CONFIRMED)
                         }
                         postfiat_types::FastPayRecoveryDecisionV1::Cancelled => {
                             Receipt::accepted(tx_id, "FastPay abandoned lock cancelled and fenced")
-                                .with_code("fastpay_recovery_cancelled")
+                                .with_code(FASTPAY_RECOVERY_CANCELLED)
                         }
                     }
                 }

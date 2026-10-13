@@ -306,7 +306,7 @@ use lifecycle_queries::{
 mod mempool_proposals;
 pub use mempool_proposals::{
     admit_fastlane_primary_to_mempool, create_mempool_batch, create_signed_asset_transaction_batch,
-    create_transfer_batch, mempool_state, propose_batch,
+    create_transfer_batch, fastlane_primary_receipt_is_success, mempool_state, propose_batch,
     propose_batch_with_required_parent_with_timings, propose_batch_with_timings,
     reconcile_terminal_mempool_entries, submit_signed_asset_transaction_json_to_mempool,
     submit_signed_escrow_transaction_json_to_mempool,

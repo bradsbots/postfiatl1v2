@@ -564,6 +564,14 @@ mod tests {
     fn anchor_drained_checkpoint(fx: &Fixture) {
         let store = NodeStore::new(&fx.root);
         let mut ledger = store.read_ledger().unwrap();
+        let certificate = drained_checkpoint_certificate(fx);
+        anchor_fastlane_checkpoint(&mut ledger, &certificate).unwrap();
+        store.write_ledger(&ledger).unwrap();
+    }
+
+    /// Five-vote certificate over the drained final epoch-1 checkpoint.
+    fn drained_checkpoint_certificate(fx: &Fixture) -> FastLaneCheckpointCertificateV1 {
+        let ledger = NodeStore::new(&fx.root).read_ledger().unwrap();
         let state = FastLaneStateV1::empty(fx.epoch1.domain.clone());
         let checkpoint = build_fastlane_checkpoint(&state, &ledger, None, 1).unwrap();
         assert!(checkpoint.drain_ready);
@@ -583,9 +591,85 @@ mod tests {
                 vote
             })
             .collect();
-        anchor_fastlane_checkpoint(&mut ledger, &FastLaneCheckpointCertificateV1 { votes })
-            .unwrap();
+        FastLaneCheckpointCertificateV1 { votes }
+    }
+
+    /// Executes `operation` as block execution does and asserts the RPC
+    /// finality handler reports its receipt as success.
+    fn execute_reported_success(
+        fx: &Fixture,
+        operation: postfiat_types::FastLanePrimaryOperationV1,
+        height: u64,
+        expected_code: &str,
+    ) {
+        let store = NodeStore::new(&fx.root);
+        let mut ledger = store.read_ledger().unwrap();
+        let transaction = postfiat_types::FastLanePrimaryTransactionV1 { operation };
+        let receipt = crate::execution_actions::execute_fastlane_primary_for_chain(
+            &store.read_genesis().unwrap(),
+            &mut ledger,
+            &transaction,
+            height,
+        );
+        assert!(receipt.accepted, "{receipt:?}");
+        assert_eq!(receipt.code, expected_code);
+        assert!(
+            crate::fastlane_primary_receipt_is_success(&transaction.operation, &receipt),
+            "finality submit must report {expected_code} as success"
+        );
         store.write_ledger(&ledger).unwrap();
+    }
+
+    #[test]
+    fn rpc_finality_reports_five_vote_anchor_then_activate_committee_as_success() {
+        let fx = fixture("rpc-finality-rotation");
+        let certificate = drained_checkpoint_certificate(&fx);
+        assert_eq!(certificate.votes.len(), 5);
+        execute_reported_success(
+            &fx,
+            postfiat_types::FastLanePrimaryOperationV1::AnchorCheckpoint { certificate },
+            1,
+            postfiat_execution::fastlane_primary::FASTLANE_CHECKPOINT_ANCHORED,
+        );
+        let (epoch2, root) = registry_root(&fx);
+        let control = prepare_activation(&fx, 2, &root).unwrap();
+        let votes = (0..5)
+            .map(|index| sign(&fx, &control, &format!("validator-{index}")).unwrap())
+            .collect::<Vec<_>>();
+        let certificate = assemble(&fx, &control, votes).unwrap();
+        execute_reported_success(
+            &fx,
+            postfiat_types::FastLanePrimaryOperationV1::Control { certificate },
+            1,
+            postfiat_execution::fastlane_primary::FASTLANE_CONTROL_APPLIED,
+        );
+        let ledger = NodeStore::new(&fx.root).read_ledger().unwrap();
+        assert_eq!(ledger.fastswap_committees.last(), Some(&epoch2));
+        // A rejected receipt is never reported as success.
+        let rejected = postfiat_types::Receipt::rejected("x", "fastlane_control_rejected", "no");
+        assert!(!crate::fastlane_primary_receipt_is_success(
+            &postfiat_types::FastLanePrimaryOperationV1::AnchorCheckpoint {
+                certificate: FastLaneCheckpointCertificateV1 { votes: Vec::new() },
+            },
+            &rejected
+        ));
+    }
+
+    #[test]
+    fn rpc_finality_reports_stop_prepare_as_success() {
+        let fx = fixture("rpc-finality-stop-prepare");
+        add_policy_and_tip(&fx, 7);
+        let control = prepare_stop(&fx, 1).unwrap();
+        let votes = (0..5)
+            .map(|index| sign(&fx, &control, &format!("validator-{index}")).unwrap())
+            .collect::<Vec<_>>();
+        let certificate = assemble(&fx, &control, votes).unwrap();
+        execute_reported_success(
+            &fx,
+            postfiat_types::FastLanePrimaryOperationV1::Control { certificate },
+            7,
+            postfiat_execution::fastlane_primary::FASTLANE_CONTROL_APPLIED,
+        );
     }
 
     fn prepare_activation(fx: &Fixture, epoch: u64, root_hex: &str) -> io::Result<PathBuf> {
