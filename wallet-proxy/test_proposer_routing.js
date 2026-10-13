@@ -600,6 +600,63 @@ function testRequestWithProxyReadinessAnnotatesFinalityOnly() {
   assert.strictEqual(requestWithProxyReadiness(readOnly, route), readOnly);
 }
 
+function testWalletFeedAndTcpCapEnvAreValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  const interval = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: 'abc' });
+  assert.notStrictEqual(interval.status, 0, 'a malformed feed interval must not start the proxy');
+  assert.ok(interval.stderr.includes('WALLET_SUBSCRIPTION_INTERVAL_MS must be an integer between 1 and 3600000'), interval.stderr);
+
+  const minInterval = run({ WALLET_SUBSCRIPTION_MIN_INTERVAL_MS: '0' });
+  assert.notStrictEqual(minInterval.status, 0, 'a zero feed interval floor must not start the proxy');
+  assert.ok(minInterval.stderr.includes('WALLET_SUBSCRIPTION_MIN_INTERVAL_MS must be an integer between 1 and 3600000'), minInterval.stderr);
+
+  const readTimeout = run({ WALLET_SUBSCRIPTION_READ_TIMEOUT_MS: '-1' });
+  assert.notStrictEqual(readTimeout.status, 0, 'a negative feed read timeout must not start the proxy');
+  assert.ok(readTimeout.stderr.includes('WALLET_SUBSCRIPTION_READ_TIMEOUT_MS must be an integer between 1 and 600000'), readTimeout.stderr);
+
+  const tcpCap = run({ MAX_TCP_PER_WS: 'abc' });
+  assert.notStrictEqual(tcpCap.status, 0, 'a malformed per-connection TCP cap must not start the proxy');
+  assert.ok(tcpCap.stderr.includes('MAX_TCP_PER_WS must be an integer between 1 and 4096'), tcpCap.stderr);
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused, not truncated.
+  for (const [name, value, bounds] of [
+    ['WALLET_SUBSCRIPTION_INTERVAL_MS', '1500junk', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_MIN_INTERVAL_MS', '1.5', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_READ_TIMEOUT_MS', '5e3', '1 and 600000'],
+    ['MAX_TCP_PER_WS', '32junk', '1 and 4096'],
+    ['WALLET_PROXY_MUTATION_CONCURRENCY', '16ms', '1 and 4096'],
+  ]) {
+    const partial = run({ [name]: value });
+    assert.notStrictEqual(partial.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(partial.stderr.includes(`${name} must be an integer between ${bounds}`), partial.stderr);
+  }
+
+  const padded = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: ' 2000 ' });
+  assert.strictEqual(padded.status, 0, padded.stderr);
+  assert.strictEqual(padded.stdout, 'loaded');
+
+  const valid = run({
+    WALLET_SUBSCRIPTION_INTERVAL_MS: '2000',
+    WALLET_SUBSCRIPTION_MIN_INTERVAL_MS: '1',
+    WALLET_SUBSCRIPTION_READ_TIMEOUT_MS: '600000',
+    MAX_TCP_PER_WS: '4096',
+  });
+  assert.strictEqual(valid.status, 0, valid.stderr);
+  assert.strictEqual(valid.stdout, 'loaded');
+
+  const unset = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: '', MAX_TCP_PER_WS: '' });
+  assert.strictEqual(unset.status, 0, unset.stderr);
+  assert.strictEqual(unset.stdout, 'loaded');
+}
+
 function testRpcTcpRequestReusesKeepAliveConnectionWhenEnabled() {
   const script = `
     const net = require('net');
@@ -864,6 +921,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
   })
   .then(() => {
     testSequencedReadCanUseFinalityResponderWhenEnabled();
+  })
+  .then(() => {
+    testWalletFeedAndTcpCapEnvAreValidatedAtStartup();
   })
   .then(() => {
     testFirstReadySequencedReadsDefaultOn();
