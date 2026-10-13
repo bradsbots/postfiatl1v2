@@ -169,3 +169,82 @@ fn help_describes_request_file_binding() {
         "help text: {text}"
     );
 }
+
+/// The atomic-swap branches must validate the payload against the same parsed
+/// request that bound the id and kind. The request file is a FIFO that yields
+/// its content to exactly one reader, so a second read would block forever.
+#[cfg(unix)]
+#[test]
+fn atomic_swap_kinds_read_the_request_file_once() {
+    use std::io::Write;
+    use std::time::{Duration, Instant};
+
+    for method in [
+        "atomic_swap_fee_quote",
+        "mempool_submit_signed_atomic_swap_transaction",
+        "mempool_submit_signed_atomic_swap_transaction_finality",
+    ] {
+        let fifo = temp_path(&format!("{method}-request.fifo"));
+        let response_path = temp_path(&format!("{method}-response.json"));
+        let _ = fs::remove_file(&fifo);
+        let made = Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .expect("run mkfifo");
+        assert!(made.success(), "mkfifo failed");
+        let response = success_response("swap-1", &json!({}), vec![]).expect("build response");
+        write_response_file(&response_path, &response).expect("write response");
+
+        let request = format!(
+            "{{\"version\": \"postfiat-local-rpc-v1\", \"id\": \"swap-1\", \"method\": \"{method}\", \"params\": {{}}}}"
+        );
+        let writer_path = fifo.clone();
+        let writer = std::thread::spawn(move || {
+            let mut pipe = fs::OpenOptions::new()
+                .write(true)
+                .open(&writer_path)
+                .expect("open fifo for writing");
+            pipe.write_all(request.as_bytes()).expect("write request");
+        });
+
+        let mut child = bin()
+            .args([
+                "validate-response",
+                "--input",
+                &response_path.to_string_lossy(),
+                "--request-file",
+                &fifo.to_string_lossy(),
+            ])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("spawn postfiat-rpc-sdk");
+        let started = Instant::now();
+        let finished = loop {
+            if child.try_wait().expect("poll child").is_some() {
+                break true;
+            }
+            if started.elapsed() > Duration::from_secs(20) {
+                child.kill().expect("kill blocked child");
+                break false;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        };
+        let output = child.wait_with_output().expect("collect child output");
+        writer.join().expect("fifo writer");
+        let _ = fs::remove_file(&fifo);
+        let _ = fs::remove_file(&response_path);
+
+        assert!(
+            finished,
+            "{method}: validate-response read --request-file twice"
+        );
+        // The empty result is rejected by the payload check, which proves the
+        // branch ran against the single parsed request.
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("response validation failed at"),
+            "{method}: {stderr}"
+        );
+    }
+}

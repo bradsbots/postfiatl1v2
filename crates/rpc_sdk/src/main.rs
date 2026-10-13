@@ -1101,13 +1101,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
         .map_err(|error| format!("response validation failed at {input}: {error}"))?;
     if let Some(expected_kind) = expected_kind {
         if expected_kind == RpcResponseKind::AtomicSwapFeeQuote {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap quote response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap quote request read failed at {request_file}: {error}")
-            })?;
-            let quote = decode_atomic_swap_fee_quote_summary(&response, &request)
+            let quote = decode_atomic_swap_fee_quote_summary(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
@@ -1116,13 +1113,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
                 quote.unsigned_transaction.protocol_version,
             )?;
         } else if expected_kind == RpcResponseKind::MempoolSubmitSignedAtomicSwapTransaction {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap submit response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap submit request read failed at {request_file}: {error}")
-            })?;
-            let entry = decode_atomic_swap_mempool_submit_entry(&response, &request)
+            let entry = decode_atomic_swap_mempool_submit_entry(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
@@ -1132,13 +1126,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
             )?;
         } else if expected_kind == RpcResponseKind::MempoolSubmitSignedAtomicSwapTransactionFinality
         {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap finality response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap finality request read failed at {request_file}: {error}")
-            })?;
-            let finality = decode_atomic_swap_finality_summary(&response, &request)
+            let finality = decode_atomic_swap_finality_summary(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
