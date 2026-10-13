@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
+import os
 import shutil
 import subprocess
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -724,6 +728,169 @@ class CobaltCliTests(unittest.TestCase):
         self.assertEqual(kwargs["timeout"], 9)
         self.assertNotIn("shell", kwargs)
         self.assertFalse(kwargs["check"])
+
+
+class CobaltHistoryVerifyRangeTests(unittest.TestCase):
+    """`history-verify --range` reads one bounded regular file holding a JSON object."""
+
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+
+    def write(self, name: str, payload: bytes) -> Path:
+        path = self.root / name
+        path.write_bytes(payload)
+        return path
+
+    def verify(self, path: Path, **request: object) -> tuple[int, mock.Mock, str]:
+        stderr = io.StringIO()
+        request.setdefault("return_value", {"verified": True})
+        with mock.patch.object(cobalt, "runtime_request", **request) as runtime_request:
+            with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(io.StringIO()):
+                code = cobalt.main(
+                    ["history-verify", "--endpoint", "127.0.0.1:9700", "--timeout", "7",
+                     "--range", str(path)]
+                )
+        return code, runtime_request, stderr.getvalue()
+
+    def assert_refused(self, path: Path, reason: str) -> None:
+        code, runtime_request, stderr = self.verify(path)
+        self.assertEqual(code, 2, stderr)
+        runtime_request.assert_not_called()
+        self.assertTrue(stderr.startswith("cobalt governance check failed: "), stderr)
+        self.assertIn(reason, stderr)
+
+    def test_accepts_regular_json_object_up_to_the_read_limit(self) -> None:
+        small = self.write("range.json", b'{"range_hash": "ab", "entries": [{"sequence": 1}]}')
+        code, runtime_request, _ = self.verify(small)
+        self.assertEqual(code, 0)
+        runtime_request.assert_called_once_with(
+            "127.0.0.1:9700",
+            "verify_history_range",
+            timeout_seconds=7.0,
+            fields={"range": {"range_hash": "ab", "entries": [{"sequence": 1}]}},
+        )
+
+        limit = cobalt.MAX_REPORT_BYTES
+        exact = self.write("exact.json", b'{"p":"' + b"x" * (limit - 8) + b'"}')
+        self.assertEqual(exact.stat().st_size, limit)
+        code, runtime_request, _ = self.verify(exact)
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            runtime_request.call_args.kwargs["fields"]["range"]["p"], "x" * (limit - 8)
+        )
+
+    def test_refuses_symlinks_missing_paths_and_directories(self) -> None:
+        target = self.write("range.json", b"{}")
+        for name, destination in (
+            ("file-link.json", target),
+            ("dir-link.json", self.root),
+            ("dangling-link.json", self.root / "absent.json"),
+        ):
+            link = self.root / name
+            link.symlink_to(destination)
+            with self.subTest(link=name):
+                self.assert_refused(link, "must not be a symlink")
+        with self.subTest(case="missing"):
+            self.assert_refused(self.root / "absent.json", "cannot open packet file")
+        with self.subTest(case="directory"):
+            self.assert_refused(self.root, "missing or not regular")
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "requires os.mkfifo")
+    def test_refuses_fifo_without_reading_from_it(self) -> None:
+        fifo = self.root / "range.fifo"
+        os.mkfifo(fifo)
+
+        def feed() -> None:
+            try:
+                descriptor = os.open(fifo, os.O_WRONLY)
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(b"{}")
+            except OSError:
+                pass
+
+        writer = threading.Thread(target=feed, daemon=True)
+        writer.start()
+        try:
+            self.assert_refused(fifo, "missing or not regular")
+        finally:
+            if writer.is_alive():
+                release = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+                writer.join(timeout=5)
+                os.close(release)
+            writer.join(timeout=5)
+
+    def test_refuses_character_devices(self) -> None:
+        for device in ("/dev/zero", "/dev/null"):
+            with self.subTest(device=device):
+                if not os.path.exists(device):
+                    self.skipTest(f"{device} is not available")
+                self.assert_refused(Path(device), "missing or not regular")
+
+    def test_refuses_file_over_the_read_limit_or_growing_past_it(self) -> None:
+        limit = cobalt.MAX_REPORT_BYTES
+        over = self.write("over.json", b'{"p":"' + b"x" * (limit - 7) + b'"}')
+        self.assertEqual(over.stat().st_size, limit + 1)
+        self.assert_refused(over, f"exceeds the {limit}-byte read limit")
+
+        growing = self.write("growing.json", b'{"p":"' + b"x" * (limit - 40) + b'"}')
+        real_fstat = os.fstat
+
+        def fstat_then_grow(descriptor: int) -> os.stat_result:
+            metadata = real_fstat(descriptor)
+            with growing.open("ab") as handle:
+                handle.write(b" " * 64)
+            return metadata
+
+        with mock.patch.object(cobalt.os, "fstat", side_effect=fstat_then_grow):
+            self.assert_refused(growing, f"grew beyond the {limit}-byte read limit")
+
+    def test_refuses_invalid_utf8_and_invalid_json(self) -> None:
+        for name, payload in (
+            ("invalid-utf8", b'{"a": "\xff\xfe"}'),
+            ("utf16", '{"a": 1}'.encode("utf-16")),
+            ("utf8-bom", b'\xef\xbb\xbf{"a": 1}'),
+            ("not-json", b"not json"),
+            ("empty", b""),
+            ("leading-zero", b"007"),
+            ("truncated", b'{"a": '),
+        ):
+            with self.subTest(case=name):
+                self.assert_refused(self.write(f"{name}.json", payload), "is not valid JSON")
+
+    def test_refuses_json_that_is_not_an_object(self) -> None:
+        for name, payload in (
+            ("list", b"[1, 2]"),
+            ("string", b'"range"'),
+            ("number", b"9" * 400),
+            ("float", b"1.5"),
+            ("bool", b"true"),
+            ("null", b"null"),
+        ):
+            with self.subTest(case=name):
+                self.assert_refused(
+                    self.write(f"{name}.json", payload), "must be a JSON object"
+                )
+
+    def test_refuses_nesting_the_request_encoder_cannot_handle(self) -> None:
+        def encode_like_runtime_request(endpoint, operation, *, timeout_seconds, fields):
+            json.dumps({"operation": operation, **fields}, separators=(",", ":"))
+            return {"verified": True}
+
+        for depth in [*range(9_980, 10_010), 100_000, 590_000]:
+            path = self.write("deep.json", b'{"a":' * depth + b"1" + b"}" * depth)
+            with self.subTest(depth=depth):
+                code, runtime_request, stderr = self.verify(
+                    path, side_effect=encode_like_runtime_request
+                )
+                if code == 0:
+                    runtime_request.assert_called_once()
+                else:
+                    self.assertEqual(code, 2, stderr)
+                    runtime_request.assert_not_called()
+                    self.assertIn("nests too deeply", stderr)
+        self.assertEqual(code, 2)
 
 
 if __name__ == "__main__":
