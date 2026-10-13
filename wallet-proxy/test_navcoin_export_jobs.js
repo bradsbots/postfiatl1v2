@@ -138,6 +138,64 @@ function harness(root) {
             error => error.code === 'navcoin_export_job_binding_conflict',
         );
 
+        // amount_atoms must be a canonical unsigned decimal before BigInt(): the raw string is bound
+        // into job.json and the request fingerprint, and the worker driver refuses anything else.
+        const amountRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pft-navcoin-export-amount-'));
+        const amountJobs = create({}, {
+            ...harness(amountRoot).options,
+            config: { ...config, max_amount_atoms: '18446744073709551615' },
+        });
+        try {
+            let packetCounter = 0;
+            const nextPacket = () => (0xa000 + (++packetCounter)).toString(16).padStart(96, '0');
+            for (const [amount, stored] of [
+                ['1000000', '1000000'], ['1', '1'], ['18446744073709551615', '18446744073709551615'],
+                [1000000, '1000000'], [' 1000000 ', '1000000'],
+            ]) {
+                const job = await amountJobs.submitNavcoinExportRelayJob(request(nextPacket(), amount));
+                assert.strictEqual(job.request.amount_atoms, stored, `amount ${JSON.stringify(amount)} must be accepted`);
+            }
+            for (const amount of [
+                '01000000', '0xf4240', '0o3641100', '0b11110100001001000000', '1e6', '-1', '0', '+1', '1.0',
+                '18446744073709551616', '', 'abc', '9'.repeat(400),
+            ]) {
+                const packet = nextPacket();
+                await assert.rejects(amountJobs.submitNavcoinExportRelayJob(request(packet, amount)),
+                    error => error.code === 'invalid_navcoin_export_relay_request',
+                    `amount ${JSON.stringify(amount.slice(0, 24))} must be refused`);
+                assert.strictEqual(amountJobs.navcoinExportRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, packet)), null,
+                    `refused amount ${JSON.stringify(amount.slice(0, 24))} must not leave a job`);
+            }
+            // JSON.parse rounds numbers above 2^53-1 (9007199254740993 -> 9007199254740992): refuse them.
+            for (const raw of ['9007199254740993', '9007199254740992', '18446744073709551615']) {
+                const packet = nextPacket();
+                await assert.rejects(amountJobs.submitNavcoinExportRelayJob(request(packet, JSON.parse(raw))),
+                    error => error.code === 'invalid_navcoin_export_relay_request',
+                    `JSON number amount ${raw} must be refused`);
+                assert.strictEqual(amountJobs.navcoinExportRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, packet)), null);
+            }
+            const safe = await amountJobs.submitNavcoinExportRelayJob(request(nextPacket(), JSON.parse('9007199254740991')));
+            assert.strictEqual(safe.request.amount_atoms, '9007199254740991');
+            const exact = await amountJobs.submitNavcoinExportRelayJob(request(nextPacket(), '9007199254740993'));
+            assert.strictEqual(exact.request.amount_atoms, '9007199254740993');
+            // A refused non-canonical amount must not bind the packet: the canonical request still
+            // queues instead of hitting navcoin_export_job_binding_conflict, and replays idempotently.
+            const boundPacket = nextPacket();
+            await assert.rejects(amountJobs.submitNavcoinExportRelayJob(request(boundPacket, '0xf4240')),
+                error => error.code === 'invalid_navcoin_export_relay_request',
+                'canonical-after-reject: "0xf4240" must be refused');
+            const canonical = await amountJobs.submitNavcoinExportRelayJob(request(boundPacket, '1000000'));
+            assert.strictEqual(canonical.job_id, canonicalJobId(ROUTE_ID, boundPacket));
+            assert.strictEqual(canonical.idempotent_replay, false);
+            assert.strictEqual(canonical.request.amount_atoms, '1000000');
+            const replay = await amountJobs.submitNavcoinExportRelayJob(request(boundPacket, '1000000'));
+            assert.strictEqual(replay.job_id, canonical.job_id);
+            assert.strictEqual(replay.idempotent_replay, true);
+        } finally {
+            amountJobs.closeNavcoinExportRelayJobs();
+            fs.rmSync(amountRoot, { recursive: true, force: true });
+        }
+
         const secondPacket = '55'.repeat(48);
         const second = await subject.submitNavcoinExportRelayJob(request(secondPacket));
         assert.strictEqual(second.source_height, null);
