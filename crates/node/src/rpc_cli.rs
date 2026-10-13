@@ -369,6 +369,28 @@ fn rpc_finality_required_u64_param(
     ))
 }
 
+/// Reads an optional string requirement of the proxy parent-wait contract
+/// strictly: a key that is present must carry a JSON string. JSON null means
+/// "no requirement", because the wallet proxy sends
+/// `proxy_required_state_root: route.required_state_root` where the route
+/// value is `status.state_root || null` (wallet-proxy/rpc-routing.js). Any
+/// other non-string type is rejected. Previously such a key was silently
+/// treated as absent, so a wrong-typed root or parent-hash requirement waived
+/// the parent binding and the proposer could build on whichever root it held.
+fn rpc_finality_required_str_param(
+    params: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<String>, (String, String)> {
+    match params.get(key) {
+        None | Some(serde_json::Value::Null) => Ok(None),
+        Some(serde_json::Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err((
+            "rpc_protocol_error".to_string(),
+            format!("{key} must be a string"),
+        )),
+    }
+}
+
 fn wait_for_rpc_finality_required_parent(
     context: &RpcServeConnectionContext,
     params: &serde_json::Map<String, serde_json::Value>,
@@ -379,14 +401,10 @@ fn wait_for_rpc_finality_required_parent(
     )? else {
         return Ok(0.0);
     };
-    let required_state_root = params
-        .get("proxy_required_state_root")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string);
-    let required_parent_hash = params
-        .get("proxy_required_parent_hash")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string);
+    let required_state_root =
+        rpc_finality_required_str_param(params, "proxy_required_state_root")?;
+    let required_parent_hash =
+        rpc_finality_required_str_param(params, "proxy_required_parent_hash")?;
     let timeout_ms = rpc_finality_required_u64_param(params, "proxy_readiness_timeout_ms")?
         .unwrap_or(context.finality_timeout_ms)
         .min(context.finality_timeout_ms.max(1));
@@ -3909,6 +3927,140 @@ fn rpc_serve_method_allowed_with_owned_lane(
                     | "owned_unwrap_sign_v3"
                     | "owned_unwrap_apply_v3"
             ))
+}
+
+#[cfg(test)]
+mod proxy_parent_wait_param_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// An absent key and an explicit JSON null both mean "no requirement":
+    /// the wallet proxy sends `route.required_state_root`, which is
+    /// `status.state_root || null`, on the timeout-vote path.
+    #[test]
+    fn absent_and_null_mean_no_requirement() {
+        let absent = params_of(json!({}));
+        let null = params_of(json!({
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": null,
+        }));
+        assert_eq!(
+            rpc_finality_required_str_param(&absent, "proxy_required_state_root")
+                .expect("absent root"),
+            None
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&null, "proxy_required_state_root")
+                .expect("null root"),
+            None
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&null, "proxy_required_parent_hash")
+                .expect("null hash"),
+            None
+        );
+    }
+
+    #[test]
+    fn strings_are_kept() {
+        let params = params_of(json!({
+            "proxy_required_state_root": "22".repeat(48),
+            "proxy_required_parent_hash": "11".repeat(48),
+        }));
+        assert_eq!(
+            rpc_finality_required_str_param(&params, "proxy_required_state_root")
+                .expect("string root"),
+            Some("22".repeat(48))
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&params, "proxy_required_parent_hash")
+                .expect("string hash"),
+            Some("11".repeat(48))
+        );
+    }
+
+    #[test]
+    fn wrong_typed_values_are_rejected() {
+        for (key, value) in [
+            ("proxy_required_state_root", json!(7)),
+            ("proxy_required_state_root", json!(["aa"])),
+            ("proxy_required_parent_hash", json!({ "hash": "bb" })),
+            ("proxy_required_parent_hash", json!(true)),
+        ] {
+            let params = params_of(json!({ key: value }));
+            let (code, message) = rpc_finality_required_str_param(&params, key)
+                .expect_err("wrong-typed requirement is an error");
+            assert_eq!(code, "rpc_protocol_error");
+            assert_eq!(message, format!("{key} must be a string"));
+        }
+    }
+}
+
+#[cfg(test)]
+mod proxy_parent_wait_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// Arm-level check through `wait_for_rpc_finality_required_parent` with a
+    /// data directory that holds no ledger. A wrong-typed root or parent-hash
+    /// requirement must be rejected as a protocol error before the readiness
+    /// loop reads local status; the null/well-typed control reaches the loop
+    /// and fails there on the missing ledger. On the previous code the
+    /// wrong-typed requests behaved exactly like the control (the requirement
+    /// was silently dropped).
+    #[test]
+    fn wrong_typed_requirement_is_rejected_before_the_readiness_loop() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-proxy-parent-wait-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        context.finality_timeout_ms = 1;
+
+        let wrong_root = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": 7,
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &wrong_root)
+            .expect_err("wrong-typed root requirement is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "proxy_required_state_root must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let wrong_hash = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": "aa",
+            "proxy_required_parent_hash": ["bb"],
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &wrong_hash)
+            .expect_err("wrong-typed parent-hash requirement is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "proxy_required_parent_hash must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let control = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": "bb",
+        }));
+        let (code, _) = wait_for_rpc_finality_required_parent(&context, &control)
+            .expect_err("control reaches the readiness loop and fails on the missing ledger");
+        assert_eq!(code, "rpc_finality_parent_wait_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
+    }
 }
 
 #[cfg(test)]
