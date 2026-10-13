@@ -145,13 +145,18 @@ function normalizeRequest(body, config) {
         amount_atoms: String(body?.amount_atoms || '').trim(),
         return_nonce: String(body?.return_nonce || '').trim().toLowerCase().replace(/^0x/, ''),
     };
-    let amount = 0n;
-    try { amount = BigInt(request.amount_atoms); } catch (_) { /* rejected below */ }
+    // Canonical unsigned decimal only (the worker driver re-checks /^[1-9][0-9]*$/): BigInt()
+    // would also take 0x/0o/0b, leading zeros and a sign, and the raw string is bound into job.json.
+    // A JSON number above 2^53-1 was already rounded by JSON.parse, so larger amounts must be strings.
+    const amountSyntaxValid = (typeof body?.amount_atoms !== 'number' || Number.isSafeInteger(body.amount_atoms))
+        && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
+    const amount = amountSyntaxValid ? BigInt(request.amount_atoms) : 0n;
     if (request.route_id !== config.route_id
         || request.route_config_digest !== config.route_config_digest
         || !/^0x[0-9a-f]{64}$/.test(request.transaction_hash)
         || !EVM_RE.test(request.ethereum_sender) || !PFTL_RE.test(request.pftl_recipient)
-        || request.native_nav_asset_id !== config.native_nav_asset_id || amount <= 0n
+        || request.native_nav_asset_id !== config.native_nav_asset_id
+        || !amountSyntaxValid || amount <= 0n
         || amount > config.max_amount_atoms || !HASH32_RE.test(request.return_nonce)
         || /^0+$/.test(request.return_nonce)) {
         throw Object.assign(new Error('invalid NAVCoin return relay request'), {

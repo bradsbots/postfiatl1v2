@@ -3,6 +3,13 @@
 - **Operator:** Domagoj Ravlić (`dravlic`)
 - **Date:** 2026-10-01 UTC
 - **Asks:** one letter from the other lane, A, B or C (see the end).
+- **Done, FastPay half, 2026-10-12:** option A ran after the objection window closed
+  with no objection. The FastPay epoch-2 committee (six members with validator-5's
+  current key, quorum 5, from height 10001) was installed at height 1123. The bridge
+  half stopped after the epoch-1 `StopPrepare` (height 1122): the RPC refused the
+  final checkpoint anchor, which exceeds its 64 KiB limit, so the bridge committee
+  is still epoch 1 and the issuer's update is not yet due
+  ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
 
 ## The situation in five lines
 

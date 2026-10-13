@@ -3752,3 +3752,211 @@
             },
         );
     }
+
+    const HEX96: &str =
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn block_log_report() -> serde_json::Value {
+        json!({"verified": true, "block_count": 7, "tip_hash": HEX96, "state_root": HEX96})
+    }
+
+    fn bridge_report() -> serde_json::Value {
+        json!({
+            "verified": true,
+            "domain_count": 1,
+            "transfer_count": 1,
+            "attestation_count": 1,
+            "replay_cache_count": 1,
+            "inbound_used": 10,
+            "outbound_used": 5,
+            "latest_transfer_id": HEX96
+        })
+    }
+
+    fn mempool_report() -> serde_json::Value {
+        json!({
+            "verified": true,
+            "pending_count": 1,
+            "sender_count": 2,
+            "total_amount": 5,
+            "total_fee": 1,
+            "latest_tx_id": HEX96
+        })
+    }
+
+    fn shielded_report() -> serde_json::Value {
+        json!({
+            "verified": true,
+            "note_count": 2,
+            "nullifier_count": 1,
+            "turnstile_event_count": 1,
+            "tree_root": HEX96,
+            "bootstrap_deposit_total": 100,
+            "migration_total": 50,
+            "orchard_deposit_total": 0,
+            "spent_note_count": 1,
+            "live_note_count": 1,
+            "latest_turnstile_event_id": HEX96
+        })
+    }
+
+    #[test]
+    fn standalone_verification_reports_validate_like_their_verify_state_sections() {
+        for (kind, report) in [
+            (RpcResponseKind::VerifyBlocks, block_log_report()),
+            (RpcResponseKind::VerifyBridge, bridge_report()),
+            (RpcResponseKind::VerifyMempool, mempool_report()),
+            (RpcResponseKind::VerifyShielded, shielded_report()),
+        ] {
+            let response = success_response("verify-1", &report, vec![]).expect("report response");
+            validate_health_response(&response, kind).expect("standalone report validates");
+        }
+    }
+
+    #[test]
+    fn standalone_verification_reports_reject_the_same_invariants_as_verify_state() {
+        let mut blocks = block_log_report();
+        blocks["tip_hash"] = json!("not-hex");
+        let mut bridge = bridge_report();
+        bridge["attestation_count"] = json!(2);
+        let mut mempool = mempool_report();
+        mempool["sender_count"] = json!(3);
+        let mut shielded = shielded_report();
+        shielded["live_note_count"] = json!(5);
+        let mut unverified = block_log_report();
+        unverified["verified"] = json!(false);
+
+        for (kind, report, field) in [
+            (RpcResponseKind::VerifyBlocks, blocks, "tip_hash"),
+            (RpcResponseKind::VerifyBridge, bridge, "attestation_count"),
+            (RpcResponseKind::VerifyMempool, mempool, "sender_count"),
+            (RpcResponseKind::VerifyShielded, shielded, "live_note_count"),
+            (RpcResponseKind::VerifyBlocks, unverified, "verified"),
+        ] {
+            let response = success_response("verify-1", &report, vec![]).expect("report response");
+            let error = validate_health_response(&response, kind)
+                .expect_err("invariant violation is rejected");
+            assert!(
+                error.to_string().contains(field),
+                "{kind:?}: expected the error to name `{field}`, got {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn standalone_verification_reports_do_not_require_the_state_schema_or_siblings() {
+        // A standalone report carries no `schema`, `chain_id` or sibling sections;
+        // the state validator must still require them.
+        let response = success_response("verify-1", &block_log_report(), vec![]).expect("report response");
+        validate_health_response(&response, RpcResponseKind::VerifyBlocks).expect("standalone");
+        validate_health_response(&response, RpcResponseKind::VerifyState)
+            .expect_err("a bare block_log report is not a state verification report");
+    }
+
+
+    const INDEX_HEX96: &str =
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    fn usable_index_status() -> serde_json::Value {
+        json!({
+            "schema": ACCOUNT_TX_INDEX_STATUS_SCHEMA,
+            "chain_id": "postfiat-local",
+            "genesis_hash": INDEX_HEX96,
+            "protocol_version": 1,
+            "index_path": "account_tx_index.json",
+            "disk_index_path": "account_tx_index.db",
+            "index_present": true,
+            "index_usable": true,
+            "reason": null,
+            "disk_index_present": true,
+            "disk_index_usable": true,
+            "disk_index_reason": null,
+            "indexed_from_height": 1,
+            "indexed_to_height": 7,
+            "indexed_block_count": 7,
+            "indexed_row_count": 12,
+            "account_count": 3,
+            "disk_account_shard_count": 2,
+            "tip_hash": INDEX_HEX96,
+            "current_tip_hash": INDEX_HEX96
+        })
+    }
+
+    fn absent_index_status() -> serde_json::Value {
+        json!({
+            "schema": ACCOUNT_TX_INDEX_STATUS_SCHEMA,
+            "chain_id": "postfiat-local",
+            "genesis_hash": INDEX_HEX96,
+            "protocol_version": 1,
+            "index_path": "account_tx_index.json",
+            "disk_index_path": "",
+            "index_present": false,
+            "index_usable": false,
+            "reason": "account_tx index file is absent",
+            "disk_index_present": false,
+            "disk_index_usable": false,
+            "disk_index_reason": "account_tx disk index file is absent",
+            "indexed_from_height": null,
+            "indexed_to_height": null,
+            "indexed_block_count": 0,
+            "indexed_row_count": 0,
+            "account_count": 0,
+            "disk_account_shard_count": 0,
+            "tip_hash": "",
+            "current_tip_hash": "genesis"
+        })
+    }
+
+    #[test]
+    fn account_tx_index_status_accepts_usable_and_absent_index_reports() {
+        for report in [usable_index_status(), absent_index_status()] {
+            let response =
+                success_response("index-status-1", &report, vec![]).expect("report response");
+            validate_health_response(&response, RpcResponseKind::AccountTxIndexStatus)
+                .expect("index status validates");
+        }
+    }
+
+    #[test]
+    fn account_tx_index_status_rejects_leaked_paths_and_inconsistent_reports() {
+        let mut leaked = usable_index_status();
+        leaked["index_path"] = json!("/var/lib/postfiat/account_tx_index.json");
+        let mut leaked_disk = usable_index_status();
+        leaked_disk["disk_index_path"] = json!("C:\\postfiat\\account_tx_index.db");
+        let mut usable_with_reason = usable_index_status();
+        usable_with_reason["reason"] = json!("stale");
+        let mut unusable_without_reason = absent_index_status();
+        unusable_without_reason["reason"] = json!(null);
+        let mut inverted_heights = usable_index_status();
+        inverted_heights["indexed_from_height"] = json!(9);
+        let mut partial_heights = usable_index_status();
+        partial_heights["indexed_to_height"] = json!(null);
+        let mut absent_with_tip = absent_index_status();
+        absent_with_tip["tip_hash"] = json!(INDEX_HEX96);
+        let mut absent_with_counts = absent_index_status();
+        absent_with_counts["indexed_row_count"] = json!(4);
+        let mut bad_current_tip = usable_index_status();
+        bad_current_tip["current_tip_hash"] = json!("");
+
+        for (report, field) in [
+            (leaked, "index_path"),
+            (leaked_disk, "disk_index_path"),
+            (usable_with_reason, "reason"),
+            (unusable_without_reason, "reason"),
+            (inverted_heights, "indexed_to_height"),
+            (partial_heights, "indexed_to_height"),
+            (absent_with_tip, "tip_hash"),
+            (absent_with_counts, "indexed_block_count"),
+            (bad_current_tip, "current_tip_hash"),
+        ] {
+            let response =
+                success_response("index-status-1", &report, vec![]).expect("report response");
+            let error = validate_health_response(&response, RpcResponseKind::AccountTxIndexStatus)
+                .expect_err("inconsistent report is rejected");
+            assert!(
+                error.to_string().contains(field),
+                "expected the error to name `{field}`, got {error}"
+            );
+        }
+    }
+
