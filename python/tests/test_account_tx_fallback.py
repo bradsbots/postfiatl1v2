@@ -110,10 +110,6 @@ class AccountTxFallbackScanTests(unittest.TestCase):
         self.assertFalse(scan.truncated)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 OTHER = "pf-other"
 ISSUER = "pf-issuer"
 ASSET_ID = "a" * 96
@@ -283,3 +279,7 @@ class AccountTxFallbackSwapRowTests(unittest.TestCase):
             self._rows(payload, receipt_count=2),
             [(0, "tx-0", "transparent_transfer", None), (1, "tx-1", "escrow", None)],
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
