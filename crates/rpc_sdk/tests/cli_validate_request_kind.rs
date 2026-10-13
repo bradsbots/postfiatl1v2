@@ -117,17 +117,11 @@ fn validate_request_reports_unchecked_params_for_an_unmapped_method() {
     let file = request_file("unmapped", &envelope("x-1", "no_such_method", "{}"));
     let path = file.to_string_lossy().into_owned();
     let output = run(&["validate-request", "--input", &path]);
-    let stdout = text(&output.stdout);
-    let stderr = text(&output.stderr);
-    if output.status.success() {
-        assert!(stdout.contains("params=unchecked"), "{stdout}");
-    } else {
-        // The protocol envelope itself may refuse an unknown method; either
-        // outcome keeps the gap visible rather than silently passing params.
-        assert!(
-            stderr.contains("no_such_method") || stderr.contains("method"),
-            "{stderr}"
-        );
-    }
+    // The envelope accepts an unmapped method; only the params check is skipped.
+    assert!(output.status.success(), "{}", text(&output.stderr));
+    assert_eq!(
+        text(&output.stdout).trim(),
+        "rpc_request=ok id=x-1 method=no_such_method params=unchecked"
+    );
     let _ = fs::remove_file(&file);
 }
