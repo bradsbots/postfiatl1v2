@@ -24,11 +24,13 @@ from postfiat_rpc.tasknode_unl_v2_policy import (
     NO_PROPOSAL,
     PROPOSAL,
     PROPOSE_ADD,
+    REPORT_ROOT_DOMAIN,
     SATURATED,
     AdmissionCandidate,
     PriorBreach,
     RegistryRoundState,
     RegistrySeat,
+    _domain_hash,
     advance_shadow_round,
     admission_policy_document,
     connectivity_floor,
@@ -461,6 +463,35 @@ class TestBreachContinuityAndChurn(unittest.TestCase):
         self.assertNotIn(
             "candidate-control", {seat.account_id for seat in state.seats}
         )
+
+    def test_shadow_round_rejects_a_swapped_candidate_with_a_recomputed_root(
+        self,
+    ) -> None:
+        # The report root is recomputable by the caller, so a swap that also
+        # re-hashes the report must still be caught by re-deriving the decision.
+        frozen, state = _scenario()
+        clear = evaluate_admission_round(
+            frozen, state, _candidate("candidate-clear")
+        )
+        control = evaluate_admission_round(
+            frozen, state, _candidate("candidate-control")
+        )
+        swapped = replace(
+            clear,
+            decision=replace(clear.decision, candidate=control.decision.candidate),
+        )
+        rehashed = replace(
+            swapped,
+            report_root=_domain_hash(REPORT_ROOT_DOMAIN, swapped._payload()),
+        )
+        with self.assertRaises(TaskNodeUnlError) as caught:
+            advance_shadow_round(
+                frozen,
+                state,
+                rehashed,
+                new_registry_root=_digest("registry-round-101"),
+            )
+        self.assertEqual(caught.exception.code, "shadow_report_decision_mismatch")
 
     def test_shadow_round_rejects_a_tampered_report_root(self) -> None:
         frozen, state = _scenario()

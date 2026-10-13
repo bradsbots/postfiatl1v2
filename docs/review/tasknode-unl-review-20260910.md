@@ -77,8 +77,10 @@ live authority and the campaign rule leaves P3 findings recorded rather than
 fixed. **Repaired 2026-10-09 in `64e15108`:** `advance_shadow_round` now recomputes
 the report root over the report payload, requires the report's
 `frozen_window_root` to be this window's and its recorded registry state to
-equal the state being advanced, each with a stable reason code, before
-applying the addition; the swapped-candidate scenario above is a regression.
+equal the state being advanced, and re-derives the decision from the window,
+the state and the report's candidate (`shadow_report_decision_mismatch`, so a
+re-hashed swap also fails), each with a stable reason code, before applying the
+addition; the swapped-candidate scenario above is a regression.
 
 ## Areas reviewed without P1/P2 findings
 

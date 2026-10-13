@@ -1498,9 +1498,9 @@ def advance_shadow_round(
     for this frozen window and this registry state (UNL-04): its root is
     recomputed over its payload, its ``frozen_window_root`` must be this
     window's, and its recorded registry state must equal the state being
-    advanced. A report whose decision candidate was swapped in memory
-    after evaluation therefore cannot seat a candidate the real decision
-    held.
+    advanced. Because a caller can recompute that root, the decision is
+    also re-derived from the frozen window, the state and the report's
+    candidate, so a swapped candidate cannot seat one the real decision held.
     """
 
     if frozen.status != FROZEN or report.decision.action != PROPOSE_ADD:
@@ -1518,6 +1518,13 @@ def advance_shadow_round(
         raise TaskNodeUnlError(
             "shadow_report_registry_mismatch", "report.registry_state"
         )
+    # The root is an unkeyed hash a caller can recompute after editing the
+    # report, so re-derive the decision from the trusted inputs.
+    if (
+        evaluate_admission_round(frozen, state, report.decision.candidate).report_root
+        != report.report_root
+    ):
+        raise TaskNodeUnlError("shadow_report_decision_mismatch", "report.decision")
     root = require_lower_hex(new_registry_root, "new_registry_root")
     candidate = report.decision.candidate
     seats = _validated_seats(
