@@ -119,6 +119,19 @@ function request(amount = '5000000') {
             assert.strictEqual(amountJobs.navcoinReturnRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, tx)), null,
                 `refused amount ${JSON.stringify(amount.slice(0, 24))} must not leave a job`);
         }
+        // JSON.parse rounds numbers above 2^53-1 (9007199254740993 -> 9007199254740992): refuse them.
+        for (const raw of ['9007199254740993', '9007199254740992', '18446744073709551615']) {
+            const amount = JSON.parse(raw);
+            const tx = nextTx();
+            await assert.rejects(amountJobs.submitNavcoinReturnRelayJob(withAmount(amount, tx)),
+                error => error.code === 'invalid_navcoin_return_relay_request',
+                `JSON number amount ${raw} must be refused`);
+            assert.strictEqual(amountJobs.navcoinReturnRelayJobStatus(ROUTE_ID, canonicalJobId(ROUTE_ID, tx)), null);
+        }
+        const safe = await amountJobs.submitNavcoinReturnRelayJob(withAmount(JSON.parse('9007199254740991'), nextTx()));
+        assert.strictEqual(safe.request.amount_atoms, '9007199254740991');
+        const exact = await amountJobs.submitNavcoinReturnRelayJob(withAmount('9007199254740993', nextTx()));
+        assert.strictEqual(exact.request.amount_atoms, '9007199254740993');
         // A refused non-canonical amount must not bind the tx hash: the canonical request still queues.
         const boundTx = nextTx();
         await assert.rejects(amountJobs.submitNavcoinReturnRelayJob(withAmount('0x64', boundTx)),
