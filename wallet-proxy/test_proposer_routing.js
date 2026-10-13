@@ -828,6 +828,60 @@ function testRouteTimingEnvIsValidatedAtStartup() {
   assert.strictEqual(unset.stdout, '10000');
 }
 
+function testRemainingIntegerEnvIsValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, FASTPAY_ROUTE_WARMUP_ENABLED: 'false', ...env },
+  });
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused at startup, not truncated into a port, timer or TTL.
+  for (const [name, value, bounds] of [
+    ['RPC_PORT', '8080x', '1 and 65535'],
+    ['LISTEN_PORT', '8080.5', '0 and 65535'],
+    ['FASTPAY_FLEET_STATUS_CACHE_MS', '1e4', '0 and 600000'],
+    ['FASTPAY_ROUTE_REFRESH_MS', '5e3', '250 and 600000'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '2000ms', '250 and 600000'],
+    ['NAVSWAP_IDEMPOTENCY_TTL_MS', '86400000junk', '1000 and 2592000000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '3e5', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '100.0', '1 and 100000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS', '5blocks', '0 and 100000'],
+    // Out of range, including values the runtime used to replace silently.
+    ['RPC_PORT', '65536', '1 and 65535'],
+    ['LISTEN_PORT', '-1', '0 and 65535'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '249', '250 and 600000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '999', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '0', '1 and 100000'],
+  ]) {
+    const refused = run({ [name]: value });
+    assert.notStrictEqual(refused.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(refused.stderr.includes(`${name} must be an integer between ${bounds}`), refused.stderr);
+  }
+
+  // Both ends of each range load, and a padded value is trimmed.
+  const bounds = run({
+    RPC_PORT: '65535',
+    LISTEN_PORT: '0',
+    FASTPAY_FLEET_STATUS_CACHE_MS: '0',
+    FASTPAY_ROUTE_REFRESH_MS: '250',
+    FASTPAY_CERTIFICATE_RETRY_MS: '250',
+    NAVSWAP_IDEMPOTENCY_TTL_MS: '1000',
+    NAVSWAP_QUOTE_FRESHNESS_TTL_MS: ' 86400000 ',
+    NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS: '100000',
+    NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '0',
+  });
+  assert.strictEqual(bounds.status, 0, bounds.stderr);
+  assert.strictEqual(bounds.stdout, 'loaded');
+
+  // Unset and empty variables keep the defaults and load.
+  const defaults = run({ RPC_PORT: '', LISTEN_PORT: '', FASTPAY_FLEET_STATUS_CACHE_MS: '', NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '' });
+  assert.strictEqual(defaults.status, 0, defaults.stderr);
+  assert.strictEqual(defaults.stdout, 'loaded');
+}
+
 function testFirstReadySequencedReadsDefaultOn() {
   primeNextProposerRouteCacheFromResponse(JSON.stringify({
     id: 'submit',
@@ -931,6 +985,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
   })
   .then(() => {
     testRouteTimingEnvIsValidatedAtStartup();
+  })
+  .then(() => {
+    testRemainingIntegerEnvIsValidatedAtStartup();
   })
   .then(() => {
     console.log('proposer routing tests passed');
