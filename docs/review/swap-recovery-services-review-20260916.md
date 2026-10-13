@@ -34,13 +34,13 @@ Minimal repair: check the actual serialized journal byte length, including its t
 
 **Source:** `crates/node/src/pftl_swap_service.rs:1199-1222`.
 
-With 64 recorded stages, retrying even one identical existing stage returns `StorageFull`: the capacity check adds the incoming map length before checking overlap. An otherwise idempotent timing retry can therefore fail near the bound. Minimal future repair: count only new keys before applying the existing conflict checks, and test exact replay at capacity. Recorded without repair as required.
+With 64 recorded stages, retrying even one identical existing stage returns `StorageFull`: the capacity check adds the incoming map length before checking overlap. An otherwise idempotent timing retry can therefore fail near the bound. Minimal future repair: count only new keys before applying the existing conflict checks, and test exact replay at capacity. Recorded without repair as required. **Repaired 2026-10-08 in `5f093fc5`:** only stages absent from the recorded timing count against the 64-stage bound; the regression records 64 stages, replays one and all of them identically, rejects a conflicting value as `AlreadyExists`, and refuses one genuinely new stage as `StorageFull` with the recorded timing unchanged.
 
 ### SWP-05 — P3 — attestation timestamp validation accepts impossible dates
 
 **Source:** `crates/node/src/operator_attestations.rs:234-250`.
 
-The timestamp validator checks length, punctuation and decimal digits only. A signer can produce an otherwise valid attestation with `2026-99-99T99:99:99Z`, and this check accepts it despite promising a UTC RFC3339 timestamp. Downstream chronology or display consumers cannot rely on that promise. Minimal future repair: validate calendar and time ranges while retaining the existing second-resolution UTC encoding, with invalid-date and leap-year cases. No freshness or external identity authorization is inferred from this standalone signature verifier. Recorded without repair as required.
+The timestamp validator checks length, punctuation and decimal digits only. A signer can produce an otherwise valid attestation with `2026-99-99T99:99:99Z`, and this check accepts it despite promising a UTC RFC3339 timestamp. Downstream chronology or display consumers cannot rely on that promise. Minimal future repair: validate calendar and time ranges while retaining the existing second-resolution UTC encoding, with invalid-date and leap-year cases. No freshness or external identity authorization is inferred from this standalone signature verifier. Recorded without repair as required. **Repaired 2026-10-08 in `de3731b3`:** `is_utc_rfc3339_second_timestamp` checks month, day-of-month (Gregorian leap years), hour, minute and second ranges in the unchanged `YYYY-MM-DDTHH:MM:SSZ` encoding; regressions cover impossible values, leap and non-leap 29 February, and shape.
 
 ## Areas with no findings
 

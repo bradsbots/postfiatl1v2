@@ -34,6 +34,14 @@ function secureFile(file, digest, label) {
     return absolute;
 }
 
+function boundedInteger(value, fallback, minimum, maximum, label) {
+    const number = Number(value ?? fallback);
+    if (!Number.isSafeInteger(number) || number < minimum || number > maximum) {
+        throw new Error(`${label} is outside the supported range`);
+    }
+    return number;
+}
+
 function loadConfig(file) {
     const absolute = path.resolve(file);
     const stat = fs.lstatSync(absolute);
@@ -71,6 +79,8 @@ function loadConfig(file) {
     config.controller = config.controller.toLowerCase();
     config.wrapped_token = config.wrapped_token.toLowerCase();
     config.native_nav_asset_id = config.native_nav_asset_id.toLowerCase();
+    config.import_timeout_ms = boundedInteger(config.import_timeout_ms, 60 * 60 * 1000, 1_000,
+        24 * 60 * 60 * 1_000, 'NAVCoin return import timeout');
     return config;
 }
 
@@ -260,7 +270,7 @@ async function runJob(config, jobFile) {
     const workflow = `wallet-return-${job.value.job_id.slice(2, 18)}`;
     const running = run('bash', [config.return_import_script, '--phase-dir', attemptDir,
         '--workflow-id', workflow, '--expected-pftl-height', String(expectedHeight)], {
-        timeout: config.import_timeout_ms || 60 * 60 * 1000, cwd: config.repo,
+        timeout: config.import_timeout_ms, cwd: config.repo,
         maxBuffer: 8 * 1024 * 1024,
         env: { ...process.env, NAVCOIN_CAST_BIN: config.cast_binary,
             NAVCOIN_ETHEREUM_RPC: config.ethereum_rpc },

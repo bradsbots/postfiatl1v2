@@ -600,6 +600,63 @@ function testRequestWithProxyReadinessAnnotatesFinalityOnly() {
   assert.strictEqual(requestWithProxyReadiness(readOnly, route), readOnly);
 }
 
+function testWalletFeedAndTcpCapEnvAreValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  const interval = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: 'abc' });
+  assert.notStrictEqual(interval.status, 0, 'a malformed feed interval must not start the proxy');
+  assert.ok(interval.stderr.includes('WALLET_SUBSCRIPTION_INTERVAL_MS must be an integer between 1 and 3600000'), interval.stderr);
+
+  const minInterval = run({ WALLET_SUBSCRIPTION_MIN_INTERVAL_MS: '0' });
+  assert.notStrictEqual(minInterval.status, 0, 'a zero feed interval floor must not start the proxy');
+  assert.ok(minInterval.stderr.includes('WALLET_SUBSCRIPTION_MIN_INTERVAL_MS must be an integer between 1 and 3600000'), minInterval.stderr);
+
+  const readTimeout = run({ WALLET_SUBSCRIPTION_READ_TIMEOUT_MS: '-1' });
+  assert.notStrictEqual(readTimeout.status, 0, 'a negative feed read timeout must not start the proxy');
+  assert.ok(readTimeout.stderr.includes('WALLET_SUBSCRIPTION_READ_TIMEOUT_MS must be an integer between 1 and 600000'), readTimeout.stderr);
+
+  const tcpCap = run({ MAX_TCP_PER_WS: 'abc' });
+  assert.notStrictEqual(tcpCap.status, 0, 'a malformed per-connection TCP cap must not start the proxy');
+  assert.ok(tcpCap.stderr.includes('MAX_TCP_PER_WS must be an integer between 1 and 4096'), tcpCap.stderr);
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused, not truncated.
+  for (const [name, value, bounds] of [
+    ['WALLET_SUBSCRIPTION_INTERVAL_MS', '1500junk', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_MIN_INTERVAL_MS', '1.5', '1 and 3600000'],
+    ['WALLET_SUBSCRIPTION_READ_TIMEOUT_MS', '5e3', '1 and 600000'],
+    ['MAX_TCP_PER_WS', '32junk', '1 and 4096'],
+    ['WALLET_PROXY_MUTATION_CONCURRENCY', '16ms', '1 and 4096'],
+  ]) {
+    const partial = run({ [name]: value });
+    assert.notStrictEqual(partial.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(partial.stderr.includes(`${name} must be an integer between ${bounds}`), partial.stderr);
+  }
+
+  const padded = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: ' 2000 ' });
+  assert.strictEqual(padded.status, 0, padded.stderr);
+  assert.strictEqual(padded.stdout, 'loaded');
+
+  const valid = run({
+    WALLET_SUBSCRIPTION_INTERVAL_MS: '2000',
+    WALLET_SUBSCRIPTION_MIN_INTERVAL_MS: '1',
+    WALLET_SUBSCRIPTION_READ_TIMEOUT_MS: '600000',
+    MAX_TCP_PER_WS: '4096',
+  });
+  assert.strictEqual(valid.status, 0, valid.stderr);
+  assert.strictEqual(valid.stdout, 'loaded');
+
+  const unset = run({ WALLET_SUBSCRIPTION_INTERVAL_MS: '', MAX_TCP_PER_WS: '' });
+  assert.strictEqual(unset.status, 0, unset.stderr);
+  assert.strictEqual(unset.stdout, 'loaded');
+}
+
 function testRpcTcpRequestReusesKeepAliveConnectionWhenEnabled() {
   const script = `
     const net = require('net');
@@ -716,6 +773,115 @@ function testSequencedReadCanUseFinalityResponderWhenEnabled() {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 }
 
+function testRouteTimingEnvIsValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "const {requestWithProxyReadiness}=require('./wallet-proxy/server');"
+    + "const r=requestWithProxyReadiness({id:'x',method:'mempool_submit_signed_transfer_finality',params:{}},{required_current_height:479});"
+    + "process.stdout.write(String(r.params.proxy_readiness_timeout_ms));";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  const malformed = run({ PROPOSER_ROUTE_TIMEOUT_MS: 'abc' });
+  assert.notStrictEqual(malformed.status, 0, 'a malformed route timeout must not start the proxy');
+  assert.ok(malformed.stderr.includes('PROPOSER_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), malformed.stderr);
+
+  const zero = run({ PROPOSER_ROUTE_TIMEOUT_MS: '0' });
+  assert.notStrictEqual(zero.status, 0, 'a zero route timeout must not start the proxy');
+  assert.ok(zero.stderr.includes('PROPOSER_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), zero.stderr);
+
+  const retry = run({ PROPOSER_READY_RETRY_MS: 'abc' });
+  assert.notStrictEqual(retry.status, 0, 'a malformed ready retry must not start the proxy');
+  assert.ok(retry.stderr.includes('PROPOSER_READY_RETRY_MS must be an integer between 0 and 60000'), retry.stderr);
+
+  const fastpay = run({ FASTPAY_ROUTE_TIMEOUT_MS: '-5' });
+  assert.notStrictEqual(fastpay.status, 0, 'a negative fastpay route timeout must not start the proxy');
+  assert.ok(fastpay.stderr.includes('FASTPAY_ROUTE_TIMEOUT_MS must be an integer between 1 and 600000'), fastpay.stderr);
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent, unit suffix
+  // or hex spelling must be refused, not truncated, on both the positive-only and zero-permitted paths.
+  for (const [name, value, bounds] of [
+    ['PROPOSER_ROUTE_TIMEOUT_MS', '10000junk', '1 and 600000'],
+    ['PROPOSER_ROUTE_RETRY_MS', '1.5', '0 and 60000'],
+    ['PROPOSER_ROUTE_CACHE_MS', '5e3', '0 and 600000'],
+    ['PROPOSER_READY_RETRY_MS', '0x10', '0 and 60000'],
+    ['FASTPAY_ROUTE_TIMEOUT_MS', '600000ms', '1 and 600000'],
+    ['FASTPAY_ROUTE_RETRY_MS', '50.0', '0 and 60000'],
+  ]) {
+    const partial = run({ [name]: value });
+    assert.notStrictEqual(partial.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(partial.stderr.includes(`${name} must be an integer between ${bounds}`), partial.stderr);
+  }
+
+  const padded = run({ PROPOSER_ROUTE_TIMEOUT_MS: ' 2500 ' });
+  assert.strictEqual(padded.status, 0, padded.stderr);
+  assert.strictEqual(padded.stdout, '2500');
+
+  const valid = run({ PROPOSER_ROUTE_TIMEOUT_MS: '2500', PROPOSER_READY_RETRY_MS: '0', PROPOSER_ROUTE_CACHE_MS: '0' });
+  assert.strictEqual(valid.status, 0, valid.stderr);
+  assert.strictEqual(valid.stdout, '2500');
+
+  const unset = run({ PROPOSER_ROUTE_TIMEOUT_MS: '' });
+  assert.strictEqual(unset.status, 0, unset.stderr);
+  assert.strictEqual(unset.stdout, '10000');
+}
+
+function testRemainingIntegerEnvIsValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, FASTPAY_ROUTE_WARMUP_ENABLED: 'false', ...env },
+  });
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused at startup, not truncated into a port, timer or TTL.
+  for (const [name, value, bounds] of [
+    ['RPC_PORT', '8080x', '1 and 65535'],
+    ['LISTEN_PORT', '8080.5', '0 and 65535'],
+    ['FASTPAY_FLEET_STATUS_CACHE_MS', '1e4', '0 and 600000'],
+    ['FASTPAY_ROUTE_REFRESH_MS', '5e3', '250 and 600000'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '2000ms', '250 and 600000'],
+    ['NAVSWAP_IDEMPOTENCY_TTL_MS', '86400000junk', '1000 and 2592000000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '3e5', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '100.0', '1 and 100000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS', '5blocks', '0 and 100000'],
+    // Out of range, including values the runtime used to replace silently.
+    ['RPC_PORT', '65536', '1 and 65535'],
+    ['LISTEN_PORT', '-1', '0 and 65535'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '249', '250 and 600000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '999', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '0', '1 and 100000'],
+  ]) {
+    const refused = run({ [name]: value });
+    assert.notStrictEqual(refused.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(refused.stderr.includes(`${name} must be an integer between ${bounds}`), refused.stderr);
+  }
+
+  // Both ends of each range load, and a padded value is trimmed.
+  const bounds = run({
+    RPC_PORT: '65535',
+    LISTEN_PORT: '0',
+    FASTPAY_FLEET_STATUS_CACHE_MS: '0',
+    FASTPAY_ROUTE_REFRESH_MS: '250',
+    FASTPAY_CERTIFICATE_RETRY_MS: '250',
+    NAVSWAP_IDEMPOTENCY_TTL_MS: '1000',
+    NAVSWAP_QUOTE_FRESHNESS_TTL_MS: ' 86400000 ',
+    NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS: '100000',
+    NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '0',
+  });
+  assert.strictEqual(bounds.status, 0, bounds.stderr);
+  assert.strictEqual(bounds.stdout, 'loaded');
+
+  // Unset and empty variables keep the defaults and load.
+  const defaults = run({ RPC_PORT: '', LISTEN_PORT: '', FASTPAY_FLEET_STATUS_CACHE_MS: '', NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '' });
+  assert.strictEqual(defaults.status, 0, defaults.stderr);
+  assert.strictEqual(defaults.stdout, 'loaded');
+}
+
 function testFirstReadySequencedReadsDefaultOn() {
   primeNextProposerRouteCacheFromResponse(JSON.stringify({
     id: 'submit',
@@ -811,8 +977,17 @@ testChooseProposerEndpointRetriesTransientDivergence()
     testSequencedReadCanUseFinalityResponderWhenEnabled();
   })
   .then(() => {
+    testWalletFeedAndTcpCapEnvAreValidatedAtStartup();
+  })
+  .then(() => {
     testFirstReadySequencedReadsDefaultOn();
     testFirstReadySequencedReadsCanBeDisabled();
+  })
+  .then(() => {
+    testRouteTimingEnvIsValidatedAtStartup();
+  })
+  .then(() => {
+    testRemainingIntegerEnvIsValidatedAtStartup();
   })
   .then(() => {
     console.log('proposer routing tests passed');

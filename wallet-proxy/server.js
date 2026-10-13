@@ -35,8 +35,8 @@ function compactFastpayVoteRequest(request) {
 }
 
 const RPC_HOST = process.env.RPC_HOST || '127.0.0.1';
-const RPC_PORT = parseInt(process.env.RPC_PORT || '27650', 10);
-const LISTEN_PORT = parseInt(process.env.LISTEN_PORT || '8080', 10);
+const RPC_PORT = parseBoundedIntegerEnv('RPC_PORT', 27650, 1, 65_535);
+const LISTEN_PORT = parseBoundedIntegerEnv('LISTEN_PORT', 8080, 0, 65_535);
 const LISTEN_HOST = parseListenHost(process.env.LISTEN_HOST);
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS
     ?? 'http://127.0.0.1:5173,http://localhost:5173')
@@ -621,14 +621,21 @@ const MUTATION_CONCURRENCY = parseBoundedPositiveIntegerEnv(
 const mutationAdmissionByPrincipal = new Map();
 let activeMutationAdmissions = 0;
 
-function parseBoundedPositiveIntegerEnv(name, fallback, maximum) {
+function parseBoundedIntegerEnv(name, fallback, minimum, maximum) {
     const raw = process.env[name];
     if (raw === undefined || String(raw).trim() === '') return fallback;
-    const value = Number.parseInt(String(raw), 10);
-    if (!Number.isSafeInteger(value) || value <= 0 || value > maximum) {
-        throw new Error(`${name} must be an integer between 1 and ${maximum}`);
+    // Number.parseInt reads only a numeric prefix ("5e3" -> 5, "1.5" -> 1, "10000junk" -> 10000),
+    // so the whole trimmed token must be an optionally signed run of decimal digits.
+    const token = String(raw).trim();
+    const value = /^[+-]?\d+$/.test(token) ? Number.parseInt(token, 10) : Number.NaN;
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+        throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
     }
     return value;
+}
+
+function parseBoundedPositiveIntegerEnv(name, fallback, maximum) {
+    return parseBoundedIntegerEnv(name, fallback, 1, maximum);
 }
 
 function boundedHttpBodyLimit(routeLimit) {
@@ -682,10 +689,10 @@ function clearMutationAdmissionForTest() {
 }
 // S3.4: TCP connection timeout
 const TCP_TIMEOUT_MS = 30000;
-const PROPOSER_ROUTE_TIMEOUT_MS = parseInt(process.env.PROPOSER_ROUTE_TIMEOUT_MS || '10000', 10);
-const PROPOSER_ROUTE_RETRY_MS = parseInt(process.env.PROPOSER_ROUTE_RETRY_MS || '250', 10);
-const PROPOSER_ROUTE_CACHE_MS = parseInt(process.env.PROPOSER_ROUTE_CACHE_MS || '10000', 10);
-const PROPOSER_READY_RETRY_MS = parseInt(process.env.PROPOSER_READY_RETRY_MS || '50', 10);
+const PROPOSER_ROUTE_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('PROPOSER_ROUTE_TIMEOUT_MS', 10_000, 600_000);
+const PROPOSER_ROUTE_RETRY_MS = parseBoundedIntegerEnv('PROPOSER_ROUTE_RETRY_MS', 250, 0, 60_000);
+const PROPOSER_ROUTE_CACHE_MS = parseBoundedIntegerEnv('PROPOSER_ROUTE_CACHE_MS', 10_000, 0, 600_000);
+const PROPOSER_READY_RETRY_MS = parseBoundedIntegerEnv('PROPOSER_READY_RETRY_MS', 50, 0, 60_000);
 const ENABLE_FIRST_READY_SEQUENCED_READ = process.env.ENABLE_FIRST_READY_SEQUENCED_READ !== 'false';
 const ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE = process.env.ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE !== 'false';
 const OPTIMISTIC_CACHED_FINALITY_ROUTE = process.env.OPTIMISTIC_CACHED_FINALITY_ROUTE === 'true';
@@ -701,40 +708,44 @@ const FIRST_READY_SEQUENCED_READ_PROPOSERS = new Set(
         .map((part) => part.trim())
         .filter(Boolean),
 );
-const FASTPAY_FLEET_STATUS_CACHE_MS = parseInt(process.env.FASTPAY_FLEET_STATUS_CACHE_MS || '10000', 10);
+const FASTPAY_FLEET_STATUS_CACHE_MS = parseBoundedIntegerEnv('FASTPAY_FLEET_STATUS_CACHE_MS', 10_000, 0, 600_000);
 const FASTPAY_ROUTE_WARMUP_ENABLED = process.env.FASTPAY_ROUTE_WARMUP_ENABLED !== 'false';
-const FASTPAY_ROUTE_REFRESH_MS = parseInt(
-    process.env.FASTPAY_ROUTE_REFRESH_MS
-        || String(Math.max(250, Math.floor(FASTPAY_FLEET_STATUS_CACHE_MS / 2))),
-    10,
+const FASTPAY_ROUTE_REFRESH_MS = parseBoundedIntegerEnv(
+    'FASTPAY_ROUTE_REFRESH_MS',
+    Math.max(250, Math.floor(FASTPAY_FLEET_STATUS_CACHE_MS / 2)),
+    250,
+    600_000,
 );
-const FASTPAY_ROUTE_TIMEOUT_MS = parseInt(process.env.FASTPAY_ROUTE_TIMEOUT_MS || String(PROPOSER_ROUTE_TIMEOUT_MS), 10);
-const FASTPAY_ROUTE_RETRY_MS = parseInt(process.env.FASTPAY_ROUTE_RETRY_MS || String(PROPOSER_READY_RETRY_MS), 10);
+const FASTPAY_ROUTE_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('FASTPAY_ROUTE_TIMEOUT_MS', PROPOSER_ROUTE_TIMEOUT_MS, 600_000);
+const FASTPAY_ROUTE_RETRY_MS = parseBoundedIntegerEnv('FASTPAY_ROUTE_RETRY_MS', PROPOSER_READY_RETRY_MS, 0, 60_000);
 const FASTPAY_REQUIRE_PRIMARY_SUCCESS = process.env.FASTPAY_REQUIRE_PRIMARY_SUCCESS === 'true';
 const ENABLE_UPSTREAM_KEEPALIVE = process.env.ENABLE_UPSTREAM_KEEPALIVE !== 'false';
 const FASTPAY_CERTIFICATE_FINALITY_ENABLED = process.env.FASTPAY_CERTIFICATE_FINALITY_ENABLED !== 'false';
-const FASTPAY_CERTIFICATE_RETRY_MS = parseInt(process.env.FASTPAY_CERTIFICATE_RETRY_MS || '2000', 10);
+const FASTPAY_CERTIFICATE_RETRY_MS = parseBoundedIntegerEnv('FASTPAY_CERTIFICATE_RETRY_MS', 2000, 250, 600_000);
 const FASTPAY_CERTIFICATE_OUTBOX_PATH = process.env.FASTPAY_CERTIFICATE_OUTBOX_PATH
     || path.join(os.homedir(), '.postfiat', 'wallet-proxy', 'fastpay-certificate-outbox.json');
 const fastpayCertificateOutbox = new FastpayCertificateOutbox(FASTPAY_CERTIFICATE_OUTBOX_PATH);
-const WALLET_SUBSCRIPTION_INTERVAL_MS = parseInt(process.env.WALLET_SUBSCRIPTION_INTERVAL_MS || '1500', 10);
-const WALLET_SUBSCRIPTION_MIN_INTERVAL_MS = parseInt(process.env.WALLET_SUBSCRIPTION_MIN_INTERVAL_MS || '750', 10);
-const WALLET_SUBSCRIPTION_READ_TIMEOUT_MS = parseInt(process.env.WALLET_SUBSCRIPTION_READ_TIMEOUT_MS || '5000', 10);
+const WALLET_SUBSCRIPTION_INTERVAL_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_INTERVAL_MS', 1500, 3_600_000);
+const WALLET_SUBSCRIPTION_MIN_INTERVAL_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_MIN_INTERVAL_MS', 750, 3_600_000);
+const WALLET_SUBSCRIPTION_READ_TIMEOUT_MS = parseBoundedPositiveIntegerEnv('WALLET_SUBSCRIPTION_READ_TIMEOUT_MS', 5000, 600_000);
 const FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT = 2048;
-const NAVSWAP_IDEMPOTENCY_TTL_MS = parseInt(process.env.NAVSWAP_IDEMPOTENCY_TTL_MS || '86400000', 10);
-const NAVSWAP_QUOTE_FRESHNESS_TTL_MS = parseInt(process.env.NAVSWAP_QUOTE_FRESHNESS_TTL_MS || '300000', 10);
-const NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS = parseInt(
-    process.env.NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS || '100',
-    10,
+const NAVSWAP_IDEMPOTENCY_TTL_MS = parseBoundedIntegerEnv('NAVSWAP_IDEMPOTENCY_TTL_MS', 86_400_000, 1000, 2_592_000_000);
+const NAVSWAP_QUOTE_FRESHNESS_TTL_MS = parseBoundedIntegerEnv('NAVSWAP_QUOTE_FRESHNESS_TTL_MS', 300_000, 1000, 86_400_000);
+const NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS = parseBoundedPositiveIntegerEnv(
+    'NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS',
+    100,
+    100_000,
 );
-const NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS = parseInt(
-    process.env.NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS || '5',
-    10,
+const NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS = parseBoundedIntegerEnv(
+    'NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS',
+    5,
+    0,
+    100_000,
 );
 // S3.4: Max concurrent TCP connections per WS client. Dev React hydration can
 // briefly duplicate read effects; keep the bound explicit without stalling the
 // first user action behind startup reads.
-const MAX_TCP_PER_WS = parseInt(process.env.MAX_TCP_PER_WS || '32', 10);
+const MAX_TCP_PER_WS = parseBoundedPositiveIntegerEnv('MAX_TCP_PER_WS', 32, 4096);
 
 const FINALITY_METHODS = new Set([
     'mempool_submit_signed_transfer_finality',

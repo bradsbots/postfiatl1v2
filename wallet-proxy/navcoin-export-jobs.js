@@ -167,12 +167,17 @@ function normalizeRequest(body, config) {
         amount_atoms: String(body?.amount_atoms || '').trim(),
         deadline_seconds: Number(body?.deadline_seconds),
     };
-    let amount = 0n;
-    try { amount = BigInt(request.amount_atoms); } catch (_) { /* rejected below */ }
+    // Canonical unsigned decimal only (the worker driver re-checks /^[1-9][0-9]*$/): BigInt()
+    // would also take 0x/0o/0b, leading zeros and a sign, and the raw string is bound into job.json.
+    // A JSON number above 2^53-1 was already rounded by JSON.parse, so larger amounts must be strings.
+    const amountSyntaxValid = (typeof body?.amount_atoms !== 'number' || Number.isSafeInteger(body.amount_atoms))
+        && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
+    const amount = amountSyntaxValid ? BigInt(request.amount_atoms) : 0n;
     if (request.route_id !== config.route_id
         || request.route_config_digest !== config.route_config_digest
         || !HASH48_RE.test(request.packet_hash) || !HASH32_RE.test(request.packet_digest)
-        || !EVM_RE.test(request.ethereum_recipient) || amount <= 0n
+        || !EVM_RE.test(request.ethereum_recipient)
+        || !amountSyntaxValid || amount <= 0n
         || amount > config.max_amount_atoms
         || !Number.isSafeInteger(request.deadline_seconds)
         || request.deadline_seconds <= Math.floor(Date.now() / 1000) + 3600
