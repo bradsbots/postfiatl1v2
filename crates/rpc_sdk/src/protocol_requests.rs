@@ -70,9 +70,14 @@ pub const METHOD_SERVER_INFO: &str = "server_info";
 pub const METHOD_METRICS: &str = "metrics";
 pub const METHOD_LEDGER: &str = "ledger";
 pub const METHOD_VERIFY_STATE: &str = "verify_state";
+pub const METHOD_VERIFY_BLOCKS: &str = "verify_blocks";
+pub const METHOD_VERIFY_BRIDGE: &str = "verify_bridge";
+pub const METHOD_VERIFY_MEMPOOL: &str = "verify_mempool";
+pub const METHOD_VERIFY_SHIELDED: &str = "verify_shielded";
 pub const METHOD_VALIDATE_LOCAL_KEYS: &str = "validate_local_keys";
 pub const METHOD_ACCOUNT: &str = "account";
 pub const METHOD_ACCOUNT_TX: &str = "account_tx";
+pub const METHOD_ACCOUNT_TX_INDEX_STATUS: &str = "account_tx_index_status";
 pub const METHOD_FEE: &str = "fee";
 pub const METHOD_TRANSFER_FEE_QUOTE: &str = "transfer_fee_quote";
 pub const METHOD_OWNED_SIGN: &str = "owned_sign";
@@ -165,6 +170,7 @@ pub const METHOD_BRIDGE_BATCH_PAUSE: &str = "bridge_batch_pause";
 pub const METHOD_BRIDGE_BATCH_RESUME: &str = "bridge_batch_resume";
 pub const METHOD_APPLY_BRIDGE_BATCH: &str = "apply_bridge_batch";
 pub const METRICS_SCHEMA: &str = "postfiat-node-metrics-v1";
+pub const ACCOUNT_TX_INDEX_STATUS_SCHEMA: &str = "postfiat-account-tx-index-status-v1";
 pub const SERVER_INFO_SCHEMA: &str = "postfiat-server-info-v1";
 pub const LEDGER_SCHEMA: &str = "postfiat-ledger-v1";
 pub const FEE_SCHEMA: &str = "postfiat-fee-v1";
@@ -196,6 +202,13 @@ pub const MAX_RPC_REQUEST_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RPC_PARAM_NAME_BYTES: usize = 64;
 pub const MAX_RPC_PARAM_STRING_BYTES: usize = 4096;
 pub const MAX_RPC_SIGNED_TRANSFER_JSON_BYTES: usize = 64 * 1024;
+/// FastLane primary control transactions carry ML-DSA-65 signatures and keys
+/// as JSON number arrays. Measured: the five-vote epoch-1 AnchorCheckpoint of
+/// 2026-10-07 is 70,944 JSON bytes for 19,705 canonical bytes (3.60x); a
+/// six-validator ActivateCommittee is 176,179 JSON for 17,989 canonical. At
+/// 3.6x, 256 KiB of JSON is about 71 KiB canonical, under the node's 128 KiB
+/// canonical-binary mempool limit, which stays the binding consensus bound.
+pub const MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES: usize = 256 * 1024;
 /// An asset operation can carry the consensus-bounded SP1 Groth16 proof and
 /// public-values byte arrays. Their JSON representation is larger than the
 /// binary payload, so keep a separate bounded quote limit.
@@ -363,6 +376,22 @@ pub fn verify_state_request(id: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_VERIFY_STATE)
 }
 
+pub fn verify_blocks_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VERIFY_BLOCKS)
+}
+
+pub fn verify_bridge_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VERIFY_BRIDGE)
+}
+
+pub fn verify_mempool_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VERIFY_MEMPOOL)
+}
+
+pub fn verify_shielded_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VERIFY_SHIELDED)
+}
+
 pub fn validate_local_keys_request(id: impl Into<String>, validators: u32) -> RpcRequest {
     RpcRequest::empty(id, METHOD_VALIDATE_LOCAL_KEYS)
         .with_param_value("validators", u32_value(validators))
@@ -370,6 +399,10 @@ pub fn validate_local_keys_request(id: impl Into<String>, validators: u32) -> Rp
 
 pub fn account_request(id: impl Into<String>, address: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_ACCOUNT).with_param_value("address", string_value(address))
+}
+
+pub fn account_tx_index_status_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_ACCOUNT_TX_INDEX_STATUS)
 }
 
 pub fn account_tx_request(
@@ -1509,9 +1542,14 @@ pub enum RpcRequestKind {
     Metrics,
     Ledger,
     VerifyState,
+    VerifyBlocks,
+    VerifyBridge,
+    VerifyMempool,
+    VerifyShielded,
     ValidateLocalKeys { validators: Option<u32> },
     Account,
     AccountTx,
+    AccountTxIndexStatus,
     Fee,
     TransferFeeQuote,
     AtomicSwapFeeQuote,
@@ -1910,9 +1948,14 @@ pub enum RpcResponseKind {
     Metrics,
     Ledger,
     VerifyState,
+    VerifyBlocks,
+    VerifyBridge,
+    VerifyMempool,
+    VerifyShielded,
     ValidateLocalKeys { validators: Option<u32> },
     Account,
     AccountTx,
+    AccountTxIndexStatus,
     Fee,
     TransferFeeQuote,
     AtomicSwapFeeQuote,
@@ -2383,6 +2426,8 @@ fn max_rpc_param_string_bytes(method: &str, key: &str) -> usize {
     {
         if key == "order_json" || key == "order_json_gzip_base64" || key == "cert_json" {
             MAX_RPC_FASTPAY_JSON_BYTES
+        } else if key == "fastlane_primary_json" {
+            MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES
         } else {
             MAX_RPC_SIGNED_TRANSFER_JSON_BYTES
         }
@@ -2472,9 +2517,14 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::Metrics => METHOD_METRICS,
         RpcRequestKind::Ledger => METHOD_LEDGER,
         RpcRequestKind::VerifyState => METHOD_VERIFY_STATE,
+        RpcRequestKind::VerifyBlocks => METHOD_VERIFY_BLOCKS,
+        RpcRequestKind::VerifyBridge => METHOD_VERIFY_BRIDGE,
+        RpcRequestKind::VerifyMempool => METHOD_VERIFY_MEMPOOL,
+        RpcRequestKind::VerifyShielded => METHOD_VERIFY_SHIELDED,
         RpcRequestKind::ValidateLocalKeys { .. } => METHOD_VALIDATE_LOCAL_KEYS,
         RpcRequestKind::Account => METHOD_ACCOUNT,
         RpcRequestKind::AccountTx => METHOD_ACCOUNT_TX,
+        RpcRequestKind::AccountTxIndexStatus => METHOD_ACCOUNT_TX_INDEX_STATUS,
         RpcRequestKind::Fee => METHOD_FEE,
         RpcRequestKind::TransferFeeQuote => METHOD_TRANSFER_FEE_QUOTE,
         RpcRequestKind::AtomicSwapFeeQuote => METHOD_ATOMIC_SWAP_FEE_QUOTE,
@@ -2585,6 +2635,11 @@ fn validate_request_params(
         | RpcRequestKind::ServerInfo
         | RpcRequestKind::Metrics
         | RpcRequestKind::VerifyState
+        | RpcRequestKind::VerifyBlocks
+        | RpcRequestKind::VerifyBridge
+        | RpcRequestKind::VerifyMempool
+        | RpcRequestKind::VerifyShielded
+        | RpcRequestKind::AccountTxIndexStatus
         | RpcRequestKind::Fee
         | RpcRequestKind::Validators
         | RpcRequestKind::Manifests => {
