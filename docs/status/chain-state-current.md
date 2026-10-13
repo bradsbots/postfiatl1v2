@@ -1,8 +1,39 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-09T12:40:00Z` (release `signer-rotation-20261007` deployed to all six, blocks 1116–1121); latest fleet observation `2026-10-09T12:32:09Z`
+Updated: `2026-10-13T09:50:00Z` (Ethereum relays 28701 and 28702 run as systemd units); latest fleet observation `2026-10-13T09:45:09Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
+
+    The July `fastswap-v1` store (26 records, 177,899 B) was converted with
+    `fastswap-store-migrate` from release `signer-rotation-20261007`, one
+    host at a time (validator-5, then 0–4), 10:57–11:14Z: both units
+    stopped, dry run, conversion with a verified backup, a second dry run
+    `nothing-to-convert`, both units started. Every host rejoined within 22 s,
+    and the fleet stayed at height 1121, tip `329bc2f1…`, root `aa462feb…`
+    with six-way agreement after each host. `fastswap_checkpoint_status`
+    answers on validators 0–4 with the same checkpoint (committee epoch 1,
+    root `a2eebcba…`, `drain_ready`, no epoch-1 checkpoint anchored yet).
+    Validator-5 still answers `fastswap_unavailable`: its rotated key is not
+    its epoch-1 committee key, which is the signer-group activation, still to
+    do ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#7-fastswap-store-conversion-one-host-at-a-time)).
+
+    The signer-group activation ran at 11:40–11:52Z. **FastPay:** all six
+    validators signed the epoch-2 committee at proposal slot 1123, validator-5
+    with its current key; it was installed at height 1123 (batch `66746fa2…`,
+    `fastpay_recovery_committee_rotated` on all six). The committee has six members
+    with current keys, quorum 5, and orders 10001–19990. Epoch 1 serves through
+    10000, so payments are unchanged today. **Bridge:** the epoch-1 `StopPrepare`
+    for FastSwap policy epoch 1 committed at height 1122. The final drained
+    epoch-1 checkpoint was then refused before admission: `mempool_submit_fastlane_primary_finality`
+    caps `fastlane_primary_json` at 64 KiB, and the five-vote `AnchorCheckpoint`
+    is 70,944 B. `ActivateCommittee` and the issuer's route update were not run.
+    The bridge committee stays at epoch 1 (root `a2eebcba…`), so Ethereum
+    checkpoints still need validators 0–4, and new epoch-1 FastSwap prepares are
+    fenced. The epoch-2 root is `72836827…`. After the activation the fleet is at
+    height 1123, root `942d1fc2…`, with six-way agreement
+    ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
 
 !!! success "2026-10-09: signer-rotation release deployed to all six validators"
 
@@ -877,3 +908,22 @@ blocks 1104–1115 over read-only RPC on validator-1 (`blocks`, `tx`,
   14.
 - This lane changed nothing on the hosts or the chain after 2026-10-02 and will
   change nothing before 2026-10-07.
+
+## 2026-10-13: Ethereum relays run as systemd units
+
+At 09:41–09:45Z the loopback relays `127.0.0.1:28701` (publicnode) and
+`127.0.0.1:28702` (drpc) on validators 0, 2, 3, 4 and 5 were moved from
+hand-started python3 processes, which ran from the deleted
+`/tmp/a666-https-jsonrpc-loopback-proxy.py` and would not survive a reboot, to the
+enabled units `navcoin-ethereum-rpc-28701.service` and
+`navcoin-ethereum-rpc-28702.service` in `/etc/systemd/system` (`Restart=always`,
+`/opt/postfiat/route-tools/navcoin-20260907/https-jsonrpc-loopback-proxy.py
+--attempts 3`). Validator-1 gained only the 28702 unit. `eth_blockNumber` returned
+HTTP 200 through every relay afterwards. Validator and RPC PIDs, the 28703 units
+and the other lane's `navcoin-proof-watchdog@` user units did not change, and no
+transaction was sent. The release preflight `demo-preflight.py` then reported
+**READY**: 60 PASS, 0 ATTENTION, 0 FAIL, six-way agreement at height 1123, root
+`942d1fc2…`
+([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/observed/ethereum-relays-20261013.json)).
+The 28703 unit on all six hosts and validator-1's 28701 unit are still transient
+and do not survive a reboot.

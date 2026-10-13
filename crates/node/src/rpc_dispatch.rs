@@ -19,6 +19,25 @@ pub(super) fn rpc_tx_finality_error(error: std::io::Error) -> String {
     }
 }
 
+/// `--fastlane-primary-file` avoids the Linux per-argument limit (128 KiB)
+/// that an inline ActivateCommittee certificate (~176 KB) exceeds.
+fn fastlane_primary_json_flag(flags: &[String]) -> Result<String, String> {
+    match (
+        flag_value(flags, "--fastlane-primary-json"),
+        flag_value(flags, "--fastlane-primary-file"),
+    ) {
+        (Some(_), Some(_)) => {
+            Err("use either --fastlane-primary-json or --fastlane-primary-file".to_string())
+        }
+        (Some(json), None) => Ok(json.to_string()),
+        (None, Some(path)) => std::fs::read_to_string(path)
+            .map_err(|error| format!("read --fastlane-primary-file `{path}` failed: {error}")),
+        (None, None) => {
+            Err("missing --fastlane-primary-json or --fastlane-primary-file".to_string())
+        }
+    }
+}
+
 pub(super) fn run_rpc(flags: &[String]) -> Result<(), String> {
     if let Some(request_file) = flag_value(flags, "--request-file") {
         return run_rpc_request_file(flags, request_file);
@@ -1830,10 +1849,9 @@ pub(super) fn run_rpc(flags: &[String]) -> Result<(), String> {
             )
         }
         "mempool_submit_fastlane_primary" => {
-            let transaction_json = flag_value(flags, "--fastlane-primary-json")
-                .ok_or("missing --fastlane-primary-json")?;
+            let transaction_json = fastlane_primary_json_flag(flags)?;
             let transaction: postfiat_types::FastLanePrimaryTransactionV1 =
-                serde_json::from_str(transaction_json)
+                serde_json::from_str(&transaction_json)
                     .map_err(|error| format!("FastLane primary JSON parse failed: {error}"))?;
             let entry = admit_fastlane_primary_to_mempool(&data_dir, transaction)
                 .map_err(|error| format!("rpc mempool_submit_fastlane_primary failed: {error}"))?;
