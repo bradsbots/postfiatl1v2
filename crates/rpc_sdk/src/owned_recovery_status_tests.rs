@@ -278,4 +278,85 @@ mod owned_recovery_status {
         );
         assert_eq!(rejected_field(value), "fence");
     }
+
+    // --- request binding (validate_owned_recovery_status_response) ---
+
+    fn status_request(id: &str, lock_id: String) -> RpcRequest {
+        owned_recovery_status_request(id, OwnedRecoveryStatusParams { lock_id })
+    }
+
+    fn bind(report: &Value, request: &RpcRequest) -> Result<(), RpcResponseValidationError> {
+        validate_owned_recovery_status_response(
+            &success_response("owned-recovery-status-1", report, vec![])
+                .expect("owned recovery status response"),
+            request,
+        )
+    }
+
+    fn bind_rejected_field(report: &Value, request: &RpcRequest) -> String {
+        match bind(report, request) {
+            Err(RpcResponseValidationError::InvalidResult { field, .. }) => field,
+            other => panic!("expected an InvalidResult rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn binds_same_id_response_to_the_requested_lock() {
+        // Two requests with the same id: A selects the reported lock, B another.
+        let lock_a = lock_id();
+        let lock_b = "ab".repeat(48);
+        assert_ne!(lock_a, lock_b);
+        let request_a = status_request("owned-recovery-status-1", lock_a);
+        let request_b = status_request("owned-recovery-status-1", lock_b);
+        let confirmed = confirmed_fence();
+        let cancelled = cancelled_fence();
+        for response in [
+            report("open_or_unknown", 0, None),
+            report("certificate_revealed", 2, None),
+            report("confirmed", 1, Some(&confirmed)),
+            report("cancelled", 0, Some(&cancelled)),
+        ] {
+            assert!(validate(&response).is_ok(), "report is valid on its own");
+            bind(&response, &request_a).expect("lock A request binds the lock A report");
+            assert_eq!(bind_rejected_field(&response, &request_b), "lock_id");
+        }
+    }
+
+    #[test]
+    fn rejects_unbound_id_foreign_method_and_malformed_request() {
+        let response = report("open_or_unknown", 0, None);
+        let other_id = status_request("owned-recovery-status-2", lock_id());
+        assert!(matches!(
+            bind(&response, &other_id),
+            Err(RpcResponseValidationError::UnexpectedId { .. })
+        ));
+        // Foreign method carrying the same lock_id param.
+        let foreign = RpcRequest::empty("owned-recovery-status-1", METHOD_ACCOUNT)
+            .with_param_value("lock_id", string_value(lock_id()));
+        assert_eq!(bind_rejected_field(&response, &foreign), "request");
+        // Malformed owned_recovery_status requests.
+        for malformed in [
+            RpcRequest::empty("owned-recovery-status-1", METHOD_OWNED_RECOVERY_STATUS),
+            status_request("owned-recovery-status-1", lock_id().to_uppercase()),
+            status_request("owned-recovery-status-1", lock_id()[..94].to_string()),
+            status_request("owned-recovery-status-1", lock_id())
+                .with_param_value("status", string_value("confirmed")),
+        ] {
+            assert_eq!(bind_rejected_field(&response, &malformed), "request");
+        }
+    }
+
+    #[test]
+    fn request_binding_still_applies_the_shape_checks() {
+        let request = status_request("owned-recovery-status-1", lock_id());
+        let wrong_status = report("confirmed", 0, None);
+        assert_eq!(bind_rejected_field(&wrong_status, &request), "status");
+        let confirmed = confirmed_fence();
+        let foreign_fence = with(
+            report("confirmed", 1, Some(&confirmed)),
+            "/fence/lock_id",
+            json!("ab".repeat(48)),
+        );
+        assert!(bind(&foreign_fence, &request).is_err());
+    }
 }
