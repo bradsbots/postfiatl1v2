@@ -77,6 +77,21 @@ with `fastpay-recovery-governance-bootstrap-assemble`. On
 `postfiat-wan-devnet-2`, epoch 1 admits orders through height 10000, so epoch 2
 must start at height 10001 and be installed before then.
 
+## Submitting FastLane control transactions
+
+`mempool_submit_fastlane_primary_finality` accepts up to 256 KiB of
+`fastlane_primary_json` (`MAX_RPC_FASTLANE_PRIMARY_JSON_BYTES`, also for
+`--request-file`); other signed-transaction fields keep 64 KiB. The node's
+128 KiB canonical-binary mempool limit still binds: the five-vote
+`AnchorCheckpoint` is 70,944 JSON bytes (19,705 canonical) and an
+`ActivateCommittee` about 176 KB. Linux caps one argument at 128 KiB, so pass
+the transaction as a file: `postfiat-node rpc --method
+mempool_submit_fastlane_primary --fastlane-primary-file PATH` or `postfiat-rpc-sdk
+--fastlane-primary-json-file PATH`. Finality reports success when the receipt
+carries the operation's code: `fastlane_checkpoint_anchored` for an anchor,
+`fastlane_control_applied` for `StopPrepare` and `ActivateCommittee`,
+`owned_deposit_applied` for an owned deposit.
+
 ## Client recovery
 
 On the original wallet host, use the existing helper:
@@ -142,6 +157,10 @@ binary from the release being rolled out.
 2. Dry run: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --dry-run`.
    Expect `would-convert`, with `legacy_wal_records` equal to `wal_records`.
 3. Convert: `postfiat-node fastswap-store-migrate --data-dir /var/lib/postfiat/validator-N --backup-dir /var/lib/postfiat/fastswap-v1-backup-validator-N`.
+   `/var/lib/postfiat` is root-owned, so the `postfiat` user cannot create the
+   backup directory: root pre-creates it empty with
+   `install -d -o postfiat -g postfiat -m 700 /var/lib/postfiat/fastswap-v1-backup-validator-N`
+   (the command refuses a non-empty one).
    Expect `converted` and `normal open verified N record(s) with the keyed MAC`.
    Record the key fingerprint and backup path.
 4. Start both units.

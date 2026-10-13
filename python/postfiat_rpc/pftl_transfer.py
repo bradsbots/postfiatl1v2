@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from dataclasses import asdict, is_dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -29,11 +29,18 @@ PFTL_PRECISION = Decimal("1000000")
 def pft_to_atoms(value: str) -> int:
     try:
         amount = Decimal(value.strip())
-    except (AttributeError, InvalidOperation) as error:
+    except (AttributeError, DecimalException) as error:
         raise ValueError("amount must be a decimal PFTL value") from error
+    if not amount.is_finite():
+        raise ValueError("amount must be a finite decimal PFTL value")
     if amount <= 0:
         raise ValueError("amount must be positive")
-    atoms_decimal = amount * PFTL_PRECISION
+    try:
+        atoms_decimal = amount * PFTL_PRECISION
+    except DecimalException as error:
+        # Decimal() parses any exponent, but scaling one beyond the context's
+        # Emax (e.g. "1e400000000") raises decimal.Overflow.
+        raise ValueError("amount exponent is out of decimal range") from error
     if atoms_decimal != atoms_decimal.to_integral_value():
         raise ValueError("amount has more than 6 decimal places")
     atoms = int(atoms_decimal)
