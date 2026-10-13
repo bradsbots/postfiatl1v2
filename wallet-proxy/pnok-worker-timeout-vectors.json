@@ -1,0 +1,444 @@
+{
+  "schema": "pnok-worker-timeout-test-v1",
+  "independent_oracle_sha256": "d577c190b8862f573ffdb5623517353a59ee4afdff99a02686cc2c40dd511090",
+  "config": {
+    "base_asset_id": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+    "base_atoms": "20000000",
+    "base_precision": 6,
+    "base_symbol": "pfUSDC",
+    "cwd": "/synthetic-pnok-timeout-review/no-cwd",
+    "demo_wallet": "pfd4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+    "driver_script": "/synthetic-pnok-timeout-review/no-driver.py",
+    "enabled": true,
+    "execution_label": "private on PFTL",
+    "facility_key_file": "/synthetic-pnok-timeout-review/no-facility-key.json",
+    "fix_operator": "pfc3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "max_retries": 3,
+    "python_bin": "/synthetic-pnok-timeout-review/no-python",
+    "quote_asset_id": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+    "quote_atoms": "210",
+    "quote_precision": 0,
+    "quote_symbol": "pNOK",
+    "resident_service_url": "http://127.0.0.1:18973",
+    "retry_delay_ms": 100,
+    "schema": "postfiat-pnok-private-fix-wallet-config-v1",
+    "trust_label": "controlled sandbox checkpoint"
+  },
+  "outcomes": {
+    "admitted": {
+      "admitted": true,
+      "clear_interval_calls": 1,
+      "clear_interval_token_matches": true,
+      "close_called": true,
+      "exception_class": null,
+      "exception_code": null,
+      "exception_message": null,
+      "fetch_calls": 0,
+      "interval_callback_invocations": 0,
+      "jobs_entries_after_close": [],
+      "jobs_entries_after_create": [],
+      "jobs_root_exists_after_create": true,
+      "jobs_root_exists_before": false,
+      "process_alive_calls": 0,
+      "returned_api_keys": [
+        "_pumpPnokFixWalletJobsForTest",
+        "closePnokFixWalletJobs",
+        "pnokFixWalletJobStatus",
+        "pnokFixWalletReadiness",
+        "submitPnokFixRestoreJob",
+        "submitPnokFixWalletJob"
+      ],
+      "root_entries_after_close": [
+        "jobs"
+      ],
+      "root_entries_after_create": [
+        "jobs"
+      ],
+      "root_entries_before": [],
+      "set_interval_calls": 1,
+      "set_interval_delay_ms": 2000,
+      "spawn_calls": 0,
+      "watchdog_unref_calls": 1
+    },
+    "rejected": {
+      "admitted": false,
+      "clear_interval_calls": 0,
+      "clear_interval_token_matches": null,
+      "close_called": false,
+      "exception_class": "Error",
+      "exception_code": null,
+      "exception_message": "invalid pNOK FIX worker limits",
+      "fetch_calls": 0,
+      "interval_callback_invocations": 0,
+      "jobs_entries_after_close": null,
+      "jobs_entries_after_create": null,
+      "jobs_root_exists_after_create": false,
+      "jobs_root_exists_before": false,
+      "process_alive_calls": 0,
+      "returned_api_keys": null,
+      "root_entries_after_close": [],
+      "root_entries_after_create": [],
+      "root_entries_before": [],
+      "set_interval_calls": 0,
+      "set_interval_delay_ms": null,
+      "spawn_calls": 0,
+      "watchdog_unref_calls": 0
+    }
+  },
+  "cases": [
+    {
+      "id": "oversized_next_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 2147483648
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 2147483648
+      },
+      "base_admitted": true,
+      "fixed_admitted": false
+    },
+    {
+      "id": "oversized_thirty_days_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 2592000000
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 2592000000
+      },
+      "base_admitted": true,
+      "fixed_admitted": false
+    },
+    {
+      "id": "oversized_next_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "2147483648"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "2147483648"
+      },
+      "base_admitted": true,
+      "fixed_admitted": false
+    },
+    {
+      "id": "oversized_thirty_days_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "2592000000"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "2592000000"
+      },
+      "base_admitted": true,
+      "fixed_admitted": false
+    },
+    {
+      "id": "oversized_safe_integer_max",
+      "timeout_input": {
+        "kind": "number",
+        "value": 9007199254740991
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 9007199254740991
+      },
+      "base_admitted": true,
+      "fixed_admitted": false
+    },
+    {
+      "id": "minimum_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 60000
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 60000
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "minimum_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "60000"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "60000"
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_explicit_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 2700000
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 2700000
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_explicit_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "2700000"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "2700000"
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "timer_max_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 2147483647
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 2147483647
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "timer_max_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "2147483647"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "2147483647"
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_omitted",
+      "timeout_input": {
+        "kind": "omit"
+      },
+      "expected_raw_input": {
+        "js_typeof": "undefined",
+        "own_property": false,
+        "tagged_value": {
+          "omitted": true
+        }
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_null",
+      "timeout_input": {
+        "kind": "null"
+      },
+      "expected_raw_input": {
+        "js_typeof": "object",
+        "own_property": true,
+        "tagged_value": null
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_empty_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": ""
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": ""
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_numeric_zero",
+      "timeout_input": {
+        "kind": "number",
+        "value": 0
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 0
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_boolean_false",
+      "timeout_input": {
+        "kind": "boolean",
+        "value": false
+      },
+      "expected_raw_input": {
+        "js_typeof": "boolean",
+        "own_property": true,
+        "tagged_value": false
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "default_numeric_nan",
+      "timeout_input": {
+        "kind": "nonfinite",
+        "value": "NaN"
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": {
+          "nonfinite": "NaN"
+        }
+      },
+      "base_admitted": true,
+      "fixed_admitted": true
+    },
+    {
+      "id": "below_minimum_numeric",
+      "timeout_input": {
+        "kind": "number",
+        "value": 59999
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 59999
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "below_minimum_string",
+      "timeout_input": {
+        "kind": "string",
+        "value": "59999"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "59999"
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "string_zero_rejects",
+      "timeout_input": {
+        "kind": "string",
+        "value": "0"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "0"
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "fractional_numeric_rejects",
+      "timeout_input": {
+        "kind": "number",
+        "value": 60000.5
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 60000.5
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "numeric_infinity_rejects",
+      "timeout_input": {
+        "kind": "nonfinite",
+        "value": "Infinity"
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": {
+          "nonfinite": "Infinity"
+        }
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "string_infinity_rejects",
+      "timeout_input": {
+        "kind": "string",
+        "value": "Infinity"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "Infinity"
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "string_nan_rejects",
+      "timeout_input": {
+        "kind": "string",
+        "value": "NaN"
+      },
+      "expected_raw_input": {
+        "js_typeof": "string",
+        "own_property": true,
+        "tagged_value": "NaN"
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    },
+    {
+      "id": "unsafe_integer_rejects",
+      "timeout_input": {
+        "kind": "number",
+        "value": 9007199254740992
+      },
+      "expected_raw_input": {
+        "js_typeof": "number",
+        "own_property": true,
+        "tagged_value": 9007199254740992
+      },
+      "base_admitted": false,
+      "fixed_admitted": false
+    }
+  ]
+}
