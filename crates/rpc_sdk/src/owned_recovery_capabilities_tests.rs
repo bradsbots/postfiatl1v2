@@ -183,6 +183,65 @@ mod owned_recovery_capabilities {
         assert_eq!(rejected_field(value), "result");
     }
 
+    fn report_with(validator_count: u64, quorum: u64) -> Value {
+        let value = with(report(), "/validator_count", json!(validator_count));
+        with(value, "/quorum", json!(quorum))
+    }
+
+    #[test]
+    fn accepts_the_committee_quorum_at_boundary_counts() {
+        // expected_quorum(n) = n - (n - 1) / 3.
+        for (validator_count, quorum) in [
+            (1, 1),
+            (2, 2),
+            (3, 3),
+            (4, 3),
+            (5, 4),
+            (6, 5),
+            (7, 5),
+            (10, 7),
+            (100, 67),
+        ] {
+            validate(&report_with(validator_count, quorum)).unwrap_or_else(|error| {
+                panic!("{validator_count}/{quorum} should validate: {error:?}")
+            });
+        }
+    }
+
+    #[test]
+    fn rejects_in_range_quorums_other_than_the_committee_quorum() {
+        for (validator_count, quorum) in [
+            (4, 1),
+            (4, 2),
+            (4, 4),
+            (2, 1),
+            (3, 1),
+            (3, 2),
+            (7, 4),
+            (7, 6),
+            (7, 7),
+            (10, 6),
+            (10, 8),
+            (100, 66),
+            (100, 68),
+        ] {
+            assert_eq!(
+                rejected_field(report_with(validator_count, quorum)),
+                "quorum",
+                "{validator_count}/{quorum}"
+            );
+        }
+    }
+
+    #[test]
+    fn capabilities_type_validate_rejects_wrong_quorum() {
+        for quorum in [1, 2, 4] {
+            let mut record = capabilities();
+            record.quorum = quorum;
+            assert!(record.validate().is_err(), "4/{quorum} must be rejected");
+        }
+    }
+
     #[test]
     fn rejects_missing_sections() {
         let mut value = report();

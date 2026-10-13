@@ -5337,10 +5337,20 @@ fn validate_owned_recovery_capabilities_result(
     u64_field(result, "current_height")?;
     let validator_count = nonzero_u64_field(result, "validator_count")?;
     let quorum = nonzero_u64_field(result, "quorum")?;
-    if quorum > validator_count {
+    // The node reports its active committee, and committee validation pins
+    // quorum to expected_quorum(validator count) = n - (n - 1) / 3.
+    let validator_count_usize = usize::try_from(validator_count).map_err(|_| {
+        invalid_result("validator_count", "validator_count does not fit in usize")
+    })?;
+    let expected_quorum =
+        postfiat_types::FastPayRecoveryCommitteeV1::expected_quorum(validator_count_usize)
+            .ok_or_else(|| invalid_result("validator_count", "expected nonzero validator_count"))?;
+    if usize::try_from(quorum).ok() != Some(expected_quorum) {
         return Err(invalid_result(
             "quorum",
-            "expected quorum to be at most validator_count",
+            format!(
+                "expected the committee quorum {expected_quorum} for {validator_count} validators"
+            ),
         ));
     }
 
