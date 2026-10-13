@@ -49,11 +49,21 @@ function normalizeRequest(body, assetId) {
         amount_atoms: String(body?.amount_atoms || '').trim(),
         asset_id: String(body?.asset_id || '').trim().toLowerCase(),
     };
+    // amount_atoms is hashed into job_id, passed to the worker and compared with
+    // its summary as text, so only the canonical decimal spelling is accepted.
+    // BigInt() alone would also take 0x/0o/0b prefixes, a leading + and leading
+    // zeros, giving one burn several job_ids.
+    // A JSON number above Number.MAX_SAFE_INTEGER has already been rounded by
+    // JSON.parse (9007199254740993 arrives as 9007199254740992), so numbers are
+    // accepted only while they are safe integers; larger amounts must be strings.
+    const rawAmount = body?.amount_atoms;
+    const amountNumberExact = typeof rawAmount !== 'number' || Number.isSafeInteger(rawAmount);
+    const amountSyntaxValid = amountNumberExact && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
     let amount = 0n;
-    try { amount = BigInt(request.amount_atoms); } catch (_) { /* rejected below */ }
+    if (amountSyntaxValid) amount = BigInt(request.amount_atoms);
     if (!PFTL_TX_RE.test(request.burn_tx_id) || !PFTL_RE.test(request.owner)
         || !EVM_RE.test(request.ethereum_recipient) || request.asset_id !== assetId
-        || amount <= 0n || amount > ((1n << 64n) - 1n)) {
+        || !amountSyntaxValid || amount <= 0n || amount > ((1n << 64n) - 1n)) {
         throw Object.assign(new Error('Invalid pfUSDC withdrawal relay request.'), {
             code: 'pfusdc_withdrawal_request_invalid',
         });

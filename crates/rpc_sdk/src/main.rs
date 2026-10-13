@@ -8,24 +8,24 @@ use zeroize::Zeroizing;
 
 use postfiat_rpc_sdk::{
     account_escrows_request, account_nfts_request, account_offers_request, account_request,
-    account_tx_request, apply_batch_request, apply_bridge_batch_request,
-    apply_shield_batch_request, archive_window_request, atomic_settlement_template_request,
-    atomic_swap_fee_quote_request, atomic_swap_transaction_tx_id, batch_archive_request,
-    blocks_request_from_height, book_offers_request, bridge_batch_domain_request,
-    bridge_batch_pause_request, bridge_batch_resume_request, bridge_batch_transfer_request,
-    bridge_status_request, decode_atomic_swap_fee_quote_summary,
-    decode_atomic_swap_finality_summary, decode_atomic_swap_mempool_submit_entry,
-    decode_transfer_fee_quote_summary, escrow_fee_quote_request, escrow_info_request,
-    fastlane_asset_control_apply_request, fastlane_asset_control_catch_up_request,
-    fastlane_asset_control_prepare_request, fastlane_asset_control_preview_request,
-    fastlane_exit_request, fastswap_apply_request, fastswap_cancel_apply_request,
-    fastswap_capabilities_request, fastswap_catch_up_request, fastswap_checkpoint_status_request,
-    fastswap_commit_request, fastswap_commit_round_request, fastswap_effects_request,
-    fastswap_new_round_vote_request, fastswap_objects_request, fastswap_policy_by_hash_request,
-    fastswap_policy_by_pair_request, fastswap_precommit_request, fastswap_prepare_request,
-    fastswap_preview_request, fastswap_propose_round_request, fastswap_status_request,
-    fastswap_votes_request, fee_request, issuer_nfts_request, ledger_request, manifests_request,
-    mempool_batch_request, mempool_status_request,
+    account_tx_index_status_request, account_tx_request, apply_batch_request,
+    apply_bridge_batch_request, apply_shield_batch_request, archive_window_request,
+    atomic_settlement_template_request, atomic_swap_fee_quote_request,
+    atomic_swap_transaction_tx_id, batch_archive_request, blocks_request_from_height,
+    book_offers_request, bridge_batch_domain_request, bridge_batch_pause_request,
+    bridge_batch_resume_request, bridge_batch_transfer_request, bridge_status_request,
+    decode_atomic_swap_fee_quote_summary, decode_atomic_swap_finality_summary,
+    decode_atomic_swap_mempool_submit_entry, decode_transfer_fee_quote_summary,
+    escrow_fee_quote_request, escrow_info_request, fastlane_asset_control_apply_request,
+    fastlane_asset_control_catch_up_request, fastlane_asset_control_prepare_request,
+    fastlane_asset_control_preview_request, fastlane_exit_request, fastswap_apply_request,
+    fastswap_cancel_apply_request, fastswap_capabilities_request, fastswap_catch_up_request,
+    fastswap_checkpoint_status_request, fastswap_commit_request, fastswap_commit_round_request,
+    fastswap_effects_request, fastswap_new_round_vote_request, fastswap_objects_request,
+    fastswap_policy_by_hash_request, fastswap_policy_by_pair_request, fastswap_precommit_request,
+    fastswap_prepare_request, fastswap_preview_request, fastswap_propose_round_request,
+    fastswap_status_request, fastswap_votes_request, fee_request, issuer_nfts_request,
+    ledger_request, manifests_request, mempool_batch_request, mempool_status_request,
     mempool_submit_fastlane_primary_finality_request, mempool_submit_fastlane_primary_request,
     mempool_submit_signed_atomic_swap_transaction_finality_request,
     mempool_submit_signed_atomic_swap_transaction_json_request,
@@ -45,7 +45,8 @@ use postfiat_rpc_sdk::{
     shield_disclose_request, shield_scan_request, shield_turnstile_request, status_request,
     transfer_fee_quote_request, tx_request_with_audit, validate_local_keys_request,
     validate_request_file, validate_response_file, validate_response_kind_with_context,
-    validators_request, verify_state_request, wallet_backup_from_master_seed,
+    validators_request, verify_blocks_request, verify_bridge_request, verify_mempool_request,
+    verify_shielded_request, verify_state_request, wallet_backup_from_master_seed,
     wallet_dual_sign_fastswap_intent, wallet_fastpay_transfer_certificate_digest_v3,
     wallet_fastpay_transfer_lock_id_v1, wallet_fastpay_unwrap_certificate_digest_v3,
     wallet_fastpay_unwrap_lock_id_v1, wallet_identity_from_backup,
@@ -62,21 +63,21 @@ use postfiat_rpc_sdk::{
     NavcoinBridgeReceiptReplayParams, NavcoinBridgeSupplyStatusParams, RpcRequest, RpcRequestKind,
     RpcResponseKind, WalletBackupFile, WalletSignPaymentV2Fields, METHOD_ACCOUNT,
     METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS, METHOD_ACCOUNT_OFFERS, METHOD_ACCOUNT_TX,
-    METHOD_APPLY_BATCH, METHOD_APPLY_BRIDGE_BATCH, METHOD_APPLY_SHIELD_BATCH,
-    METHOD_ARCHIVE_WINDOW, METHOD_ATOMIC_SETTLEMENT_TEMPLATE, METHOD_ATOMIC_SWAP_FEE_QUOTE,
-    METHOD_BATCH_ARCHIVE, METHOD_BLOCKS, METHOD_BOOK_OFFERS, METHOD_BRIDGE_BATCH_DOMAIN,
-    METHOD_BRIDGE_BATCH_PAUSE, METHOD_BRIDGE_BATCH_RESUME, METHOD_BRIDGE_BATCH_TRANSFER,
-    METHOD_BRIDGE_STATUS, METHOD_ESCROW_FEE_QUOTE, METHOD_ESCROW_INFO,
-    METHOD_FASTLANE_ASSET_CONTROL_APPLY, METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP,
-    METHOD_FASTLANE_ASSET_CONTROL_PREPARE, METHOD_FASTLANE_ASSET_CONTROL_PREVIEW,
-    METHOD_FASTLANE_EXIT, METHOD_FASTSWAP_APPLY, METHOD_FASTSWAP_CANCEL_APPLY,
-    METHOD_FASTSWAP_CAPABILITIES, METHOD_FASTSWAP_CATCH_UP, METHOD_FASTSWAP_CHECKPOINT_STATUS,
-    METHOD_FASTSWAP_COMMIT, METHOD_FASTSWAP_COMMIT_ROUND, METHOD_FASTSWAP_EFFECTS,
-    METHOD_FASTSWAP_NEW_ROUND_VOTE, METHOD_FASTSWAP_OBJECTS, METHOD_FASTSWAP_POLICY,
-    METHOD_FASTSWAP_PRECOMMIT, METHOD_FASTSWAP_PREPARE, METHOD_FASTSWAP_PREVIEW,
-    METHOD_FASTSWAP_PROPOSE_ROUND, METHOD_FASTSWAP_STATUS, METHOD_FASTSWAP_VOTES, METHOD_FEE,
-    METHOD_ISSUER_NFTS, METHOD_LEDGER, METHOD_MANIFESTS, METHOD_MEMPOOL_BATCH,
-    METHOD_MEMPOOL_STATUS, METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY,
+    METHOD_ACCOUNT_TX_INDEX_STATUS, METHOD_APPLY_BATCH, METHOD_APPLY_BRIDGE_BATCH,
+    METHOD_APPLY_SHIELD_BATCH, METHOD_ARCHIVE_WINDOW, METHOD_ATOMIC_SETTLEMENT_TEMPLATE,
+    METHOD_ATOMIC_SWAP_FEE_QUOTE, METHOD_BATCH_ARCHIVE, METHOD_BLOCKS, METHOD_BOOK_OFFERS,
+    METHOD_BRIDGE_BATCH_DOMAIN, METHOD_BRIDGE_BATCH_PAUSE, METHOD_BRIDGE_BATCH_RESUME,
+    METHOD_BRIDGE_BATCH_TRANSFER, METHOD_BRIDGE_STATUS, METHOD_ESCROW_FEE_QUOTE,
+    METHOD_ESCROW_INFO, METHOD_FASTLANE_ASSET_CONTROL_APPLY,
+    METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP, METHOD_FASTLANE_ASSET_CONTROL_PREPARE,
+    METHOD_FASTLANE_ASSET_CONTROL_PREVIEW, METHOD_FASTLANE_EXIT, METHOD_FASTSWAP_APPLY,
+    METHOD_FASTSWAP_CANCEL_APPLY, METHOD_FASTSWAP_CAPABILITIES, METHOD_FASTSWAP_CATCH_UP,
+    METHOD_FASTSWAP_CHECKPOINT_STATUS, METHOD_FASTSWAP_COMMIT, METHOD_FASTSWAP_COMMIT_ROUND,
+    METHOD_FASTSWAP_EFFECTS, METHOD_FASTSWAP_NEW_ROUND_VOTE, METHOD_FASTSWAP_OBJECTS,
+    METHOD_FASTSWAP_POLICY, METHOD_FASTSWAP_PRECOMMIT, METHOD_FASTSWAP_PREPARE,
+    METHOD_FASTSWAP_PREVIEW, METHOD_FASTSWAP_PROPOSE_ROUND, METHOD_FASTSWAP_STATUS,
+    METHOD_FASTSWAP_VOTES, METHOD_FEE, METHOD_ISSUER_NFTS, METHOD_LEDGER, METHOD_MANIFESTS,
+    METHOD_MEMPOOL_BATCH, METHOD_MEMPOOL_STATUS, METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY,
     METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY,
     METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION,
     METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION_FINALITY,
@@ -92,6 +93,7 @@ use postfiat_rpc_sdk::{
     METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW, METHOD_SHIELD_BATCH_SPEND, METHOD_SHIELD_BATCH_SWAP,
     METHOD_SHIELD_DISCLOSE, METHOD_SHIELD_SCAN, METHOD_SHIELD_TURNSTILE, METHOD_STATUS,
     METHOD_TRANSFER_FEE_QUOTE, METHOD_TX, METHOD_VALIDATE_LOCAL_KEYS, METHOD_VALIDATORS,
+    METHOD_VERIFY_BLOCKS, METHOD_VERIFY_BRIDGE, METHOD_VERIFY_MEMPOOL, METHOD_VERIFY_SHIELDED,
     METHOD_VERIFY_STATE,
 };
 use postfiat_types::PaymentMemo;
@@ -151,6 +153,10 @@ fn write_request(flags: &[String]) -> Result<(), String> {
         METHOD_METRICS => metrics_request(id),
         METHOD_LEDGER => ledger_request(id, optional_usize_flag(flags, "--limit")?),
         METHOD_VERIFY_STATE => verify_state_request(id),
+        METHOD_VERIFY_BLOCKS => verify_blocks_request(id),
+        METHOD_VERIFY_BRIDGE => verify_bridge_request(id),
+        METHOD_VERIFY_MEMPOOL => verify_mempool_request(id),
+        METHOD_VERIFY_SHIELDED => verify_shielded_request(id),
         METHOD_VALIDATE_LOCAL_KEYS => {
             let validators = flag_value(flags, "--validators")
                 .unwrap_or("4")
@@ -162,6 +168,7 @@ fn write_request(flags: &[String]) -> Result<(), String> {
             let address = flag_value(flags, "--address").ok_or("missing --address")?;
             account_request(id, address)
         }
+        METHOD_ACCOUNT_TX_INDEX_STATUS => account_tx_index_status_request(id),
         METHOD_NAV_RESERVE_PROOF_STATUS => nav_reserve_proof_status_request(
             id,
             flag_value(flags, "--asset-id").ok_or("missing --asset-id")?,
@@ -993,10 +1000,18 @@ fn write_request(flags: &[String]) -> Result<(), String> {
         ),
         other => {
             return Err(format!(
-                "unsupported request builder method `{other}`; supported: {METHOD_STATUS}, {METHOD_METRICS}, {METHOD_VERIFY_STATE}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_RECEIPTS}, {METHOD_BLOCKS}, {METHOD_BATCH_ARCHIVE}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+                "unsupported request builder method `{other}`; supported: {METHOD_STATUS}, {METHOD_METRICS}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_RECEIPTS}, {METHOD_BLOCKS}, {METHOD_BATCH_ARCHIVE}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
             ));
         }
     };
+    // Refuse to write a request this binary's own validator would reject, so a
+    // malformed id, hash or limit fails here instead of later at
+    // `validate-request --expect-kind` or at the node. A method whose kind the
+    // binary cannot derive is written unvalidated, as before.
+    if let Ok(Some(kind)) = request_kind_for_method(method, flags) {
+        postfiat_rpc_sdk::validate_request(&request, Some(id), Some(kind))
+            .map_err(|error| format!("request validation failed for `{method}`: {error}"))?;
+    }
     write_request_output(output, &request)
 }
 
@@ -1015,31 +1030,87 @@ fn write_request_output(output: &str, request: &RpcRequest) -> Result<(), String
 fn validate_request(flags: &[String]) -> Result<(), String> {
     let input = flag_value(flags, "--input").ok_or("missing --input")?;
     let expected_id = flag_value(flags, "--expect-id");
-    let expected_kind = request_kind(flags)?;
+    // Without --expect-kind the library checks only the protocol envelope, so
+    // derive the kind from the file's own method and check its params rules
+    // too. --expect-kind keeps asserting the method on top of that.
+    let expected_kind = match request_kind(flags)? {
+        Some(kind) => Some(kind),
+        None => {
+            let request = read_request_file(input)
+                .map_err(|error| format!("request validation failed at {input}: {error}"))?;
+            request_kind_for_method(&request.method, flags)
+                .ok()
+                .flatten()
+        }
+    };
     let request = validate_request_file(input, expected_id, expected_kind)
         .map_err(|error| format!("request validation failed at {input}: {error}"))?;
-    println!("rpc_request=ok id={} method={}", request.id, request.method);
+    if expected_kind.is_some() {
+        println!("rpc_request=ok id={} method={}", request.id, request.method);
+    } else {
+        println!(
+            "rpc_request=ok id={} method={} params=unchecked",
+            request.id, request.method
+        );
+    }
     Ok(())
 }
 
 fn validate_response(flags: &[String]) -> Result<(), String> {
     let input = flag_value(flags, "--input").ok_or("missing --input")?;
-    let expected_id = flag_value(flags, "--expect-id");
     let require_ok = has_flag(flags, "--require-ok");
-    let expected_kind = response_kind(flags)?;
+    // A supplied --request-file binds every response kind to its request: the
+    // response id must equal the request id, an explicit --expect-id must agree
+    // with it, and the expected kind is taken from (or checked against) the
+    // request method. The request-bound branches below add their payload-level
+    // binding on top of this.
+    let bound_request = match flag_value(flags, "--request-file") {
+        Some(request_file) => Some(
+            read_request_file(request_file)
+                .map_err(|error| format!("request read failed at {request_file}: {error}"))?,
+        ),
+        None => None,
+    };
+    let expected_id = match (flag_value(flags, "--expect-id"), bound_request.as_ref()) {
+        (Some(expected), Some(request)) if expected != request.id => {
+            return Err(format!(
+                "--expect-id `{expected}` conflicts with request id `{}` in --request-file",
+                request.id
+            ));
+        }
+        (expected, request) => expected.or(request.map(|request| request.id.as_str())),
+    };
+    let expected_kind = match (response_kind(flags)?, bound_request.as_ref()) {
+        (Some(expected_kind), Some(request)) => {
+            let request_kind =
+                response_kind_for_method(&request.method, flags).map_err(|error| {
+                    format!("request method in --request-file is not a response kind: {error}")
+                })?;
+            if request_kind != Some(expected_kind) {
+                return Err(format!(
+                    "--expect-kind does not match request method `{}` in --request-file",
+                    request.method
+                ));
+            }
+            Some(expected_kind)
+        }
+        (None, Some(request)) => {
+            response_kind_for_method(&request.method, flags).map_err(|error| {
+                format!("request method in --request-file is not a response kind: {error}")
+            })?
+        }
+        (expected_kind, None) => expected_kind,
+    };
     let domain_context = response_domain_context(flags)?;
     let archive_context = batch_archive_context(expected_kind, domain_context.as_ref())?;
     let response = validate_response_file(input, expected_id, require_ok)
         .map_err(|error| format!("response validation failed at {input}: {error}"))?;
     if let Some(expected_kind) = expected_kind {
         if expected_kind == RpcResponseKind::AtomicSwapFeeQuote {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap quote response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap quote request read failed at {request_file}: {error}")
-            })?;
-            let quote = decode_atomic_swap_fee_quote_summary(&response, &request)
+            let quote = decode_atomic_swap_fee_quote_summary(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
@@ -1048,13 +1119,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
                 quote.unsigned_transaction.protocol_version,
             )?;
         } else if expected_kind == RpcResponseKind::MempoolSubmitSignedAtomicSwapTransaction {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap submit response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap submit request read failed at {request_file}: {error}")
-            })?;
-            let entry = decode_atomic_swap_mempool_submit_entry(&response, &request)
+            let entry = decode_atomic_swap_mempool_submit_entry(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
@@ -1064,13 +1132,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
             )?;
         } else if expected_kind == RpcResponseKind::MempoolSubmitSignedAtomicSwapTransactionFinality
         {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "atomic swap finality response validation requires --request-file for exact request binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("atomic swap finality request read failed at {request_file}: {error}")
-            })?;
-            let finality = decode_atomic_swap_finality_summary(&response, &request)
+            let finality = decode_atomic_swap_finality_summary(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
             validate_response_domain(
                 domain_context.as_ref(),
@@ -1839,12 +1904,23 @@ fn request_kind(flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
     let Some(kind) = flag_value(flags, "--expect-kind") else {
         return Ok(None);
     };
+    request_kind_for_method(kind, flags)
+}
+
+/// The request kind for a method name; `flags` supplies kind parameters such
+/// as `--validators`. Shared by `validate-request --expect-kind` and by the
+/// `request` builder's pre-write validation.
+fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
     match kind {
         METHOD_STATUS => Ok(Some(RpcRequestKind::Status)),
         METHOD_SERVER_INFO => Ok(Some(RpcRequestKind::ServerInfo)),
         METHOD_METRICS => Ok(Some(RpcRequestKind::Metrics)),
         METHOD_LEDGER => Ok(Some(RpcRequestKind::Ledger)),
         METHOD_VERIFY_STATE => Ok(Some(RpcRequestKind::VerifyState)),
+        METHOD_VERIFY_BLOCKS => Ok(Some(RpcRequestKind::VerifyBlocks)),
+        METHOD_VERIFY_BRIDGE => Ok(Some(RpcRequestKind::VerifyBridge)),
+        METHOD_VERIFY_MEMPOOL => Ok(Some(RpcRequestKind::VerifyMempool)),
+        METHOD_VERIFY_SHIELDED => Ok(Some(RpcRequestKind::VerifyShielded)),
         METHOD_VALIDATE_LOCAL_KEYS => {
             let validators = flag_value(flags, "--validators")
                 .map(|value| {
@@ -1857,6 +1933,7 @@ fn request_kind(flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
         }
         METHOD_ACCOUNT => Ok(Some(RpcRequestKind::Account)),
         METHOD_ACCOUNT_TX => Ok(Some(RpcRequestKind::AccountTx)),
+        METHOD_ACCOUNT_TX_INDEX_STATUS => Ok(Some(RpcRequestKind::AccountTxIndexStatus)),
         METHOD_NAV_RESERVE_PROOF_STATUS => Ok(Some(RpcRequestKind::NavReserveProofStatus)),
         METHOD_FEE => Ok(Some(RpcRequestKind::Fee)),
         METHOD_TRANSFER_FEE_QUOTE => Ok(Some(RpcRequestKind::TransferFeeQuote)),
@@ -1968,7 +2045,7 @@ fn request_kind(flags: &[String]) -> Result<Option<RpcRequestKind>, String> {
             Ok(Some(RpcRequestKind::FastLaneAssetControlCatchUp))
         }
         other => Err(format!(
-            "unsupported request kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_NAV_RESERVE_PROOF_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+            "unsupported request kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_ACCOUNT_TX_INDEX_STATUS}, {METHOD_NAV_RESERVE_PROOF_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
         )),
     }
 }
@@ -1977,12 +2054,25 @@ fn response_kind(flags: &[String]) -> Result<Option<RpcResponseKind>, String> {
     let Some(kind) = flag_value(flags, "--expect-kind") else {
         return Ok(None);
     };
+    response_kind_for_method(kind, flags)
+}
+
+/// Maps a request method name to the response kind that validates its
+/// result; shared by `--expect-kind` and by `--request-file` binding.
+fn response_kind_for_method(
+    kind: &str,
+    flags: &[String],
+) -> Result<Option<RpcResponseKind>, String> {
     match kind {
         METHOD_STATUS => Ok(Some(RpcResponseKind::Status)),
         METHOD_SERVER_INFO => Ok(Some(RpcResponseKind::ServerInfo)),
         METHOD_METRICS => Ok(Some(RpcResponseKind::Metrics)),
         METHOD_LEDGER => Ok(Some(RpcResponseKind::Ledger)),
         METHOD_VERIFY_STATE => Ok(Some(RpcResponseKind::VerifyState)),
+        METHOD_VERIFY_BLOCKS => Ok(Some(RpcResponseKind::VerifyBlocks)),
+        METHOD_VERIFY_BRIDGE => Ok(Some(RpcResponseKind::VerifyBridge)),
+        METHOD_VERIFY_MEMPOOL => Ok(Some(RpcResponseKind::VerifyMempool)),
+        METHOD_VERIFY_SHIELDED => Ok(Some(RpcResponseKind::VerifyShielded)),
         METHOD_VALIDATE_LOCAL_KEYS => {
             let validators = flag_value(flags, "--validators")
                 .map(|value| {
@@ -1995,6 +2085,7 @@ fn response_kind(flags: &[String]) -> Result<Option<RpcResponseKind>, String> {
         }
         METHOD_ACCOUNT => Ok(Some(RpcResponseKind::Account)),
         METHOD_ACCOUNT_TX => Ok(Some(RpcResponseKind::AccountTx)),
+        METHOD_ACCOUNT_TX_INDEX_STATUS => Ok(Some(RpcResponseKind::AccountTxIndexStatus)),
         METHOD_NAV_RESERVE_PROOF_STATUS => Ok(Some(RpcResponseKind::NavReserveProofStatus)),
         METHOD_FEE => Ok(Some(RpcResponseKind::Fee)),
         METHOD_TRANSFER_FEE_QUOTE => Ok(Some(RpcResponseKind::TransferFeeQuote)),
@@ -2100,7 +2191,7 @@ fn response_kind(flags: &[String]) -> Result<Option<RpcResponseKind>, String> {
             Ok(Some(RpcResponseKind::FastLaneAssetControlPreview))
         }
         other => Err(format!(
-            "unsupported response kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_NAV_RESERVE_PROOF_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+            "unsupported response kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_ACCOUNT_TX_INDEX_STATUS}, {METHOD_NAV_RESERVE_PROOF_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
         )),
     }
 }
@@ -2357,7 +2448,7 @@ fn print_usage() {
   postfiat-rpc-sdk wallet-sign-owned-unwrap-v3 --backup-file PATH --order-file PATH --capabilities-file PATH --output PATH
   postfiat-rpc-sdk wallet-verify-fastpay-apply-v3 --operation transfer|unwrap --certificate-file PATH --apply-response-file PATH --capabilities-file PATH --validators-file PATH --output PATH
 
-Supported request methods: status, server_info, metrics, ledger, verify_state, validate_local_keys, account, account_tx, nav_reserve_proof_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
+Supported request methods: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, nav_reserve_proof_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 FastSwap methods: mempool_submit_fastlane_primary, mempool_submit_fastlane_primary_finality, fastswap_capabilities, fastswap_preview, fastswap_prepare, fastswap_commit, fastswap_apply, fastswap_catch_up, fastswap_status, fastswap_effects, fastswap_new_round_vote, fastswap_propose_round, fastswap_precommit, fastswap_commit_round, fastswap_cancel_apply, fastlane_exit, fastswap_checkpoint_status, fastswap_objects, fastswap_policy, fastlane_asset_control_preview, fastlane_asset_control_prepare, fastlane_asset_control_apply, fastlane_asset_control_catch_up.
 FastLane primary submit requires exactly one of --fastlane-primary-json or --fastlane-primary-json-file.
 Account_tx request supports --address, --from-height, --to-height, and --limit.
@@ -2367,14 +2458,17 @@ Atomic_settlement_template request supports --left-owner, --left-recipient, --le
 Atomic_swap_fee_quote supports --rfq-hash, --market-envelope-hash, --nav-epoch, --expires-at-height, --swap-nonce, and --leg-N-owner/recipient/issuer/asset-id/amount for N=0,1.
 Atomic swap submit supports exactly one of --signed-atomic-swap-transaction-json or --signed-atomic-swap-transaction-json-file. Finality submit additionally requires --proxy-required-current-height, --proxy-required-state-root, and --proxy-required-parent-hash, with optional --proxy-readiness-timeout-ms.
 Validating atomic swap quote, raw-submit, or finality responses requires --request-file so the response is bound to the exact request and signed body; --chain-id, --genesis-hash, and --protocol-version may be supplied together to assert its chain domain.
+Any validate-response call given --request-file is bound to that request: the response id must equal the request id, --expect-id must agree with it if also given, and --expect-kind defaults to (and is checked against) the request method.
 Offer_info request supports --offer-id. Account_offers request supports --account, --state, and --limit. Book_offers request supports --taker-gets-asset-id, --taker-pays-asset-id, and --limit.
 Escrow_info request supports --escrow-id. Account_escrows request supports --account, --role, --state, and --limit.
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
 Tx request supports --audit-block-log for full replay verification.
-Supported response kinds: status, server_info, metrics, ledger, verify_state, validate_local_keys, account, account_tx, nav_reserve_proof_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
+Supported response kinds: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, nav_reserve_proof_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
-Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout."#
+Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout.
+The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written.
+validate-request checks the params rules for the file's own method; --expect-kind additionally asserts the method. A method this binary cannot map to a kind is reported with params=unchecked."#
     );
 }
 
