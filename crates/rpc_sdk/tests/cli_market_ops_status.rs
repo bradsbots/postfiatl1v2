@@ -253,7 +253,7 @@ fn validate_response_accepts_market_ops_status_bound_to_its_request() {
 #[test]
 fn validate_response_rejects_contradictory_active_market_ops_status() {
     let asset_id = "ab".repeat(48);
-    let control = validate_unbound("control", &report(&asset_id, 7));
+    let control = validate_bound("control", &asset_id, Some("7"), &report(&asset_id, 7));
     assert!(
         control.status.success(),
         "stderr: {}",
@@ -266,9 +266,25 @@ fn validate_response_rejects_contradictory_active_market_ops_status() {
     ] {
         let mut result = report(&asset_id, 7);
         result[field] = value;
-        let output = validate_unbound(field, &result);
-        assert_rejected(&output, field);
         let output = validate_bound(&format!("{field}-bound"), &asset_id, Some("7"), &result);
         assert_rejected(&output, field);
     }
+}
+
+#[test]
+fn validate_response_requires_request_file_for_market_ops_status() {
+    // A valid, self-consistent report is still refused without the request
+    // it answers: asset and epoch binding cannot be checked in isolation.
+    let asset_id = "ab".repeat(48);
+    let output = validate_unbound("unbound", &report(&asset_id, 7));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !output.status.success(),
+        "expected rejection, stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    assert!(
+        stderr.contains("market_ops_status response validation requires --request-file"),
+        "stderr: {stderr}"
+    );
 }

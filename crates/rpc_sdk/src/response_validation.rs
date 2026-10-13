@@ -5324,6 +5324,13 @@ const MARKET_OPS_STATUS_VALUES: [&str; 6] = [
 ///
 /// The node declares the USD-e8 and atoms figures as `u128`; see
 /// `u128_field` for how values beyond `u64::MAX` are handled.
+///
+/// This checks the report in isolation and is private. It is reachable only
+/// through `validate_response_kind(.., RpcResponseKind::MarketOpsStatus)`,
+/// which cannot tell a valid report for another asset or epoch from the one
+/// asked for. Callers must use `validate_market_ops_status_response_for_request`,
+/// the primary API, which binds the report to its request (the CLI requires
+/// `--request-file` for this kind).
 fn validate_market_ops_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
     expect_string_eq(result, "schema", MARKET_OPS_STATUS_RESULT_SCHEMA)?;
     lower_hex_field(result, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
@@ -5434,7 +5441,7 @@ fn validate_market_ops_status_consistency(
 }
 
 /// Validates a `market_ops_status` response against the request that
-/// produced it: the request must itself be a valid `market_ops_status`
+/// produced it. This is the API to use for this kind: the request must itself be a valid `market_ops_status`
 /// request, the response id must equal the request id, the report must pass
 /// `validate_market_ops_status_result`, its `asset_id` must equal the
 /// requested asset, and, when the request names an `epoch`, its

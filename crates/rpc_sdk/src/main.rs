@@ -1149,9 +1149,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
                 &finality.genesis_hash,
                 finality.protocol_version,
             )?;
-        } else if let (RpcResponseKind::MarketOpsStatus, Some(request)) =
-            (expected_kind, bound_request.as_ref())
-        {
+        } else if expected_kind == RpcResponseKind::MarketOpsStatus {
+            let request = bound_request.as_ref().ok_or(
+                "market_ops_status response validation requires --request-file for asset and epoch binding",
+            )?;
             validate_market_ops_status_response_for_request(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
         } else {
@@ -2474,7 +2475,7 @@ Offer_info request supports --offer-id. Account_offers request supports --accoun
 Escrow_info request supports --escrow-id. Account_escrows request supports --account, --role, --state, and --limit.
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
-Market_ops_status request supports --asset-id (96 lowercase hex characters) and optional --epoch (nonzero u64; latest finalized envelope when omitted). Validating a market_ops_status response with --request-file binds its asset_id to the request and, when the request names an epoch, its envelope_epoch.
+Market_ops_status request supports --asset-id (96 lowercase hex characters) and optional --epoch (nonzero u64; latest finalized envelope when omitted). Validating its response requires --request-file: the report asset_id must equal the requested asset and, when the request names an epoch, envelope_epoch must equal it.
 Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, market_ops_status, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
