@@ -5260,11 +5260,14 @@ fn invalid_request_validation(error: RpcRequestValidationError) -> io::Error {
 const VAULT_BRIDGE_STATUS_RESULT_SCHEMA: &str = "postfiat-vault-bridge-status-v1";
 const VAULT_BRIDGE_STATUS_RESULT_DISCLOSURE: &str = "vault bridge asset is source-bound and bridge-backed on PFTL. Counted vault bridge asset receipts must reference a ERC20BridgeVault deposit event evidence root; withdrawals are PFTL burn packets claimed from the source vault after challenge/finality. No pooled or automatic par redemption is implied.";
 const VAULT_BRIDGE_STATUS_BUCKET_ACTIVE: &str = "active";
+const VAULT_BRIDGE_STATUS_BUCKET_IMPAIRED: &str = "impaired";
 const VAULT_BRIDGE_STATUS_PAR_BPS: u64 = 10_000;
 
 struct VaultBridgeStatusBucketSummary<'a> {
     bucket_id: &'a str,
     active: bool,
+    counts_toward_counted_value: bool,
+    counted_value_atoms: u64,
     redeemable_at_par: bool,
     allocated_atoms: u64,
 }
@@ -5273,7 +5276,10 @@ struct VaultBridgeStatusBucketSummary<'a> {
 /// node) and the invariants the node computes when assembling it: issued
 /// supply = transparent + Orchard, healthy/impaired allocation sums over the
 /// bucket rows, per-row unallocated/redeemable/remaining arithmetic,
-/// attestation tallies, and `*_count` fields equal to their row counts.
+/// attestation tallies, `*_count` fields equal to their row counts, and the
+/// top-level `counted_value_atoms` (checked sum of active/impaired bucket
+/// counted values) and `unallocated_counted_capacity_atoms` (checked sum of
+/// the receipt rows' unallocated values) totals.
 fn validate_vault_bridge_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
     expect_string_eq(result, "schema", VAULT_BRIDGE_STATUS_RESULT_SCHEMA)?;
     lower_hex_field(result, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
@@ -5293,7 +5299,7 @@ fn validate_vault_bridge_status_result(result: &Value) -> Result<(), RpcResponse
             "expected issued supply to equal transparent plus Orchard supply",
         ));
     }
-    u64_field(result, "counted_value_atoms")?;
+    let counted_value_atoms = u64_field(result, "counted_value_atoms")?;
     let healthy_allocated_atoms = u64_field(result, "healthy_allocated_atoms")?;
     let impaired_allocated_atoms = u64_field(result, "impaired_allocated_atoms")?;
     let source_series_enforced = bool_field(result, "source_series_enforced")?;
@@ -5307,17 +5313,25 @@ fn validate_vault_bridge_status_result(result: &Value) -> Result<(), RpcResponse
         "display_family_classification",
         expected_classification,
     )?;
-    u64_field(result, "unallocated_counted_capacity_atoms")?;
+    let unallocated_counted_capacity_atoms =
+        u64_field(result, "unallocated_counted_capacity_atoms")?;
     clean_string_field(result, "source_root")?;
 
     let buckets = array_field(result, "buckets")?;
     let mut active_bucket_ids: Vec<&str> = Vec::new();
     let mut expected_healthy_atoms = 0_u64;
     let mut expected_impaired_atoms = 0_u64;
+    // The node's `vault_bridge_counted_value_for_asset`: a checked sum of
+    // counted value over the asset's active and impaired buckets only.
+    let mut expected_counted_value_atoms = Some(0_u64);
     for (index, bucket) in buckets.iter().enumerate() {
         let summary = validate_vault_bridge_status_bucket_row(bucket, index)?;
         if summary.active {
             active_bucket_ids.push(summary.bucket_id);
+        }
+        if summary.counts_toward_counted_value {
+            expected_counted_value_atoms = expected_counted_value_atoms
+                .and_then(|total| total.checked_add(summary.counted_value_atoms));
         }
         let total = if summary.redeemable_at_par {
             &mut expected_healthy_atoms
@@ -5346,9 +5360,47 @@ fn validate_vault_bridge_status_result(result: &Value) -> Result<(), RpcResponse
         ));
     }
 
+    match expected_counted_value_atoms {
+        Some(expected) if expected == counted_value_atoms => {}
+        Some(_) => {
+            return Err(invalid_result(
+                "counted_value_atoms",
+                "expected the counted value sum of active and impaired buckets",
+            ));
+        }
+        None => {
+            return Err(invalid_result(
+                "counted_value_atoms",
+                "active and impaired bucket counted value sum overflowed",
+            ));
+        }
+    }
+
     let receipts = array_field(result, "receipts")?;
+    // The node sums each active-bucket receipt's available counted value with
+    // the same predicate it uses for the per-row `unallocated_value_atoms`, so
+    // the total is the checked sum of the validated row values.
+    let mut expected_unallocated_capacity_atoms = Some(0_u64);
     for (index, receipt) in receipts.iter().enumerate() {
-        validate_vault_bridge_status_receipt_row(receipt, index, &active_bucket_ids)?;
+        let unallocated =
+            validate_vault_bridge_status_receipt_row(receipt, index, &active_bucket_ids)?;
+        expected_unallocated_capacity_atoms =
+            expected_unallocated_capacity_atoms.and_then(|total| total.checked_add(unallocated));
+    }
+    match expected_unallocated_capacity_atoms {
+        Some(expected) if expected == unallocated_counted_capacity_atoms => {}
+        Some(_) => {
+            return Err(invalid_result(
+                "unallocated_counted_capacity_atoms",
+                "expected the sum of receipt unallocated values in active buckets",
+            ));
+        }
+        None => {
+            return Err(invalid_result(
+                "unallocated_counted_capacity_atoms",
+                "receipt unallocated value sum overflowed",
+            ));
+        }
     }
     let bridge_deposits = array_field(result, "bridge_deposits")?;
     for (index, deposit) in bridge_deposits.iter().enumerate() {
@@ -5462,6 +5514,8 @@ fn validate_vault_bridge_status_bucket_row<'a>(
     Ok(VaultBridgeStatusBucketSummary {
         bucket_id,
         active,
+        counts_toward_counted_value: active || status == VAULT_BRIDGE_STATUS_BUCKET_IMPAIRED,
+        counted_value_atoms,
         redeemable_at_par,
         allocated_atoms,
     })
@@ -5471,7 +5525,7 @@ fn validate_vault_bridge_status_receipt_row(
     row: &Value,
     index: usize,
     active_bucket_ids: &[&str],
-) -> Result<(), RpcResponseValidationError> {
+) -> Result<u64, RpcResponseValidationError> {
     let row_path = |field: &str| format!("receipts[{index}].{field}");
     clean_string_field(row, "receipt_id")?;
     let bucket_id = clean_string_field(row, "bucket_id")?;
@@ -5515,7 +5569,7 @@ fn validate_vault_bridge_status_receipt_row(
             "expected counted minus allocated value for receipts in active buckets and zero otherwise",
         ));
     }
-    Ok(())
+    Ok(unallocated_value_atoms)
 }
 
 fn validate_vault_bridge_status_deposit_row(

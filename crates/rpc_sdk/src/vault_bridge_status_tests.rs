@@ -430,6 +430,96 @@ mod vault_bridge_status {
     }
 
     #[test]
+    fn rejects_counted_value_total_that_disagrees_with_bucket_rows() {
+        // Active (500) + impaired (80) bucket counted values = 580.
+        for value in [9999_u64, 579, 581, 500] {
+            let report = with(fixture(), "/counted_value_atoms", json!(value));
+            assert_eq!(rejected_field(report), "counted_value_atoms", "value {value}");
+        }
+    }
+
+    #[test]
+    fn rejects_unallocated_capacity_total_that_disagrees_with_receipt_rows() {
+        // Only receipt-1 sits in an active bucket: 500 counted - 200 allocated.
+        for value in [9999_u64, 299, 301, 330] {
+            let report = with(fixture(), "/unallocated_counted_capacity_atoms", json!(value));
+            assert_eq!(
+                rejected_field(report),
+                "unallocated_counted_capacity_atoms",
+                "value {value}"
+            );
+        }
+    }
+
+    #[test]
+    fn counted_value_total_excludes_paused_and_retired_buckets() {
+        for status in ["paused", "retired"] {
+            let mut report = fixture();
+            let mut extra = buckets()[0].clone();
+            extra["bucket_id"] = json!(format!("bucket-{status}"));
+            extra["counted_value_atoms"] = json!(1000);
+            extra["gross_receipt_atoms"] = json!(1000);
+            for field in [
+                "outstanding_vault_bridge_atoms",
+                "nav_subscription_allocations_atoms",
+                "redemption_queue_atoms",
+                "other_allocations_atoms",
+                "unallocated_counted_capacity_atoms",
+                "redeemable_claim_atoms",
+            ] {
+                extra[field] = json!(0);
+            }
+            extra["redeemable_at_par"] = json!(false);
+            extra["status"] = json!(status);
+            let mut extra_receipt = receipts()[0].clone();
+            extra_receipt["receipt_id"] = json!(format!("receipt-{status}"));
+            extra_receipt["bucket_id"] = json!(format!("bucket-{status}"));
+            extra_receipt["counted_value_atoms"] = json!(1000);
+            extra_receipt["allocated_value_atoms"] = json!(0);
+            extra_receipt["unallocated_value_atoms"] = json!(0);
+            report["buckets"].as_array_mut().unwrap().push(extra);
+            report["receipts"].as_array_mut().unwrap().push(extra_receipt);
+            report["bucket_count"] = json!(3);
+            report["receipt_count"] = json!(3);
+            validate(&report).expect("non-counting bucket excluded from both totals");
+
+            let inflated = with(report.clone(), "/counted_value_atoms", json!(1580));
+            assert_eq!(rejected_field(inflated), "counted_value_atoms");
+            let inflated = with(report, "/unallocated_counted_capacity_atoms", json!(1300));
+            assert_eq!(rejected_field(inflated), "unallocated_counted_capacity_atoms");
+        }
+    }
+
+    #[test]
+    fn rejects_counted_value_total_that_overflows() {
+        let report = with(fixture(), "/buckets/1/counted_value_atoms", json!(u64::MAX));
+        assert_eq!(rejected_field(report), "counted_value_atoms");
+    }
+
+    #[test]
+    fn rejects_unallocated_capacity_total_that_overflows() {
+        let mut report = fixture();
+        let mut extra_bucket = buckets()[0].clone();
+        extra_bucket["bucket_id"] = json!("bucket-active-2");
+        extra_bucket["counted_value_atoms"] = json!(u64::MAX - 1000);
+        extra_bucket["unallocated_counted_capacity_atoms"] = json!(u64::MAX - 1200);
+        let mut extra_receipt = receipts()[0].clone();
+        extra_receipt["receipt_id"] = json!("receipt-3");
+        extra_receipt["bucket_id"] = json!("bucket-active-2");
+        extra_receipt["counted_value_atoms"] = json!(u64::MAX);
+        extra_receipt["allocated_value_atoms"] = json!(0);
+        extra_receipt["unallocated_value_atoms"] = json!(u64::MAX);
+        report["buckets"].as_array_mut().unwrap().push(extra_bucket);
+        report["receipts"].as_array_mut().unwrap().push(extra_receipt);
+        report["bucket_count"] = json!(3);
+        report["receipt_count"] = json!(3);
+        // counted total = 580 + (MAX - 1000) fits; healthy allocations double.
+        report["counted_value_atoms"] = json!(u64::MAX - 420);
+        report["healthy_allocated_atoms"] = json!(400);
+        assert_eq!(rejected_field(report), "unallocated_counted_capacity_atoms");
+    }
+
+    #[test]
     fn rejects_altered_disclosure() {
         let report = with(fixture(), "/disclosure", json!("par redemption is implied"));
         assert_eq!(rejected_field(report), "disclosure");
