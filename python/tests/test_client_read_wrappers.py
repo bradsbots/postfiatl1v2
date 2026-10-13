@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import unittest
+from pathlib import Path
 from typing import Any
 from unittest import mock
 
@@ -136,6 +138,109 @@ class ParameterizedReadWrapperTests(unittest.TestCase):
         with mock.patch.object(client, "_call", return_value=[]):
             with self.assertRaisesRegex(RpcProtocolError, "vault_bridge_route result must be an object"):
                 client.vault_bridge_route("asset-1")
+
+
+class RemainingReadWrapperTests(unittest.TestCase):
+    def test_single_argument_reads_send_the_node_parameter_name(self) -> None:
+        client = _client()
+        for method, kwargs, params in (
+            ("nav_reserve_proof_status", {"asset_id": "asset-1"}, {"asset_id": "asset-1"}),
+            ("vault_bridge_status", {"asset_id": "asset-1"}, {"asset_id": "asset-1"}),
+            ("fx_fix_info", {"fix_packet_hash": "ab" * 48}, {"fix_packet_hash": "ab" * 48}),
+            ("fx_fix_reservation_info", {"reservation_id": "res-1"}, {"reservation_id": "res-1"}),
+            ("yolo_target_receipt", {"registration_id": "reg-1"}, {"registration_id": "reg-1"}),
+            (
+                "pfusdc_egress_witness",
+                {"withdrawal_id": "wd-1"},
+                {"withdrawal_id": "wd-1"},
+            ),
+            (
+                "pfusdc_egress_witness",
+                {"withdrawal_id": "wd-1", "prior_checkpoint": "cd" * 48},
+                {"withdrawal_id": "wd-1", "prior_checkpoint": "cd" * 48},
+            ),
+        ):
+            with self.subTest(method=method, kwargs=kwargs):
+                with mock.patch.object(client, "_call", return_value={"ok": True}) as call:
+                    self.assertEqual(getattr(client, method)(**kwargs), {"ok": True})
+                call.assert_called_once_with(method, params)
+
+    def test_fx_fix_list_sends_filters_and_the_presence_flag_only_when_set(self) -> None:
+        client = _client()
+        with mock.patch.object(client, "_call", return_value={"fixes": []}) as call:
+            client.fx_fix_list()
+        call.assert_called_once_with("fx_fix_list", {})
+        with mock.patch.object(client, "_call", return_value={"fixes": []}) as call:
+            client.fx_fix_list(base_asset_id="A", quote_asset_id="B", active_only=True, limit=7)
+        call.assert_called_once_with(
+            "fx_fix_list",
+            {"limit": 7, "base_asset_id": "A", "quote_asset_id": "B", "active_only": True},
+        )
+        with mock.patch.object(client, "_call", return_value={"fixes": []}) as call:
+            client.fx_fix_list(active_only=False, limit=10_000)
+        # active_only=False is not sent (the node flag is presence-only); limit is bounded.
+        call.assert_called_once_with("fx_fix_list", {"limit": 512})
+
+    def test_quote_and_preflight_send_integer_amounts_with_the_node_names(self) -> None:
+        client = _client()
+        with mock.patch.object(client, "_call", return_value={"quote": 1}) as call:
+            client.fx_fix_quote("ab" * 48, 1_000_000)
+        call.assert_called_once_with(
+            "fx_fix_quote", {"fix_packet_hash": "ab" * 48, "base_atoms": 1_000_000}
+        )
+        with mock.patch.object(client, "_call", return_value={"ok": True}) as call:
+            client.pfusdc_ingress_preflight(
+                "pfusdc", recipient="pf-recipient", depositor="0xdepositor", amount_atoms=0
+            )
+        call.assert_called_once_with(
+            "pfusdc_ingress_preflight",
+            {
+                "asset_id": "pfusdc",
+                "recipient": "pf-recipient",
+                "depositor": "0xdepositor",
+                "amount_atoms": 0,
+            },
+        )
+
+    def test_bad_arguments_fail_before_any_request(self) -> None:
+        client = _client()
+        with mock.patch.object(client, "_call") as call:
+            with self.assertRaisesRegex(ValueError, "asset_id must be a non-empty string"):
+                client.nav_reserve_proof_status("")
+            with self.assertRaisesRegex(ValueError, "base_atoms must be a non-negative integer"):
+                client.fx_fix_quote("ab" * 48, -1)
+            with self.assertRaisesRegex(ValueError, "base_atoms must be a non-negative integer"):
+                client.fx_fix_quote("ab" * 48, True)  # type: ignore[arg-type]
+            with self.assertRaisesRegex(ValueError, "amount_atoms must be a non-negative integer"):
+                client.pfusdc_ingress_preflight("a", recipient="r", depositor="d", amount_atoms=1.5)  # type: ignore[arg-type]
+            with self.assertRaisesRegex(ValueError, "depositor must be a non-empty string"):
+                client.pfusdc_ingress_preflight("a", recipient="r", depositor="", amount_atoms=1)
+            with self.assertRaisesRegex(ValueError, "prior_checkpoint must be a non-empty string"):
+                client.pfusdc_egress_witness("wd-1", prior_checkpoint="")
+            with self.assertRaisesRegex(ValueError, "base_asset_id must be a non-empty string"):
+                client.fx_fix_list(base_asset_id="")
+            with self.assertRaisesRegex(ValueError, "limit must be positive"):
+                client.fx_fix_list(limit=0)
+        call.assert_not_called()
+
+    def test_object_reads_reject_non_object_results(self) -> None:
+        client = _client()
+        with mock.patch.object(client, "_call", return_value=[]):
+            with self.assertRaisesRegex(RpcProtocolError, "fx_fix_list result must be an object"):
+                client.fx_fix_list()
+
+
+class DocumentedPublicReadCoverageTests(unittest.TestCase):
+    """Every method docs/rpc/method-coverage.md marks `public read` must have a
+    client wrapper of the same name, so the Python client cannot drift from
+    the documented public surface without this test noticing."""
+
+    def test_every_documented_public_read_has_a_client_wrapper(self) -> None:
+        coverage = Path(__file__).resolve().parents[2] / "docs" / "rpc" / "method-coverage.md"
+        rows = re.findall(r"^\| `([a-z_]+)` \| public read \|", coverage.read_text(encoding="utf-8"), re.M)
+        self.assertGreaterEqual(len(rows), 21, rows)
+        missing = sorted(name for name in rows if not callable(getattr(PostFiatRpcClient, name, None)))
+        self.assertEqual(missing, [], f"public reads without a client wrapper: {missing}")
 
 
 if __name__ == "__main__":
