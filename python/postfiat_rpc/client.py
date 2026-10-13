@@ -1378,9 +1378,20 @@ class PostFiatRpcClient:
         required_parent_hash: str | None = None,
         required_state_root: str | None = None,
     ) -> dict[str, Any]:
-        """Certify a shielded batch using the remote validator's sole proposer key."""
+        """Certify a shielded batch using the remote validator's sole proposer key.
+
+        The proxy parent pins are all-or-none around the height: a parent hash
+        or state root only means something relative to ``required_current_height``
+        and the node rejects a pin sent without it, so it is refused here instead
+        of being sent.
+        """
         if not isinstance(batch_json, str) or not batch_json.strip():
             raise ValueError("batch_json is required")
+        if required_current_height is None:
+            if required_parent_hash is not None:
+                raise ValueError("required_parent_hash requires required_current_height")
+            if required_state_root is not None:
+                raise ValueError("required_state_root requires required_current_height")
         params: dict[str, Any] = {"batch_json": batch_json}
         if required_current_height is not None:
             if required_current_height < 0:
