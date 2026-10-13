@@ -17,6 +17,73 @@ const request = normalizeRequest({
 assert(/^[0-9a-f]{64}$/.test(jobId(request)));
 assert.throws(() => normalizeRequest({ ...request, burn_tx_id: '22'.repeat(32) }, assetId), /Invalid pfUSDC/);
 assert.throws(() => normalizeRequest({ ...request, seed: 'must never cross the relay boundary' }, assetId), /Invalid pfUSDC/);
+// amount_atoms must be canonical decimal: BigInt() also parses prefixes and
+// leading zeros, which would give one burn several job_ids.
+for (const amount_atoms of [
+    '0100', '0x64', '0o144', '0b1100100', '1e2', '-1', '0', '+1', '1.0',
+    '18446744073709551616', '', 'abc', '9'.repeat(400),
+]) {
+    assert.throws(
+        () => normalizeRequest({ ...request, amount_atoms }, assetId),
+        /Invalid pfUSDC/,
+        `amount_atoms ${JSON.stringify(amount_atoms).slice(0, 40)} must be refused`,
+    );
+}
+for (const [amount_atoms, expected] of [
+    ['100', '100'], ['1', '1'], ['18446744073709551615', '18446744073709551615'],
+    [100, '100'], ['  100  ', '100'],
+]) {
+    assert.strictEqual(normalizeRequest({ ...request, amount_atoms }, assetId).amount_atoms, expected);
+}
+// JSON numbers are rounded by JSON.parse above 2^53-1, so they are accepted
+// only as safe integers; larger amounts must arrive as decimal strings. Each
+// case is parsed from a raw body string so the rounding really happens.
+const parseAmount = (raw) => JSON.parse(`{"amount_atoms":${raw}}`).amount_atoms;
+assert.strictEqual(parseAmount('9007199254740993'), 9007199254740992, 'JSON.parse rounds 2^53+1 down');
+assert.strictEqual(parseAmount('9007199254740995'), 9007199254740996, 'JSON.parse rounds 2^53+3 up');
+for (const raw of [
+    '9007199254740993', '9007199254740995', '9007199254740992', '18446744073709551615',
+    '1' + '0'.repeat(399), '-1', '0', '1.5', '100.5', '0.0',
+]) {
+    const amount_atoms = parseAmount(raw);
+    assert.strictEqual(typeof amount_atoms, 'number');
+    assert.throws(
+        () => normalizeRequest({ ...request, amount_atoms }, assetId),
+        /Invalid pfUSDC/,
+        `JSON number amount_atoms ${raw.slice(0, 40)} must be refused`,
+    );
+}
+for (const [raw, expected] of [
+    ['9007199254740991', '9007199254740991'], ['100', '100'], ['1', '1'], ['1e2', '100'],
+    ['"9007199254740993"', '9007199254740993'], ['"9007199254740995"', '9007199254740995'],
+    ['"18446744073709551615"', '18446744073709551615'],
+]) {
+    assert.strictEqual(
+        normalizeRequest({ ...request, amount_atoms: parseAmount(raw) }, assetId).amount_atoms,
+        expected,
+        `amount_atoms ${raw} must be preserved exactly`,
+    );
+}
+for (const raw of [
+    '"09007199254740993"', `"${'9'.repeat(400)}"`, '"-9007199254740993"', '"9007199254740993.0"',
+    '"0"', '"1.5"',
+]) {
+    assert.throws(
+        () => normalizeRequest({ ...request, amount_atoms: parseAmount(raw) }, assetId),
+        /Invalid pfUSDC/,
+        `string amount_atoms ${raw.slice(0, 40)} must be refused`,
+    );
+}
+// The exact string amount and its rounded neighbour hash to different job_ids.
+assert.notStrictEqual(
+    jobId(normalizeRequest({ ...request, amount_atoms: parseAmount('"9007199254740993"') }, assetId)),
+    jobId(normalizeRequest({ ...request, amount_atoms: parseAmount('"9007199254740992"') }, assetId)),
+);
+// The job_id hash scheme is unchanged for the canonical spelling.
+assert.strictEqual(
+    jobId(normalizeRequest({ ...request, amount_atoms: '100' }, assetId)),
+    '514a998f4c415f8bb81cf652f4d906e84029793795fd8f407bdef1547e8ea0ed',
+);
 
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pfusdc-withdrawal-jobs-'));
 const script = path.join(root, 'worker.sh');
