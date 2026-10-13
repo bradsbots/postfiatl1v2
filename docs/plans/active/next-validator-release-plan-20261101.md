@@ -8,7 +8,7 @@ release starts after `signer-rotation-20261007` is deployed and its activation i
 
 1. `signer-rotation-20261007` is cut from main at `0fa55d0b` (`release/signer-rotation-20261007`, tip `b4d3ebde`); rollout 2026-10-09 at the earliest.
 2. This release carries main past that cut plus the candidates below that are ready and reviewed.
-3. Main past the cut changes no binary behaviour: one test-only Rust removal, the Python fallback and docs.
+3. Main past the cut changes node behaviour only in rpc-serve input checks (#87, #89, #91, #92: malformed requests now rejected); the rest is test-only Rust, the Python fallback and docs.
 4. Rule kept from the current plan: changes that alter a consensus or state result get their own qualification; read-path and tooling changes ride along.
 5. Qualification and rollout follow the current plan; nothing starts before the "Not before" rules hold.
 
@@ -20,6 +20,7 @@ release starts after `signer-rotation-20261007` is deployed and its activation i
 - [x] `51144786`: Python fallback reads the newest blocks at or below the end height (`_account_tx_client_side_scan`, `python/postfiat_rpc/client.py`; `python/tests/test_account_tx_fallback.py`); archive-scan regression test `account_tx_scan_and_index_return_the_same_transaction_kinds` (`crates/node/src/tests/account_tx_truncation.rs`). Read-path tooling.
 - [x] `bbe82032`, `54515003`: docs (Z3 plan status; 2026-10-07 handoff).
 - [x] Also docs only: `e92b8157`, `0a136eaa`, `f3f2a1e1`, `774a6025`.
+- [x] `9e9d45d2`, `af346e00`, `38a10d54`, `5270b8c1` (PRs #87, #89, #91, #92): rpc-serve rejects ambiguous or wrong-typed params of `owned_certificate`, `fastswap_objects`, `transfer_fee_quote` and the proxy parent-wait pins (`crates/node/src/rpc_cli.rs`). RPC serving; no in-repo caller is rejected (review below).
 
 ## Candidates
 
@@ -85,12 +86,12 @@ bradsbots (fork, read permission) opened #56–#104 between 2026-10-08 and 2026-
 | #84 | rpc_sdk: add owned_recovery_capabilities request, validator, and CLI wiring | `crates/rpc_sdk` | +494/−33 | `f95dfad8` | B | [ ] review: 527 lines |
 | #85 | rpc_sdk: add owned_certificate request, validator, selector binding, and CLI wiring | `crates/rpc_sdk` | +1007/−25 | `3189bba6` | B | [ ] review: 1032 lines |
 | #86 | rpc_sdk CLI: bind every validate-response kind to --request-file | `crates/rpc_sdk` | +223/−2 | `7328b250` | A | [ ] CI approved, merge tomorrow |
-| #87 | node rpc-serve: reject owned_certificate requests carrying both selectors | `crates/node` | +74/−6 | `418cd804` | A | [ ] CI approved, merge tomorrow; rpc-serve strict params |
+| #87 | node rpc-serve: reject owned_certificate requests carrying both selectors | `crates/node` | +74/−6 | `418cd804` | A | [x] Reviewed 2026-10-13: MERGE — both keys (also `lock_id` + null digest) now `rpc_protocol_error`; wallet-web and #88 send one key; merged `9e9d45d2` |
 | #88 | python client: add owned_recovery_status and owned_certificate wrappers | `python/postfiat_rpc`, `python/tests` | +66/−0 | `d5fee302` | A | [ ] CI approved, merge tomorrow |
-| #89 | node rpc-serve: reject wrong-typed fastswap_objects params instead of ignoring them | `crates/node` | +130/−6 | `d6599054` | A | [ ] CI approved, merge tomorrow; rpc-serve strict params |
+| #89 | node rpc-serve: reject wrong-typed fastswap_objects params instead of ignoring them | `crates/node` | +130/−6 | `d6599054` | A | [x] Reviewed 2026-10-13: MERGE — present non-string/non-u64 (incl. null) params now `fastswap_failed`; only caller (rpc_sdk) well-typed; tests cover helpers, not the arm; merged `af346e00` |
 | #90 | node rpc-serve: strict optional params for fastswap_policy and fastswap_checkpoint_status (stacked on #89) | `crates/node` | +214/−16 | `85d40b00` | C | [ ] blocked: stacked on #89 |
-| #91 | node rpc-serve: reject wrong-typed transfer_fee_quote optional params instead of dropping them | `crates/node` | +184/−11 | `9438a231` | A | [ ] CI approved, merge tomorrow; rpc-serve strict params |
-| #92 | node rpc-serve: reject wrong-typed proxy parent-wait requirements instead of waiving them | `crates/node` | +161/−9 | `f77fa0b5` | A | [ ] CI approved, merge tomorrow; rpc-serve strict params |
+| #91 | node rpc-serve: reject wrong-typed transfer_fee_quote optional params instead of dropping them | `crates/node` | +184/−11 | `9438a231` | A | [x] Reviewed 2026-10-13: MERGE — wrong-typed or null `sequence`/`memo_*` now `rpc_protocol_error`; wallet-web, Python, rpc_sdk, wallet-proxy send strings/ints or omit; merged `38a10d54` |
+| #92 | node rpc-serve: reject wrong-typed proxy parent-wait requirements instead of waiving them | `crates/node` | +161/−9 | `f77fa0b5` | A | [x] Reviewed 2026-10-13: MERGE — non-string root/parent pins now `rpc_protocol_error`; null stays "no pin" as wallet-proxy sends; merged `5270b8c1` |
 | #93 | node rpc-serve: reject proxy root/parent-hash pins sent without the height instead of ignoring them (stacked on #92) | `crates/node` | +305/−10 | `e1c2c72e` | C | [ ] blocked: stacked on #92 |
 | #94 | python client: refuse shield_batch_finality parent pins sent without the height | `python/postfiat_rpc`, `python/tests` | +92/−1 | `c5ea3668` | A | [ ] CI approved, merge tomorrow |
 | #95 | wallet-proxy: pin the finalized block hash as the parent of a primed proposer route | `wallet-proxy` | +89/−0 | `051fa5d1` | B | [ ] review: wallet-proxy routing semantics (parent-hash pin of a primed proposer route) |
