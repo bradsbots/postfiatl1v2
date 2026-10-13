@@ -52,7 +52,7 @@ A future minimal repair would retain a verified positive signed fixture, vary on
 
 The predicate accepts every lowercase ASCII letter, so a 96-character `g` string passes the claimed lowercase-hex check for the block/state anchor, trust root, or Cobalt lock. The genesis identity is independently recomputed, but a malformed block/state anchor can still be carried into prepared rehearsal evidence without rejection. Later production transition checks reject malformed lock/root digests; no live admission bypass is claimed.
 
-A future minimal repair would require lowercase hexadecimal digits for every declared digest and test non-hex lowercase input. This is recorded without repair as required.
+A future minimal repair would require lowercase hexadecimal digits for every declared digest and test non-hex lowercase input. This is recorded without repair as required. **Repaired 2026-10-08 in `de3731b3`:** one `is_lowercase_hex_digest` predicate (96 digits from `0-9a-f`) serves both sites, with a regression over non-hex lowercase, uppercase and wrong-length input.
 
 ## Areas with no findings
 
@@ -74,7 +74,7 @@ Socket/network drills, live-chain/fleet operations, physical fault testing, full
 
 ## Repair result
 
-CHO-01 through CHO-04 are repaired; CHO-05 and CHO-06 remain recorded without repair. Only the four A3 source files changed.
+CHO-01 through CHO-04 are repaired; CHO-06 was repaired 2026-10-08 in `de3731b3` (see the finding); CHO-05 remains recorded without repair. Only the four A3 source files changed in the original campaign.
 
 - **CHO-01 — consensus-affecting:** checkpoint interval/coverage and every signed check's height and pending pair must bind the current ratification's activation height, amendment slot and candidate. The regression first verifies current evidence, then rejects valid older checkpoints substituted into the newer transcript.
 - **CHO-02 — consensus-affecting:** checked size arithmetic bounds the serialized expanded transcript to 16 MiB before shared-check cloning. The same guard prevents the compressor from producing an over-bound transcript. A correctly encoded compact fixture below 16 MiB that previously expanded beyond 32 MiB now fails at the expansion guard; ordinary and 20-validator certificates still pass. This is a serialized-data bound, not an exact process-memory limit.

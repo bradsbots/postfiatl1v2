@@ -87,9 +87,11 @@ function assertFileHash(file, expected, label, cache = null) {
     }
 }
 
-function positiveInteger(value, label, minimum = 1) {
+function positiveInteger(value, label, minimum = 1, maximum = Number.MAX_SAFE_INTEGER) {
     const parsed = Number.parseInt(String(value ?? ''), 10);
-    if (!Number.isSafeInteger(parsed) || parsed < minimum) throw new Error(`${label} must be a positive integer`);
+    if (!Number.isSafeInteger(parsed) || parsed < minimum || parsed > maximum) {
+        throw new Error(`${label} must be a positive integer`);
+    }
     return parsed;
 }
 
@@ -141,7 +143,8 @@ function loadConfig(file) {
                 }
             }
         }
-        row.timeout_ms = positiveInteger(row.timeout_ms || 60_000, 'driver timeout', 100);
+        // Node timers hold at most 2^31-1 ms; execFile turns a larger timeout into 1 ms.
+        row.timeout_ms = positiveInteger(row.timeout_ms || 60_000, 'driver timeout', 100, 2_147_483_647);
     });
     return { config, configFile, configSha256: sha256(fs.readFileSync(configFile)) };
 }
