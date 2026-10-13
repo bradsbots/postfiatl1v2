@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import subprocess
@@ -321,11 +322,82 @@ def extract_node_dispatch_methods(source: str) -> set[str]:
     return methods
 
 
-def extract_python_client_methods() -> set[str]:
-    if not PY_CLIENT.is_file():
-        return set()
-    source = PY_CLIENT.read_text(encoding="utf-8")
-    return set(re.findall(r'self\._call\("([^"]+)"', source))
+# A wrapper covers a method when it hands the method name, as a string
+# literal, to the transport (`self._call`) or to a helper that provably
+# forwards its `method` parameter to the transport, directly or through
+# another proven helper (`_verification_report` -> `_object_read` -> `_call`).
+# Helpers are proven from their body, never from their signature: a function
+# that merely takes a `method` parameter (`RpcError.__init__`, an audit or
+# logging helper) is not a transport helper, so a literal handed to it never
+# becomes a phantom inventory row (`build_inventory` unions the detected names
+# into the method set, where a false positive would trip the fail-closed
+# posture check). Working on the AST also covers the calls black wraps across
+# lines. Only positional forwarding of the parameter itself is recognised; a
+# helper that renames or rebuilds the method name is not proven and its
+# callers simply read as uncovered, which is the safe direction.
+PY_CLIENT_TRANSPORT = "_call"
+PY_CLIENT_METHOD_NAME_RE = re.compile(r"^[a-z0-9_]+$")
+
+
+def _self_call_target(call: ast.Call) -> str | None:
+    """`self.<name>(...)` -> `name`; anything else -> None."""
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name) and func.value.id == "self":
+        return func.attr
+    return None
+
+
+def _forwards_method_parameter(call: ast.Call, proven: set[str]) -> bool:
+    return (
+        _self_call_target(call) in proven
+        and bool(call.args)
+        and isinstance(call.args[0], ast.Name)
+        and call.args[0].id == "method"
+    )
+
+
+def python_client_forwarding_helpers(tree: ast.AST) -> set[str]:
+    """Names of `helper(self, method, ...)` functions whose body hands `method` to the
+    transport or to an already proven helper, plus the transport itself."""
+    candidates: dict[str, ast.FunctionDef] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.FunctionDef) or node.name == PY_CLIENT_TRANSPORT:
+            continue
+        params = node.args.posonlyargs + node.args.args
+        if len(params) >= 2 and params[0].arg == "self" and params[1].arg == "method":
+            candidates[node.name] = node
+    proven = {PY_CLIENT_TRANSPORT}
+    changed = True
+    while changed:
+        changed = False
+        for name, node in candidates.items():
+            if name in proven:
+                continue
+            if any(
+                isinstance(call, ast.Call) and _forwards_method_parameter(call, proven)
+                for call in ast.walk(node)
+            ):
+                proven.add(name)
+                changed = True
+    return proven
+
+
+def extract_python_client_methods(source: str | None = None) -> set[str]:
+    """Method names the Python client wraps; `source` overrides client.py for tests."""
+    if source is None:
+        if not PY_CLIENT.is_file():
+            return set()
+        source = PY_CLIENT.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    forwarders = python_client_forwarding_helpers(tree)
+    methods: set[str] = set()
+    for call in ast.walk(tree):
+        if not isinstance(call, ast.Call) or _self_call_target(call) not in forwarders or not call.args:
+            continue
+        first = call.args[0]
+        if isinstance(first, ast.Constant) and isinstance(first.value, str) and PY_CLIENT_METHOD_NAME_RE.match(first.value):
+            methods.add(first.value)
+    return methods
 
 
 def method_posture(

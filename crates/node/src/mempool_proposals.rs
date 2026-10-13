@@ -733,6 +733,17 @@ pub(super) fn admit_signed_atomic_swap_to_mempool(
     Ok(entry)
 }
 
+/// True when `receipt` is the accepted outcome block execution emits for the
+/// FastLane primary `operation` (deposit, anchor, control, ...).
+pub fn fastlane_primary_receipt_is_success(
+    operation: &postfiat_types::FastLanePrimaryOperationV1,
+    receipt: &postfiat_types::Receipt,
+) -> bool {
+    receipt.accepted
+        && postfiat_execution::fastlane_primary::fastlane_primary_accepted_receipt_codes(operation)
+            .contains(&receipt.code.as_str())
+}
+
 pub fn admit_fastlane_primary_to_mempool(
     data_dir: &Path,
     transaction: postfiat_types::FastLanePrimaryTransactionV1,

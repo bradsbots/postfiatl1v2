@@ -369,6 +369,28 @@ fn rpc_finality_required_u64_param(
     ))
 }
 
+/// Reads an optional string requirement of the proxy parent-wait contract
+/// strictly: a key that is present must carry a JSON string. JSON null means
+/// "no requirement", because the wallet proxy sends
+/// `proxy_required_state_root: route.required_state_root` where the route
+/// value is `status.state_root || null` (wallet-proxy/rpc-routing.js). Any
+/// other non-string type is rejected. Previously such a key was silently
+/// treated as absent, so a wrong-typed root or parent-hash requirement waived
+/// the parent binding and the proposer could build on whichever root it held.
+fn rpc_finality_required_str_param(
+    params: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<String>, (String, String)> {
+    match params.get(key) {
+        None | Some(serde_json::Value::Null) => Ok(None),
+        Some(serde_json::Value::String(value)) => Ok(Some(value.clone())),
+        Some(_) => Err((
+            "rpc_protocol_error".to_string(),
+            format!("{key} must be a string"),
+        )),
+    }
+}
+
 fn wait_for_rpc_finality_required_parent(
     context: &RpcServeConnectionContext,
     params: &serde_json::Map<String, serde_json::Value>,
@@ -379,14 +401,10 @@ fn wait_for_rpc_finality_required_parent(
     )? else {
         return Ok(0.0);
     };
-    let required_state_root = params
-        .get("proxy_required_state_root")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string);
-    let required_parent_hash = params
-        .get("proxy_required_parent_hash")
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_string);
+    let required_state_root =
+        rpc_finality_required_str_param(params, "proxy_required_state_root")?;
+    let required_parent_hash =
+        rpc_finality_required_str_param(params, "proxy_required_parent_hash")?;
     let timeout_ms = rpc_finality_required_u64_param(params, "proxy_readiness_timeout_ms")?
         .unwrap_or(context.finality_timeout_ms)
         .min(context.finality_timeout_ms.max(1));
@@ -1209,19 +1227,17 @@ fn handle_rpc_serve_connection(
                             .and_then(|value| postfiat_crypto_provider::hex_to_bytes(value)
                                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("FastSwap owner pubkey hex invalid: {error}"))));
                         owner.and_then(|owner| {
-                            let asset = request.params.get("asset_id")
-                                .and_then(serde_json::Value::as_str)
+                            let asset = fastswap_objects_optional_str(&request.params, "asset_id")?
                                 .map(crate::fastswap_service::parse_asset_id_hex)
                                 .transpose()?;
-                            let cursor_id = request.params.get("cursor_object_id").and_then(serde_json::Value::as_str);
-                            let cursor_version = request.params.get("cursor_version").and_then(serde_json::Value::as_u64);
+                            let cursor_id = fastswap_objects_optional_str(&request.params, "cursor_object_id")?;
+                            let cursor_version = fastswap_objects_optional_u64(&request.params, "cursor_version")?;
                             let cursor = match (cursor_id, cursor_version) {
                                 (None, None) => None,
                                 (Some(id), Some(version)) => Some(crate::fastswap_service::parse_object_key(id, version)?),
                                 _ => return Err(std::io::Error::new(std::io::ErrorKind::InvalidInput, "FastSwap cursor id/version must be supplied together")),
                             };
-                            let limit = request.params.get("limit").and_then(serde_json::Value::as_u64).unwrap_or(50);
-                            let limit: usize = limit.try_into().map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidInput, "FastSwap object limit overflow"))?;
+                            let limit = fastswap_objects_limit(&request.params)?;
                             service.objects(&owner, asset, cursor, limit)
                                 .and_then(|response| serde_json::to_value(response)
                                     .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error)))
@@ -1481,13 +1497,22 @@ fn handle_rpc_serve_connection(
             ),
         }
     } else if method == "owned_certificate" {
-        let selector = request
-            .params
-            .get("lock_id")
-            .or_else(|| request.params.get("certificate_digest"))
+        // The selectors are mutually exclusive: answering a request that
+        // carries both from the lock_id lookup would silently ignore the
+        // digest the client asked for.
+        let lock_id = request.params.get("lock_id");
+        let certificate_digest = request.params.get("certificate_digest");
+        let selector = lock_id
+            .or(certificate_digest)
             .and_then(|value| value.as_str())
             .unwrap_or("");
-        if selector.is_empty() {
+        if lock_id.is_some() && certificate_digest.is_some() {
+            rpc_serve_error_response(
+                &id,
+                "rpc_protocol_error",
+                "owned_certificate takes exactly one of lock_id or certificate_digest",
+            )
+        } else if selector.is_empty() {
             rpc_serve_error_response(
                 &id,
                 "rpc_protocol_error",
@@ -2374,6 +2399,7 @@ fn run_rpc_serve_mempool_submit_fastlane_primary_finality_inner(
     require_rpc_finality_local_proposer(context, finality_view.view)?;
 
     let mempool_submit_start = Instant::now();
+    let operation = transaction.operation.clone();
     let entry = admit_fastlane_primary_to_mempool(&context.data_dir, transaction).map_err(|error| {
         (
             "rpc_finality_submit_failed".to_string(),
@@ -2423,16 +2449,18 @@ fn run_rpc_serve_mempool_submit_fastlane_primary_finality_inner(
         .find(|report| {
             report.tx_id == tx_id
                 && report.confirmed
-                && report.receipt.accepted
-                && report.receipt.code == "owned_deposit_applied"
+                && postfiat_node::fastlane_primary_receipt_is_success(&operation, &report.receipt)
         })
         .cloned()
         .ok_or_else(|| {
+            let expected =
+                postfiat_execution::fastlane_primary::fastlane_primary_accepted_receipt_codes(
+                    &operation,
+                )
+                .join(" or ");
             (
                 "rpc_finality_submit_failed".to_string(),
-                format!(
-                    "FastLane primary finality round did not emit owned_deposit_applied for `{tx_id}`"
-                ),
+                format!("FastLane primary finality round did not emit {expected} for `{tx_id}`"),
             )
         })?;
     let total_ms = monotonic_elapsed_ms(total_start);
@@ -2494,6 +2522,45 @@ fn run_rpc_serve_transfer_fee_quote(
     }
 }
 
+/// Reads an optional string parameter of `transfer_fee_quote` strictly: a key
+/// that is present must carry a JSON string. Previously a present key of the
+/// wrong type was silently treated as absent, so `"memo_data": 7` quoted a
+/// memo-less transfer (a lower fee than the memo'd transfer will need) and
+/// `"sequence": "12"` quoted the next pending sequence instead of the one the
+/// caller named. Presence is judged by key: an explicit JSON null is a present
+/// key of the wrong type; clients that want the default omit the key.
+fn transfer_fee_quote_optional_str<'a>(
+    params: &'a serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<&'a str>, (String, String)> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_str().map(Some).ok_or_else(|| {
+            (
+                "rpc_protocol_error".to_string(),
+                format!("transfer_fee_quote {key} must be a string"),
+            )
+        }),
+    }
+}
+
+/// Reads an optional unsigned-integer parameter of `transfer_fee_quote`
+/// strictly; see `transfer_fee_quote_optional_str`.
+fn transfer_fee_quote_optional_u64(
+    params: &serde_json::Map<String, serde_json::Value>,
+    key: &str,
+) -> Result<Option<u64>, (String, String)> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_u64().map(Some).ok_or_else(|| {
+            (
+                "rpc_protocol_error".to_string(),
+                format!("transfer_fee_quote {key} must be an unsigned integer"),
+            )
+        }),
+    }
+}
+
 fn run_rpc_serve_transfer_fee_quote_inner(
     request: &RpcRequest,
     context: &RpcServeConnectionContext,
@@ -2531,24 +2598,18 @@ fn run_rpc_serve_transfer_fee_quote_inner(
                 "missing or invalid amount".to_string(),
             )
         })?;
-    let sequence = params.get("sequence").and_then(serde_json::Value::as_u64);
+    let sequence = transfer_fee_quote_optional_u64(params, "sequence")?;
     let report = transfer_fee_quote(TransferFeeQuoteOptions {
         data_dir: context.data_dir.clone(),
         from: from.to_string(),
         to: to.to_string(),
         amount,
         sequence,
-        memo_type: params
-            .get("memo_type")
-            .and_then(serde_json::Value::as_str)
+        memo_type: transfer_fee_quote_optional_str(params, "memo_type")?
             .map(ToString::to_string),
-        memo_format: params
-            .get("memo_format")
-            .and_then(serde_json::Value::as_str)
+        memo_format: transfer_fee_quote_optional_str(params, "memo_format")?
             .map(ToString::to_string),
-        memo_data: params
-            .get("memo_data")
-            .and_then(serde_json::Value::as_str)
+        memo_data: transfer_fee_quote_optional_str(params, "memo_data")?
             .map(ToString::to_string),
     })
     .map_err(|error| {
@@ -3869,6 +3930,140 @@ fn rpc_serve_method_allowed_with_owned_lane(
 }
 
 #[cfg(test)]
+mod proxy_parent_wait_param_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// An absent key and an explicit JSON null both mean "no requirement":
+    /// the wallet proxy sends `route.required_state_root`, which is
+    /// `status.state_root || null`, on the timeout-vote path.
+    #[test]
+    fn absent_and_null_mean_no_requirement() {
+        let absent = params_of(json!({}));
+        let null = params_of(json!({
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": null,
+        }));
+        assert_eq!(
+            rpc_finality_required_str_param(&absent, "proxy_required_state_root")
+                .expect("absent root"),
+            None
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&null, "proxy_required_state_root")
+                .expect("null root"),
+            None
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&null, "proxy_required_parent_hash")
+                .expect("null hash"),
+            None
+        );
+    }
+
+    #[test]
+    fn strings_are_kept() {
+        let params = params_of(json!({
+            "proxy_required_state_root": "22".repeat(48),
+            "proxy_required_parent_hash": "11".repeat(48),
+        }));
+        assert_eq!(
+            rpc_finality_required_str_param(&params, "proxy_required_state_root")
+                .expect("string root"),
+            Some("22".repeat(48))
+        );
+        assert_eq!(
+            rpc_finality_required_str_param(&params, "proxy_required_parent_hash")
+                .expect("string hash"),
+            Some("11".repeat(48))
+        );
+    }
+
+    #[test]
+    fn wrong_typed_values_are_rejected() {
+        for (key, value) in [
+            ("proxy_required_state_root", json!(7)),
+            ("proxy_required_state_root", json!(["aa"])),
+            ("proxy_required_parent_hash", json!({ "hash": "bb" })),
+            ("proxy_required_parent_hash", json!(true)),
+        ] {
+            let params = params_of(json!({ key: value }));
+            let (code, message) = rpc_finality_required_str_param(&params, key)
+                .expect_err("wrong-typed requirement is an error");
+            assert_eq!(code, "rpc_protocol_error");
+            assert_eq!(message, format!("{key} must be a string"));
+        }
+    }
+}
+
+#[cfg(test)]
+mod proxy_parent_wait_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// Arm-level check through `wait_for_rpc_finality_required_parent` with a
+    /// data directory that holds no ledger. A wrong-typed root or parent-hash
+    /// requirement must be rejected as a protocol error before the readiness
+    /// loop reads local status; the null/well-typed control reaches the loop
+    /// and fails there on the missing ledger. On the previous code the
+    /// wrong-typed requests behaved exactly like the control (the requirement
+    /// was silently dropped).
+    #[test]
+    fn wrong_typed_requirement_is_rejected_before_the_readiness_loop() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-proxy-parent-wait-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        context.finality_timeout_ms = 1;
+
+        let wrong_root = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": 7,
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &wrong_root)
+            .expect_err("wrong-typed root requirement is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "proxy_required_state_root must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let wrong_hash = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": "aa",
+            "proxy_required_parent_hash": ["bb"],
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &wrong_hash)
+            .expect_err("wrong-typed parent-hash requirement is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "proxy_required_parent_hash must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let control = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": "bb",
+        }));
+        let (code, _) = wait_for_rpc_finality_required_parent(&context, &control)
+            .expect_err("control reaches the readiness loop and fails on the missing ledger");
+        assert_eq!(code, "rpc_finality_parent_wait_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
+    }
+}
+
+#[cfg(test)]
 mod remote_method_policy_tests {
     use super::{rpc_serve_method_allowed, rpc_serve_method_allowed_with_owned_lane};
 
@@ -4767,11 +4962,137 @@ fn rpc_serve_error_class(method: &str, response: &RpcResponse) -> Option<String>
     Some(error.code.clone())
 }
 
+/// Reads an optional string parameter of `fastswap_objects` strictly: a key
+/// that is present must carry a JSON string. Previously a present key of the
+/// wrong type was silently treated as absent, so `"asset_id": 5` queried every
+/// asset and `"cursor_object_id": 7` dropped the cursor.
+fn fastswap_objects_optional_str<'a>(
+    params: &'a serde_json::Value,
+    key: &str,
+) -> std::io::Result<Option<&'a str>> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_str().map(Some).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("fastswap_objects {key} must be a string"),
+            )
+        }),
+    }
+}
+
+/// Reads an optional unsigned-integer parameter of `fastswap_objects`
+/// strictly; see `fastswap_objects_optional_str`.
+fn fastswap_objects_optional_u64(
+    params: &serde_json::Value,
+    key: &str,
+) -> std::io::Result<Option<u64>> {
+    match params.get(key) {
+        None => Ok(None),
+        Some(value) => value.as_u64().map(Some).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                format!("fastswap_objects {key} must be an unsigned integer"),
+            )
+        }),
+    }
+}
+
+/// The `fastswap_objects` page size: absent means the default of 50; a
+/// present value must be an unsigned integer. Range (1..=100) is enforced by
+/// `FastSwapService::objects`. Previously `"limit": "10"` or `"limit": -1`
+/// silently became 50.
+fn fastswap_objects_limit(params: &serde_json::Value) -> std::io::Result<usize> {
+    let limit = fastswap_objects_optional_u64(params, "limit")?.unwrap_or(50);
+    limit.try_into().map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "FastSwap object limit overflow",
+        )
+    })
+}
+
+#[cfg(test)]
+mod fastswap_objects_param_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn absent_optional_params_stay_absent_and_limit_defaults() {
+        let params = json!({ "owner_pubkey": "aa" });
+        assert_eq!(
+            fastswap_objects_optional_str(&params, "asset_id").expect("absent asset"),
+            None
+        );
+        assert_eq!(
+            fastswap_objects_optional_u64(&params, "cursor_version").expect("absent cursor"),
+            None
+        );
+        assert_eq!(fastswap_objects_limit(&params).expect("default limit"), 50);
+    }
+
+    #[test]
+    fn well_typed_params_are_read() {
+        let params = json!({
+            "asset_id": "ab",
+            "cursor_object_id": "cd",
+            "cursor_version": 3,
+            "limit": 7
+        });
+        assert_eq!(
+            fastswap_objects_optional_str(&params, "asset_id").expect("asset"),
+            Some("ab")
+        );
+        assert_eq!(
+            fastswap_objects_optional_str(&params, "cursor_object_id").expect("cursor id"),
+            Some("cd")
+        );
+        assert_eq!(
+            fastswap_objects_optional_u64(&params, "cursor_version").expect("cursor version"),
+            Some(3)
+        );
+        assert_eq!(fastswap_objects_limit(&params).expect("limit"), 7);
+    }
+
+    #[test]
+    fn wrong_typed_limit_is_rejected_not_defaulted() {
+        for bad in [json!("10"), json!(-1), json!(1.5), json!(true), json!(null), json!([10])] {
+            let params = json!({ "limit": bad });
+            let error = fastswap_objects_limit(&params).expect_err("wrong-typed limit");
+            assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+            assert_eq!(
+                error.to_string(),
+                "fastswap_objects limit must be an unsigned integer"
+            );
+        }
+    }
+
+    #[test]
+    fn wrong_typed_selectors_are_rejected_not_dropped() {
+        let params = json!({ "asset_id": 5, "cursor_object_id": 7, "cursor_version": "3" });
+        let error = fastswap_objects_optional_str(&params, "asset_id").expect_err("asset");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(error.to_string(), "fastswap_objects asset_id must be a string");
+        let error =
+            fastswap_objects_optional_str(&params, "cursor_object_id").expect_err("cursor id");
+        assert_eq!(
+            error.to_string(),
+            "fastswap_objects cursor_object_id must be a string"
+        );
+        let error =
+            fastswap_objects_optional_u64(&params, "cursor_version").expect_err("cursor version");
+        assert_eq!(
+            error.to_string(),
+            "fastswap_objects cursor_version must be an unsigned integer"
+        );
+    }
+}
+
 #[cfg(test)]
 mod child_dispatch_limit_tests {
     use super::*;
 
-    fn child_dispatch_test_context(
+    pub(super) fn child_dispatch_test_context(
         max_child_dispatch_concurrent: u64,
         max_child_dispatch_per_peer: u64,
     ) -> RpcServeConnectionContext {
@@ -4866,5 +5187,145 @@ mod child_dispatch_limit_tests {
             error.contains("global concurrent child dispatch limit 2"),
             "{error}"
         );
+    }
+}
+
+#[cfg(test)]
+mod transfer_fee_quote_param_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    #[test]
+    fn optional_params_are_read_strictly() {
+        let params = params_of(json!({
+            "sequence": "12",
+            "memo_type": 7,
+            "memo_format": ["text/plain"],
+            "memo_data": "hello",
+        }));
+        let (code, message) =
+            transfer_fee_quote_optional_u64(&params, "sequence").expect_err("string sequence");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "transfer_fee_quote sequence must be an unsigned integer");
+        let (code, message) =
+            transfer_fee_quote_optional_str(&params, "memo_type").expect_err("numeric memo type");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(message, "transfer_fee_quote memo_type must be a string");
+        assert_eq!(
+            transfer_fee_quote_optional_str(&params, "memo_format")
+                .expect_err("array memo format")
+                .1,
+            "transfer_fee_quote memo_format must be a string"
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&params, "memo_data").expect("string memo data"),
+            Some("hello")
+        );
+    }
+
+    #[test]
+    fn negative_and_fractional_sequences_are_rejected() {
+        let params = params_of(json!({ "sequence": -1 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence")
+                .expect_err("negative sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        let params = params_of(json!({ "sequence": 1.5 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence")
+                .expect_err("fractional sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        let params = params_of(json!({ "sequence": 12 }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&params, "sequence").expect("integer sequence"),
+            Some(12)
+        );
+    }
+
+    /// Presence is judged by key: an explicit JSON null is a present key of
+    /// the wrong type and is rejected, while an absent key keeps the default
+    /// (auto sequence, no memo). The Rust SDK and the Python client both omit
+    /// the key instead of sending null.
+    #[test]
+    fn explicit_null_is_rejected_while_absent_key_is_default() {
+        let absent = params_of(json!({}));
+        let null = params_of(json!({ "sequence": null, "memo_data": null }));
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&absent, "sequence").expect("absent sequence"),
+            None
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&absent, "memo_data").expect("absent memo"),
+            None
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_u64(&null, "sequence")
+                .expect_err("null sequence")
+                .1,
+            "transfer_fee_quote sequence must be an unsigned integer"
+        );
+        assert_eq!(
+            transfer_fee_quote_optional_str(&null, "memo_data")
+                .expect_err("null memo")
+                .1,
+            "transfer_fee_quote memo_data must be a string"
+        );
+    }
+}
+
+#[cfg(test)]
+mod transfer_fee_quote_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Arm-level check through `run_rpc_serve_transfer_fee_quote` with a data
+    /// directory that holds no ledger. A wrong-typed `memo_data` must be
+    /// rejected as a protocol error before the quote touches the data
+    /// directory; the well-typed control request reaches the quote and fails
+    /// there instead. On the previous code the wrong-typed request behaved
+    /// exactly like the control (the memo was silently dropped).
+    #[test]
+    fn wrong_typed_memo_is_rejected_before_the_quote_runs() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-transfer-fee-quote-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        let wrong_typed = RpcRequest::new(
+            "fee-quote-1",
+            "transfer_fee_quote",
+            json!({ "from": "rFrom", "to": "rTo", "amount": 1, "memo_data": 7 }),
+        );
+        let response = run_rpc_serve_transfer_fee_quote(&wrong_typed, &context);
+        assert_eq!(response.id, "fee-quote-1");
+        assert!(!response.ok);
+        let error = response.error.expect("wrong-typed memo is an error");
+        assert_eq!(error.code, "rpc_protocol_error");
+        assert_eq!(error.message, "transfer_fee_quote memo_data must be a string");
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let control = RpcRequest::new(
+            "fee-quote-2",
+            "transfer_fee_quote",
+            json!({ "from": "rFrom", "to": "rTo", "amount": 1, "memo_data": "hello" }),
+        );
+        let response = run_rpc_serve_transfer_fee_quote(&control, &context);
+        assert!(!response.ok);
+        let error = response.error.expect("control reaches the quote and fails on the missing ledger");
+        assert_eq!(error.code, "rpc_transfer_fee_quote_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
     }
 }

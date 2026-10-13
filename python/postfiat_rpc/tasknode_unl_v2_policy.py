@@ -1492,13 +1492,39 @@ def advance_shadow_round(
     *,
     new_registry_root: str,
 ) -> RegistryRoundState:
-    """Apply a proposed addition only to a caller-owned hypothetical state."""
+    """Apply a proposed addition only to a caller-owned hypothetical state.
+
+    The report must be the untouched output of ``evaluate_admission_round``
+    for this frozen window and this registry state (UNL-04): its root is
+    recomputed over its payload, its ``frozen_window_root`` must be this
+    window's, and its recorded registry state must equal the state being
+    advanced. Because a caller can recompute that root, the decision is
+    also re-derived from the frozen window, the state and the report's
+    candidate, so a swapped candidate cannot seat one the real decision held.
+    """
 
     if frozen.status != FROZEN or report.decision.action != PROPOSE_ADD:
         raise TaskNodeUnlError(
             "shadow_addition_not_proposed", "report.decision.action"
         )
+    if report.report_root != _domain_hash(REPORT_ROOT_DOMAIN, report._payload()):
+        raise TaskNodeUnlError("shadow_report_root_mismatch", "report.report_root")
+    if dict(report.roots).get("frozen_window_root") != frozen.frozen_window_root:
+        raise TaskNodeUnlError(
+            "shadow_report_window_mismatch", "report.roots.frozen_window_root"
+        )
     state = _validate_round_state(frozen, registry_state)
+    if report.registry_state != state:
+        raise TaskNodeUnlError(
+            "shadow_report_registry_mismatch", "report.registry_state"
+        )
+    # The root is an unkeyed hash a caller can recompute after editing the
+    # report, so re-derive the decision from the trusted inputs.
+    if (
+        evaluate_admission_round(frozen, state, report.decision.candidate).report_root
+        != report.report_root
+    ):
+        raise TaskNodeUnlError("shadow_report_decision_mismatch", "report.decision")
     root = require_lower_hex(new_registry_root, "new_registry_root")
     candidate = report.decision.candidate
     seats = _validated_seats(
