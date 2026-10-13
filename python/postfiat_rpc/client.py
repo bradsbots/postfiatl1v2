@@ -2953,12 +2953,13 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
             self._close_websocket()
 
     def _close_websocket(self) -> None:
-        if self._websocket is not None:
+        websocket = self._websocket
+        self._websocket = None
+        if websocket is not None:
             try:
-                self._websocket.close()
+                websocket.close()
             except Exception:
                 pass
-        self._websocket = None
 
     def persistent_worker(self, key: str) -> "PostFiatWebSocketRpcClient":
         """Return a client-lifetime WebSocket session for one concurrent lane."""
@@ -3035,26 +3036,33 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
                 websocket = self._connect_websocket()
                 websocket.send(wire)
                 message = websocket.recv(timeout=self.timeout_seconds)
+                if isinstance(message, bytes):
+                    raw = message.decode("utf-8")
+                else:
+                    raw = str(message)
+                if len(raw.encode("utf-8")) > self.response_byte_cap:
+                    raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
+                try:
+                    response = json.loads(raw)
+                except json.JSONDecodeError as error:
+                    raise RpcProtocolError(f"response was not valid JSON: {error}") from error
+                if not isinstance(response, dict):
+                    raise RpcProtocolError("response envelope must be an object")
+                # Bind and validate before another call can reuse this session.
+                # A bound RPC refusal is valid; the caller will raise RpcError.
+                try:
+                    self._unwrap_response(request["method"], request["id"], response)
+                except RpcError:
+                    pass
+                return response
             except TimeoutError as error:
                 self._close_websocket()
                 raise RpcProtocolError(f"WebSocket RPC timeout: {request.get('method')}") from error
-            except Exception as error:
+            except BaseException as error:
                 self._close_websocket()
+                if isinstance(error, RpcProtocolError) or not isinstance(error, Exception):
+                    raise
                 raise RpcProtocolError(f"WebSocket RPC failed: {error}") from error
-
-        if isinstance(message, bytes):
-            raw = message.decode("utf-8")
-        else:
-            raw = str(message)
-        if len(raw.encode("utf-8")) > self.response_byte_cap:
-            raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
-        try:
-            response = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise RpcProtocolError(f"response was not valid JSON: {error}") from error
-        if not isinstance(response, dict):
-            raise RpcProtocolError("response envelope must be an object")
-        return response
 
 
 def _hash_hex_domain(domain: str, payload: bytes) -> str:
