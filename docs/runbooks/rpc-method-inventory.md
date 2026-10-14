@@ -161,7 +161,7 @@ method lacks an explicit posture.
 | owned_apply | owned_lane_gated | no | yes | no | no | yes |  |
 | owned_apply_v3 | owned_lane_gated | no | yes | no | no | yes |  |
 | owned_certificate | read_only_public | yes | no | no | no | yes |  |
-| owned_objects | read_only_public | yes | no | yes | no | yes |  |
+| owned_objects | read_only_public | yes | no | yes | yes | yes |  |
 | owned_recovery_capabilities | read_only_public | yes | no | no | no | yes |  |
 | owned_recovery_status | read_only_public | yes | no | no | no | yes |  |
 | owned_sign | owned_lane_gated | no | yes | yes | yes | yes |  |
