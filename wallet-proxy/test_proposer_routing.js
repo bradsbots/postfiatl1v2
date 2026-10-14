@@ -481,6 +481,58 @@ async function testPrimedRoutePinsTheFinalizedBlockHashAsParent() {
   assert.strictEqual(statusCalls, 3);
 }
 
+async function testDefaultFinalityRouteDoesNotTreatAForkTipAsTheFinalizedParent() {
+  // The finality submit path (no routeKind, ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE
+  // on by default) returns the primed route at once and checks readiness in the
+  // background. A proposer at the pinned height and state root whose tip is a
+  // different block must not be marked ready, and the submit must carry the
+  // finalized block hash so the node's own parent wait can refuse that tip.
+  const line = JSON.stringify({
+    id: 'submit',
+    ok: true,
+    result: {
+      finality: {
+        block: {
+          header: {
+            height: 479,
+            state_root: 'root-479',
+            block_hash: 'tip-479',
+          },
+        },
+      },
+    },
+  });
+  const selection = primeNextProposerRouteCacheFromResponse(line, {
+    height: 479,
+    proposer: 'validator-5',
+    view: 0,
+  });
+  let forkProbes = 0;
+  const selected = await chooseProposerEndpointCached([], {
+    readyRetryMs: 0,
+    timeoutMs: 20,
+    statusRequester: async () => {
+      forkProbes += 1;
+      return { block_height: 479, state_root: 'root-479', block_tip_hash: 'tip-479-fork' };
+    },
+  });
+  assert.strictEqual(selected.route.readiness_check, 'rpc_parent_wait_finality_route');
+  assert.strictEqual(selected.endpoint.validatorId, 'validator-0');
+  await selection.ready_in_flight;
+  assert.ok(forkProbes >= 1);
+  assert.strictEqual(selection.ready_observed_status, undefined);
+  assert.strictEqual(selection.ready_requirement_key, undefined);
+
+  const annotated = requestWithProxyReadiness({
+    id: 'submit',
+    method: 'mempool_submit_signed_transfer_finality',
+    params: { signed_transfer_json: '{"ok":true}' },
+  }, selected.route);
+  assert.strictEqual(annotated.params.proxy_required_current_height, 479);
+  assert.strictEqual(annotated.params.proxy_required_state_root, 'root-479');
+  assert.strictEqual(annotated.params.proxy_required_parent_hash, 'tip-479');
+}
+
 async function testSequencedReadUsesFirstReadyMinHeightEndpoint() {
   const line = JSON.stringify({
     id: 'submit',
@@ -1131,6 +1183,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
   })
   .then(() => {
     return testPrimedRoutePinsTheFinalizedBlockHashAsParent();
+  })
+  .then(() => {
+    return testDefaultFinalityRouteDoesNotTreatAForkTipAsTheFinalizedParent();
   })
   .then(() => {
     return testSequencedReadUsesFirstReadyMinHeightEndpoint();
