@@ -1835,7 +1835,16 @@ fn validate_asset_info_result(result: &Value) -> Result<(), RpcResponseValidatio
     let found = bool_field(result, "found")?;
     let asset = field(result, "asset")?;
     match (found, asset.is_null()) {
-        (true, false) => validate_issued_asset_result(asset),
+        (true, false) => {
+            validate_issued_asset_result(asset)?;
+            if string_field(asset, "asset_id")? != string_field(result, "asset_id")? {
+                return Err(invalid_result(
+                    "asset",
+                    "expected asset object to match asset_id",
+                ));
+            }
+            Ok(())
+        }
         (false, true) => Ok(()),
         (true, true) => Err(invalid_result(
             "asset",
@@ -1915,7 +1924,16 @@ fn validate_escrow_info_result(result: &Value) -> Result<(), RpcResponseValidati
     let found = bool_field(result, "found")?;
     let escrow = field(result, "escrow")?;
     match (found, escrow.is_null()) {
-        (true, false) => validate_escrow_result(escrow),
+        (true, false) => {
+            validate_escrow_result(escrow)?;
+            if string_field(escrow, "escrow_id")? != string_field(result, "escrow_id")? {
+                return Err(invalid_result(
+                    "escrow",
+                    "expected escrow object to match escrow_id",
+                ));
+            }
+            Ok(())
+        }
         (false, true) => Ok(()),
         (true, true) => Err(invalid_result(
             "escrow",
