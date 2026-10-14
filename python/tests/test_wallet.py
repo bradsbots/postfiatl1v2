@@ -458,11 +458,23 @@ class WalletHelperTests(unittest.TestCase):
         result_schema = {"value": "postfiat-asset-info-v1"}
 
         def response_for_request(request: dict[str, object]) -> dict[str, object]:
+            result: dict[str, object] = {"schema": result_schema["value"]}
+            method = str(request["method"])
+            if method in {"asset_info", "escrow_info", "nft_info", "offer_info"}:
+                kind = method.removesuffix("_info")
+                requested_id = request["params"][f"{kind}_id"]
+                result.update(
+                    {
+                        f"{kind}_id": requested_id,
+                        "found": True,
+                        kind: {f"{kind}_id": requested_id},
+                    }
+                )
             return {
                 "version": "postfiat-local-rpc-v1",
                 "id": request["id"],
                 "ok": True,
-                "result": {"schema": result_schema["value"]},
+                "result": result,
             }
 
         with mock.patch.object(client, "_send", side_effect=response_for_request) as send:
