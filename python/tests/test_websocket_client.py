@@ -6,11 +6,7 @@ tests do not establish RFC6455 or live proxy interoperability.
 
 from __future__ import annotations
 
-import hashlib
-import importlib.util
 import json
-import os
-from pathlib import Path
 import sys
 import threading
 import types
@@ -18,11 +14,7 @@ import unittest
 from unittest import mock
 
 
-SOURCE = Path(os.environ.get("POSTFIAT_WS_SOURCE", Path(__file__).parents[1] / "postfiat_rpc/client.py"))
-SPEC = importlib.util.spec_from_file_location("_websocket_session_client", SOURCE)
-CLIENT = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = CLIENT
-SPEC.loader.exec_module(CLIENT)
+from postfiat_rpc import client as CLIENT
 
 ID_A = "independent-ws-A-101"
 ID_B = "independent-ws-B-202"
@@ -74,7 +66,6 @@ def encoded(value):
 def record(name, **values):
     observation = {"case": name, **values}
     OBSERVATIONS.append(observation)
-    print("SESSION_OBSERVATION " + json.dumps(observation, sort_keys=True), flush=True)
 
 
 class ScriptedSocket:
@@ -296,14 +287,4 @@ for case in FAULTS:
 
 
 if __name__ == "__main__":
-    runner = unittest.TextTestRunner(verbosity=2)
-    outcome = runner.run(unittest.defaultTestLoader.loadTestsFromTestCase(WebSocketSessionTests))
-    report = {
-        "mode": "stdlib unittest, inert scripted websockets.connect adapter; no sockets",
-        "source": str(SOURCE.resolve()), "source_sha256": hashlib.sha256(SOURCE.read_bytes()).hexdigest(),
-        "python": sys.version, "cases": OBSERVATIONS, "tests_run": outcome.testsRun,
-        "failures": len(outcome.failures), "errors": len(outcome.errors), "successful": outcome.wasSuccessful(),
-    }
-    if os.environ.get("POSTFIAT_WS_OBSERVATIONS"):
-        Path(os.environ["POSTFIAT_WS_OBSERVATIONS"]).write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-    sys.exit(0 if outcome.wasSuccessful() else 1)
+    unittest.main()
