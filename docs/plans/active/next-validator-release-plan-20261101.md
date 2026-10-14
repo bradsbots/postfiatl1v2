@@ -8,19 +8,24 @@ release starts after `signer-rotation-20261007` is deployed and its activation i
 
 1. `signer-rotation-20261007` is cut from main at `0fa55d0b` (`release/signer-rotation-20261007`, tip `b4d3ebde`); rollout 2026-10-09 at the earliest.
 2. This release carries main past that cut plus the candidates below that are ready and reviewed.
-3. Main past the cut changes node behaviour only in rpc-serve input checks (#87, #89, #91, #92: malformed requests now rejected); the rest is test-only Rust, the Python fallback and docs.
+3. Main past the cut changes node behaviour in the RPC size cap and receipt codes, rpc-serve strict params, the child-dispatch id check, bounded index reads, the Cobalt rehearsal probes, swap timing and `latest_tx_id` order, and the exact-quorum check (list below); the rest is `rpc_sdk`, Python, wallet-proxy, tests and docs.
 4. Rule kept from the current plan: changes that alter a consensus or state result get their own qualification; read-path and tooling changes ride along.
 5. Qualification and rollout follow the current plan; nothing starts before the "Not before" rules hold.
 
 ## Already on main past the cut
 
-`git log --oneline 0fa55d0b..origin/main`; `git diff --stat 0fa55d0b origin/main -- crates/` touches only test code.
+`git log --oneline 0fa55d0b..origin/main`. Node behaviour changes are the lines that name `crates/node` or `crates/types` code.
 
 - [x] `9d837bef` (PR #54, contains `c2a03a3b`, `b817b5a1`): removes the dead `#[cfg(test)]` swap-pricing wrapper (`crates/node/src/execution_actions.rs`, `crates/node/src/lib.rs`, `crates/node/src/tests/asset_orchard_issued_tests.rs`). Test-only.
 - [x] `51144786`: Python fallback reads the newest blocks at or below the end height (`_account_tx_client_side_scan`, `python/postfiat_rpc/client.py`; `python/tests/test_account_tx_fallback.py`); archive-scan regression test `account_tx_scan_and_index_return_the_same_transaction_kinds` (`crates/node/src/tests/account_tx_truncation.rs`). Read-path tooling.
 - [x] `bbe82032`, `54515003`: docs (Z3 plan status; 2026-10-07 handoff).
 - [x] Also docs only: `e92b8157`, `0a136eaa`, `f3f2a1e1`, `774a6025`.
-- [x] `9e9d45d2`, `af346e00`, `38a10d54`, `5270b8c1` (PRs #87, #89, #91, #92): rpc-serve rejects ambiguous or wrong-typed params of `owned_certificate`, `fastswap_objects`, `transfer_fee_quote` and the proxy parent-wait pins (`crates/node/src/rpc_cli.rs`). RPC serving; no in-repo caller is rejected (review below).
+- [x] `7f9d0d98`: RPC size cap raised for FastLane control transactions; finality reports match each operation's accepted receipt codes (`crates/node/src/rpc_dispatch.rs`, `rpc_cli.rs`, `fastswap_control_signing.rs`; codes named in `crates/execution/src/fastlane_primary.rs`, values unchanged). RPC serving.
+- [x] `9e9d45d2`, `af346e00`, `b993c0ed`, `38a10d54`, `5270b8c1`, `926d8a46` (PRs #87, #89, #90, #91, #92, #93): rpc-serve rejects ambiguous, wrong-typed or null params of `owned_certificate`, `fastswap_objects`, `fastswap_policy`, `fastswap_checkpoint_status`, `transfer_fee_quote` and the proxy parent-wait pins, and pins sent without the height (`crates/node/src/rpc_cli.rs`). RPC serving; no in-repo caller is rejected (review below).
+- [x] `d51f6ae7`, `a7a5a027` (PRs #56, #109): rpc-serve makes relative `--data-dir`/`--spool-dir` absolute, and a worker reply under another id becomes an `rpc_child_id_mismatch` error (`crates/node/src/rpc_cli.rs`, `main_parts/cli_dispatch_parts/group_03.rs`). RPC serving.
+- [x] `16c3c0ef`, `df89feac` (PRs #62, #110, SMG-05/06): capped manifest, checksum and index reads, opened with `O_NOFOLLOW`; relative output preflight (`crates/node/src/storage_migration.rs`, `certified_send_completed_index.rs`). Storage tooling.
+- [x] `a243aaf2`, `0b49ac26` (PRs #60, #63, CHO-05/06, SWP-05): strict rehearsal digests and attestation timestamps; negative rehearsal probes keep the approvals they test (`crates/node/src/cobalt_handoff_rehearsal.rs`, `cobalt_handoff.rs`, `operator_attestations.rs`). Cobalt handoff rehearsal.
+- [x] `14850a7e` (PR #61, SWP-04, MPL-02): an identical timing replay at the 64-stage cap is a no-op, and `latest_tx_id` follows the selection order (`crates/node/src/pftl_swap_service.rs`, `mempool_proposals.rs`). Swap service and RPC reporting.
 - [x] `9157e7cd` (PR #84): `FastPayRecoveryCapabilitiesV1::validate()` requires the exact committee quorum (`crates/types/src/fastpay_recovery_types.rs`), used by the node's `owned_recovery_capabilities` and wallet v3 signing; the active committee already enforces it, so no valid report changes.
 
 ## Candidates
