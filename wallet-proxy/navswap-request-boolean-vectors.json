@@ -1,0 +1,2299 @@
+{
+  "schema": "navswap-request-boolean-test-v1",
+  "independent_oracle_sha256": "259c9b598795d20e2aa40beb177ab9e2c7b42fbd164afb0284d3b72909593afd",
+  "fixed_environment": {
+    "NAVSWAP_DEVNET_PFUSDC_FUNDING_MAX_ATOMS": "20971520",
+    "NAVSWAP_DEVNET_PFUSDC_FUNDING_RECIPIENT_WINDOW_MAX_ATOMS": "41943040",
+    "NAVSWAP_DEVNET_PFUSDC_FUNDING_RECIPIENT_WINDOW_MS": "720013",
+    "NAVSWAP_FUNDING_SIGN_TIMEOUT_MS": "19007",
+    "POSTFIAT_NODE_BIN": "/synthetic/navswap-boolean-review/no-node",
+    "VAULT_BRIDGE_CAST_BIN": "/synthetic/navswap-boolean-review/no-cast",
+    "VAULT_BRIDGE_RELAY_ACCOUNT": "pff2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+    "VAULT_BRIDGE_RELAY_BUNDLE_TIMEOUT_MS": "47017",
+    "VAULT_BRIDGE_RELAY_SIGN_TIMEOUT_MS": "23011"
+  },
+  "runtime_literals": {
+    "PFUSDC_ASSET_ID": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+    "VAULT_BRIDGE_RECIPIENT_SPONSOR_AMOUNT": 19,
+    "VAULT_BRIDGE_RECIPIENT_SPONSOR_MIN_AMOUNT_ATOMS": {
+      "bigint": "2300000"
+    },
+    "VAULT_BRIDGE_RELAY_DEFAULT_ACCOUNT": "pfa3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+    "VAULT_BRIDGE_RELAY_EXPIRES_AT_HEIGHT": 54321,
+    "VAULT_BRIDGE_RELAY_SCHEMA": "synthetic-navswap-boolean-relay-v1",
+    "VAULT_BRIDGE_RELAY_SOURCE_RPC_URL": "http://127.0.0.1:19731"
+  },
+  "absent_key_variables": [
+    "NAVSWAP_PFUSDC_ISSUER_KEY_FILE",
+    "NAVSWAP_OPERATOR_ISSUER_KEY_FILE",
+    "NAVSWAP_ISSUER_KEY_FILE",
+    "ISSUER_KEY_FILE",
+    "VAULT_BRIDGE_RELAY_KEY_FILE",
+    "NAVSWAP_OPERATOR_HOLDER_KEY_FILE",
+    "HOLDER_KEY_FILE"
+  ],
+  "forbidden_effect_counters": {
+    "exec_async": 0,
+    "exec_sync": 0,
+    "key_address_read": 0,
+    "network": 0,
+    "other_runtime_action": 0,
+    "rpc": 0,
+    "runtime_fs_read": 0,
+    "runtime_fs_write": 0,
+    "send": 0,
+    "sign": 0,
+    "spawn": 0,
+    "ssh": 0
+  },
+  "outcomes": [
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "object",
+      "value": {
+        "asset_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "custody_boundary": "operator-issuer-key-file-devnet-funding",
+        "enabled": false,
+        "endpoint": "/api/navswap/devnet-fund-pfusdc",
+        "issuer_key_file": null,
+        "max_amount_atoms": "20971520",
+        "max_recipient_window_atoms": "41943040",
+        "node_bin": "/synthetic/navswap-boolean-review/no-node",
+        "recipient_window_ms": 720013,
+        "signing_configured": false,
+        "timeout_ms": 19007
+      }
+    },
+    {
+      "bigint_fields": [
+        "recipient_sponsor_min_amount_atoms"
+      ],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "object",
+      "value": {
+        "asset_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "bundle_timeout_ms": 47017,
+        "cast_bin": "/synthetic/navswap-boolean-review/no-cast",
+        "custody_boundary": "operator-relay-key-file",
+        "expires_at_height": 54321,
+        "node_bin": "/synthetic/navswap-boolean-review/no-node",
+        "recipient_sponsor_amount": 19,
+        "recipient_sponsor_min_amount_atoms": {
+          "bigint": "2300000"
+        },
+        "relay_account": "pff2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+        "relay_key_file": null,
+        "schema": "synthetic-navswap-boolean-relay-v1",
+        "sign_timeout_ms": 23011,
+        "signing_configured": false,
+        "source_rpc_url": "http://127.0.0.1:19731",
+        "sponsor_recipient_accounts": true
+      }
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "boolean",
+      "value": false
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": true,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": true,
+      "return_js_typeof": "object",
+      "value": [
+        "transport-peer-certified-batch-round",
+        "--data-dir",
+        "/synthetic/navswap-boolean-review/no-data",
+        "--topology",
+        "/synthetic/navswap-boolean-review/no-topology.json",
+        "--batch-kind",
+        "shielded",
+        "--batch-file",
+        "/synthetic/navswap-boolean-review/no-batch.json",
+        "--key-file",
+        "/synthetic/navswap-boolean-review/no-key.json",
+        "--proposal-key-file",
+        "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "--artifact-dir",
+        "/synthetic/navswap-boolean-review/no-artifacts",
+        "--timeout-ms",
+        "4242",
+        "--send-retries",
+        "3",
+        "--retry-backoff-ms",
+        "1000",
+        "--allow-existing-mempool"
+      ]
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "object",
+      "value": {
+        "asset_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "custody_boundary": "operator-issuer-key-file-devnet-funding",
+        "enabled": true,
+        "endpoint": "/api/navswap/devnet-fund-pfusdc",
+        "issuer_key_file": null,
+        "max_amount_atoms": "20971520",
+        "max_recipient_window_atoms": "41943040",
+        "node_bin": "/synthetic/navswap-boolean-review/no-node",
+        "recipient_window_ms": 720013,
+        "signing_configured": false,
+        "timeout_ms": 19007
+      }
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "boolean",
+      "value": true
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": true,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": true,
+      "return_js_typeof": "object",
+      "value": [
+        "transport-peer-certified-batch-round",
+        "--data-dir",
+        "/synthetic/navswap-boolean-review/no-data",
+        "--topology",
+        "/synthetic/navswap-boolean-review/no-topology.json",
+        "--batch-kind",
+        "shielded",
+        "--batch-file",
+        "/synthetic/navswap-boolean-review/no-batch.json",
+        "--key-file",
+        "/synthetic/navswap-boolean-review/no-key.json",
+        "--proposal-key-file",
+        "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "--artifact-dir",
+        "/synthetic/navswap-boolean-review/no-artifacts",
+        "--timeout-ms",
+        "4242",
+        "--send-retries",
+        "3",
+        "--retry-backoff-ms",
+        "1000",
+        "--allow-existing-mempool",
+        "--quorum-early-full-propagation",
+        "--local-apply-before-certified-send",
+        "--defer-certified-sends"
+      ]
+    },
+    {
+      "bigint_fields": [
+        "recipient_sponsor_min_amount_atoms"
+      ],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": false,
+      "return_js_typeof": "object",
+      "value": {
+        "asset_id": "e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1",
+        "bundle_timeout_ms": 47017,
+        "cast_bin": "/synthetic/navswap-boolean-review/no-cast",
+        "custody_boundary": "operator-relay-key-file",
+        "expires_at_height": 54321,
+        "node_bin": "/synthetic/navswap-boolean-review/no-node",
+        "recipient_sponsor_amount": 19,
+        "recipient_sponsor_min_amount_atoms": {
+          "bigint": "2300000"
+        },
+        "relay_account": "pff2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+        "relay_key_file": null,
+        "schema": "synthetic-navswap-boolean-relay-v1",
+        "sign_timeout_ms": 23011,
+        "signing_configured": false,
+        "source_rpc_url": "http://127.0.0.1:19731",
+        "sponsor_recipient_accounts": false
+      }
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": "Error",
+      "exception_message": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING must be true or false",
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "error",
+      "raw_env_unchanged": true,
+      "return_is_array": null,
+      "return_js_typeof": null,
+      "value": null
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": "Error",
+      "exception_message": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS must be true or false",
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "error",
+      "raw_env_unchanged": true,
+      "return_is_array": null,
+      "return_js_typeof": null,
+      "value": null
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": "Error",
+      "exception_message": "SHIELDED_EARLY_QUORUM must be true or false",
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": null,
+      "kind": "error",
+      "raw_env_unchanged": true,
+      "return_is_array": null,
+      "return_js_typeof": null,
+      "value": null
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": "Error",
+      "exception_message": "SHIELDED_EARLY_QUORUM must be true or false",
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": true,
+      "kind": "error",
+      "raw_env_unchanged": true,
+      "return_is_array": null,
+      "return_js_typeof": null,
+      "value": null
+    },
+    {
+      "bigint_fields": [],
+      "exception_class": null,
+      "exception_message": null,
+      "forbidden_effects": {
+        "exec_async": 0,
+        "exec_sync": 0,
+        "key_address_read": 0,
+        "network": 0,
+        "other_runtime_action": 0,
+        "rpc": 0,
+        "runtime_fs_read": 0,
+        "runtime_fs_write": 0,
+        "send": 0,
+        "sign": 0,
+        "spawn": 0,
+        "ssh": 0
+      },
+      "input_unchanged": true,
+      "kind": "return",
+      "raw_env_unchanged": true,
+      "return_is_array": true,
+      "return_js_typeof": "object",
+      "value": [
+        "transport-peer-certified-batch-round",
+        "--data-dir",
+        "/synthetic/navswap-boolean-review/no-data",
+        "--topology",
+        "/synthetic/navswap-boolean-review/no-topology.json",
+        "--batch-kind",
+        "shielded",
+        "--batch-file",
+        "/synthetic/navswap-boolean-review/no-batch.json",
+        "--key-file",
+        "/synthetic/navswap-boolean-review/no-key.json",
+        "--artifact-dir",
+        "/synthetic/navswap-boolean-review/no-artifacts",
+        "--timeout-ms",
+        "4242",
+        "--send-retries",
+        "3",
+        "--retry-backoff-ms",
+        "1000",
+        "--allow-existing-mempool",
+        "--quorum-early-full-propagation",
+        "--local-apply-before-certified-send",
+        "--defer-certified-sends"
+      ]
+    }
+  ],
+  "observations": [
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "tokens/unset/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 0,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "tokens/unset/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 0,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "tokens/unset/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 0,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "tokens/unset/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 0,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": ""
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": ""
+      },
+      "id": "tokens/empty/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 1,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": ""
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": ""
+      },
+      "id": "tokens/empty/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 1,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": ""
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": ""
+      },
+      "id": "tokens/empty/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 1,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": ""
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": ""
+      },
+      "id": "tokens/empty/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 1,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\t \n"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "\t \n"
+      },
+      "id": "tokens/whitespace/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 2,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\t \n"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "\t \n"
+      },
+      "id": "tokens/whitespace/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 2,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\t \n"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "\t \n"
+      },
+      "id": "tokens/whitespace/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 2,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\t \n"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "\t \n"
+      },
+      "id": "tokens/whitespace/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 2,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "tokens/true/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 3,
+      "expectedBase": 4,
+      "expectedFixed": 4
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "tokens/true/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 3,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "tokens/true/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 3,
+      "expectedBase": 5,
+      "expectedFixed": 5
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "tokens/true/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 3,
+      "expectedBase": 6,
+      "expectedFixed": 6
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "false"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "false"
+      },
+      "id": "tokens/false/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 4,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "false"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "false"
+      },
+      "id": "tokens/false/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 4,
+      "expectedBase": 7,
+      "expectedFixed": 7
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "false"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "false"
+      },
+      "id": "tokens/false/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 4,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "false"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "false"
+      },
+      "id": "tokens/false/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 4,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "1"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "1"
+      },
+      "id": "tokens/one/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 5,
+      "expectedBase": 0,
+      "expectedFixed": 4
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "1"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "1"
+      },
+      "id": "tokens/one/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 5,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "1"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "1"
+      },
+      "id": "tokens/one/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 5,
+      "expectedBase": 2,
+      "expectedFixed": 5
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "1"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "1"
+      },
+      "id": "tokens/one/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 5,
+      "expectedBase": 3,
+      "expectedFixed": 6
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "0"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "0"
+      },
+      "id": "tokens/zero/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 6,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "0"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "0"
+      },
+      "id": "tokens/zero/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 6,
+      "expectedBase": 1,
+      "expectedFixed": 7
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "0"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "0"
+      },
+      "id": "tokens/zero/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 6,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "0"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "0"
+      },
+      "id": "tokens/zero/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 6,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " TrUe\t"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": " TrUe\t"
+      },
+      "id": "tokens/mixed_trim_true/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 7,
+      "expectedBase": 0,
+      "expectedFixed": 4
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " TrUe\t"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": " TrUe\t"
+      },
+      "id": "tokens/mixed_trim_true/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 7,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " TrUe\t"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " TrUe\t"
+      },
+      "id": "tokens/mixed_trim_true/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 7,
+      "expectedBase": 2,
+      "expectedFixed": 5
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " TrUe\t"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " TrUe\t"
+      },
+      "id": "tokens/mixed_trim_true/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 7,
+      "expectedBase": 3,
+      "expectedFixed": 6
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\nFaLsE "
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "\nFaLsE "
+      },
+      "id": "tokens/mixed_trim_false/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 8,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\nFaLsE "
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "\nFaLsE "
+      },
+      "id": "tokens/mixed_trim_false/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 8,
+      "expectedBase": 1,
+      "expectedFixed": 7
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\nFaLsE "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "\nFaLsE "
+      },
+      "id": "tokens/mixed_trim_false/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 8,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "\nFaLsE "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "\nFaLsE "
+      },
+      "id": "tokens/mixed_trim_false/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 8,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "trueish"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "trueish"
+      },
+      "id": "tokens/reject_true_prefix/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 9,
+      "expectedBase": 0,
+      "expectedFixed": 8
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "trueish"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "trueish"
+      },
+      "id": "tokens/reject_true_prefix/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 9,
+      "expectedBase": 1,
+      "expectedFixed": 9
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "trueish"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "trueish"
+      },
+      "id": "tokens/reject_true_prefix/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 9,
+      "expectedBase": 2,
+      "expectedFixed": 10
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "trueish"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "trueish"
+      },
+      "id": "tokens/reject_true_prefix/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 9,
+      "expectedBase": 3,
+      "expectedFixed": 11
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "falseyes"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "falseyes"
+      },
+      "id": "tokens/reject_false_prefix/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 10,
+      "expectedBase": 0,
+      "expectedFixed": 8
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "falseyes"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "falseyes"
+      },
+      "id": "tokens/reject_false_prefix/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 10,
+      "expectedBase": 1,
+      "expectedFixed": 9
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "falseyes"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "falseyes"
+      },
+      "id": "tokens/reject_false_prefix/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 10,
+      "expectedBase": 2,
+      "expectedFixed": 10
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "falseyes"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "falseyes"
+      },
+      "id": "tokens/reject_false_prefix/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 10,
+      "expectedBase": 3,
+      "expectedFixed": 11
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "yes"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "yes"
+      },
+      "id": "tokens/reject_yes/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 11,
+      "expectedBase": 0,
+      "expectedFixed": 8
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "yes"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "yes"
+      },
+      "id": "tokens/reject_yes/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 11,
+      "expectedBase": 1,
+      "expectedFixed": 9
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "yes"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "yes"
+      },
+      "id": "tokens/reject_yes/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 11,
+      "expectedBase": 2,
+      "expectedFixed": 10
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "yes"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "yes"
+      },
+      "id": "tokens/reject_yes/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 11,
+      "expectedBase": 3,
+      "expectedFixed": 11
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true false"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "true false"
+      },
+      "id": "tokens/reject_multiple_tokens/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 12,
+      "expectedBase": 0,
+      "expectedFixed": 8
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true false"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "true false"
+      },
+      "id": "tokens/reject_multiple_tokens/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "tokens",
+      "sequence_index": 12,
+      "expectedBase": 1,
+      "expectedFixed": 9
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true false"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true false"
+      },
+      "id": "tokens/reject_multiple_tokens/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 12,
+      "expectedBase": 2,
+      "expectedFixed": 10
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true false"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true false"
+      },
+      "id": "tokens/reject_multiple_tokens/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "tokens",
+      "sequence_index": 12,
+      "expectedBase": 3,
+      "expectedFixed": 11
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "dynamic/initial_unset/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 0,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "dynamic/initial_unset/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 0,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "dynamic/initial_unset/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 0,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "undefined",
+        "present": false,
+        "value": null
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "unset"
+      },
+      "id": "dynamic/initial_unset/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 0,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 1 "
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": " 1 "
+      },
+      "id": "dynamic/trimmed_one/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 1,
+      "expectedBase": 0,
+      "expectedFixed": 4
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 1 "
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": " 1 "
+      },
+      "id": "dynamic/trimmed_one/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 1,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 1 "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " 1 "
+      },
+      "id": "dynamic/trimmed_one/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 1,
+      "expectedBase": 2,
+      "expectedFixed": 5
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 1 "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " 1 "
+      },
+      "id": "dynamic/trimmed_one/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 1,
+      "expectedBase": 3,
+      "expectedFixed": 6
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 0 "
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": " 0 "
+      },
+      "id": "dynamic/trimmed_zero/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 2,
+      "expectedBase": 0,
+      "expectedFixed": 0
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 0 "
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": " 0 "
+      },
+      "id": "dynamic/trimmed_zero/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 2,
+      "expectedBase": 1,
+      "expectedFixed": 7
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 0 "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " 0 "
+      },
+      "id": "dynamic/trimmed_zero/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 2,
+      "expectedBase": 2,
+      "expectedFixed": 2
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": " 0 "
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": " 0 "
+      },
+      "id": "dynamic/trimmed_zero/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 2,
+      "expectedBase": 3,
+      "expectedFixed": 3
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "bad-bool"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "bad-bool"
+      },
+      "id": "dynamic/invalid_then_recover/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 3,
+      "expectedBase": 0,
+      "expectedFixed": 8
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "bad-bool"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "bad-bool"
+      },
+      "id": "dynamic/invalid_then_recover/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 3,
+      "expectedBase": 1,
+      "expectedFixed": 9
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "bad-bool"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "bad-bool"
+      },
+      "id": "dynamic/invalid_then_recover/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 3,
+      "expectedBase": 2,
+      "expectedFixed": 10
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "bad-bool"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "bad-bool"
+      },
+      "id": "dynamic/invalid_then_recover/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 3,
+      "expectedBase": 3,
+      "expectedFixed": 11
+    },
+    {
+      "api_id": "funding_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "dynamic/recovered_true/funding_config",
+      "method": "navswapDevnetPfusdcFundingConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 4,
+      "expectedBase": 4,
+      "expectedFixed": 4
+    },
+    {
+      "api_id": "relay_config",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "dynamic/recovered_true/relay_config",
+      "method": "vaultBridgeRelayConfig",
+      "module": "wallet-proxy/navswap-config-bridge.js",
+      "scenario": "dynamic",
+      "sequence_index": 4,
+      "expectedBase": 1,
+      "expectedFixed": 1
+    },
+    {
+      "api_id": "early_quorum_getter",
+      "artifact_dir": null,
+      "batch_file": null,
+      "builder_config": null,
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "dynamic/recovered_true/early_quorum_getter",
+      "method": "shieldedEarlyQuorumEnabled",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 4,
+      "expectedBase": 5,
+      "expectedFixed": 5
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "proposal_key_file": "/synthetic/navswap-boolean-review/no-proposal-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "dynamic/recovered_true/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "dynamic",
+      "sequence_index": 4,
+      "expectedBase": 6,
+      "expectedFixed": 6
+    },
+    {
+      "api_id": "early_quorum_builder",
+      "artifact_dir": "/synthetic/navswap-boolean-review/no-artifacts",
+      "batch_file": "/synthetic/navswap-boolean-review/no-batch.json",
+      "builder_config": {
+        "data_dir": "/synthetic/navswap-boolean-review/no-data",
+        "key_file": "/synthetic/navswap-boolean-review/no-key.json",
+        "timeout_ms": 4242,
+        "topology": "/synthetic/navswap-boolean-review/no-topology.json"
+      },
+      "expected_raw_env": {
+        "js_typeof": "string",
+        "present": true,
+        "value": "true"
+      },
+      "flag": "SHIELDED_EARLY_QUORUM",
+      "flag_input": {
+        "kind": "string",
+        "value": "true"
+      },
+      "id": "builder_preservation/proposal_absent_true/early_quorum_builder",
+      "method": "buildShieldedCertifiedRoundArgs",
+      "module": "wallet-proxy/navswap-shielded.js",
+      "scenario": "builder_preservation",
+      "sequence_index": 0,
+      "expectedBase": 12,
+      "expectedFixed": 12
+    }
+  ]
+}
