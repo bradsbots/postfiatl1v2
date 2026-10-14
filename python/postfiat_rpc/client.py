@@ -680,7 +680,9 @@ class PostFiatRpcClient:
         result = self._call("account_offers", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_offers result must be an object")
-        return result
+        return self._bound_account_collection_result(
+            "account_offers", result, account, state=state
+        )
 
     def book_offers(
         self,
@@ -800,6 +802,49 @@ class PostFiatRpcClient:
         result = self._call("account_escrows", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_escrows result must be an object")
+        return self._bound_account_collection_result(
+            "account_escrows", result, account, state=state, role=role
+        )
+
+    @staticmethod
+    def _bound_account_collection_result(
+        method: str,
+        result: dict[str, Any],
+        account: str,
+        *,
+        state: str | None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        if type(result.get("account")) is not str or result["account"] != account:
+            raise RpcProtocolError(f"{method} result.account must match requested account")
+        collection = "offers" if method == "account_offers" else "escrows"
+        filters = {"role": role, "state": state} if collection == "escrows" else {"state": state}
+        for field, requested in filters.items():
+            value = result.get(field)
+            matches = value is None if requested is None else type(value) is str and value == requested
+            if field not in result or not matches:
+                raise RpcProtocolError(f"{method} result.{field} must match requested {field}")
+        rows = result.get(collection)
+        if not isinstance(rows, list):
+            raise RpcProtocolError(f"{method} result.{collection} must be an array")
+        fields = ("owner", "recipient", "state") if collection == "escrows" else ("owner", "state")
+        for index, row in enumerate(rows):
+            label = f"{method} result.{collection}[{index}]"
+            if not isinstance(row, dict):
+                raise RpcProtocolError(f"{label} must be an object")
+            for field in fields:
+                if type(row.get(field)) is not str:
+                    raise RpcProtocolError(f"{label}.{field} must be a string")
+            if collection == "offers":
+                if row["owner"] != account:
+                    raise RpcProtocolError(f"{label}.owner must match requested account")
+            elif role is not None:
+                if row[role] != account:
+                    raise RpcProtocolError(f"{label}.{role} must match requested account for role {role}")
+            elif row["owner"] != account and row["recipient"] != account:
+                raise RpcProtocolError(f"{label} must belong to requested account")
+            if state is not None and row["state"] != state:
+                raise RpcProtocolError(f"{label}.state must match requested state")
         return result
 
     def nft_info(self, nft_id: str) -> dict[str, Any]:
