@@ -994,7 +994,8 @@ fn write_request(flags: &[String]) -> Result<(), String> {
         ),
         other => {
             return Err(format!(
-                "unsupported request builder method `{other}`; supported: {METHOD_STATUS}, {METHOD_METRICS}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_RECEIPTS}, {METHOD_BLOCKS}, {METHOD_BATCH_ARCHIVE}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+                "unsupported request builder method `{other}`; supported: {}",
+                builder_methods_list()
             ));
         }
     };
@@ -1975,9 +1976,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_SHIELD_BATCH_SPEND => Ok(Some(RpcRequestKind::ShieldBatchSpend)),
         METHOD_SHIELD_BATCH_MIGRATE => Ok(Some(RpcRequestKind::ShieldBatchMigrate)),
         METHOD_SHIELD_BATCH_ORCHARD => Ok(Some(RpcRequestKind::ShieldBatchOrchard)),
-        METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT => {
-            Ok(Some(RpcRequestKind::ShieldBatchOrchardDeposit))
-        }
+        METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT => Ok(Some(RpcRequestKind::ShieldBatchOrchardDeposit)),
         METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW => {
             Ok(Some(RpcRequestKind::ShieldBatchOrchardWithdraw))
         }
@@ -1990,9 +1989,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_NAVCOIN_BRIDGE_ROUTES => Ok(Some(RpcRequestKind::NavcoinBridgeRoutes)),
         METHOD_NAVCOIN_BRIDGE_PACKET => Ok(Some(RpcRequestKind::NavcoinBridgePacket)),
         METHOD_NAVCOIN_BRIDGE_CLAIMS => Ok(Some(RpcRequestKind::NavcoinBridgeClaims)),
-        METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS => {
-            Ok(Some(RpcRequestKind::NavcoinBridgeSupplyStatus))
-        }
+        METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS => Ok(Some(RpcRequestKind::NavcoinBridgeSupplyStatus)),
         METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY => {
             Ok(Some(RpcRequestKind::NavcoinBridgeReceiptReplay))
         }
@@ -2031,14 +2028,13 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_FASTLANE_ASSET_CONTROL_PREPARE => {
             Ok(Some(RpcRequestKind::FastLaneAssetControlPrepare))
         }
-        METHOD_FASTLANE_ASSET_CONTROL_APPLY => {
-            Ok(Some(RpcRequestKind::FastLaneAssetControlApply))
-        }
+        METHOD_FASTLANE_ASSET_CONTROL_APPLY => Ok(Some(RpcRequestKind::FastLaneAssetControlApply)),
         METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP => {
             Ok(Some(RpcRequestKind::FastLaneAssetControlCatchUp))
         }
         other => Err(format!(
-            "unsupported request kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_ACCOUNT_TX_INDEX_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+            "unsupported request kind `{other}`; supported: {}",
+            kind_methods_list()
         )),
     }
 }
@@ -2126,9 +2122,7 @@ fn response_kind_for_method(
         METHOD_SHIELD_BATCH_SPEND => Ok(Some(RpcResponseKind::ShieldBatchSpend)),
         METHOD_SHIELD_BATCH_MIGRATE => Ok(Some(RpcResponseKind::ShieldBatchMigrate)),
         METHOD_SHIELD_BATCH_ORCHARD => Ok(Some(RpcResponseKind::ShieldBatchOrchard)),
-        METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT => {
-            Ok(Some(RpcResponseKind::ShieldBatchOrchardDeposit))
-        }
+        METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT => Ok(Some(RpcResponseKind::ShieldBatchOrchardDeposit)),
         METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW => {
             Ok(Some(RpcResponseKind::ShieldBatchOrchardWithdraw))
         }
@@ -2141,9 +2135,7 @@ fn response_kind_for_method(
         METHOD_NAVCOIN_BRIDGE_ROUTES => Ok(Some(RpcResponseKind::NavcoinBridgeRoutes)),
         METHOD_NAVCOIN_BRIDGE_PACKET => Ok(Some(RpcResponseKind::NavcoinBridgePacket)),
         METHOD_NAVCOIN_BRIDGE_CLAIMS => Ok(Some(RpcResponseKind::NavcoinBridgeClaims)),
-        METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS => {
-            Ok(Some(RpcResponseKind::NavcoinBridgeSupplyStatus))
-        }
+        METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS => Ok(Some(RpcResponseKind::NavcoinBridgeSupplyStatus)),
         METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY => {
             Ok(Some(RpcResponseKind::NavcoinBridgeReceiptReplay))
         }
@@ -2183,7 +2175,8 @@ fn response_kind_for_method(
             Ok(Some(RpcResponseKind::FastLaneAssetControlPreview))
         }
         other => Err(format!(
-            "unsupported response kind `{other}`; supported: {METHOD_STATUS}, {METHOD_SERVER_INFO}, {METHOD_METRICS}, {METHOD_LEDGER}, {METHOD_VERIFY_STATE}, {METHOD_VERIFY_BLOCKS}, {METHOD_VERIFY_BRIDGE}, {METHOD_VERIFY_MEMPOOL}, {METHOD_VERIFY_SHIELDED}, {METHOD_VALIDATE_LOCAL_KEYS}, {METHOD_ACCOUNT}, {METHOD_ACCOUNT_TX}, {METHOD_ACCOUNT_TX_INDEX_STATUS}, {METHOD_FEE}, {METHOD_TRANSFER_FEE_QUOTE}, {METHOD_ESCROW_INFO}, {METHOD_ACCOUNT_ESCROWS}, {METHOD_NFT_INFO}, {METHOD_ACCOUNT_NFTS}, {METHOD_ISSUER_NFTS}, {METHOD_RECEIPTS}, {METHOD_TX}, {METHOD_BLOCKS}, {METHOD_VALIDATORS}, {METHOD_MANIFESTS}, {METHOD_BATCH_ARCHIVE}, {METHOD_ARCHIVE_WINDOW}, {METHOD_MEMPOOL_SUBMIT_TRANSFER}, {METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER}, {METHOD_MEMPOOL_STATUS}, {METHOD_MEMPOOL_BATCH}, {METHOD_APPLY_BATCH}, {METHOD_SHIELD_BATCH_MINT}, {METHOD_SHIELD_BATCH_SPEND}, {METHOD_SHIELD_BATCH_MIGRATE}, {METHOD_SHIELD_BATCH_ORCHARD}, {METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT}, {METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW}, {METHOD_SHIELD_BATCH_SWAP}, {METHOD_APPLY_SHIELD_BATCH}, {METHOD_SHIELD_SCAN}, {METHOD_SHIELD_DISCLOSE}, {METHOD_SHIELD_TURNSTILE}, {METHOD_BRIDGE_STATUS}, {METHOD_NAVCOIN_BRIDGE_ROUTES}, {METHOD_NAVCOIN_BRIDGE_PACKET}, {METHOD_NAVCOIN_BRIDGE_CLAIMS}, {METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS}, {METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY}, {METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT}, {METHOD_BRIDGE_BATCH_DOMAIN}, {METHOD_BRIDGE_BATCH_TRANSFER}, {METHOD_BRIDGE_BATCH_PAUSE}, {METHOD_BRIDGE_BATCH_RESUME}, {METHOD_APPLY_BRIDGE_BATCH}"
+            "unsupported response kind `{other}`; supported: {}",
+            kind_methods_list()
         )),
     }
 }
@@ -2414,6 +2407,137 @@ fn u32_flag(args: &[String], flag: &str) -> Result<u32, String> {
     u32::try_from(value).map_err(|_| format!("{flag} must be a u32"))
 }
 
+/// Every method the `request` builder accepts, outside the FastSwap family.
+/// With `FASTSWAP_REQUEST_METHODS` this is the single source for the help
+/// text and the three "unsupported ..." error messages, so they cannot drift
+/// apart again. `validate-request --expect-kind` and `validate-response
+/// --expect-kind` accept every builder method except `BUILDER_ONLY_METHODS`.
+const CORE_REQUEST_METHODS: &[&str] = &[
+    METHOD_STATUS,
+    METHOD_SERVER_INFO,
+    METHOD_METRICS,
+    METHOD_LEDGER,
+    METHOD_VERIFY_STATE,
+    METHOD_VERIFY_BLOCKS,
+    METHOD_VERIFY_BRIDGE,
+    METHOD_VERIFY_MEMPOOL,
+    METHOD_VERIFY_SHIELDED,
+    METHOD_VALIDATE_LOCAL_KEYS,
+    METHOD_ACCOUNT,
+    METHOD_ACCOUNT_TX,
+    METHOD_ACCOUNT_TX_INDEX_STATUS,
+    METHOD_FEE,
+    METHOD_TRANSFER_FEE_QUOTE,
+    METHOD_ATOMIC_SWAP_FEE_QUOTE,
+    METHOD_ESCROW_FEE_QUOTE,
+    METHOD_OFFER_FEE_QUOTE,
+    METHOD_ATOMIC_SETTLEMENT_TEMPLATE,
+    METHOD_OFFER_INFO,
+    METHOD_ACCOUNT_OFFERS,
+    METHOD_BOOK_OFFERS,
+    METHOD_ESCROW_INFO,
+    METHOD_ACCOUNT_ESCROWS,
+    METHOD_NFT_INFO,
+    METHOD_ACCOUNT_NFTS,
+    METHOD_ISSUER_NFTS,
+    METHOD_RECEIPTS,
+    METHOD_TX,
+    METHOD_BLOCKS,
+    METHOD_VALIDATORS,
+    METHOD_MANIFESTS,
+    METHOD_BATCH_ARCHIVE,
+    METHOD_ARCHIVE_WINDOW,
+    METHOD_MEMPOOL_SUBMIT_TRANSFER,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_TRANSFER,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_PAYMENT_V2,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION_FINALITY,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_ESCROW_TRANSACTION,
+    METHOD_MEMPOOL_SUBMIT_SIGNED_OFFER_TRANSACTION,
+    METHOD_MEMPOOL_STATUS,
+    METHOD_MEMPOOL_BATCH,
+    METHOD_APPLY_BATCH,
+    METHOD_SHIELD_BATCH_MINT,
+    METHOD_SHIELD_BATCH_SPEND,
+    METHOD_SHIELD_BATCH_MIGRATE,
+    METHOD_SHIELD_BATCH_ORCHARD,
+    METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT,
+    METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW,
+    METHOD_SHIELD_BATCH_SWAP,
+    METHOD_APPLY_SHIELD_BATCH,
+    METHOD_SHIELD_SCAN,
+    METHOD_SHIELD_DISCLOSE,
+    METHOD_SHIELD_TURNSTILE,
+    METHOD_BRIDGE_STATUS,
+    METHOD_NAVCOIN_BRIDGE_ROUTES,
+    METHOD_NAVCOIN_BRIDGE_PACKET,
+    METHOD_NAVCOIN_BRIDGE_CLAIMS,
+    METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS,
+    METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
+    METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
+    METHOD_BRIDGE_BATCH_DOMAIN,
+    METHOD_BRIDGE_BATCH_TRANSFER,
+    METHOD_BRIDGE_BATCH_PAUSE,
+    METHOD_BRIDGE_BATCH_RESUME,
+    METHOD_APPLY_BRIDGE_BATCH,
+];
+
+/// The FastSwap / FastLane methods the `request` builder accepts.
+const FASTSWAP_REQUEST_METHODS: &[&str] = &[
+    METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY,
+    METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY,
+    METHOD_FASTSWAP_CAPABILITIES,
+    METHOD_FASTSWAP_PREVIEW,
+    METHOD_FASTSWAP_PREPARE,
+    METHOD_FASTSWAP_COMMIT,
+    METHOD_FASTSWAP_APPLY,
+    METHOD_FASTSWAP_CATCH_UP,
+    METHOD_FASTSWAP_STATUS,
+    METHOD_FASTSWAP_EFFECTS,
+    METHOD_FASTSWAP_NEW_ROUND_VOTE,
+    METHOD_FASTSWAP_PROPOSE_ROUND,
+    METHOD_FASTSWAP_PRECOMMIT,
+    METHOD_FASTSWAP_COMMIT_ROUND,
+    METHOD_FASTSWAP_CANCEL_APPLY,
+    METHOD_FASTLANE_EXIT,
+    METHOD_FASTSWAP_CHECKPOINT_STATUS,
+    METHOD_FASTSWAP_OBJECTS,
+    METHOD_FASTSWAP_POLICY,
+    METHOD_FASTLANE_ASSET_CONTROL_PREVIEW,
+    METHOD_FASTLANE_ASSET_CONTROL_PREPARE,
+    METHOD_FASTLANE_ASSET_CONTROL_APPLY,
+    METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP,
+    METHOD_FASTSWAP_VOTES,
+];
+
+/// Methods the `request` builder accepts that have no request or response
+/// kind: `request_kind_for_method` and `response_kind_for_method` reject them,
+/// so the builder writes them without params validation and the two kind
+/// errors must not list them.
+const BUILDER_ONLY_METHODS: &[&str] = &[METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY];
+
+/// Every method the `request` builder accepts, core then FastSwap.
+fn builder_methods() -> impl Iterator<Item = &'static str> {
+    CORE_REQUEST_METHODS
+        .iter()
+        .chain(FASTSWAP_REQUEST_METHODS)
+        .copied()
+}
+
+/// Every method `--expect-kind` accepts in `validate-request` and in
+/// `validate-response`: the builder methods minus `BUILDER_ONLY_METHODS`.
+fn kind_methods() -> impl Iterator<Item = &'static str> {
+    builder_methods().filter(|method| !BUILDER_ONLY_METHODS.contains(method))
+}
+
+fn builder_methods_list() -> String {
+    builder_methods().collect::<Vec<_>>().join(", ")
+}
+
+fn kind_methods_list() -> String {
+    kind_methods().collect::<Vec<_>>().join(", ")
+}
+
 fn print_usage() {
     eprintln!(
         r#"usage:
@@ -2440,8 +2564,9 @@ fn print_usage() {
   postfiat-rpc-sdk wallet-sign-owned-unwrap-v3 --backup-file PATH --order-file PATH --capabilities-file PATH --output PATH
   postfiat-rpc-sdk wallet-verify-fastpay-apply-v3 --operation transfer|unwrap --certificate-file PATH --apply-response-file PATH --capabilities-file PATH --validators-file PATH --output PATH
 
-Supported request methods: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
-FastSwap methods: mempool_submit_fastlane_primary, mempool_submit_fastlane_primary_finality, fastswap_capabilities, fastswap_preview, fastswap_prepare, fastswap_commit, fastswap_apply, fastswap_catch_up, fastswap_status, fastswap_effects, fastswap_new_round_vote, fastswap_propose_round, fastswap_precommit, fastswap_commit_round, fastswap_cancel_apply, fastlane_exit, fastswap_checkpoint_status, fastswap_objects, fastswap_policy, fastlane_asset_control_preview, fastlane_asset_control_prepare, fastlane_asset_control_apply, fastlane_asset_control_catch_up.
+Supported request methods: {core_request_methods}.
+FastSwap methods: {fastswap_request_methods}.
+Supported request kinds: {kind_methods}.
 FastLane primary submit requires exactly one of --fastlane-primary-json or --fastlane-primary-json-file.
 Account_tx request supports --address, --from-height, --to-height, and --limit.
 Escrow_fee_quote request supports --source, --operation-json, and --sequence.
@@ -2456,12 +2581,43 @@ Escrow_info request supports --escrow-id. Account_escrows request supports --acc
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
 Tx request supports --audit-block-log for full replay verification.
-Supported response kinds: status, server_info, metrics, ledger, verify_state, verify_blocks, verify_bridge, verify_mempool, verify_shielded, validate_local_keys, account, account_tx, account_tx_index_status, fee, transfer_fee_quote, atomic_swap_fee_quote, escrow_fee_quote, offer_fee_quote, atomic_settlement_template, offer_info, account_offers, book_offers, escrow_info, account_escrows, nft_info, account_nfts, issuer_nfts, receipts, tx, blocks, validators, manifests, batch_archive, archive_window, mempool_submit_transfer, mempool_submit_signed_transfer, mempool_submit_signed_payment_v2, mempool_submit_signed_atomic_swap_transaction, mempool_submit_signed_atomic_swap_transaction_finality, mempool_submit_signed_escrow_transaction, mempool_submit_signed_offer_transaction, mempool_status, mempool_batch, apply_batch, shield_batch_mint, shield_batch_spend, shield_batch_migrate, shield_batch_orchard, shield_batch_orchard_deposit, shield_batch_orchard_withdraw, shield_batch_swap, apply_shield_batch, shield_scan, shield_disclose, shield_turnstile, bridge_status, navcoin_bridge_routes, navcoin_bridge_packet, navcoin_bridge_claims, navcoin_bridge_supply_status, navcoin_bridge_receipt_replay, navcoin_bridge_packet_preflight, bridge_batch_domain, bridge_batch_transfer, bridge_batch_pause, bridge_batch_resume, apply_bridge_batch.
+Supported response kinds: {kind_methods}.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
 Use --output - to print request, wallet identity, wallet backup, or signed transaction JSON to stdout.
 The request subcommand validates the built request (id, method, params) with the same rules as validate-request --expect-kind before writing it; a request that would fail is not written.
-validate-request checks the params rules for the file's own method; --expect-kind additionally asserts the method. A method this binary cannot map to a kind is reported with params=unchecked."#
+validate-request checks the params rules for the file's own method; --expect-kind additionally asserts the method. A method this binary cannot map to a kind is reported with params=unchecked."#,
+        core_request_methods = CORE_REQUEST_METHODS.join(", "),
+        fastswap_request_methods = FASTSWAP_REQUEST_METHODS.join(", "),
+        kind_methods = kind_methods_list(),
     );
+}
+
+#[cfg(test)]
+mod method_list_tests {
+    use super::*;
+
+    #[test]
+    fn every_kind_method_is_accepted_by_both_kind_parsers() {
+        for method in kind_methods() {
+            assert!(
+                matches!(request_kind_for_method(method, &[]), Ok(Some(_))),
+                "request kind `{method}`"
+            );
+            assert!(
+                matches!(response_kind_for_method(method, &[]), Ok(Some(_))),
+                "response kind `{method}`"
+            );
+        }
+    }
+
+    #[test]
+    fn builder_only_methods_are_rejected_by_both_kind_parsers() {
+        for method in BUILDER_ONLY_METHODS {
+            assert!(builder_methods().any(|listed| listed == *method));
+            assert!(request_kind_for_method(method, &[]).is_err(), "{method}");
+            assert!(response_kind_for_method(method, &[]).is_err(), "{method}");
+        }
+    }
 }
 
 #[cfg(test)]
