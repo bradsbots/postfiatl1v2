@@ -27,5 +27,6 @@ mod tests {
     include!("protocol_request_tests.rs");
     include!("response_validation_tests.rs");
     include!("market_ops_status_tests.rs");
+    include!("owned_objects_tests.rs");
     include!("atomic_swap_wallet_tests.rs");
 }

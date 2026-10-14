@@ -1,0 +1,408 @@
+mod owned_objects {
+    use super::*;
+    use serde_json::{Value, json};
+
+    fn owner() -> String {
+        "ab".repeat(1952)
+    }
+
+    fn with(mut value: Value, pointer: &str, replacement: Value) -> Value {
+        *value.pointer_mut(pointer).expect("fixture pointer") = replacement;
+        value
+    }
+
+    fn object(id_byte: &str, version: u64, value: u64, asset: &str) -> Value {
+        json!({
+            "id": id_byte.repeat(32),
+            "version": version,
+            "owner_pubkey_hex": owner(),
+            "value": value,
+            "asset": asset
+        })
+    }
+
+    /// An untruncated page: three objects already in the node's
+    /// (asset, id, version) order, total_value equal to their sum.
+    fn fixture() -> Value {
+        json!({
+            "schema": "postfiat-owned-objects-v1",
+            "chain_id": "postfiat-testnet",
+            "genesis_hash": "cd".repeat(48),
+            "protocol_version": 3,
+            "owner_public_key_hex": owner(),
+            "asset": null,
+            "limit": 2048,
+            "truncated": false,
+            "object_count": 3,
+            "total_value": 600,
+            "objects": [
+                object("01", 1, 100, "PFT"),
+                object("02", 4, 200, "PFT"),
+                object("01", 2, 300, "USDX")
+            ]
+        })
+    }
+
+    /// A full page cut off by the limit; the node summed before truncating.
+    fn truncated_fixture() -> Value {
+        let report = with(fixture(), "/limit", json!(2));
+        let report = with(report, "/truncated", json!(true));
+        let report = with(report, "/object_count", json!(2));
+        let report = with(report, "/total_value", json!(600));
+        with(
+            report,
+            "/objects",
+            json!([object("01", 1, 100, "PFT"), object("02", 4, 200, "PFT")]),
+        )
+    }
+
+    /// A page filtered to one asset.
+    fn filtered_fixture() -> Value {
+        let report = with(fixture(), "/asset", json!("USDX"));
+        let report = with(report, "/object_count", json!(1));
+        let report = with(report, "/total_value", json!(300));
+        with(report, "/objects", json!([object("01", 2, 300, "USDX")]))
+    }
+
+    fn validate(report: &Value) -> Result<(), RpcResponseValidationError> {
+        validate_response_kind(
+            &success_response("owned-objects-1", report, vec![]).expect("owned objects response"),
+            RpcResponseKind::OwnedObjects,
+        )
+    }
+
+    fn rejected_field(report: Value) -> String {
+        match validate(&report) {
+            Err(RpcResponseValidationError::InvalidResult { field, .. }) => field,
+            other => panic!("expected an InvalidResult rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn builds_and_validates_owned_objects_request_without_optional_params() {
+        let request = owned_objects_request(
+            "owned-objects-1",
+            OwnedObjectsParams {
+                owner_public_key_hex: owner(),
+                asset: None,
+                limit: None,
+            },
+        );
+        assert_eq!(request.method, METHOD_OWNED_OBJECTS);
+        assert_eq!(request.params["owner_public_key_hex"], json!(owner()));
+        assert!(request.params.get("asset").is_none());
+        assert!(request.params.get("limit").is_none());
+        validate_request(
+            &request,
+            Some("owned-objects-1"),
+            Some(RpcRequestKind::OwnedObjects),
+        )
+        .expect("owned objects request");
+    }
+
+    #[test]
+    fn builds_and_validates_owned_objects_request_with_optional_params() {
+        let request = owned_objects_request(
+            "owned-objects-2",
+            OwnedObjectsParams {
+                owner_public_key_hex: "AB".repeat(1952),
+                asset: Some("USDX".to_string()),
+                limit: Some(2048),
+            },
+        );
+        assert_eq!(request.params["asset"], json!("USDX"));
+        assert_eq!(request.params["limit"], json!(2048));
+        validate_request(
+            &request,
+            Some("owned-objects-2"),
+            Some(RpcRequestKind::OwnedObjects),
+        )
+        .expect("owned objects request with uppercase key, asset, and limit");
+    }
+
+    #[test]
+    fn rejects_owned_objects_request_params() {
+        let rejects = |request: RpcRequest| {
+            assert!(
+                validate_request(&request, None, Some(RpcRequestKind::OwnedObjects)).is_err(),
+                "expected rejection for {:?}",
+                request.params
+            );
+        };
+        rejects(RpcRequest::empty("owned-objects-3", METHOD_OWNED_OBJECTS));
+        rejects(
+            RpcRequest::empty("owned-objects-4", METHOD_OWNED_OBJECTS)
+                .with_param_value("owner_public_key_hex", string_value("ab".repeat(1951))),
+        );
+        rejects(
+            RpcRequest::empty("owned-objects-5", METHOD_OWNED_OBJECTS)
+                .with_param_value("owner_public_key_hex", string_value("zz".repeat(1952))),
+        );
+        rejects(owned_objects_request(
+            "owned-objects-6",
+            OwnedObjectsParams {
+                owner_public_key_hex: owner(),
+                asset: Some(" USDX".to_string()),
+                limit: None,
+            },
+        ));
+        rejects(owned_objects_request(
+            "owned-objects-7",
+            OwnedObjectsParams {
+                owner_public_key_hex: owner(),
+                asset: None,
+                limit: Some(0),
+            },
+        ));
+        rejects(owned_objects_request(
+            "owned-objects-8",
+            OwnedObjectsParams {
+                owner_public_key_hex: owner(),
+                asset: None,
+                limit: Some(2049),
+            },
+        ));
+        rejects(
+            owned_objects_request(
+                "owned-objects-9",
+                OwnedObjectsParams {
+                    owner_public_key_hex: owner(),
+                    asset: None,
+                    limit: None,
+                },
+            )
+            .with_param_value("state", string_value("open")),
+        );
+    }
+
+    #[test]
+    fn accepts_untruncated_truncated_and_filtered_reports() {
+        validate(&fixture()).expect("untruncated report");
+        validate(&truncated_fixture()).expect("truncated report");
+        validate(&filtered_fixture()).expect("asset-filtered report");
+        let absent_asset = {
+            let mut report = fixture();
+            report.as_object_mut().expect("object").remove("asset");
+            report
+        };
+        validate(&absent_asset).expect("report without an asset field");
+    }
+
+    #[test]
+    fn accepts_mixed_case_identifiers() {
+        let report = with(fixture(), "/owner_public_key_hex", json!("AB".repeat(1952)));
+        let report = with(report, "/objects/0/owner_pubkey_hex", json!("AB".repeat(1952)));
+        let report = with(report, "/objects/1/owner_pubkey_hex", json!("AB".repeat(1952)));
+        let report = with(report, "/objects/2/owner_pubkey_hex", json!("AB".repeat(1952)));
+        let report = with(report, "/objects/2/id", json!("0A".repeat(32)));
+        validate(&report).expect("mixed-case hex");
+    }
+
+    #[test]
+    fn rejects_wrong_schema() {
+        let report = with(fixture(), "/schema", json!("postfiat-owned-objects-v2"));
+        assert_eq!(rejected_field(report), "schema");
+    }
+
+    #[test]
+    fn rejects_malformed_owner_key() {
+        let report = with(fixture(), "/owner_public_key_hex", json!("ab".repeat(1951)));
+        assert_eq!(rejected_field(report), "owner_public_key_hex");
+    }
+
+    #[test]
+    fn rejects_limit_outside_node_bound() {
+        let report = with(fixture(), "/limit", json!(0));
+        assert_eq!(rejected_field(report), "limit");
+        let report = with(fixture(), "/limit", json!(2049));
+        assert_eq!(rejected_field(report), "limit");
+    }
+
+    #[test]
+    fn rejects_object_count_that_disagrees_with_rows_or_limit() {
+        let report = with(fixture(), "/object_count", json!(2));
+        assert_eq!(rejected_field(report), "object_count");
+        let report = with(fixture(), "/limit", json!(2));
+        assert_eq!(rejected_field(report), "object_count");
+    }
+
+    #[test]
+    fn rejects_truncated_flag_on_a_page_that_is_not_full() {
+        let report = with(fixture(), "/truncated", json!(true));
+        assert_eq!(rejected_field(report), "truncated");
+    }
+
+    #[test]
+    fn rejects_objects_owned_by_someone_else() {
+        let report = with(fixture(), "/objects/1/owner_pubkey_hex", json!("cd".repeat(1952)));
+        assert_eq!(rejected_field(report), "objects[1].owner_pubkey_hex");
+    }
+
+    #[test]
+    fn rejects_objects_outside_the_requested_asset() {
+        let report = with(filtered_fixture(), "/objects/0/asset", json!("PFT"));
+        assert_eq!(rejected_field(report), "objects[0].asset");
+    }
+
+    #[test]
+    fn rejects_objects_out_of_node_sort_order() {
+        let swapped = with(
+            fixture(),
+            "/objects",
+            json!([
+                object("02", 4, 200, "PFT"),
+                object("01", 1, 100, "PFT"),
+                object("01", 2, 300, "USDX")
+            ]),
+        );
+        assert_eq!(rejected_field(swapped), "objects[1]");
+        let asset_order = with(
+            fixture(),
+            "/objects",
+            json!([
+                object("01", 2, 300, "USDX"),
+                object("01", 1, 100, "PFT"),
+                object("02", 4, 200, "PFT")
+            ]),
+        );
+        assert_eq!(rejected_field(asset_order), "objects[1]");
+    }
+
+    #[test]
+    fn rejects_total_value_that_disagrees_with_returned_values() {
+        let report = with(fixture(), "/total_value", json!(601));
+        assert_eq!(rejected_field(report), "total_value");
+        let report = with(truncated_fixture(), "/total_value", json!(299));
+        assert_eq!(rejected_field(report), "total_value");
+    }
+
+    #[test]
+    fn rejects_malformed_object_rows() {
+        let report = with(fixture(), "/objects/0/id", json!("01".repeat(31)));
+        assert_eq!(rejected_field(report), "id");
+        let report = with(fixture(), "/objects/0/value", json!(-5));
+        assert_eq!(rejected_field(report), "value");
+        let report = with(fixture(), "/objects/0/asset", json!(""));
+        assert_eq!(rejected_field(report), "asset");
+    }
+
+    // --- request binding (validate_owned_objects_response) ---
+
+    fn request_for(id: &str, owner: String, asset: Option<&str>, limit: Option<usize>) -> RpcRequest {
+        owned_objects_request(
+            id,
+            OwnedObjectsParams {
+                owner_public_key_hex: owner,
+                asset: asset.map(str::to_string),
+                limit,
+            },
+        )
+    }
+
+    fn bind(report: &Value, request: &RpcRequest) -> Result<(), RpcResponseValidationError> {
+        validate_owned_objects_response(
+            &success_response("owned-objects-1", report, vec![]).expect("owned objects response"),
+            request,
+        )
+    }
+
+    fn bind_rejected_field(report: &Value, request: &RpcRequest) -> String {
+        match bind(report, request) {
+            Err(RpcResponseValidationError::InvalidResult { field, .. }) => field,
+            other => panic!("expected an InvalidResult rejection, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn binds_reports_to_their_matching_requests() {
+        bind(&fixture(), &request_for("owned-objects-1", owner(), None, None))
+            .expect("no-filter request, node default limit");
+        bind(
+            &fixture(),
+            &request_for("owned-objects-1", owner(), None, Some(2048)),
+        )
+        .expect("explicit limit equal to the node default");
+        bind(
+            &truncated_fixture(),
+            &request_for("owned-objects-1", owner(), None, Some(2)),
+        )
+        .expect("explicit limit 2");
+        bind(
+            &filtered_fixture(),
+            &request_for("owned-objects-1", owner(), Some("USDX"), None),
+        )
+        .expect("asset-filtered request");
+        let mut absent_asset = fixture();
+        absent_asset.as_object_mut().expect("object").remove("asset");
+        bind(
+            &absent_asset,
+            &request_for("owned-objects-1", owner(), None, None),
+        )
+        .expect("absent asset field for a no-filter request");
+    }
+
+    #[test]
+    fn rejects_same_id_report_for_another_owner() {
+        // Valid, internally consistent report for owner A; request selects owner B.
+        let request_b = request_for("owned-objects-1", "cd".repeat(1952), None, None);
+        assert!(validate(&fixture()).is_ok(), "report is valid on its own");
+        assert_eq!(
+            bind_rejected_field(&fixture(), &request_b),
+            "owner_public_key_hex"
+        );
+        // The node echoes the requested string and filters by exact match, so a
+        // case-only difference is a different query.
+        let request_upper = request_for("owned-objects-1", "AB".repeat(1952), None, None);
+        assert_eq!(
+            bind_rejected_field(&fixture(), &request_upper),
+            "owner_public_key_hex"
+        );
+    }
+
+    #[test]
+    fn rejects_same_id_report_for_another_asset_or_filter() {
+        // Filtered USDX report against a PFT request.
+        let request_pft = request_for("owned-objects-1", owner(), Some("PFT"), None);
+        assert!(validate(&filtered_fixture()).is_ok());
+        assert_eq!(bind_rejected_field(&filtered_fixture(), &request_pft), "asset");
+        // Filtered report against a no-filter request.
+        let request_none = request_for("owned-objects-1", owner(), None, None);
+        assert_eq!(bind_rejected_field(&filtered_fixture(), &request_none), "asset");
+        // No-filter report (asset null, or absent) against a filtered request.
+        let request_usdx = request_for("owned-objects-1", owner(), Some("USDX"), None);
+        assert_eq!(bind_rejected_field(&fixture(), &request_usdx), "asset");
+        let mut absent_asset = fixture();
+        absent_asset.as_object_mut().expect("object").remove("asset");
+        assert_eq!(bind_rejected_field(&absent_asset, &request_usdx), "asset");
+    }
+
+    #[test]
+    fn rejects_same_id_report_for_another_limit() {
+        // Default-limit report against an explicit limit 25.
+        let request_25 = request_for("owned-objects-1", owner(), None, Some(25));
+        assert_eq!(bind_rejected_field(&fixture(), &request_25), "limit");
+        // Limit-2 report against a request that omitted limit (node default 2048).
+        let request_default = request_for("owned-objects-1", owner(), None, None);
+        assert!(validate(&truncated_fixture()).is_ok());
+        assert_eq!(
+            bind_rejected_field(&truncated_fixture(), &request_default),
+            "limit"
+        );
+    }
+
+    #[test]
+    fn rejects_unbound_response_id_foreign_method_and_malformed_request() {
+        let other_id = request_for("owned-objects-2", owner(), None, None);
+        assert!(matches!(
+            bind(&fixture(), &other_id),
+            Err(RpcResponseValidationError::UnexpectedId { .. })
+        ));
+        let foreign = RpcRequest::empty("owned-objects-1", METHOD_ACCOUNT_ASSETS)
+            .with_param_value("owner_public_key_hex", string_value(owner()));
+        assert_eq!(bind_rejected_field(&fixture(), &foreign), "request");
+        let malformed = request_for("owned-objects-1", "ab".repeat(1951), None, None);
+        assert_eq!(bind_rejected_field(&fixture(), &malformed), "request");
+        let zero_limit = request_for("owned-objects-1", owner(), None, Some(0));
+        assert_eq!(bind_rejected_field(&fixture(), &zero_limit), "request");
+    }
+}

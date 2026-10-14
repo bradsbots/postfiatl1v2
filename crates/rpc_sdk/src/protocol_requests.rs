@@ -82,6 +82,7 @@ pub const METHOD_FEE: &str = "fee";
 pub const METHOD_TRANSFER_FEE_QUOTE: &str = "transfer_fee_quote";
 pub const METHOD_OWNED_SIGN: &str = "owned_sign";
 pub const METHOD_OWNED_UNWRAP_SIGN: &str = "owned_unwrap_sign";
+pub const METHOD_OWNED_OBJECTS: &str = "owned_objects";
 pub const METHOD_FASTSWAP_CAPABILITIES: &str = "fastswap_capabilities";
 pub const METHOD_FASTSWAP_PREVIEW: &str = "fastswap_preview";
 pub const METHOD_FASTSWAP_PREPARE: &str = "fastswap_prepare";
@@ -230,6 +231,12 @@ pub const MAX_RPC_SHIELD_BATCH_JSON_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RPC_ASSET_ORCHARD_ENCRYPTED_OUTPUT_BYTES: usize = 4096;
 pub const MAX_RPC_ASSET_ORCHARD_PROOF_BYTES: usize = 1_048_576;
 pub const MAX_RPC_READ_QUERY_LIMIT: usize = 512;
+/// `owned_objects` is bounded by the node's `MAX_OWNED_INPUTS_PER_TRANSFER`
+/// (crates/types core_chain.rs), not the generic read-query limit.
+pub const OWNED_OBJECTS_MAX_LIMIT: usize = 2048;
+/// Hex length of an ML-DSA-65 public key (1952 bytes, FIPS 204), the
+/// owner identity the node requires for `owned_objects`.
+pub const OWNED_OWNER_PUBLIC_KEY_HEX_LEN: usize = 3904;
 pub const MAX_RPC_BATCH_ARCHIVE_PAYLOAD_BYTES: usize = 8 * 1024 * 1024;
 pub const WALLET_BACKUP_FILE_SCHEMA: &str = "postfiat-wallet-backup-v1";
 pub const WALLET_DERIVATION_DOMAIN: &str = "postfiat.wallet.seed.v1";
@@ -1148,6 +1155,14 @@ pub struct MarketOpsStatusParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+
+pub struct OwnedObjectsParams {
+    pub owner_public_key_hex: String,
+    pub asset: Option<String>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NavcoinBridgePacketPreflightParams {
     pub route_id: String,
     pub packet_file: String,
@@ -1161,6 +1176,20 @@ pub fn market_ops_status_request(
         .with_param_value("asset_id", string_value(params.asset_id));
     if let Some(epoch) = params.epoch {
         request = request.with_param_value("epoch", u64_value(epoch));
+    }
+    request
+}
+
+pub fn owned_objects_request(id: impl Into<String>, params: OwnedObjectsParams) -> RpcRequest {
+    let mut request = RpcRequest::empty(id, METHOD_OWNED_OBJECTS).with_param_value(
+        "owner_public_key_hex",
+        string_value(params.owner_public_key_hex),
+    );
+    if let Some(asset) = params.asset {
+        request = request.with_param_value("asset", string_value(asset));
+    }
+    if let Some(limit) = params.limit {
+        request = request.with_param_value("limit", usize_value(limit));
     }
     request
 }
@@ -1619,6 +1648,7 @@ pub enum RpcRequestKind {
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
     MarketOpsStatus,
+    OwnedObjects,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2027,6 +2057,7 @@ pub enum RpcResponseKind {
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
     MarketOpsStatus,
+    OwnedObjects,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2610,6 +2641,7 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::NavcoinBridgeReceiptReplay => METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
         RpcRequestKind::NavcoinBridgePacketPreflight => METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
         RpcRequestKind::MarketOpsStatus => METHOD_MARKET_OPS_STATUS,
+        RpcRequestKind::OwnedObjects => METHOD_OWNED_OBJECTS,
         RpcRequestKind::BridgeBatchDomain => METHOD_BRIDGE_BATCH_DOMAIN,
         RpcRequestKind::BridgeBatchTransfer => METHOD_BRIDGE_BATCH_TRANSFER,
         RpcRequestKind::BridgeBatchPause => METHOD_BRIDGE_BATCH_PAUSE,
@@ -2797,6 +2829,7 @@ fn validate_request_params(
         RpcRequestKind::MarketOpsStatus => {
             validate_market_ops_status_request_params(&request.params)
         }
+        RpcRequestKind::OwnedObjects => validate_owned_objects_request_params(&request.params),
         RpcRequestKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_request_params(&request.params)
         }
@@ -4265,6 +4298,45 @@ fn validate_market_ops_status_request_params(
     require_only_params(params, &["asset_id", "epoch"])?;
     lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
     optional_nonzero_u64_param(params, "epoch")?;
+    Ok(())
+}
+
+fn validate_owned_objects_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["owner_public_key_hex", "asset", "limit"])?;
+    // The node decodes the key case-insensitively (crypto_provider hex_to_bytes)
+    // and requires exactly ML_DSA_65_PUBLIC_KEY_BYTES * 2 characters, so this
+    // mirrors that rather than the lowercase-only rule used for asset ids.
+    let owner_public_key_hex = params
+        .get("owner_public_key_hex")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            invalid_request_params("owner_public_key_hex", "expected string value")
+        })?;
+    if owner_public_key_hex.len() != OWNED_OWNER_PUBLIC_KEY_HEX_LEN
+        || !owner_public_key_hex
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(invalid_request_params(
+            "owner_public_key_hex",
+            format!(
+                "expected a hex-encoded ML-DSA-65 public key ({OWNED_OWNER_PUBLIC_KEY_HEX_LEN} characters)"
+            ),
+        ));
+    }
+    if params.contains_key("asset") {
+        let asset = string_param(params, "asset")?;
+        if asset != asset.trim() || asset.chars().any(char::is_control) {
+            return Err(invalid_request_params(
+                "asset",
+                "expected text without leading, trailing, or control whitespace",
+            ));
+        }
+    }
+    optional_bounded_nonzero_usize_param(params, "limit", OWNED_OBJECTS_MAX_LIMIT)?;
     Ok(())
 }
 
