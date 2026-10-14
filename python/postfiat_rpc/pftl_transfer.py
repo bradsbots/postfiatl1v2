@@ -24,6 +24,13 @@ from .wallet import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PFTL_PRECISION = Decimal("1000000")
+FINALITY_TIMEOUT_ERROR = (
+    "finality_timeout: transfer submitted but finality was not observed "
+    "before --poll-timeout-seconds"
+)
+FINALITY_NOT_POLLED_ERROR = (
+    "finality_not_polled: submit returned no tx_id, so finality could not be polled"
+)
 
 
 def pft_to_atoms(value: str) -> int:
@@ -111,6 +118,28 @@ def transfer_report(action: str, amount_atoms: int, result: Any) -> dict[str, An
     }
 
 
+def require_polled_finality(report: dict[str, Any]) -> dict[str, Any]:
+    """Fail a --poll-finality report unless the result proves finality.
+
+    --poll-finality asks for finality, so ok is true only for a result with a
+    tx_id, finalized=True and no finality_timeout. Anything else (a poll that
+    timed out, a missing or non-bool finalized, a submit that returned no
+    tx_id) is a failure; tx_id and the full result stay in the report so the
+    caller can poll the transaction later.
+    """
+    body = report.get("result")
+    if not isinstance(body, dict):
+        body = {}
+    tx_id = body.get("tx_id")
+    if not isinstance(tx_id, str) or not tx_id:
+        report["ok"] = False
+        report["error"] = FINALITY_NOT_POLLED_ERROR
+    elif body.get("finalized") is not True or body.get("finality_timeout") is True:
+        report["ok"] = False
+        report["error"] = FINALITY_TIMEOUT_ERROR
+    return report
+
+
 def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
     if not args.allow_faucet_apply:
         raise ValueError("faucet requires --allow-faucet-apply before changing validator state")
@@ -189,6 +218,7 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
             poll_timeout_seconds=args.poll_timeout_seconds,
             poll_interval_seconds=args.poll_interval_seconds,
         )
+        return require_polled_finality(transfer_report("send", amount_atoms, result))
     else:
         result = send_pft(
             client,
