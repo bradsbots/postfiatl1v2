@@ -53,10 +53,10 @@
     {
       "expected_corrected": {
         "accepted": false,
-        "display": "rpc response result field `asset` invalid: expected asset object to match asset_id",
+        "display": "rpc response result field `asset` invalid: expected asset object to match requested asset_id",
         "error_variant": "InvalidResult",
         "field": "asset",
-        "message": "expected asset object to match asset_id"
+        "message": "expected asset object to match requested asset_id"
       },
       "expected_original": {
         "accepted": true,
@@ -604,10 +604,10 @@
     {
       "expected_corrected": {
         "accepted": false,
-        "display": "rpc response result field `escrow` invalid: expected escrow object to match escrow_id",
+        "display": "rpc response result field `escrow` invalid: expected escrow object to match requested escrow_id",
         "error_variant": "InvalidResult",
         "field": "escrow",
-        "message": "expected escrow object to match escrow_id"
+        "message": "expected escrow object to match requested escrow_id"
       },
       "expected_original": {
         "accepted": true,

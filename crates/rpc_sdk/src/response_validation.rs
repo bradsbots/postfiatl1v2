@@ -1840,7 +1840,7 @@ fn validate_asset_info_result(result: &Value) -> Result<(), RpcResponseValidatio
             if string_field(asset, "asset_id")? != string_field(result, "asset_id")? {
                 return Err(invalid_result(
                     "asset",
-                    "expected asset object to match asset_id",
+                    "expected asset object to match requested asset_id",
                 ));
             }
             Ok(())
@@ -1929,7 +1929,7 @@ fn validate_escrow_info_result(result: &Value) -> Result<(), RpcResponseValidati
             if string_field(escrow, "escrow_id")? != string_field(result, "escrow_id")? {
                 return Err(invalid_result(
                     "escrow",
-                    "expected escrow object to match escrow_id",
+                    "expected escrow object to match requested escrow_id",
                 ));
             }
             Ok(())

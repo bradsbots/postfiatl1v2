@@ -45,7 +45,6 @@ fn nested_asset_and_escrow_ids_bind_to_outer_result() {
     assert_eq!(cases.len(), 28, "complete independent regression matrix");
     let mut names = BTreeSet::new();
     let mut failures = Vec::new();
-    let mut accepted = 0;
     for case in cases {
         let name = case["name"].as_str().expect("case name");
         assert!(names.insert(name), "duplicate case {name}");
@@ -63,14 +62,6 @@ fn nested_asset_and_escrow_ids_bind_to_outer_result() {
         let observed = observed_validation(&response, kind);
         let after = serde_json::to_value(&response).expect("typed output JSON");
         let unchanged = after == before;
-        println!(
-            "SDK_INNER_ID_CASE {}",
-            json!({
-                "name": name, "kind": case["kind"], "observed": observed,
-                "response_json_unchanged": unchanged, "response_json": after,
-            })
-        );
-        accepted += usize::from(observed["accepted"] == true);
         if observed != case["expected_corrected"] || !unchanged {
             failures.push(json!({
                 "name": name, "expected": case["expected_corrected"],
@@ -78,13 +69,6 @@ fn nested_asset_and_escrow_ids_bind_to_outer_result() {
             }));
         }
     }
-    println!(
-        "SDK_INNER_ID_SUMMARY {}",
-        json!({
-            "cases": cases.len(), "accepted": accepted, "rejected": cases.len() - accepted,
-            "corrected_contract_mismatches": failures,
-        })
-    );
     assert!(
         failures.is_empty(),
         "actual SDK validator violates the fixed corrected contract: {}",
