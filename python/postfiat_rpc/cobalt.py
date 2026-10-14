@@ -2212,7 +2212,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                         # Encode at request depth now so nesting json.dumps cannot
                         # handle fails here, not inside runtime_request.
                         json.dumps({"range": range_report})
-                    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+                    except ValueError as error:
+                        # UnicodeDecodeError, JSONDecodeError and an integer over
+                        # the int-conversion digit limit are all ValueError.
                         raise CobaltCliError("history range file is not valid JSON") from error
                     except RecursionError as error:
                         raise CobaltCliError("history range file nests too deeply") from error

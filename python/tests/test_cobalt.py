@@ -855,6 +855,7 @@ class CobaltHistoryVerifyRangeTests(unittest.TestCase):
             ("empty", b""),
             ("leading-zero", b"007"),
             ("truncated", b'{"a": '),
+            ("integer-over-digit-limit", b'{"a": ' + b"9" * 5000 + b"}"),
         ):
             with self.subTest(case=name):
                 self.assert_refused(self.write(f"{name}.json", payload), "is not valid JSON")
