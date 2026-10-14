@@ -42,9 +42,10 @@ const PROGRAM_VKEY_RE = /^0x[0-9a-f]{64}$/;
 const HASH48_RE = /^[0-9a-f]{96}$/;
 const EVM_CODE_HASH_RE = /^0x[0-9a-f]{64}$/;
 // Node clamps any timer delay above 2^31-1 ms to 1 ms, so an unbounded timeout would
-// kill every worker or readiness probe at once. Same caps as the NAVCoin job modules.
-const MAX_WORKER_TIMEOUT_MS = 24 * 60 * 60 * 1_000;
-const MAX_READINESS_TIMEOUT_MS = 10 * 60 * 1_000;
+// kill every worker or readiness probe at once. Refuse only values a Node timer cannot hold.
+const MAX_TIMER_DELAY_MS = 2_147_483_647;
+const MAX_WORKER_TIMEOUT_MS = MAX_TIMER_DELAY_MS;
+const MAX_READINESS_TIMEOUT_MS = MAX_TIMER_DELAY_MS;
 const SEPOLIA_P0_PROGRAM_VKEY = '0x0077f479ed28535dbb5035f455a875334bae7d5a1eaa7c22c6f070a404eab31f';
 const SEPOLIA_P0_MANIFEST_HASH = 'dc409b424e7627b936d81a16d2fc8f4c17e21a108d654be6b992e552d7b0c6d3';
 const ROUTE_PROFILES = new Map([
