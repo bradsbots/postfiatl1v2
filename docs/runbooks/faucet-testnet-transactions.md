@@ -197,33 +197,10 @@ result = send_pft_and_poll_finality(
 print(result.tx_id, result.submit_mode, result.finalized)  # submit_and_poll, True
 ```
 
-The helper itself reports a poll that times out as a result
-(`pending=True`, `finalized=False`, `finality_timeout=True`); it does not
-raise.
-
-The same poll mode from the command line:
-
-```bash
-scripts/pftl-transfer.py send --poll-finality \
-  --endpoint 192.0.2.10:27650 --wallet-dir /path/to/wallet \
-  --to pf... --amount 1 --poll-timeout-seconds 120
-```
-
-The CLI prints a JSON report and exits with:
-
-| Exit | Meaning | `ok` | What the caller does |
-| --- | --- | --- | --- |
-| `0` | finality observed | `true` | done |
-| `1` | failed: no submit result came back (an error before or during the submit, including a submit the RPC rejected) | `false` | fix the cause; if the error was a transport timeout during the submit, check the account before sending again |
-| `2` | usage error (argparse) | none | fix the command line |
-| `3` | submitted, finality not observed (`finality_timeout`, or `finality_not_polled` when the submit returned no `tx_id`) | `false`, with `finality_not_observed: true` | **do not resubmit**; poll `result.tx_id` (or check the account) until it finalizes or is known to have failed |
-
-Exit `3` means the transfer was handed to the RPC and may still finalize
-after the deadline. A wrapper that retries on any non-zero exit must treat
-`3` as "wait and poll", not "send again", or it can pay twice. The report
-keeps `result.tx_id` and the full result body for that poll. Without
-`--poll-finality`, `send` exits `0` once the submit returns, and the result
-is `pending`.
+From the command line, `scripts/pftl-transfer.py send --poll-finality` reports
+a poll that times out as a result, not an error: it exits `0` with `"ok": true` and
+`result.finality_timeout: true`, and prints one warning line on stderr. The
+transfer may still finalize: poll `result.tx_id`, and do not resubmit.
 
 Neither of these functions calls `apply-batch`. The
 `--finalize-data-dir` flag on `pftl-transfer.py` is labeled "(local

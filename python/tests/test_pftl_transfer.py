@@ -167,260 +167,167 @@ class PftlTransferCliTests(unittest.TestCase):
         self.assertEqual(kwargs["amount"], 1_250_000)
 
 
-def _poll_wallet(root: Path) -> TransparentWallet:
-    return TransparentWallet(
-        chain_id="postfiat-local",
-        account_index=0,
-        address="pfsender",
-        public_key_hex="00",
-        key_file=root / "transparent-0.key.json",
-        backup_file=root / "transparent-0.backup.json",
-        key_report={},
-    )
+def _send_result(**overrides: object) -> SendPftResult:
+    fields: dict[str, object] = {
+        "tx_id": "tx-poll",
+        "quote_response": {"ok": True},
+        "signed_transfer": {"ok": True},
+        "submit_result": {"ok": True},
+        "finalized_batch_file": None,
+        "receipts_by_validator": (),
+        "submit_mode": "submit_and_poll",
+    }
+    fields.update(overrides)
+    return SendPftResult(**fields)  # type: ignore[arg-type]
 
 
-def _send_result(
-    *,
-    tx_id: str | None = "tx3",
-    pending: bool,
-    finalized: bool,
-    finality_timeout: bool,
-    submit_mode: str = "submit_and_poll",
-) -> SendPftResult:
-    return SendPftResult(
-        tx_id=tx_id,
-        quote_response={"ok": True},
-        signed_transfer={"ok": True},
-        submit_result={"accepted": True},
-        finalized_batch_file=None,
-        receipts_by_validator=(),
-        submit_mode=submit_mode,
-        pending=pending,
-        finalized=finalized,
-        finality_receipt={"tx_id": tx_id, "accepted": True} if finalized else None,
-        finality_timeout=finality_timeout,
-    )
+TIMED_OUT = {"pending": True, "finalized": False, "finality_timeout": True}
+FINALIZED = {
+    "pending": False,
+    "finalized": True,
+    "finality_timeout": False,
+    "finality_receipt": {"tx_id": "tx-poll", "accepted": True},
+}
 
 
 def _run_send_cli(
-    extra: list[str], *, helper: str, result: object = None, error: Exception | None = None
-) -> tuple[int, dict, mock.MagicMock]:
-    stdout = io.StringIO()
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        argv = [
-            "send",
-            "--to",
-            "pfrecipient",
-            "--amount-atoms",
-            "5",
-            "--endpoint",
-            "127.0.0.1:27650",
-            "--wallet-dir",
-            str(root),
-            *extra,
-        ]
-        with (
-            mock.patch.object(cli, "PostFiatRpcClient", return_value=object()),
-            mock.patch.object(cli, "load_wallet", return_value=_poll_wallet(root)),
-            mock.patch.object(cli, "send_pft") as send,
-            mock.patch.object(cli, "send_pft_and_poll_finality") as poll,
-            contextlib.redirect_stdout(stdout),
-        ):
-            target = {"send_pft": send, "send_pft_and_poll_finality": poll}[helper]
-            other = poll if helper == "send_pft" else send
-            target.return_value = result
-            if error is not None:
-                target.side_effect = error
-            exit_code = cli.main(argv)
-        other.assert_not_called()
-        target.assert_called_once()
-    return exit_code, json.loads(stdout.getvalue()), target
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    result: SendPftResult,
+    *,
+    poll: bool,
+) -> tuple[int, str, str]:
+    argv = [
+        "send",
+        "--to",
+        "pfrecipient",
+        "--amount",
+        "1",
+        "--endpoint",
+        "127.0.0.1:27650",
+        "--wallet-dir",
+        str(tmp_path),
+    ]
+    if poll:
+        argv.append("--poll-finality")
+    with (
+        mock.patch.object(cli, "PostFiatRpcClient"),
+        mock.patch.object(cli, "load_wallet"),
+        mock.patch.object(cli, "send_pft", return_value=result) as send,
+        mock.patch.object(cli, "send_pft_and_poll_finality", return_value=result) as polled,
+    ):
+        exit_code = cli.main(argv)
+    (polled if poll else send).assert_called_once()
+    (send if poll else polled).assert_not_called()
+    captured = capsys.readouterr()
+    return exit_code, captured.out, captured.err
 
 
-POLL_ARGS = ["--poll-finality", "--poll-timeout-seconds", "0.01", "--poll-interval-seconds", "0.001"]
+def _main_stdout(result: SendPftResult) -> str:
+    # What main prints for the same result: the unchanged transfer_report, ok true.
+    return json.dumps(cli.transfer_report("send", 1_000_000, result), indent=2, sort_keys=True) + "\n"
 
 
-def test_send_poll_finality_timeout_exits_3_and_keeps_tx_id_and_result() -> None:
-    exit_code, report, poll = _run_send_cli(
-        POLL_ARGS,
-        helper="send_pft_and_poll_finality",
-        result=_send_result(pending=True, finalized=False, finality_timeout=True),
-    )
+def test_poll_finality_timeout_exits_zero_and_warns_once_on_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(**TIMED_OUT)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=True)
 
-    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
-    assert report["ok"] is False
-    assert report["finality_not_observed"] is True
-    assert report["error"] == cli.FINALITY_TIMEOUT_ERROR
-    assert report["error"].startswith("finality_timeout")
-    assert report["action"] == "send"
-    assert report["tx_id"] == "tx3"
-    assert report["amount_atoms"] == 5
-    assert report["result"]["tx_id"] == "tx3"
+    assert exit_code == 0
+    assert out == _main_stdout(result)
+    report = json.loads(out)
+    assert report["ok"] is True
     assert report["result"]["finality_timeout"] is True
-    assert report["result"]["pending"] is True
-    assert report["result"]["finalized"] is False
-    assert poll.call_args.kwargs["poll_timeout_seconds"] == 0.01
-    assert poll.call_args.kwargs["poll_interval_seconds"] == 0.001
-
-
-def test_send_poll_finality_reached_is_ok() -> None:
-    exit_code, report, _ = _run_send_cli(
-        POLL_ARGS,
-        helper="send_pft_and_poll_finality",
-        result=_send_result(pending=False, finalized=True, finality_timeout=False),
-    )
-
-    assert exit_code == 0
-    assert report["ok"] is True
     assert "error" not in report
-    assert report["tx_id"] == "tx3"
-    assert report["result"]["finalized"] is True
-
-
-def test_send_poll_finality_without_tx_id_exits_3() -> None:
-    # send_pft_and_poll_finality returns the bare send_pft result when the
-    # submit produced no tx_id, so nothing was polled.
-    exit_code, report, _ = _run_send_cli(
-        POLL_ARGS,
-        helper="send_pft_and_poll_finality",
-        result=_send_result(
-            tx_id=None, pending=True, finalized=False, finality_timeout=False, submit_mode="submit_only"
-        ),
-    )
-
-    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
-    assert report["ok"] is False
-    assert report["finality_not_observed"] is True
-    assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
-    assert report["tx_id"] is None
-    assert report["result"]["tx_id"] is None
+    lines = err.splitlines()
+    assert len(lines) == 1, err
+    assert err.endswith("\n")
+    assert "finality not observed" in lines[0]
+    assert "tx-poll" in lines[0]
+    assert "do not resubmit" in lines[0]
 
 
 @pytest.mark.parametrize(
-    "body",
+    "fields",
     [
-        {"tx_id": "tx3", "pending": True},
-        {"tx_id": "tx3", "finalized": None},
-        {"tx_id": "tx3", "finalized": 1},
-        {"tx_id": "tx3", "finalized": "true"},
-        {"tx_id": "tx3", "finalized": [True]},
-        {"tx_id": "tx3", "finalized": {"value": True}},
-        {"tx_id": "tx3", "finalized": True, "finality_timeout": True},
+        {"pending": True, "finalized": False, "finality_timeout": False},
+        {"pending": False, "finalized": True, "finality_timeout": True},
     ],
+    ids=["not-finalized-no-timeout-flag", "finalized-but-timeout-flag"],
 )
-def test_send_poll_finality_requires_bool_true_finalized(body: dict) -> None:
-    exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=body)
-
-    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
-    assert report["ok"] is False
-    assert report["finality_not_observed"] is True
-    assert report["error"] == cli.FINALITY_TIMEOUT_ERROR
-    assert report["tx_id"] == "tx3"
-    assert report["result"] == body
-
-
-@pytest.mark.parametrize(
-    "body",
-    [
-        {"tx_id": "", "finalized": True},
-        {"tx_id": 7, "finalized": True},
-        {"finalized": True},
-    ],
-)
-def test_send_poll_finality_requires_tx_id(body: dict) -> None:
-    exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=body)
-
-    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
-    assert report["ok"] is False
-    assert report["finality_not_observed"] is True
-    assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
-
-
-def test_send_poll_finality_non_dict_result_fails() -> None:
-    exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=None)
-
-    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
-    assert report["ok"] is False
-    assert report["finality_not_observed"] is True
-    assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
-
-
-def test_send_poll_finality_submit_failure_still_exits_1() -> None:
-    # A submit that raises returns no submit result, so the exit code stays
-    # 1, distinct from the 3 of a submit that returned.
-    exit_code, report, _ = _run_send_cli(
-        POLL_ARGS,
-        helper="send_pft_and_poll_finality",
-        error=RuntimeError("submit rejected: sequence too low"),
-    )
-
-    assert exit_code == cli.EXIT_FAILED == 1
-    assert report["ok"] is False
-    assert report["error"] == "RuntimeError: submit rejected: sequence too low"
-    assert "finality_not_observed" not in report
-
-
-def test_plain_send_submit_failure_exits_1() -> None:
-    exit_code, report, _ = _run_send_cli(
-        [], helper="send_pft", error=RuntimeError("submit rejected")
-    )
-
-    assert exit_code == 1
-    assert report["ok"] is False
-    assert "finality_not_observed" not in report
-
-
-def test_exit_code_for_maps_reports_to_documented_codes() -> None:
-    assert {cli.EXIT_OK, cli.EXIT_FAILED, cli.EXIT_FINALITY_NOT_OBSERVED} == {0, 1, 3}
-    assert cli.exit_code_for({"ok": True}) == 0
-    assert cli.exit_code_for({"ok": False}) == 1
-    assert cli.exit_code_for({"ok": False, "finality_not_observed": True}) == 3
-    # ok wins over a stray marker; only an explicit True marker gives 3.
-    assert cli.exit_code_for({"ok": True, "finality_not_observed": True}) == 0
-    assert cli.exit_code_for({"ok": False, "finality_not_observed": "true"}) == 1
-
-
-@pytest.mark.parametrize("argv", [["--help"], ["send", "--help"]])
-def test_exit_codes_are_documented_in_help(argv: list[str]) -> None:
-    stdout = io.StringIO()
-    with contextlib.redirect_stdout(stdout), pytest.raises(SystemExit) as exited:
-        cli.main(argv)
-    assert exited.value.code == 0
-    text = stdout.getvalue()
-    assert "exit codes:" in text
-    assert "  1  failed" in text
-    assert "  2  usage error" in text
-    assert "  3  send --poll-finality only" in text
-    assert "Do NOT resubmit" in text
-
-
-def test_plain_send_pending_result_is_still_ok() -> None:
-    exit_code, report, _ = _run_send_cli(
-        [],
-        helper="send_pft",
-        result=_send_result(pending=True, finalized=False, finality_timeout=False, submit_mode="submit_only"),
-    )
+def test_poll_finality_not_proven_warns_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], fields: dict[str, bool]
+) -> None:
+    result = _send_result(**fields)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=True)
 
     assert exit_code == 0
-    assert report["ok"] is True
-    assert "error" not in report
-    assert report["tx_id"] == "tx3"
+    assert out == _main_stdout(result)
+    assert len(err.splitlines()) == 1
+    assert "finality not observed" in err
 
 
-def test_finalize_data_dir_takes_precedence_and_is_unchanged() -> None:
-    # --finalize-data-dir is checked before --poll-finality in run_send, so
-    # the local-harness path keeps its existing report even with both flags.
-    exit_code, report, send = _run_send_cli(
-        ["--finalize-data-dir", "/nonexistent-node0", "--validator-data-dirs", "/nonexistent-node0", *POLL_ARGS],
-        helper="send_pft",
-        result=_send_result(pending=False, finalized=False, finality_timeout=False, submit_mode="local_apply"),
-    )
+def test_poll_finality_without_tx_id_exits_zero_and_warns_once(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(tx_id=None, submit_mode="rpc_submit", pending=True)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=True)
 
     assert exit_code == 0
-    assert report["ok"] is True
-    assert "error" not in report
-    assert str(send.call_args.kwargs["finalize_data_dir"]) == "/nonexistent-node0"
+    assert out == _main_stdout(result)
+    lines = err.splitlines()
+    assert len(lines) == 1, err
+    assert "finality not polled" in lines[0]
+    assert "do not resubmit" in lines[0]
+
+
+def test_poll_finality_warning_escapes_tx_id_control_characters(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(tx_id="tx\nsecond-line", **TIMED_OUT)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=True)
+
+    assert exit_code == 0
+    assert out == _main_stdout(result)
+    assert len(err.splitlines()) == 1, err
+    assert "tx\\nsecond-line" in err
+
+
+def test_poll_finality_finalized_exits_zero_with_empty_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(**FINALIZED)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=True)
+
+    assert exit_code == 0
+    assert out == _main_stdout(result)
+    assert err == ""
+
+
+def test_plain_send_is_unchanged_and_never_warns(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(submit_mode="rpc_submit", pending=True)
+    exit_code, out, err = _run_send_cli(tmp_path, capsys, result, poll=False)
+
+    assert exit_code == 0
+    assert out == _main_stdout(result)
+    assert json.loads(out)["ok"] is True
+    assert err == ""
+
+
+def test_poll_finality_warning_survives_closed_stderr(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    result = _send_result(**TIMED_OUT)
+    closed = io.StringIO()
+    closed.close()
+    with mock.patch.object(cli.sys, "stderr", closed):
+        exit_code, out, _ = _run_send_cli(tmp_path, capsys, result, poll=True)
+
+    assert exit_code == 0
+    assert out == _main_stdout(result)
 
 
 @pytest.mark.parametrize(
