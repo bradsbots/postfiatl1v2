@@ -1439,6 +1439,395 @@ fn dex_asset_id_result_field<'a>(
     }
 }
 
+/// `nav_reserve_proof_status` mirrors the node's construction: the asset's
+/// registered NAV proof profile (when the asset exists and its profile id is
+/// registered) plus that asset's reserve packets, newest first by
+/// (epoch, submitted_at_height, packet_id) and bounded to the latest sixteen.
+fn validate_nav_reserve_proof_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", NAV_RESERVE_PROOF_STATUS_SCHEMA)?;
+    clean_string_field(result, "chain_id")?;
+    lower_hex_field(result, "genesis_hash", 96)?;
+    nonzero_u32_field(result, "protocol_version")?;
+    let current_height = u64_field(result, "current_height")?;
+    lower_hex_field(result, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+
+    let found = bool_field(result, "found")?;
+    let active_profile = field(result, "active_profile")?;
+    if !found && !active_profile.is_null() {
+        return Err(invalid_result(
+            "active_profile",
+            "expected no active profile when the asset is not found",
+        ));
+    }
+    // `found` with a null profile is legitimate: the asset's profile id may
+    // not (or no longer) resolve to a registered profile.
+    if !active_profile.is_null() {
+        validate_nav_proof_profile(active_profile)?;
+    }
+
+    let packets = array_field(result, "packets")?;
+    if packets.len() > NAV_RESERVE_PROOF_STATUS_MAX_PACKETS {
+        return Err(invalid_result(
+            "packets",
+            format!("expected at most {NAV_RESERVE_PROOF_STATUS_MAX_PACKETS} packets"),
+        ));
+    }
+    if !found && !packets.is_empty() {
+        return Err(invalid_result(
+            "packets",
+            "expected no packets when the asset is not found",
+        ));
+    }
+    let mut previous: Option<(u64, u64, String)> = None;
+    for packet in packets {
+        let key = validate_nav_reserve_packet_status(packet, current_height)?;
+        if let Some(previous) = &previous {
+            if key >= *previous {
+                return Err(invalid_result(
+                    "packets",
+                    "expected packets newest first by epoch, submitted_at_height and packet_id",
+                ));
+            }
+        }
+        previous = Some(key);
+    }
+    Ok(())
+}
+
+fn validate_nav_proof_profile(profile: &Value) -> Result<(), RpcResponseValidationError> {
+    if !profile.is_object() {
+        return Err(invalid_result("active_profile", "expected object value"));
+    }
+    clean_string_field(profile, "profile_id")?;
+    clean_string_field(profile, "registered_by")?;
+    clean_string_field(profile, "verifier_kind")?;
+    clean_string_field_allow_empty(profile, "source_class")?;
+    u64_field(profile, "max_snapshot_age_blocks")?;
+    u64_field(profile, "challenge_window_blocks")?;
+    u64_field(profile, "max_epoch_gap_blocks")?;
+    u64_field(profile, "settle_deadline_blocks")?;
+    u64_field(profile, "min_challenge_bond")?;
+    Ok(())
+}
+
+/// Validates one packet row and returns its ordering key
+/// (epoch, submitted_at_height, packet_id).
+fn validate_nav_reserve_packet_status(
+    packet: &Value,
+    current_height: u64,
+) -> Result<(u64, u64, String), RpcResponseValidationError> {
+    if !packet.is_object() {
+        return Err(invalid_result("packets", "expected packet object"));
+    }
+    let packet_id = clean_string_field(packet, "packet_id")?.to_string();
+    let epoch = u64_field(packet, "epoch")?;
+    clean_string_field(packet, "state")?;
+    optional_hex96_field(packet, "reserve_packet_hash")?;
+    u64_field(packet, "nav_per_unit")?;
+    u64_field(packet, "circulating_supply")?;
+    u64_field(packet, "verified_net_assets")?;
+    let submitted_at_height = u64_field(packet, "submitted_at_height")?;
+    if submitted_at_height > current_height {
+        return Err(invalid_result(
+            "submitted_at_height",
+            "expected submitted_at_height at most current_height",
+        ));
+    }
+    let not_before = u64_field(packet, "observation_not_before")?;
+    let not_after = u64_field(packet, "observation_not_after")?;
+    if not_before > not_after {
+        return Err(invalid_result(
+            "observation_not_after",
+            "expected observation_not_after at least observation_not_before",
+        ));
+    }
+    u64_field(packet, "proof_verified_net_assets")?;
+    u64_field(packet, "consensus_overlay_value")?;
+    u64_field(packet, "gross_assets")?;
+    u64_field(packet, "total_liabilities")?;
+    u64_field(packet, "cryptographically_verified_value")?;
+    u64_field(packet, "attested_value")?;
+    u64_field(packet, "controlled_value")?;
+    u32_range_field(packet, "source_count")?;
+    validate_nav_reserve_trust_counts(packet, "quantity_trust_counts")?;
+    validate_nav_reserve_trust_counts(packet, "valuation_trust_counts")?;
+    optional_hex96_field(packet, "quantity_trust_root")?;
+    optional_hex96_field(packet, "valuation_trust_root")?;
+    optional_hex96_field(packet, "source_disclosure_root")?;
+    Ok((epoch, submitted_at_height, packet_id))
+}
+
+fn validate_nav_reserve_trust_counts(
+    packet: &Value,
+    path: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let counts = field(packet, path)?;
+    if !counts.is_object() {
+        return Err(invalid_result(path, "expected object value"));
+    }
+    let cryptographic = u32_range_field(counts, "cryptographic")?;
+    let attested = u32_range_field(counts, "attested")?;
+    let controlled = u32_range_field(counts, "controlled")?;
+    if cryptographic
+        .checked_add(attested)
+        .and_then(|total| total.checked_add(controlled))
+        .is_none()
+    {
+        return Err(invalid_result(path, "expected trust counts to fit a u32 total"));
+    }
+    Ok(())
+}
+
+fn u32_range_field(value: &Value, path: &str) -> Result<u32, RpcResponseValidationError> {
+    u32::try_from(u64_field(value, path)?).map_err(|_| invalid_result(path, "expected u32 value"))
+}
+
+/// A hash field the node may leave empty: empty, or 96 lowercase hex characters.
+fn optional_hex96_field(value: &Value, path: &str) -> Result<(), RpcResponseValidationError> {
+    let found = clean_string_field_allow_empty(value, path)?;
+    if !found.is_empty() && !is_lower_hex_len(found, 96) {
+        return Err(invalid_result(path, "expected empty or 96 lowercase hex characters"));
+    }
+    Ok(())
+}
+
+/// `vault_bridge_route` mirrors the node's construction in market_bridge.rs:
+/// the governed route profile active at the tip (so it passes the profile's
+/// own `validate()` rules and `activation_height <= current_height <
+/// expires_at_height`), its authorizing amendment (whose value is the route
+/// epoch and whose activation height is the profile's), the route binding
+/// derived from (profile_hash, route_epoch), the NAV proof profile summary,
+/// and the trust class implied by the evidence tier.
+fn validate_vault_bridge_route_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", VAULT_BRIDGE_ROUTE_REPORT_SCHEMA)?;
+    clean_string_field(result, "chain_id")?;
+    lower_hex_field(result, "genesis_hash", 96)?;
+    let current_height = u64_field(result, "current_height")?;
+
+    let profile = field(result, "profile")?;
+    if !profile.is_object() {
+        return Err(invalid_result("profile", "expected object value"));
+    }
+    let (route_epoch, activation_height, evidence_tier) = validate_vault_bridge_route_profile(profile)?;
+    let expires_at_height = u64_field(profile, "expires_at_height")?;
+    if activation_height > current_height {
+        return Err(invalid_result(
+            "profile.activation_height",
+            "expected the active route to be activated at or before current_height",
+        ));
+    }
+    if expires_at_height <= current_height {
+        return Err(invalid_result(
+            "profile.expires_at_height",
+            "expected the active route to expire after current_height",
+        ));
+    }
+
+    lower_hex_field(result, "profile_hash", postfiat_types::VAULT_BRIDGE_HEX_HASH_LEN)?;
+    let profile_hash = string_field(result, "profile_hash")?;
+    let expected_binding = postfiat_types::vault_bridge_route_binding(profile_hash, route_epoch)
+        .map_err(|error| invalid_result("route_binding", error))?;
+    expect_string_eq(result, "route_binding", &expected_binding)?;
+
+    lower_hex_field(result, "governance_amendment_id", 96)?;
+    let governance_activation_height = u64_field(result, "governance_activation_height")?;
+    if governance_activation_height != activation_height {
+        return Err(invalid_result(
+            "governance_activation_height",
+            "expected the authorizing amendment to activate with the route profile",
+        ));
+    }
+    let governance_route_epoch = u64_field(result, "governance_route_epoch")?;
+    if governance_route_epoch != u64::from(route_epoch) {
+        return Err(invalid_result(
+            "governance_route_epoch",
+            "expected the authorizing amendment value to be the route epoch",
+        ));
+    }
+
+    clean_string_field(result, "nav_profile_id")?;
+    clean_string_field_allow_empty(result, "nav_profile_source_class")?;
+    clean_string_field(result, "nav_profile_verifier_kind")?;
+    let policy_hash = clean_string_field_allow_empty(result, "nav_profile_policy_hash")?;
+    if !policy_hash.is_empty() && !is_lower_hex(policy_hash) {
+        return Err(invalid_result(
+            "nav_profile_policy_hash",
+            "expected empty or lowercase hex characters",
+        ));
+    }
+
+    let expected_trust_class = if evidence_tier == postfiat_types::VAULT_BRIDGE_EVIDENCE_TIER_RECEIPT_PROVEN {
+        postfiat_types::VAULT_BRIDGE_ROUTE_TRUST_CLASS_TRUSTLESS_FINALITY
+    } else {
+        postfiat_types::VAULT_BRIDGE_ROUTE_TRUST_CLASS_CONTROLLED
+    };
+    expect_string_eq(result, "route_trust_class", expected_trust_class)?;
+    bool_field(result, "live_value_enabled")?;
+    expect_bool_eq(result, "active", true)?;
+    Ok(())
+}
+
+/// The profile's own `validate()` rules (crates/types VaultBridgeRouteProfileV1),
+/// re-stated over JSON. Returns (route_epoch, activation_height, evidence_tier).
+fn validate_vault_bridge_route_profile(
+    profile: &Value,
+) -> Result<(u32, u64, String), RpcResponseValidationError> {
+    expect_string_eq(profile, "schema", postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_SCHEMA_V1)?;
+    let route_id = clean_string_field(profile, "route_id")?;
+    if route_id.len() > 64
+        || !route_id
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'_' | b'-'))
+    {
+        return Err(invalid_result(
+            "profile.route_id",
+            "expected 1..64 lowercase identifier bytes",
+        ));
+    }
+    lower_hex_field(profile, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    nonzero_u64_field(profile, "source_chain_id")?;
+    validate_nonzero_evm_address_field(profile, "vault_address")?;
+    validate_nonzero_evm_address_field(profile, "token_address")?;
+    if string_field(profile, "vault_address")? == postfiat_types::RETIRED_VAULT_BRIDGE_ADDRESS {
+        return Err(invalid_result("profile.vault_address", "expected a vault that is not retired"));
+    }
+    validate_prefixed_hash_field(profile, "vault_runtime_code_hash", 64)?;
+    validate_prefixed_hash_field(profile, "token_runtime_code_hash", 64)?;
+    let route_epoch = nonzero_u32_field(profile, "route_epoch")?;
+    let verifier_kind = clean_string_field(profile, "verifier_kind")?;
+    let evidence_tier = clean_string_field(profile, "evidence_tier")?.to_string();
+    let min_attestations = u64_field(profile, "min_attestations")?;
+    let minimum_confirmations = u64_field(profile, "minimum_confirmations")?;
+    let verifier_policy_hash = clean_string_field_allow_empty(profile, "verifier_policy_hash")?;
+    let verifier_program_vkey = clean_string_field_allow_empty(profile, "verifier_program_vkey")?;
+    let verifier_proof_encoding = clean_string_field_allow_empty(profile, "verifier_proof_encoding")?;
+    let max_proof_bytes = u64_field(profile, "max_proof_bytes")?;
+    let max_public_values_bytes = u64_field(profile, "max_public_values_bytes")?;
+    let expected_tier = match verifier_kind {
+        postfiat_types::NAV_PROFILE_VERIFIER_MULTI_FETCH => {
+            if min_attestations == 0 || minimum_confirmations == 0 {
+                return Err(invalid_result(
+                    "profile.min_attestations",
+                    "expected nonzero attestation and confirmation thresholds for an independently observed route",
+                ));
+            }
+            if !verifier_policy_hash.is_empty()
+                || !verifier_program_vkey.is_empty()
+                || !verifier_proof_encoding.is_empty()
+                || max_proof_bytes != 0
+                || max_public_values_bytes != 0
+            {
+                return Err(invalid_result(
+                    "profile.verifier_policy_hash",
+                    "expected no proof-verifier fields on an independently observed route",
+                ));
+            }
+            postfiat_types::VAULT_BRIDGE_EVIDENCE_TIER_INDEPENDENTLY_OBSERVED
+        }
+        postfiat_types::NAV_PROFILE_VERIFIER_SP1_GROTH16
+        | postfiat_types::NAV_PROFILE_VERIFIER_SP1_ARBITRUM_FINALITY_V1
+        | postfiat_types::NAV_PROFILE_VERIFIER_SP1_ARBITRUM_BONDED_V1
+        | postfiat_types::NAV_PROFILE_VERIFIER_SP1_ARC_FINALITY_V1 => {
+            if min_attestations != 0 || minimum_confirmations != 0 {
+                return Err(invalid_result(
+                    "profile.min_attestations",
+                    "expected no observer thresholds on a receipt-proven route",
+                ));
+            }
+            if !is_lower_hex_len(verifier_policy_hash, postfiat_types::NAV_SP1_POLICY_HASH_HEX_LEN) {
+                return Err(invalid_result(
+                    "profile.verifier_policy_hash",
+                    "expected a lowercase 32-byte hex policy hash",
+                ));
+            }
+            if verifier_program_vkey.len() != postfiat_types::NAV_SP1_PROGRAM_VKEY_HEX_LEN
+                || !verifier_program_vkey.starts_with("0x")
+                || !verifier_program_vkey[2..].bytes().all(|byte| byte.is_ascii_hexdigit())
+            {
+                return Err(invalid_result(
+                    "profile.verifier_program_vkey",
+                    "expected a 0x-prefixed 32-byte hex program vkey",
+                ));
+            }
+            if verifier_proof_encoding != postfiat_types::NAV_SP1_PROOF_ENCODING_GROTH16 {
+                return Err(invalid_result(
+                    "profile.verifier_proof_encoding",
+                    "expected the groth16 proof encoding",
+                ));
+            }
+            postfiat_types::VAULT_BRIDGE_EVIDENCE_TIER_RECEIPT_PROVEN
+        }
+        _ => {
+            return Err(invalid_result("profile.verifier_kind", "expected a supported verifier kind"));
+        }
+    };
+    if evidence_tier != expected_tier {
+        return Err(invalid_result(
+            "profile.evidence_tier",
+            "expected the evidence tier implied by verifier_kind",
+        ));
+    }
+    nonzero_u64_field(profile, "max_snapshot_age_blocks")?;
+    nonzero_u64_field(profile, "challenge_window_blocks")?;
+    nonzero_u64_field(profile, "max_epoch_gap_blocks")?;
+    nonzero_u64_field(profile, "settle_deadline_blocks")?;
+    u64_field(profile, "min_challenge_bond")?;
+    let activation_height = nonzero_u64_field(profile, "activation_height")?;
+    let expires_at_height = u64_field(profile, "expires_at_height")?;
+    if expires_at_height <= activation_height {
+        return Err(invalid_result(
+            "profile.expires_at_height",
+            "expected expiry to follow the activation height",
+        ));
+    }
+    Ok((route_epoch, activation_height, evidence_tier))
+}
+
+/// The route profile's rule: a lowercase, non-zero EVM address (the generic
+/// `validate_evm_address_field` accepts mixed case and the zero address).
+fn validate_nonzero_evm_address_field(
+    value: &Value,
+    path: &str,
+) -> Result<(), RpcResponseValidationError> {
+    validate_evm_address_field(value, path)?;
+    let address = string_field(value, path)?;
+    let hex = &address[2..];
+    if hex.bytes().any(|byte| byte.is_ascii_uppercase()) {
+        return Err(invalid_result(format!("profile.{path}"), "expected a lowercase EVM address"));
+    }
+    if hex.bytes().all(|byte| byte == b'0') {
+        return Err(invalid_result(format!("profile.{path}"), "expected a non-zero EVM address"));
+    }
+    Ok(())
+}
+
+/// A 0x-prefixed lowercase hash of `hex_len` hex characters that is not all zero.
+fn validate_prefixed_hash_field(
+    value: &Value,
+    path: &str,
+    hex_len: usize,
+) -> Result<(), RpcResponseValidationError> {
+    let hash = string_field(value, path)?;
+    let Some(hex) = hash.strip_prefix("0x") else {
+        return Err(invalid_result(path, "expected a 0x-prefixed lowercase hash"));
+    };
+    if !is_lower_hex_len(hex, hex_len) {
+        return Err(invalid_result(path, "expected a 0x-prefixed lowercase hash"));
+    }
+    if hex.bytes().all(|byte| byte == b'0') {
+        return Err(invalid_result(path, "expected a non-zero hash"));
+    }
+    Ok(())
+}
+
+fn is_lower_hex(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() % 2 == 0
+        && value
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
 fn validate_asset_info_result(result: &Value) -> Result<(), RpcResponseValidationError> {
     expect_string_eq(result, "schema", ASSET_INFO_SCHEMA)?;
     validate_asset_read_common_fields(result)?;
@@ -5255,4 +5644,715 @@ fn invalid_response_validation(error: RpcResponseValidationError) -> io::Error {
 
 fn invalid_request_validation(error: RpcRequestValidationError) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, error)
+}
+
+/// Reads a field the node declares as `u128`.
+///
+/// The node builds every RPC response through `serde_json::to_value`, which
+/// (without the `arbitrary_precision` feature, not enabled in this
+/// workspace) only accepts a `u128` that fits in a `u64`; a larger value
+/// makes the node's own serialization fail instead of reaching the wire.
+/// On the SDK side the same serde_json parses an integer literal above
+/// `u64::MAX` into a lossy `f64`, so an exact comparison is impossible.
+/// This helper is therefore exact for every value the node can emit and
+/// fails closed, with a distinct message, for an integer literal beyond
+/// `u64::MAX` rather than accepting a rounded value.
+fn u128_field(value: &Value, path: &str) -> Result<u128, RpcResponseValidationError> {
+    let number = field(value, path)?;
+    if let Some(exact) = number.as_u64() {
+        return Ok(u128::from(exact));
+    }
+    if number
+        .as_f64()
+        .is_some_and(|wide| wide.is_finite() && wide >= 0.0 && wide.fract() == 0.0)
+    {
+        return Err(invalid_result(
+            path,
+            "integer exceeds u64::MAX; the node cannot serialize such a value and the SDK cannot represent it exactly",
+        ));
+    }
+    Err(invalid_result(path, "expected unsigned integer value"))
+}
+
+fn nonzero_u128_field(value: &Value, path: &str) -> Result<u128, RpcResponseValidationError> {
+    let parsed = u128_field(value, path)?;
+    if parsed == 0 {
+        return Err(invalid_result(path, "expected nonzero unsigned integer value"));
+    }
+    Ok(parsed)
+}
+
+const MARKET_OPS_STATUS_RESULT_SCHEMA: &str = "postfiat-market-ops-public-status-v1";
+const MARKET_OPS_STATUS_RESULT_DISCLOSURE: &str = "The protocol proves NAV and may execute bounded market operations under public caps. Holders do not have a standing right to redeem at NAV, and market operations can pause.";
+const MARKET_OPS_STATUS_ACTIVE_VALUE: &str = "active";
+const MARKET_OPS_STATUS_VALUES: [&str; 6] = [
+    MARKET_OPS_STATUS_ACTIVE_VALUE,
+    "expired",
+    "missing_source_packet",
+    "paused",
+    "stale",
+    "underfunded",
+];
+
+/// Validates a `market_ops_status` report (`MarketOpsPublicStatus` in the
+/// node), mirroring `MarketOpsPublicStatus::validate` and the cap rule in
+/// `build_market_ops_public_status`: schema and disclosure pinned, hex
+/// identifiers sized, the NAV floor / verified net assets / valid supply and
+/// envelope epoch nonzero, the status drawn from the six published values,
+/// and both current caps zero unless the status is `active`.
+///
+/// The status must also be one the builder could reach from the report's own
+/// freshness flags and alignment-reserve figures (the builder decides in the
+/// order paused, missing_source_packet, stale, expired, underfunded, active):
+/// `active` requires both packets fresh and funded >= required;
+/// `underfunded` requires both fresh and funded < required; `expired`
+/// requires both fresh; `stale` requires at least one stale packet; and
+/// `missing_source_packet` requires a stale reserve packet. `paused` takes
+/// precedence over every input. None of this needs the current time or
+/// block height.
+///
+/// The node declares the USD-e8 and atoms figures as `u128`; see
+/// `u128_field` for how values beyond `u64::MAX` are handled.
+///
+/// This checks the report in isolation and is private. It is reachable only
+/// through `validate_response_kind(.., RpcResponseKind::MarketOpsStatus)`,
+/// which cannot tell a valid report for another asset or epoch from the one
+/// asked for. Callers must use `validate_market_ops_status_response_for_request`,
+/// the primary API, which binds the report to its request (the CLI requires
+/// `--request-file` for this kind).
+fn validate_market_ops_status_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", MARKET_OPS_STATUS_RESULT_SCHEMA)?;
+    lower_hex_field(result, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    nonzero_u128_field(result, "nav_floor_usd_e8")?;
+    nonzero_u128_field(result, "verified_net_assets_usd_e8")?;
+    nonzero_u128_field(result, "valid_global_supply_atoms")?;
+    let reserve_packet_fresh = bool_field(result, "reserve_packet_fresh")?;
+    let supply_packet_fresh = bool_field(result, "supply_packet_fresh")?;
+    u64_field(result, "reserve_packet_age_blocks")?;
+    u64_field(result, "supply_packet_age_blocks")?;
+    let funded_alignment_reserve_usd_e8 = u128_field(result, "funded_alignment_reserve_usd_e8")?;
+    let required_alignment_reserve_usd_e8 =
+        u128_field(result, "required_alignment_reserve_usd_e8")?;
+    let current_reserve_deploy_cap_usd_e8 = u128_field(result, "current_reserve_deploy_cap_usd_e8")?;
+    let current_mint_cap_atoms = u128_field(result, "current_mint_cap_atoms")?;
+    let market_operations_status = clean_string_field(result, "market_operations_status")?;
+    if !MARKET_OPS_STATUS_VALUES.contains(&market_operations_status) {
+        return Err(invalid_result(
+            "market_operations_status",
+            "expected one of active, expired, missing_source_packet, paused, stale, underfunded",
+        ));
+    }
+    if market_operations_status != MARKET_OPS_STATUS_ACTIVE_VALUE {
+        if current_reserve_deploy_cap_usd_e8 != 0 {
+            return Err(invalid_result(
+                "current_reserve_deploy_cap_usd_e8",
+                "expected a zero reserve deploy cap unless market operations are active",
+            ));
+        }
+        if current_mint_cap_atoms != 0 {
+            return Err(invalid_result(
+                "current_mint_cap_atoms",
+                "expected a zero mint cap unless market operations are active",
+            ));
+        }
+    }
+    validate_market_ops_status_consistency(
+        market_operations_status,
+        reserve_packet_fresh,
+        supply_packet_fresh,
+        funded_alignment_reserve_usd_e8 >= required_alignment_reserve_usd_e8,
+    )?;
+    lower_hex_field(result, "accepted_policy_hash", 64)?;
+    lower_hex_field(result, "envelope_hash", 96)?;
+    nonzero_u64_field(result, "envelope_epoch")?;
+    u64_field(result, "packet_expires_at")?;
+    expect_string_eq(result, "disclosure", MARKET_OPS_STATUS_RESULT_DISCLOSURE)?;
+    Ok(())
+}
+
+/// Rejects a status the node's `build_market_ops_public_status` cannot emit
+/// for the freshness flags and funding the report itself carries.
+fn validate_market_ops_status_consistency(
+    status: &str,
+    reserve_packet_fresh: bool,
+    supply_packet_fresh: bool,
+    funded: bool,
+) -> Result<(), RpcResponseValidationError> {
+    let both_fresh = reserve_packet_fresh && supply_packet_fresh;
+    match status {
+        MARKET_OPS_STATUS_ACTIVE_VALUE => {
+            if !reserve_packet_fresh {
+                return Err(invalid_result(
+                    "reserve_packet_fresh",
+                    "active market operations require a fresh reserve packet",
+                ));
+            }
+            if !supply_packet_fresh {
+                return Err(invalid_result(
+                    "supply_packet_fresh",
+                    "active market operations require a fresh supply packet",
+                ));
+            }
+            if !funded {
+                return Err(invalid_result(
+                    "funded_alignment_reserve_usd_e8",
+                    "active market operations require funded >= required alignment reserve",
+                ));
+            }
+        }
+        "underfunded" if !both_fresh || funded => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "underfunded requires both packets fresh and funded < required alignment reserve",
+            ));
+        }
+        "expired" if !both_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "expired requires both packets fresh; a stale packet reports stale",
+            ));
+        }
+        "stale" if both_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "stale requires a stale reserve or supply packet",
+            ));
+        }
+        "missing_source_packet" if reserve_packet_fresh => {
+            return Err(invalid_result(
+                "market_operations_status",
+                "missing_source_packet cannot carry a fresh reserve packet",
+            ));
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Validates a `market_ops_status` response against the request that
+/// produced it. This is the API to use for this kind: the request must itself be a valid `market_ops_status`
+/// request, the response id must equal the request id, the report must pass
+/// `validate_market_ops_status_result`, its `asset_id` must equal the
+/// requested asset, and, when the request names an `epoch`, its
+/// `envelope_epoch` must equal it. With no requested epoch the node serves
+/// the latest finalized envelope, so any envelope epoch binds.
+pub fn validate_market_ops_status_response_for_request(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_request(request, None, Some(RpcRequestKind::MarketOpsStatus))
+        .map_err(|error| invalid_result("request", error.to_string()))?;
+    validate_response(response, Some(&request.id), true)?;
+    validate_response_kind(response, RpcResponseKind::MarketOpsStatus)?;
+    let result = response
+        .result
+        .as_ref()
+        .ok_or_else(|| invalid_result("result", "missing successful response result"))?;
+    let requested_asset_id = request
+        .params
+        .get("asset_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.asset_id", "expected string"))?;
+    if string_field(result, "asset_id")? != requested_asset_id {
+        return Err(invalid_result(
+            "asset_id",
+            format!("expected the requested asset `{requested_asset_id}`"),
+        ));
+    }
+    if let Some(epoch) = request.params.get("epoch") {
+        let requested_epoch = epoch.as_u64().ok_or_else(|| {
+            invalid_result("request.params.epoch", "expected unsigned integer")
+        })?;
+        if u64_field(result, "envelope_epoch")? != requested_epoch {
+            return Err(invalid_result(
+                "envelope_epoch",
+                format!("expected the requested epoch {requested_epoch}"),
+            ));
+        }
+    }
+    Ok(())
+}
+
+
+const OWNED_OBJECTS_RESULT_SCHEMA: &str = "postfiat-owned-objects-v1";
+/// Hex length of the 32-byte owned object id (`OwnedObject::id`).
+const OWNED_OBJECT_ID_HEX_LEN: usize = 64;
+
+/// Reads a hex string of a fixed length, accepting either case. The node
+/// decodes these identifiers with a case-insensitive hex decoder and echoes
+/// them as stored, so a lowercase-only rule would reject valid reports.
+fn hex_field_any_case<'a>(
+    value: &'a Value,
+    path: &str,
+    expected_len: usize,
+) -> Result<&'a str, RpcResponseValidationError> {
+    let text = string_field(value, path)?;
+    if text.len() != expected_len || !text.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(invalid_result(
+            path,
+            format!("expected {expected_len} hex characters"),
+        ));
+    }
+    Ok(text)
+}
+
+/// Validates an `owned_objects` report (`OwnedObjectsReport` in the node),
+/// mirroring the node builder in crates/node lifecycle_queries.rs: schema
+/// pinned, common chain fields, the owner key echoed, the limit bounded by
+/// `OWNED_OBJECTS_MAX_LIMIT`, `object_count` equal to the row count and at
+/// most the limit, `truncated` only when the page is full, every row owned
+/// by the requested key and (when an asset filter was given) carrying that
+/// asset, rows sorted by (asset, id, version), and `total_value` equal to
+/// the sum of the returned values unless the page was truncated, in which
+/// case the node summed before truncating so it must be at least that sum.
+fn validate_owned_objects_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", OWNED_OBJECTS_RESULT_SCHEMA)?;
+    validate_asset_read_common_fields(result)?;
+    let owner_public_key_hex = hex_field_any_case(
+        result,
+        "owner_public_key_hex",
+        OWNED_OWNER_PUBLIC_KEY_HEX_LEN,
+    )?;
+    let requested_asset = match result.get("asset") {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(clean_string_field(result, "asset")?),
+    };
+    let limit = nonzero_u64_field(result, "limit")?;
+    if limit > OWNED_OBJECTS_MAX_LIMIT as u64 {
+        return Err(invalid_result(
+            "limit",
+            format!("expected limit <= {OWNED_OBJECTS_MAX_LIMIT}"),
+        ));
+    }
+    let truncated = bool_field(result, "truncated")?;
+    let object_count = u64_field(result, "object_count")?;
+    let total_value = u64_field(result, "total_value")?;
+    let objects = array_field(result, "objects")?;
+    if object_count != u64::try_from(objects.len()).unwrap_or(u64::MAX) {
+        return Err(invalid_result(
+            "object_count",
+            "expected object_count to match objects length",
+        ));
+    }
+    if object_count > limit {
+        return Err(invalid_result(
+            "object_count",
+            "expected at most limit objects",
+        ));
+    }
+    if truncated && object_count != limit {
+        return Err(invalid_result(
+            "truncated",
+            "expected a truncated report to hold exactly limit objects",
+        ));
+    }
+
+    let mut returned_value_sum = 0_u64;
+    let mut previous: Option<(&str, &str, u64)> = None;
+    for (index, object) in objects.iter().enumerate() {
+        let id = hex_field_any_case(object, "id", OWNED_OBJECT_ID_HEX_LEN)?;
+        let version = u64_field(object, "version")?;
+        let object_owner = string_field(object, "owner_pubkey_hex")?;
+        let value = u64_field(object, "value")?;
+        let asset = clean_string_field(object, "asset")?;
+        if object_owner != owner_public_key_hex {
+            return Err(invalid_result(
+                format!("objects[{index}].owner_pubkey_hex"),
+                "expected every object to belong to the requested owner",
+            ));
+        }
+        if let Some(requested_asset) = requested_asset {
+            if asset != requested_asset {
+                return Err(invalid_result(
+                    format!("objects[{index}].asset"),
+                    "expected every object to match the requested asset",
+                ));
+            }
+        }
+        let key = (asset, id, version);
+        if previous.is_some_and(|previous| previous > key) {
+            return Err(invalid_result(
+                format!("objects[{index}]"),
+                "expected objects sorted by (asset, id, version)",
+            ));
+        }
+        previous = Some(key);
+        returned_value_sum = returned_value_sum.checked_add(value).ok_or_else(|| {
+            invalid_result("total_value", "returned object values overflowed")
+        })?;
+    }
+    if truncated {
+        if total_value < returned_value_sum {
+            return Err(invalid_result(
+                "total_value",
+                "expected total_value to be at least the sum of the returned object values when truncated",
+            ));
+        }
+    } else if total_value != returned_value_sum {
+        return Err(invalid_result(
+            "total_value",
+            "expected total_value to equal the sum of the returned object values",
+        ));
+    }
+    Ok(())
+}
+
+const OWNED_RECOVERY_STATUS_RESULT_SCHEMA: &str = "postfiat-fastpay-recovery-status-v1";
+const OWNED_RECOVERY_STATUS_VALUES: [&str; 4] = [
+    "confirmed",
+    "cancelled",
+    "certificate_revealed",
+    "open_or_unknown",
+];
+
+/// Validates an `owned_recovery_status` report, mirroring the node's
+/// `owned_recovery_status_v3` (crates/node fastpay_recovery_node.rs): the
+/// schema is pinned, `lock_id` is echoed as 96 lowercase hex, `fence` is
+/// either null or a `FastPayVersionFenceV1` record for that lock that
+/// passes the type's own `validate_shape`, and `status` must be exactly what
+/// the node derives: `confirmed` / `cancelled` from the fence decision when
+/// a fence exists, otherwise `certificate_revealed` when `reveal_count > 0`
+/// and `open_or_unknown` when it is zero.
+fn validate_owned_recovery_status_result(
+    result: &Value,
+) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(result, "schema", OWNED_RECOVERY_STATUS_RESULT_SCHEMA)?;
+    lower_hex_field(result, "lock_id", OWNED_RECOVERY_LOCK_ID_HEX_LEN)?;
+    let lock_id = string_field(result, "lock_id")?;
+    let status = clean_string_field(result, "status")?;
+    if !OWNED_RECOVERY_STATUS_VALUES.contains(&status) {
+        return Err(invalid_result(
+            "status",
+            "expected one of confirmed, cancelled, certificate_revealed, open_or_unknown",
+        ));
+    }
+    let reveal_count = u64_field(result, "reveal_count")?;
+    let fence_value = field(result, "fence")?;
+    let fence = if fence_value.is_null() {
+        None
+    } else {
+        let fence: postfiat_types::FastPayVersionFenceV1 =
+            serde_json::from_value(fence_value.clone()).map_err(|error| {
+                invalid_result(
+                    "fence",
+                    format!("expected a FastPay version fence record: {error}"),
+                )
+            })?;
+        fence
+            .validate_shape()
+            .map_err(|error| invalid_result("fence", error))?;
+        if fence.lock_id != lock_id {
+            return Err(invalid_result(
+                "fence.lock_id",
+                "expected the fence to belong to the requested lock",
+            ));
+        }
+        Some(fence)
+    };
+    let expected_status = match fence.as_ref().map(|fence| &fence.decision) {
+        Some(postfiat_types::FastPayRecoveryDecisionV1::Confirmed { .. }) => "confirmed",
+        Some(postfiat_types::FastPayRecoveryDecisionV1::Cancelled) => "cancelled",
+        None if reveal_count > 0 => "certificate_revealed",
+        None => "open_or_unknown",
+    };
+    if status != expected_status {
+        return Err(invalid_result(
+            "status",
+            format!("expected `{expected_status}` from the fence decision and reveal count"),
+        ));
+    }
+    Ok(())
+}
+
+fn nested_u64_field(
+    value: &Value,
+    prefix: &str,
+    name: &str,
+) -> Result<u64, RpcResponseValidationError> {
+    field(value, name)?
+        .as_u64()
+        .ok_or_else(|| invalid_result(format!("{prefix}.{name}"), "expected unsigned integer value"))
+}
+
+fn nested_string_field<'a>(
+    value: &'a Value,
+    prefix: &str,
+    name: &str,
+) -> Result<&'a str, RpcResponseValidationError> {
+    field(value, name)?
+        .as_str()
+        .ok_or_else(|| invalid_result(format!("{prefix}.{name}"), "expected string value"))
+}
+
+/// Validates an `owned_recovery_capabilities` report, mirroring the node's
+/// `owned_recovery_capabilities_v3` (crates/node fastpay_recovery_node.rs),
+/// which builds a `postfiat_types::FastPayRecoveryCapabilitiesV1` and calls
+/// its `validate()` before serializing. Field-level checks run first so a
+/// rejection names the exact field (`domain.genesis_hash`,
+/// `policy.max_validity_blocks`, ...); the result is then deserialized into
+/// the real type (which is `deny_unknown_fields`) and the type's own
+/// `validate()` is applied, so the SDK enforces exactly what the node
+/// enforces and nothing weaker.
+fn validate_owned_recovery_capabilities_result(
+    result: &Value,
+) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(
+        result,
+        "schema",
+        postfiat_types::FASTPAY_RECOVERY_CAPABILITIES_SCHEMA_V1,
+    )?;
+
+    let domain = field(result, "domain")?;
+    if nested_string_field(domain, "domain", "schema")?
+        != postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+    {
+        return Err(invalid_result(
+            "domain.schema",
+            format!(
+                "expected {}",
+                postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+            ),
+        ));
+    }
+    if nested_string_field(domain, "domain", "chain_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result("domain.chain_id", "expected nonempty string value"));
+    }
+    if !is_lower_hex_len(nested_string_field(domain, "domain", "genesis_hash")?, 96) {
+        return Err(invalid_result(
+            "domain.genesis_hash",
+            "expected 96 lowercase hex characters",
+        ));
+    }
+    let protocol_version = nested_u64_field(domain, "domain", "protocol_version")?;
+    if protocol_version == 0 || protocol_version > u64::from(u32::MAX) {
+        return Err(invalid_result(
+            "domain.protocol_version",
+            "expected nonzero u32 value",
+        ));
+    }
+    if nested_string_field(domain, "domain", "registry_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result("domain.registry_id", "expected nonempty string value"));
+    }
+
+    nonzero_u64_field(result, "committee_epoch")?;
+    u64_field(result, "current_height")?;
+    let validator_count = nonzero_u64_field(result, "validator_count")?;
+    let quorum = nonzero_u64_field(result, "quorum")?;
+    // The node reports its active committee, and committee validation pins
+    // quorum to expected_quorum(validator count) = n - (n - 1) / 3.
+    let validator_count_usize = usize::try_from(validator_count).map_err(|_| {
+        invalid_result("validator_count", "validator_count does not fit in usize")
+    })?;
+    let expected_quorum =
+        postfiat_types::FastPayRecoveryCommitteeV1::expected_quorum(validator_count_usize)
+            .ok_or_else(|| invalid_result("validator_count", "expected nonzero validator_count"))?;
+    if usize::try_from(quorum).ok() != Some(expected_quorum) {
+        return Err(invalid_result(
+            "quorum",
+            format!(
+                "expected the committee quorum {expected_quorum} for {validator_count} validators"
+            ),
+        ));
+    }
+
+    let policy = field(result, "policy")?;
+    if nested_string_field(policy, "policy", "schema")?
+        != postfiat_types::FASTPAY_RECOVERY_POLICY_SCHEMA_V1
+    {
+        return Err(invalid_result(
+            "policy.schema",
+            format!("expected {}", postfiat_types::FASTPAY_RECOVERY_POLICY_SCHEMA_V1),
+        ));
+    }
+    if nested_u64_field(policy, "policy", "activation_height")? == 0 {
+        return Err(invalid_result(
+            "policy.activation_height",
+            "expected nonzero unsigned integer value",
+        ));
+    }
+    let max_validity_blocks = nested_u64_field(policy, "policy", "max_validity_blocks")?;
+    if max_validity_blocks == 0
+        || max_validity_blocks > postfiat_types::MAX_FASTPAY_VALIDITY_BLOCKS
+    {
+        return Err(invalid_result(
+            "policy.max_validity_blocks",
+            format!(
+                "expected 1..={}",
+                postfiat_types::MAX_FASTPAY_VALIDITY_BLOCKS
+            ),
+        ));
+    }
+    let max_recovery_blocks = nested_u64_field(policy, "policy", "max_recovery_blocks")?;
+    if max_recovery_blocks == 0
+        || max_recovery_blocks > postfiat_types::MAX_FASTPAY_RECOVERY_BLOCKS
+    {
+        return Err(invalid_result(
+            "policy.max_recovery_blocks",
+            format!(
+                "expected 1..={}",
+                postfiat_types::MAX_FASTPAY_RECOVERY_BLOCKS
+            ),
+        ));
+    }
+
+    let capabilities: postfiat_types::FastPayRecoveryCapabilitiesV1 =
+        serde_json::from_value(result.clone()).map_err(|error| {
+            invalid_result(
+                "result",
+                format!("expected a FastPay recovery capabilities record: {error}"),
+            )
+        })?;
+    capabilities
+        .validate()
+        .map_err(|error| invalid_result("result", error))?;
+    Ok(())
+}
+
+const OWNED_CERTIFICATE_OPERATIONS: [&str; 2] = ["transfer", "unwrap"];
+
+/// Validates the shape of an `owned_certificate` result (the node returns a
+/// `postfiat_types::FastPayCertificateV1`, externally tagged as
+/// `{"operation": "transfer" | "unwrap", "certificate": {..}}`). Field-level
+/// checks run first so a rejection names the exact field; the result is then
+/// deserialized into the real type (both certificate structs are
+/// `deny_unknown_fields`) and the type's own `validate_commitment_shape` is
+/// applied. Binding the certificate to the request's selector needs the
+/// request and lives in `validate_owned_certificate_response`.
+fn validate_owned_certificate_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    let operation = clean_string_field(result, "operation")?;
+    if !OWNED_CERTIFICATE_OPERATIONS.contains(&operation) {
+        return Err(invalid_result("operation", "expected transfer or unwrap"));
+    }
+    let certificate_value = field(result, "certificate")?;
+    let order = field(certificate_value, "order")
+        .map_err(|_| invalid_result("certificate.order", "missing certificate order"))?;
+    let domain = field(order, "domain")
+        .map_err(|_| invalid_result("certificate.order.domain", "missing order domain"))?;
+    if nested_string_field(domain, "certificate.order.domain", "schema")?
+        != postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.schema",
+            format!("expected {}", postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3),
+        ));
+    }
+    if nested_string_field(domain, "certificate.order.domain", "chain_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.chain_id",
+            "expected nonempty string value",
+        ));
+    }
+    if !is_lower_hex_len(
+        nested_string_field(domain, "certificate.order.domain", "genesis_hash")?,
+        96,
+    ) {
+        return Err(invalid_result(
+            "certificate.order.domain.genesis_hash",
+            "expected 96 lowercase hex characters",
+        ));
+    }
+    let protocol_version = nested_u64_field(domain, "certificate.order.domain", "protocol_version")?;
+    if protocol_version == 0 || protocol_version > u64::from(u32::MAX) {
+        return Err(invalid_result(
+            "certificate.order.domain.protocol_version",
+            "expected nonzero u32 value",
+        ));
+    }
+    if nested_string_field(domain, "certificate.order.domain", "registry_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.registry_id",
+            "expected nonempty string value",
+        ));
+    }
+
+    let recovery = field(order, "recovery")
+        .map_err(|_| invalid_result("certificate.order.recovery", "missing order recovery"))?;
+    if nested_string_field(recovery, "certificate.order.recovery", "schema")?
+        != postfiat_types::FASTPAY_ORDER_RECOVERY_SCHEMA_V1
+    {
+        return Err(invalid_result(
+            "certificate.order.recovery.schema",
+            format!("expected {}", postfiat_types::FASTPAY_ORDER_RECOVERY_SCHEMA_V1),
+        ));
+    }
+    if nested_u64_field(recovery, "certificate.order.recovery", "committee_epoch")? == 0 {
+        return Err(invalid_result(
+            "certificate.order.recovery.committee_epoch",
+            "expected nonzero unsigned integer value",
+        ));
+    }
+    if !is_lower_hex_len(
+        nested_string_field(recovery, "certificate.order.recovery", "lock_id")?,
+        OWNED_CERTIFICATE_SELECTOR_HEX_LEN,
+    ) {
+        return Err(invalid_result(
+            "certificate.order.recovery.lock_id",
+            format!("expected {OWNED_CERTIFICATE_SELECTOR_HEX_LEN} lowercase hex characters"),
+        ));
+    }
+    let valid_from = nested_u64_field(recovery, "certificate.order.recovery", "valid_from_height")?;
+    let expires_at = nested_u64_field(recovery, "certificate.order.recovery", "expires_at_height")?;
+    let closes_at = nested_u64_field(
+        recovery,
+        "certificate.order.recovery",
+        "recovery_closes_at_height",
+    )?;
+    if valid_from == 0 || expires_at < valid_from || closes_at <= expires_at {
+        return Err(invalid_result(
+            "certificate.order.recovery.recovery_closes_at_height",
+            "expected 0 < valid_from_height <= expires_at_height < recovery_closes_at_height",
+        ));
+    }
+    let inputs = field(order, "inputs")
+        .map_err(|_| invalid_result("certificate.order.inputs", "missing order inputs"))?;
+    if inputs.as_array().is_none_or(Vec::is_empty) {
+        return Err(invalid_result(
+            "certificate.order.inputs",
+            "expected at least one input object",
+        ));
+    }
+
+    let certificate: postfiat_types::FastPayCertificateV1 = serde_json::from_value(result.clone())
+        .map_err(|error| {
+            invalid_result("result", format!("expected a FastPay certificate: {error}"))
+        })?;
+    certificate
+        .validate_commitment_shape()
+        .map_err(|error| invalid_result("certificate.votes", error))?;
+    // The embedded lock id is a commitment to the order: recompute the
+    // operation-specific lock id from the committed order fields (domain,
+    // recovery window, inputs, outputs or unwrap target, fee, nonce, memos)
+    // and require it to equal `certificate.order.recovery.lock_id`, as the
+    // execution layer does before accepting a certificate
+    // (owned_transfer_recovery.rs). Without this a certificate whose order was
+    // changed after the lock was derived would still claim the original lock.
+    let (embedded_lock_id, expected_lock_id) = match &certificate {
+        postfiat_types::FastPayCertificateV1::Transfer(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_transfer_lock_id_v1(&certificate.order),
+        ),
+        postfiat_types::FastPayCertificateV1::Unwrap(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_unwrap_lock_id_v1(&certificate.order),
+        ),
+    };
+    if *embedded_lock_id != expected_lock_id {
+        return Err(invalid_result(
+            "certificate.order.recovery.lock_id",
+            "expected the lock id recomputed from the committed order",
+        ));
+    }
+    Ok(())
 }

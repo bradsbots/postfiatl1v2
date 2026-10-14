@@ -2206,9 +2206,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                         raise CobaltCliError(
                             "--endpoint and --range are required for history-verify"
                         )
-                    if args.range_path.stat().st_size > MAX_REPORT_BYTES:
-                        raise CobaltCliError("history range file exceeds the read limit")
-                    range_report = json.loads(args.range_path.read_text(encoding="utf-8"))
+                    raw = read_packet_bytes(args.range_path, MAX_REPORT_BYTES)
+                    try:
+                        range_report = json.loads(raw.decode("utf-8"))
+                        # Encode at request depth now so nesting json.dumps cannot
+                        # handle fails here, not inside runtime_request.
+                        json.dumps({"range": range_report})
+                    except ValueError as error:
+                        # UnicodeDecodeError, JSONDecodeError and an integer over
+                        # the int-conversion digit limit are all ValueError.
+                        raise CobaltCliError("history range file is not valid JSON") from error
+                    except RecursionError as error:
+                        raise CobaltCliError("history range file nests too deeply") from error
+                    if not isinstance(range_report, dict):
+                        raise CobaltCliError("history range file must be a JSON object")
                     report = runtime_request(
                         args.endpoint,
                         "verify_history_range",

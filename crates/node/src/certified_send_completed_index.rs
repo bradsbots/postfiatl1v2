@@ -399,7 +399,70 @@ pub(super) fn completed_index_intent_path_for_test(data_dir: &Path) -> PathBuf {
     completed_index_intent_path(data_dir)
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Test-only hook run between the pathname pre-check and the open in
+    /// `read_bounded_regular_file`, so a regression can substitute the path
+    /// inside that window.
+    static BOUNDED_READ_BEFORE_OPEN_HOOK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Opens `path` for a bounded control-artifact read.
+///
+/// On Unix the open itself refuses a symlink in the final path component
+/// (`O_NOFOLLOW`), so a path swapped for a symlink after any earlier pathname
+/// check is rejected atomically by the kernel rather than followed.
+/// `O_NONBLOCK` keeps a FIFO swapped into the path from blocking the open;
+/// the caller's `fstat` check on the handle then rejects it. It has no effect
+/// on reads of a regular file.
+#[cfg(unix)]
+fn open_for_bounded_read(path: &Path) -> io::Result<std::fs::File> {
+    OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+}
+
+/// Non-Unix: there is no portable no-follow open here, so this is an ordinary
+/// open that follows symlinks. The symlink rejection on these platforms is
+/// only the pathname pre-check in `read_bounded_regular_file`, which a
+/// concurrent local writer can race; the regular-file check on the handle and
+/// the byte cap still hold.
+#[cfg(not(unix))]
+fn open_for_bounded_read(path: &Path) -> io::Result<std::fs::File> {
+    std::fs::File::open(path)
+}
+
+/// True when the open failed because `O_NOFOLLOW` met a symlink (Linux and
+/// macOS report `ELOOP`; FreeBSD reports `EMLINK`).
+#[cfg(unix)]
+fn is_no_follow_symlink_error(error: &io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(code) if code == libc::ELOOP || code == libc::EMLINK)
+}
+
+#[cfg(not(unix))]
+fn is_no_follow_symlink_error(_error: &io::Error) -> bool {
+    false
+}
+
+/// Reads a small control artifact through one checked handle (SMG-05).
+///
+/// The pathname `symlink_metadata` check is only an early rejection. The
+/// guarantees come from the opened handle: on Unix the open does not follow
+/// a symlink (see `open_for_bounded_read`), the handle's own metadata must be
+/// a regular file, and the read goes through a limiting reader that rejects
+/// any byte past `max_bytes`, so replacement or growth after the pathname
+/// check cannot deliver substituted symlink-target bytes, a non-regular file,
+/// or more than the cap. On non-Unix targets symlink substitution between the
+/// pathname check and the open is not excluded.
 fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result<Option<Vec<u8>>, String> {
+    let not_regular = || {
+        format!(
+            "certified send {label} `{}` must be a non-symlink regular file",
+            path.display()
+        )
+    };
     let metadata = match std::fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -411,10 +474,7 @@ fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result
         }
     };
     if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(format!(
-            "certified send {label} `{}` must be a non-symlink regular file",
-            path.display()
-        ));
+        return Err(not_regular());
     }
     if metadata.len() > max_bytes {
         return Err(format!(
@@ -422,20 +482,26 @@ fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result
             path.display()
         ));
     }
-    // SMG-05: read through the opened handle and re-check it, so a local
-    // writer that grows or replaces the file after the metadata check above
-    // cannot deliver more than `max_bytes` (or a non-regular file).
+    #[cfg(test)]
+    if let Some(hook) = BOUNDED_READ_BEFORE_OPEN_HOOK.with(|hook| hook.borrow_mut().take()) {
+        hook();
+    }
     use std::io::Read as _;
-    let file = std::fs::File::open(path)
-        .map_err(|error| format!("certified send {label} open `{}` failed: {error}", path.display()))?;
+    let file = match open_for_bounded_read(path) {
+        Ok(file) => file,
+        Err(error) if is_no_follow_symlink_error(&error) => return Err(not_regular()),
+        Err(error) => {
+            return Err(format!(
+                "certified send {label} open `{}` failed: {error}",
+                path.display()
+            ));
+        }
+    };
     let opened = file
         .metadata()
         .map_err(|error| format!("certified send {label} metadata `{}` failed: {error}", path.display()))?;
     if !opened.is_file() {
-        return Err(format!(
-            "certified send {label} `{}` must be a non-symlink regular file",
-            path.display()
-        ));
+        return Err(not_regular());
     }
     let mut bytes = Vec::with_capacity(opened.len().min(max_bytes) as usize);
     file.take(max_bytes.saturating_add(1))
@@ -1800,6 +1866,85 @@ mod completed_index_tests {
             let error = read_bounded_regular_file(&link, 64, "probe").expect_err("symlink");
             assert!(error.contains("must be a non-symlink regular file"), "{error}");
         }
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    fn set_bounded_read_before_open_hook(hook: impl FnOnce() + 'static) {
+        BOUNDED_READ_BEFORE_OPEN_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_regular_file_read_rejects_symlink_swapped_in_after_the_check() {
+        // SMG-05 replacement window: the path is a regular file when
+        // `symlink_metadata` checks it, then is replaced by a symlink to
+        // another file before the open. A following open would return the
+        // substituted target's bytes while the handle reports a regular file.
+        let root = test_root("bounded-read-symlink-swap");
+        std::fs::create_dir_all(&root).expect("create root");
+        let path = root.join("probe.json");
+        let substituted = root.join("substituted.json");
+        std::fs::write(&path, b"checked").expect("write checked file");
+        std::fs::write(&substituted, b"substituted").expect("write substituted file");
+        let swap_path = path.clone();
+        let swap_target = substituted.clone();
+        set_bounded_read_before_open_hook(move || {
+            std::fs::remove_file(&swap_path).expect("remove checked file");
+            std::os::unix::fs::symlink(&swap_target, &swap_path).expect("swap in symlink");
+        });
+        let result = read_bounded_regular_file(&path, 64, "probe");
+        assert!(
+            std::fs::symlink_metadata(&path)
+                .expect("swapped path")
+                .file_type()
+                .is_symlink(),
+            "the hook must have swapped the path for a symlink"
+        );
+        let error = result.expect_err("symlink swapped in after the check must be rejected");
+        assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_regular_file_read_rejects_fifo_swapped_in_after_the_check() {
+        // The no-follow open is also non-blocking, so a FIFO swapped into the
+        // path cannot hang the reader; the handle check rejects it.
+        let root = test_root("bounded-read-fifo-swap");
+        std::fs::create_dir_all(&root).expect("create root");
+        let path = root.join("probe.json");
+        std::fs::write(&path, b"checked").expect("write checked file");
+        let swap_path = path.clone();
+        set_bounded_read_before_open_hook(move || {
+            std::fs::remove_file(&swap_path).expect("remove checked file");
+            use std::os::unix::ffi::OsStrExt as _;
+            let fifo = std::ffi::CString::new(swap_path.as_os_str().as_bytes())
+                .expect("fifo path");
+            // SAFETY: `fifo` is a valid NUL-terminated path for this call.
+            let status = unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) };
+            assert_eq!(status, 0, "mkfifo failed: {}", io::Error::last_os_error());
+        });
+        let error = read_bounded_regular_file(&path, 64, "probe")
+            .expect_err("FIFO swapped in after the check must be rejected");
+        assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_read_open_does_not_follow_an_existing_symlink() {
+        // The open primitive itself refuses a symlink, independent of the
+        // pathname pre-check.
+        let root = test_root("bounded-read-no-follow-open");
+        std::fs::create_dir_all(&root).expect("create root");
+        let target = root.join("target.json");
+        std::fs::write(&target, b"target").expect("write target");
+        let link = root.join("link.json");
+        std::os::unix::fs::symlink(&target, &link).expect("create symlink");
+        let error = open_for_bounded_read(&link).expect_err("no-follow open of a symlink");
+        assert!(is_no_follow_symlink_error(&error), "{error:?}");
+        assert!(open_for_bounded_read(&target).is_ok());
         let _ = std::fs::remove_dir_all(root);
     }
 
