@@ -25,8 +25,9 @@ use postfiat_rpc_sdk::{
     fastswap_policy_by_hash_request, fastswap_policy_by_pair_request, fastswap_precommit_request,
     fastswap_prepare_request, fastswap_preview_request, fastswap_propose_round_request,
     fastswap_status_request, fastswap_votes_request, fee_request, issuer_nfts_request,
-    ledger_request, manifests_request, mempool_batch_request, mempool_status_request,
-    mempool_submit_fastlane_primary_finality_request, mempool_submit_fastlane_primary_request,
+    ledger_request, manifests_request, market_ops_status_request, mempool_batch_request,
+    mempool_status_request, mempool_submit_fastlane_primary_finality_request,
+    mempool_submit_fastlane_primary_request,
     mempool_submit_signed_atomic_swap_transaction_finality_request,
     mempool_submit_signed_atomic_swap_transaction_json_request,
     mempool_submit_signed_escrow_transaction_json_request,
@@ -44,10 +45,10 @@ use postfiat_rpc_sdk::{
     shield_batch_spend_request, shield_batch_swap_json_request, shield_batch_swap_request,
     shield_disclose_request, shield_scan_request, shield_turnstile_request, status_request,
     transfer_fee_quote_request, tx_request_with_audit, validate_local_keys_request,
-    validate_request_file, validate_response_file, validate_response_kind_with_context,
-    validators_request, vault_bridge_route_request, verify_blocks_request, verify_bridge_request,
-    verify_mempool_request, verify_shielded_request, verify_state_request,
-    wallet_backup_from_master_seed, wallet_dual_sign_fastswap_intent,
+    validate_market_ops_status_response_for_request, validate_request_file, validate_response_file,
+    validate_response_kind_with_context, validators_request, vault_bridge_route_request,
+    verify_blocks_request, verify_bridge_request, verify_mempool_request, verify_shielded_request,
+    verify_state_request, wallet_backup_from_master_seed, wallet_dual_sign_fastswap_intent,
     wallet_fastpay_transfer_certificate_digest_v3, wallet_fastpay_transfer_lock_id_v1,
     wallet_fastpay_unwrap_certificate_digest_v3, wallet_fastpay_unwrap_lock_id_v1,
     wallet_identity_from_backup, wallet_sign_asset_transaction_from_quote,
@@ -59,16 +60,16 @@ use postfiat_rpc_sdk::{
     wallet_sign_owned_unwrap_order_v3, wallet_sign_payment_v2_from_fields,
     wallet_sign_transfer_from_quote, wallet_verify_fastpay_apply_ack_v1, write_request_file,
     BatchArchiveValidationContext, BridgeBatchDomainParams, BridgeBatchTransferParams,
-    NavcoinBridgeClaimsParams, NavcoinBridgePacketParams, NavcoinBridgePacketPreflightParams,
-    NavcoinBridgeReceiptReplayParams, NavcoinBridgeSupplyStatusParams, RpcRequest, RpcRequestKind,
-    RpcResponseKind, WalletBackupFile, WalletSignPaymentV2Fields, METHOD_ACCOUNT,
-    METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS, METHOD_ACCOUNT_OFFERS, METHOD_ACCOUNT_TX,
-    METHOD_ACCOUNT_TX_INDEX_STATUS, METHOD_APPLY_BATCH, METHOD_APPLY_BRIDGE_BATCH,
-    METHOD_APPLY_SHIELD_BATCH, METHOD_ARCHIVE_WINDOW, METHOD_ATOMIC_SETTLEMENT_TEMPLATE,
-    METHOD_ATOMIC_SWAP_FEE_QUOTE, METHOD_BATCH_ARCHIVE, METHOD_BLOCKS, METHOD_BOOK_OFFERS,
-    METHOD_BRIDGE_BATCH_DOMAIN, METHOD_BRIDGE_BATCH_PAUSE, METHOD_BRIDGE_BATCH_RESUME,
-    METHOD_BRIDGE_BATCH_TRANSFER, METHOD_BRIDGE_STATUS, METHOD_ESCROW_FEE_QUOTE,
-    METHOD_ESCROW_INFO, METHOD_FASTLANE_ASSET_CONTROL_APPLY,
+    MarketOpsStatusParams, NavcoinBridgeClaimsParams, NavcoinBridgePacketParams,
+    NavcoinBridgePacketPreflightParams, NavcoinBridgeReceiptReplayParams,
+    NavcoinBridgeSupplyStatusParams, RpcRequest, RpcRequestKind, RpcResponseKind, WalletBackupFile,
+    WalletSignPaymentV2Fields, METHOD_ACCOUNT, METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS,
+    METHOD_ACCOUNT_OFFERS, METHOD_ACCOUNT_TX, METHOD_ACCOUNT_TX_INDEX_STATUS, METHOD_APPLY_BATCH,
+    METHOD_APPLY_BRIDGE_BATCH, METHOD_APPLY_SHIELD_BATCH, METHOD_ARCHIVE_WINDOW,
+    METHOD_ATOMIC_SETTLEMENT_TEMPLATE, METHOD_ATOMIC_SWAP_FEE_QUOTE, METHOD_BATCH_ARCHIVE,
+    METHOD_BLOCKS, METHOD_BOOK_OFFERS, METHOD_BRIDGE_BATCH_DOMAIN, METHOD_BRIDGE_BATCH_PAUSE,
+    METHOD_BRIDGE_BATCH_RESUME, METHOD_BRIDGE_BATCH_TRANSFER, METHOD_BRIDGE_STATUS,
+    METHOD_ESCROW_FEE_QUOTE, METHOD_ESCROW_INFO, METHOD_FASTLANE_ASSET_CONTROL_APPLY,
     METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP, METHOD_FASTLANE_ASSET_CONTROL_PREPARE,
     METHOD_FASTLANE_ASSET_CONTROL_PREVIEW, METHOD_FASTLANE_EXIT, METHOD_FASTSWAP_APPLY,
     METHOD_FASTSWAP_CANCEL_APPLY, METHOD_FASTSWAP_CAPABILITIES, METHOD_FASTSWAP_CATCH_UP,
@@ -77,8 +78,8 @@ use postfiat_rpc_sdk::{
     METHOD_FASTSWAP_POLICY, METHOD_FASTSWAP_PRECOMMIT, METHOD_FASTSWAP_PREPARE,
     METHOD_FASTSWAP_PREVIEW, METHOD_FASTSWAP_PROPOSE_ROUND, METHOD_FASTSWAP_STATUS,
     METHOD_FASTSWAP_VOTES, METHOD_FEE, METHOD_ISSUER_NFTS, METHOD_LEDGER, METHOD_MANIFESTS,
-    METHOD_MEMPOOL_BATCH, METHOD_MEMPOOL_STATUS, METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY,
-    METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY,
+    METHOD_MARKET_OPS_STATUS, METHOD_MEMPOOL_BATCH, METHOD_MEMPOOL_STATUS,
+    METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY, METHOD_MEMPOOL_SUBMIT_FASTLANE_PRIMARY_FINALITY,
     METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION,
     METHOD_MEMPOOL_SUBMIT_SIGNED_ATOMIC_SWAP_TRANSACTION_FINALITY,
     METHOD_MEMPOOL_SUBMIT_SIGNED_ESCROW_TRANSACTION,
@@ -732,6 +733,16 @@ fn write_request(flags: &[String]) -> Result<(), String> {
                 },
             )
         }
+        METHOD_MARKET_OPS_STATUS => {
+            let asset_id = flag_value(flags, "--asset-id").ok_or("missing --asset-id")?;
+            market_ops_status_request(
+                id,
+                MarketOpsStatusParams {
+                    asset_id: asset_id.to_string(),
+                    epoch: optional_u64_flag(flags, "--epoch")?,
+                },
+            )
+        }
         METHOD_BRIDGE_BATCH_DOMAIN => {
             let domain_id = flag_value(flags, "--domain-id").ok_or("missing --domain-id")?;
             let name = flag_value(flags, "--name").ok_or("missing --name")?;
@@ -1148,6 +1159,12 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
                 &finality.genesis_hash,
                 finality.protocol_version,
             )?;
+        } else if expected_kind == RpcResponseKind::MarketOpsStatus {
+            let request = bound_request.as_ref().ok_or(
+                "market_ops_status response validation requires --request-file for asset and epoch binding",
+            )?;
+            validate_market_ops_status_response_for_request(&response, request)
+                .map_err(|error| format!("response validation failed at {input}: {error}"))?;
         } else {
             validate_response_kind_with_context(&response, expected_kind, archive_context.as_ref())
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
@@ -2008,6 +2025,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT => {
             Ok(Some(RpcRequestKind::NavcoinBridgePacketPreflight))
         }
+        METHOD_MARKET_OPS_STATUS => Ok(Some(RpcRequestKind::MarketOpsStatus)),
         METHOD_BRIDGE_BATCH_DOMAIN => Ok(Some(RpcRequestKind::BridgeBatchDomain)),
         METHOD_BRIDGE_BATCH_TRANSFER => Ok(Some(RpcRequestKind::BridgeBatchTransfer)),
         METHOD_BRIDGE_BATCH_PAUSE => Ok(Some(RpcRequestKind::BridgeBatchPause)),
@@ -2156,6 +2174,7 @@ fn response_kind_for_method(
         METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT => {
             Ok(Some(RpcResponseKind::NavcoinBridgePacketPreflight))
         }
+        METHOD_MARKET_OPS_STATUS => Ok(Some(RpcResponseKind::MarketOpsStatus)),
         METHOD_BRIDGE_BATCH_DOMAIN => Ok(Some(RpcResponseKind::BridgeBatchDomain)),
         METHOD_BRIDGE_BATCH_TRANSFER => Ok(Some(RpcResponseKind::BridgeBatchTransfer)),
         METHOD_BRIDGE_BATCH_PAUSE => Ok(Some(RpcResponseKind::BridgeBatchPause)),
@@ -2491,6 +2510,7 @@ const CORE_REQUEST_METHODS: &[&str] = &[
     METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS,
     METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
     METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
+    METHOD_MARKET_OPS_STATUS,
     METHOD_BRIDGE_BATCH_DOMAIN,
     METHOD_BRIDGE_BATCH_TRANSFER,
     METHOD_BRIDGE_BATCH_PAUSE,
@@ -2596,6 +2616,7 @@ Offer_info request supports --offer-id. Account_offers request supports --accoun
 Escrow_info request supports --escrow-id. Account_escrows request supports --account, --role, --state, and --limit.
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
+Market_ops_status request supports --asset-id (96 lowercase hex characters) and optional --epoch (nonzero u64; latest finalized envelope when omitted). Validating its response requires --request-file: the report asset_id must equal the requested asset and, when the request names an epoch, envelope_epoch must equal it.
 Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: {kind_methods}.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.
