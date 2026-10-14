@@ -85,6 +85,7 @@ pub const METHOD_OWNED_UNWRAP_SIGN: &str = "owned_unwrap_sign";
 pub const METHOD_OWNED_OBJECTS: &str = "owned_objects";
 pub const METHOD_OWNED_RECOVERY_STATUS: &str = "owned_recovery_status";
 pub const METHOD_OWNED_RECOVERY_CAPABILITIES: &str = "owned_recovery_capabilities";
+pub const METHOD_OWNED_CERTIFICATE: &str = "owned_certificate";
 pub const METHOD_FASTSWAP_CAPABILITIES: &str = "fastswap_capabilities";
 pub const METHOD_FASTSWAP_PREVIEW: &str = "fastswap_preview";
 pub const METHOD_FASTSWAP_PREPARE: &str = "fastswap_prepare";
@@ -242,6 +243,10 @@ pub const OWNED_OWNER_PUBLIC_KEY_HEX_LEN: usize = 3904;
 /// Hex length of a FastPay lock id, as the node's `owned_recovery_status_v3`
 /// requires (`validate_hex_string(.., Some(96))`, lowercase only).
 pub const OWNED_RECOVERY_LOCK_ID_HEX_LEN: usize = 96;
+/// Hex length of an `owned_certificate` selector (a FastPay lock id or
+/// certificate digest), as the node's `owned_certificate_v3` requires
+/// (`validate_hex_string(.., Some(96))`, lowercase only).
+pub const OWNED_CERTIFICATE_SELECTOR_HEX_LEN: usize = 96;
 pub const MAX_RPC_BATCH_ARCHIVE_PAYLOAD_BYTES: usize = 8 * 1024 * 1024;
 pub const WALLET_BACKUP_FILE_SCHEMA: &str = "postfiat-wallet-backup-v1";
 pub const WALLET_DERIVATION_DOMAIN: &str = "postfiat.wallet.seed.v1";
@@ -1153,6 +1158,14 @@ pub struct NavcoinBridgeReceiptReplayParams {
     pub route_id: String,
 }
 
+/// Exactly one of the two selectors the node accepts for `owned_certificate`
+/// (`params.lock_id`, else `params.certificate_digest`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OwnedCertificateSelector {
+    LockId(String),
+    CertificateDigest(String),
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MarketOpsStatusParams {
     pub asset_id: String,
@@ -1214,6 +1227,53 @@ pub fn owned_recovery_status_request(
 
 pub fn owned_recovery_capabilities_request(id: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_OWNED_RECOVERY_CAPABILITIES)
+}
+
+pub fn owned_certificate_request(
+    id: impl Into<String>,
+    selector: OwnedCertificateSelector,
+) -> RpcRequest {
+    let request = RpcRequest::empty(id, METHOD_OWNED_CERTIFICATE);
+    match selector {
+        OwnedCertificateSelector::LockId(lock_id) => {
+            request.with_param_value("lock_id", string_value(lock_id))
+        }
+        OwnedCertificateSelector::CertificateDigest(certificate_digest) => {
+            request.with_param_value("certificate_digest", string_value(certificate_digest))
+        }
+    }
+}
+
+/// Reads the `owned_certificate` selector out of request params, enforcing
+/// the node's rules: exactly one of `lock_id` / `certificate_digest`, 96
+/// lowercase hex characters, nothing else.
+pub fn owned_certificate_selector_from_params(
+    params: &Value,
+) -> Result<OwnedCertificateSelector, RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["lock_id", "certificate_digest"])?;
+    match (params.contains_key("lock_id"), params.contains_key("certificate_digest")) {
+        (true, false) => {
+            lower_hex_param(params, "lock_id", OWNED_CERTIFICATE_SELECTOR_HEX_LEN)?;
+            Ok(OwnedCertificateSelector::LockId(
+                string_param(params, "lock_id")?.to_string(),
+            ))
+        }
+        (false, true) => {
+            lower_hex_param(params, "certificate_digest", OWNED_CERTIFICATE_SELECTOR_HEX_LEN)?;
+            Ok(OwnedCertificateSelector::CertificateDigest(
+                string_param(params, "certificate_digest")?.to_string(),
+            ))
+        }
+        (true, true) => Err(invalid_request_params(
+            "certificate_digest",
+            "expected exactly one of lock_id or certificate_digest, not both",
+        )),
+        (false, false) => Err(invalid_request_params(
+            "lock_id",
+            "expected exactly one of lock_id or certificate_digest",
+        )),
+    }
 }
 
 pub fn bridge_status_request(id: impl Into<String>) -> RpcRequest {
@@ -1673,6 +1733,7 @@ pub enum RpcRequestKind {
     OwnedObjects,
     OwnedRecoveryStatus,
     OwnedRecoveryCapabilities,
+    OwnedCertificate,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2084,6 +2145,7 @@ pub enum RpcResponseKind {
     OwnedObjects,
     OwnedRecoveryStatus,
     OwnedRecoveryCapabilities,
+    OwnedCertificate,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2670,6 +2732,7 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::OwnedObjects => METHOD_OWNED_OBJECTS,
         RpcRequestKind::OwnedRecoveryStatus => METHOD_OWNED_RECOVERY_STATUS,
         RpcRequestKind::OwnedRecoveryCapabilities => METHOD_OWNED_RECOVERY_CAPABILITIES,
+        RpcRequestKind::OwnedCertificate => METHOD_OWNED_CERTIFICATE,
         RpcRequestKind::BridgeBatchDomain => METHOD_BRIDGE_BATCH_DOMAIN,
         RpcRequestKind::BridgeBatchTransfer => METHOD_BRIDGE_BATCH_TRANSFER,
         RpcRequestKind::BridgeBatchPause => METHOD_BRIDGE_BATCH_PAUSE,
@@ -2863,6 +2926,9 @@ fn validate_request_params(
         }
         RpcRequestKind::OwnedRecoveryCapabilities => {
             validate_owned_recovery_capabilities_request_params(&request.params)
+        }
+        RpcRequestKind::OwnedCertificate => {
+            owned_certificate_selector_from_params(&request.params).map(|_| ())
         }
         RpcRequestKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_request_params(&request.params)

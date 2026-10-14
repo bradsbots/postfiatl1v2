@@ -6213,3 +6213,146 @@ fn validate_owned_recovery_capabilities_result(
         .map_err(|error| invalid_result("result", error))?;
     Ok(())
 }
+
+const OWNED_CERTIFICATE_OPERATIONS: [&str; 2] = ["transfer", "unwrap"];
+
+/// Validates the shape of an `owned_certificate` result (the node returns a
+/// `postfiat_types::FastPayCertificateV1`, externally tagged as
+/// `{"operation": "transfer" | "unwrap", "certificate": {..}}`). Field-level
+/// checks run first so a rejection names the exact field; the result is then
+/// deserialized into the real type (both certificate structs are
+/// `deny_unknown_fields`) and the type's own `validate_commitment_shape` is
+/// applied. Binding the certificate to the request's selector needs the
+/// request and lives in `validate_owned_certificate_response`.
+fn validate_owned_certificate_result(result: &Value) -> Result<(), RpcResponseValidationError> {
+    let operation = clean_string_field(result, "operation")?;
+    if !OWNED_CERTIFICATE_OPERATIONS.contains(&operation) {
+        return Err(invalid_result("operation", "expected transfer or unwrap"));
+    }
+    let certificate_value = field(result, "certificate")?;
+    let order = field(certificate_value, "order")
+        .map_err(|_| invalid_result("certificate.order", "missing certificate order"))?;
+    let domain = field(order, "domain")
+        .map_err(|_| invalid_result("certificate.order.domain", "missing order domain"))?;
+    if nested_string_field(domain, "certificate.order.domain", "schema")?
+        != postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.schema",
+            format!("expected {}", postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3),
+        ));
+    }
+    if nested_string_field(domain, "certificate.order.domain", "chain_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.chain_id",
+            "expected nonempty string value",
+        ));
+    }
+    if !is_lower_hex_len(
+        nested_string_field(domain, "certificate.order.domain", "genesis_hash")?,
+        96,
+    ) {
+        return Err(invalid_result(
+            "certificate.order.domain.genesis_hash",
+            "expected 96 lowercase hex characters",
+        ));
+    }
+    let protocol_version = nested_u64_field(domain, "certificate.order.domain", "protocol_version")?;
+    if protocol_version == 0 || protocol_version > u64::from(u32::MAX) {
+        return Err(invalid_result(
+            "certificate.order.domain.protocol_version",
+            "expected nonzero u32 value",
+        ));
+    }
+    if nested_string_field(domain, "certificate.order.domain", "registry_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result(
+            "certificate.order.domain.registry_id",
+            "expected nonempty string value",
+        ));
+    }
+
+    let recovery = field(order, "recovery")
+        .map_err(|_| invalid_result("certificate.order.recovery", "missing order recovery"))?;
+    if nested_string_field(recovery, "certificate.order.recovery", "schema")?
+        != postfiat_types::FASTPAY_ORDER_RECOVERY_SCHEMA_V1
+    {
+        return Err(invalid_result(
+            "certificate.order.recovery.schema",
+            format!("expected {}", postfiat_types::FASTPAY_ORDER_RECOVERY_SCHEMA_V1),
+        ));
+    }
+    if nested_u64_field(recovery, "certificate.order.recovery", "committee_epoch")? == 0 {
+        return Err(invalid_result(
+            "certificate.order.recovery.committee_epoch",
+            "expected nonzero unsigned integer value",
+        ));
+    }
+    if !is_lower_hex_len(
+        nested_string_field(recovery, "certificate.order.recovery", "lock_id")?,
+        OWNED_CERTIFICATE_SELECTOR_HEX_LEN,
+    ) {
+        return Err(invalid_result(
+            "certificate.order.recovery.lock_id",
+            format!("expected {OWNED_CERTIFICATE_SELECTOR_HEX_LEN} lowercase hex characters"),
+        ));
+    }
+    let valid_from = nested_u64_field(recovery, "certificate.order.recovery", "valid_from_height")?;
+    let expires_at = nested_u64_field(recovery, "certificate.order.recovery", "expires_at_height")?;
+    let closes_at = nested_u64_field(
+        recovery,
+        "certificate.order.recovery",
+        "recovery_closes_at_height",
+    )?;
+    if valid_from == 0 || expires_at < valid_from || closes_at <= expires_at {
+        return Err(invalid_result(
+            "certificate.order.recovery.recovery_closes_at_height",
+            "expected 0 < valid_from_height <= expires_at_height < recovery_closes_at_height",
+        ));
+    }
+    let inputs = field(order, "inputs")
+        .map_err(|_| invalid_result("certificate.order.inputs", "missing order inputs"))?;
+    if inputs.as_array().is_none_or(Vec::is_empty) {
+        return Err(invalid_result(
+            "certificate.order.inputs",
+            "expected at least one input object",
+        ));
+    }
+
+    let certificate: postfiat_types::FastPayCertificateV1 = serde_json::from_value(result.clone())
+        .map_err(|error| {
+            invalid_result("result", format!("expected a FastPay certificate: {error}"))
+        })?;
+    certificate
+        .validate_commitment_shape()
+        .map_err(|error| invalid_result("certificate.votes", error))?;
+    // The embedded lock id is a commitment to the order: recompute the
+    // operation-specific lock id from the committed order fields (domain,
+    // recovery window, inputs, outputs or unwrap target, fee, nonce, memos)
+    // and require it to equal `certificate.order.recovery.lock_id`, as the
+    // execution layer does before accepting a certificate
+    // (owned_transfer_recovery.rs). Without this a certificate whose order was
+    // changed after the lock was derived would still claim the original lock.
+    let (embedded_lock_id, expected_lock_id) = match &certificate {
+        postfiat_types::FastPayCertificateV1::Transfer(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_transfer_lock_id_v1(&certificate.order),
+        ),
+        postfiat_types::FastPayCertificateV1::Unwrap(certificate) => (
+            &certificate.order.recovery.lock_id,
+            postfiat_types::fastpay_unwrap_lock_id_v1(&certificate.order),
+        ),
+    };
+    if *embedded_lock_id != expected_lock_id {
+        return Err(invalid_result(
+            "certificate.order.recovery.lock_id",
+            "expected the lock id recomputed from the committed order",
+        ));
+    }
+    Ok(())
+}
