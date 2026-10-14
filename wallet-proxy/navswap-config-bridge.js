@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseBooleanEnv } = require('./boolean-env');
+
 function create(runtime) {
     const { A651_ASSET_ID,
 A652_ASSET_ID,
@@ -739,7 +741,7 @@ wss } = runtime;
     }
 
     function navswapDevnetPfusdcFundingConfig() {
-        const enabled = process.env.NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING === 'true';
+        const enabled = parseBooleanEnv('NAVSWAP_ENABLE_DEVNET_PFUSDC_FUNDING', false);
         const issuerKeyFile = presentEnv('NAVSWAP_PFUSDC_ISSUER_KEY_FILE')
             || presentEnv('NAVSWAP_OPERATOR_ISSUER_KEY_FILE')
             || presentEnv('NAVSWAP_ISSUER_KEY_FILE')
@@ -1188,7 +1190,7 @@ wss } = runtime;
                 : 1000000,
             sign_timeout_ms: Number.isInteger(signTimeoutMs) && signTimeoutMs > 0 ? signTimeoutMs : 60000,
             bundle_timeout_ms: Number.isInteger(bundleTimeoutMs) && bundleTimeoutMs > 0 ? bundleTimeoutMs : 120000,
-            sponsor_recipient_accounts: process.env.VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS !== 'false',
+            sponsor_recipient_accounts: parseBooleanEnv('VAULT_BRIDGE_SPONSOR_RECIPIENT_ACCOUNTS', true),
             recipient_sponsor_amount: Number.isInteger(VAULT_BRIDGE_RECIPIENT_SPONSOR_AMOUNT)
                 && VAULT_BRIDGE_RECIPIENT_SPONSOR_AMOUNT > 0
                 ? VAULT_BRIDGE_RECIPIENT_SPONSOR_AMOUNT
