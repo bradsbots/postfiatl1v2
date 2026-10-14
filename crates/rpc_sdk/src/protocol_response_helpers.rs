@@ -197,6 +197,7 @@ pub fn validate_response_kind_with_context(
         }
         RpcResponseKind::MarketOpsStatus => validate_market_ops_status_result(result),
         RpcResponseKind::OwnedObjects => validate_owned_objects_result(result),
+        RpcResponseKind::OwnedRecoveryStatus => validate_owned_recovery_status_result(result),
         RpcResponseKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_result(result)
         }
@@ -782,6 +783,45 @@ pub fn validate_owned_objects_response(
         return Err(invalid_result(
             "limit",
             "expected the requested limit, or the node default when the request omitted it",
+        ));
+    }
+    Ok(())
+}
+
+/// Validates an `owned_recovery_status` response against the request that
+/// produced it. `validate_owned_recovery_status_result` (reachable through
+/// `validate_response_kind` with `RpcResponseKind::OwnedRecoveryStatus`) only
+/// checks the report against itself: the echoed `lock_id` and `fence.lock_id`
+/// agree, but nothing ties them to the lock the caller asked about. The node
+/// builds the report for the requested lock (`owned_recovery_status_v3`), so
+/// this function binds it: the response id must equal the request id, the
+/// request must be a valid `owned_recovery_status` request (method and
+/// params), the report must pass the shape validator, and `result.lock_id`
+/// must equal `request.params.lock_id` (the shape validator already pins
+/// `fence.lock_id` to `result.lock_id`). The CLI requires `--request-file` for
+/// this kind and calls this function, like the atomic-swap request-bound
+/// paths.
+pub fn validate_owned_recovery_status_response(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
+    validate_request(
+        request,
+        Some(request.id.as_str()),
+        Some(RpcRequestKind::OwnedRecoveryStatus),
+    )
+    .map_err(|error| invalid_result("request", error.to_string()))?;
+    let result = validated_summary_result(response, RpcResponseKind::OwnedRecoveryStatus)?;
+    let requested_lock_id = request
+        .params
+        .get("lock_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.lock_id", "missing lock_id"))?;
+    if string_field(result, "lock_id")? != requested_lock_id {
+        return Err(invalid_result(
+            "lock_id",
+            "expected the recovery status for the requested lock",
         ));
     }
     Ok(())
