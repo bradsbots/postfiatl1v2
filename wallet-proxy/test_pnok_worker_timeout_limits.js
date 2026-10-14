@@ -1,12 +1,11 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
-const vectors = require('./pnok-worker-timeout-vectors.json');
+const vectors = require('./fixtures/pnok-worker-timeout-vectors.json');
 
 // Guard effects independently of the module's injected watchdog. No timer runs.
 let nativeTimerAttempts = 0;
@@ -46,7 +45,6 @@ function entries(directory) {
 const records = [];
 try {
     const modulePath = require.resolve('./pnok-fix-jobs');
-    const sourceSha256 = crypto.createHash('sha256').update(fs.readFileSync(modulePath)).digest('hex');
     const { create } = require(modulePath);
     for (const vector of vectors.cases) {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pnok-timeout-admission-'));
@@ -121,7 +119,6 @@ try {
                 matches_fixed: isDeepStrictEqual(observed, fixedExpected),
             };
             records.push(record);
-            console.log(JSON.stringify({ case: record }));
             assert.equal(observed.spawn_calls + observed.fetch_calls + observed.process_alive_calls, 0);
             assert.equal(nativeTimerAttempts, 0);
         } finally {
@@ -129,7 +126,7 @@ try {
         }
     }
     const summary = {
-        runtime: process.version, source_sha256: sourceSha256,
+        runtime: process.version,
         oracle_sha256: vectors.independent_oracle_sha256, cases: records.length,
         admitted: records.filter((record) => record.observed.admitted).length,
         rejected: records.filter((record) => !record.observed.admitted).length,
@@ -137,7 +134,6 @@ try {
         fixed_mismatches: records.filter((record) => !record.matches_fixed).map((record) => record.id),
         native_timer_attempts: nativeTimerAttempts,
     };
-    console.log(JSON.stringify({ summary }));
     assert.deepStrictEqual(summary.fixed_mismatches, [], 'PNOK worker timeout configuration limits');
     console.log('PNOK worker timeout admission tests passed (25/25)');
 } finally {
