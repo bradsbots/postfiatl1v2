@@ -6,7 +6,7 @@ use crate::{
 use postfiat_types::{FastSwapCapabilitiesV1, FastSwapCommitteeV1};
 use std::collections::BTreeMap;
 use std::io::{BufRead, BufReader, Write};
-use std::net::TcpStream;
+use std::net::{TcpStream, ToSocketAddrs};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -57,8 +57,27 @@ impl TcpFastSwapTransportV1 {
     }
 
     fn connect(&self, endpoint: &str) -> Result<BufReader<TcpStream>, String> {
-        let stream = TcpStream::connect(endpoint)
+        let addresses = endpoint
+            .to_socket_addrs()
             .map_err(|error| format!("FastSwap RPC connect failed: {error}"))?;
+        let mut last_error = None;
+        let mut connected = None;
+        for address in addresses {
+            match TcpStream::connect_timeout(&address, self.timeout) {
+                Ok(stream) => {
+                    connected = Some(stream);
+                    break;
+                }
+                Err(error) => last_error = Some(error),
+            }
+        }
+        let stream = match (connected, last_error) {
+            (Some(stream), _) => stream,
+            (None, Some(error)) => return Err(format!("FastSwap RPC connect failed: {error}")),
+            (None, None) => {
+                return Err("FastSwap RPC connect failed: no address for endpoint".to_owned())
+            }
+        };
         stream
             .set_read_timeout(Some(self.timeout))
             .and_then(|_| stream.set_write_timeout(Some(self.timeout)))
@@ -392,5 +411,41 @@ mod tests {
         drop(transport);
         server.join().expect("server");
         assert_eq!(accepts.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn connect_resolves_localhost_endpoint() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("listener");
+        let endpoint = format!(
+            "localhost:{}",
+            listener.local_addr().expect("address").port()
+        );
+        let transport = TcpFastSwapTransportV1::new(
+            BTreeMap::from([("validator-0".to_owned(), endpoint.clone())]),
+            Duration::from_secs(2),
+        )
+        .expect("transport");
+        transport.connect(&endpoint).expect("localhost connect");
+        listener.accept().expect("accept");
+    }
+
+    #[test]
+    fn connect_to_unreachable_endpoint_is_bounded_by_timeout() {
+        // TEST-NET-1 (RFC 5737) is never routed, so the SYN goes unanswered.
+        // Sandboxes without a route fail fast instead; both outcomes must be
+        // well inside the bound, and neither can hang the test.
+        let endpoint = "192.0.2.1:9";
+        let transport = TcpFastSwapTransportV1::new(
+            BTreeMap::from([("validator-0".to_owned(), endpoint.to_owned())]),
+            Duration::from_millis(500),
+        )
+        .expect("transport");
+        let started = std::time::Instant::now();
+        let result = transport.connect(endpoint);
+        let elapsed = started.elapsed();
+        if let Err(error) = result {
+            assert!(error.starts_with("FastSwap RPC connect failed:"), "{error}");
+        }
+        assert!(elapsed < Duration::from_secs(3), "connect took {elapsed:?}");
     }
 }

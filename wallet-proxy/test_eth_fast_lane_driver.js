@@ -192,6 +192,30 @@ async function main() {
         (error) => error.terminal === true && error.code === 'driver_config_invalid',
     );
 
+    // Node timers hold at most 2^31-1 ms; a larger execFile timeout kills the command after 1 ms.
+    const baseConfig = JSON.parse(fs.readFileSync(config, 'utf8'));
+    const timeoutConfig = path.join(root, 'timeout-config.json');
+    const withTimeouts = (readinessMs, stageMs) => writeJson(timeoutConfig, {
+        ...baseConfig,
+        readiness: { ...baseConfig.readiness, timeout_ms: readinessMs },
+        stages: baseConfig.stages.map((row) => ({ ...row, timeout_ms: stageMs })),
+    });
+    for (const [readinessMs, stageMs] of [[100, undefined], [60_000, 60_000], [2_147_483_647, 2_147_483_647]]) {
+        withTimeouts(readinessMs, stageMs);
+        assert.strictEqual(validateConfig(timeoutConfig).ok, true);
+    }
+    assert.strictEqual((await readiness(timeoutConfig, ROUTE_ID)).ready, true);
+    const invalidConfig = (error) => error.terminal === true && error.code === 'driver_config_invalid';
+    const refused = [99, -1, 'abc', 2_147_483_648, 3_000_000_000, 4_294_967_296, Number.MAX_SAFE_INTEGER, '2147483648'];
+    for (const value of refused) {
+        for (const [readinessMs, stageMs] of [[value, 5_000], [5_000, value]]) {
+            withTimeouts(readinessMs, stageMs);
+            assert.throws(() => validateConfig(timeoutConfig), invalidConfig);
+            await assert.rejects(() => readiness(timeoutConfig, ROUTE_ID), invalidConfig);
+        }
+    }
+    await assert.rejects(() => runJob(makeJob(path.join(root, 'job-timeout'), '13'), timeoutConfig), invalidConfig);
+
     const jobDir = path.join(root, 'job-a');
     const job = makeJob(jobDir);
     await assert.rejects(

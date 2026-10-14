@@ -7,21 +7,27 @@ import socket
 from threading import Lock
 from typing import Any
 
-from postfiat_rpc.client import PostFiatRpcClient, RpcProtocolError
+from postfiat_rpc.client import RPC_VERSION, PostFiatRpcClient, RpcProtocolError
 
 
 class PersistentPostFiatRpcClient(PostFiatRpcClient):
     """Reuse one newline-framed TCP connection until explicitly closed.
 
     Calls are serialized because a connection has one ordered response stream.
-    Transport failures close the session and are never retried automatically;
-    retrying a mutation without application-level idempotency is unsafe.
+    A connection carries exactly one response line per request, bound to that
+    request by version and id; request ids are never reused on a connection, so
+    a late or stray line can never match a later request. Any deviation, and any
+    exception while a request is in flight, closes the session before raising,
+    so the next call starts on a new connection. Failures are never retried
+    automatically; retrying a mutation without application-level idempotency is
+    unsafe.
     """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._stream: socket.socket | None = None
         self._receive_buffer = bytearray()
+        self._sent_request_ids: set[str] = set()
         self._stream_lock = Lock()
 
     def __enter__(self) -> "PersistentPostFiatRpcClient":
@@ -42,6 +48,7 @@ class PersistentPostFiatRpcClient(PostFiatRpcClient):
                 pass
         self._stream = None
         self._receive_buffer.clear()
+        self._sent_request_ids.clear()
 
     def _connect_unlocked(self) -> socket.socket:
         if self._stream is None:
@@ -69,22 +76,32 @@ class PersistentPostFiatRpcClient(PostFiatRpcClient):
         return line
 
     def _send(self, request: dict[str, Any]) -> dict[str, Any]:
+        wire_id = json.dumps(request["id"])
         wire = json.dumps(request, separators=(",", ":")).encode("utf-8") + b"\n"
         with self._stream_lock:
             try:
                 stream = self._connect_unlocked()
+                if wire_id in self._sent_request_ids:
+                    raise RpcProtocolError("request id reused on this persistent session")
+                self._sent_request_ids.add(wire_id)
                 stream.sendall(wire)
                 raw = self._read_line_unlocked(stream)
-            except (OSError, TimeoutError, RpcProtocolError):
+                if self._receive_buffer:
+                    raise RpcProtocolError(
+                        "persistent RPC peer sent data beyond one response"
+                    )
+                try:
+                    response = json.loads(raw.decode("utf-8"))
+                except ValueError as error:
+                    raise RpcProtocolError(f"response was not valid JSON: {error}") from error
+                if not isinstance(response, dict):
+                    raise RpcProtocolError("response envelope must be an object")
+                if response.get("version") != RPC_VERSION:
+                    raise RpcProtocolError("response version mismatch")
+                if json.dumps(response.get("id")) != wire_id:
+                    raise RpcProtocolError("response id mismatch")
+            except BaseException:
                 self._close_unlocked()
                 raise
-        try:
-            response = json.loads(raw.decode("utf-8"))
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            self.close()
-            raise RpcProtocolError(f"response was not valid JSON: {error}") from error
-        if not isinstance(response, dict):
-            self.close()
-            raise RpcProtocolError("response envelope must be an object")
         return response
 

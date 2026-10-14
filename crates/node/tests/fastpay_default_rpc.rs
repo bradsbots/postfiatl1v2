@@ -148,3 +148,104 @@ fn signed_fastpay_rpc_is_enabled_by_default_and_explicitly_disableable() {
 
     fs::remove_dir_all(root).expect("remove RPC test directory");
 }
+
+/// Regression for issue #27: `rpc-serve` workers change their working
+/// directory to the data directory, so a relative `--data-dir` (and a
+/// relative explicit `--spool-dir`) used to make every child-dispatched
+/// method fail with "No such file or directory" and answer under the CLI
+/// fallback id `local-1` instead of the request id.
+#[test]
+fn rpc_child_dispatch_works_with_relative_data_and_spool_directories() {
+    let root = unique_root();
+    let data_dir = root.join("node");
+    init(InitOptions {
+        data_dir: data_dir.clone(),
+        chain_id: "postfiat-relative-data-dir-test".to_string(),
+        node_id: "validator-0".to_string(),
+        validator_count: 1,
+    })
+    .expect("initialize RPC test node");
+
+    let absolute_data_dir = data_dir.to_str().expect("data directory UTF-8");
+    let cases: [(&str, &str, Option<&str>); 3] = [
+        ("relative data dir, default spool", "node", None),
+        ("relative data dir, relative spool", "node", Some("spool")),
+        ("absolute data dir, default spool", absolute_data_dir, None),
+    ];
+    for (label, data_dir_arg, spool_dir_arg) in cases {
+        let port = free_port();
+        let ready = data_dir.join("readiness/rpc.ready.json");
+        let mut command = Command::new(node_bin());
+        command
+            .current_dir(&root)
+            .args(["rpc-serve", "--unsafe-devnet-json-storage", "--data-dir"])
+            .arg(data_dir_arg);
+        if let Some(spool_dir_arg) = spool_dir_arg {
+            command.args(["--spool-dir", spool_dir_arg]);
+        }
+        let mut child = command
+            .args(["--port", &port.to_string(), "--max-requests", "1"])
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("spawn RPC server");
+        wait_for_file(&ready);
+        // server_info is answered by an isolated worker, not in-process.
+        let request_id = "relative-data-dir-probe";
+        let response = rpc_call(port, &server_info_request(request_id));
+        let status = child.wait().expect("wait for RPC server");
+        assert!(status.success(), "{label}: RPC server failed with {status}");
+        assert_eq!(
+            response.id, request_id,
+            "{label}: response id must echo the request id"
+        );
+        assert!(response.ok, "{label}: {:?}", response.error);
+        assert_eq!(
+            response.result.expect("server_info result")["chain_id"],
+            "postfiat-relative-data-dir-test",
+            "{label}"
+        );
+        fs::remove_file(&ready).expect("remove readiness file between runs");
+    }
+
+    fs::remove_dir_all(root).expect("remove RPC test directory");
+}
+
+/// Pins the worker-side shape that `rpc-serve` treats as the only recoverable
+/// id mismatch: a worker that cannot read its spooled request file answers
+/// under the CLI fallback id `local-1` with `ok: false`, no result, and the
+/// single `("error", <code>, "rpc request failed")` event. If this shape
+/// drifts, the parent's id recovery stops matching it and fails closed.
+#[test]
+fn rpc_worker_unreadable_request_file_answers_with_fallback_error_shape() {
+    let root = unique_root();
+    fs::create_dir_all(&root).expect("create RPC test directory");
+    let missing_request = root.join("missing-request.json");
+    let output = Command::new(node_bin())
+        .args(["rpc", "--request-file"])
+        .arg(&missing_request)
+        .arg("--data-dir")
+        .arg(root.join("node"))
+        .stdin(Stdio::null())
+        .output()
+        .expect("run rpc worker");
+    assert!(
+        !output.status.success(),
+        "worker must fail on a missing request file"
+    );
+    let response: RpcResponse =
+        serde_json::from_slice(&output.stdout).expect("worker emits a JSON RPC response");
+    response
+        .validate_protocol()
+        .expect("fallback response is protocol valid");
+    assert_eq!(response.id, "local-1");
+    assert!(!response.ok);
+    assert!(response.result.is_none());
+    let error = response.error.as_ref().expect("fallback error");
+    assert_eq!(response.events.len(), 1, "{:?}", response.events);
+    assert_eq!(response.events[0].event_type, "error");
+    assert_eq!(response.events[0].subject, error.code);
+    assert_eq!(response.events[0].message, "rpc request failed");
+
+    fs::remove_dir_all(root).expect("remove RPC test directory");
+}
