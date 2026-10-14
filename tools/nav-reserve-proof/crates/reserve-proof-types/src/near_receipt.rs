@@ -2172,14 +2172,7 @@ mod tests {
         assert_eq!(cases.len(), 19);
         assert_eq!(cases[0]["inputs"]["head_ns"], AGE_ORACLE_HEAD_NS);
         assert_eq!(cases[0]["inputs"]["head_height"], AGE_ORACLE_HEAD_HEIGHT);
-        // Optional evidence capture; ordinary repository test runs need no env.
-        let archive_directory =
-            std::env::var_os("POSTFIAT_PR49_WITNESS_DIR").map(std::path::PathBuf::from);
-        if let Some(directory) = &archive_directory {
-            std::fs::create_dir_all(directory).unwrap();
-        }
         let mut mismatches = Vec::new();
-        let mut accepted = 0;
         for case in cases {
             let name = case["name"].as_str().unwrap();
             let inputs = &case["inputs"];
@@ -2195,7 +2188,6 @@ mod tests {
                 checkpoint_ms: number("checkpoint_ms"),
             };
             let (mut witness, context) = independent_age_fixture(input);
-            let before_mutation_hash = hex::encode(sha256(&serde_json::to_vec(&witness).unwrap()));
             let certificate_valid_before_mutation = witness.checkpoint_certificate.verify().is_ok();
             assert!(
                 certificate_valid_before_mutation,
@@ -2237,48 +2229,18 @@ mod tests {
                     kind => panic!("unrecognized mutation: {kind}"),
                 }
             }
-            let context_json = serde_json::json!({
-                "pftl_genesis_hash": context.pftl_genesis_hash,
-                "nav_asset_id": context.nav_asset_id,
-                "proof_profile_id": context.proof_profile_id,
-                "valuation_policy_hash": context.valuation_policy_hash,
-                "source_manifest_hash": context.source_manifest_hash,
-                "source_id": context.source_id,
-                "source_domain": context.source_domain,
-                "asset_or_position_id": context.asset_or_position_id,
-                "reserve_owner_commitment": context.reserve_owner_commitment,
-                "quantity_verifier_commitment": context.quantity_verifier_commitment,
-                "observed_at_pftl_height": context.observed_at_pftl_height,
-                "expected_evidence_commitment": context.expected_evidence_commitment,
-            });
-            let witness_bytes = serde_json::to_vec(&witness).unwrap();
-            let context_bytes = serde_json::to_vec(&context_json).unwrap();
-            let witness_hash = hex::encode(sha256(&witness_bytes));
-            let context_hash = hex::encode(sha256(&context_bytes));
-            let archive_hash = archive_directory.as_ref().map(|directory| {
-                // Preserve exact serialized child bytes whose hashes we report.
-                let mut pair = b"{\"witness\":".to_vec();
-                pair.extend_from_slice(&witness_bytes);
-                pair.extend_from_slice(b",\"context\":");
-                pair.extend_from_slice(&context_bytes);
-                pair.push(b'}');
-                std::fs::write(directory.join(format!("{name}.json")), &pair).unwrap();
-                hex::encode(sha256(&pair))
-            });
             let actual = verify_near_receipt_quantity_proof_v1(&witness, &context.borrow());
-            let (accept, error_variant, error_message, verified) = match &actual {
+            let (accept, error_variant, error_message) = match &actual {
                 Ok(value) => {
-                    accepted += 1;
                     assert_eq!(value.staked_yocto, 7_000_000, "{name}");
                     assert_eq!(value.unstaked_yocto, 300_000, "{name}");
                     assert_eq!(value.total_yocto, 7_300_000, "{name}");
-                    (true, None, None, serde_json::to_value(value).unwrap())
+                    (true, None, None)
                 }
                 Err(error) => (
                     false,
                     Some(format!("{error:?}")),
                     Some(error.to_string()),
-                    serde_json::Value::Null,
                 ),
             };
             let expected = &case["expected_corrected"];
@@ -2286,34 +2248,10 @@ mod tests {
                 "accept": accept, "error_variant": error_variant, "error_message": error_message,
             });
             let matches_corrected = observed == *expected;
-            println!(
-                "AGE_OBSERVATION {}",
-                serde_json::json!({
-                    "name": name, "inputs": inputs,
-                    "post_construction_mutation": mutation,
-                    "certificate_valid_before_mutation": certificate_valid_before_mutation,
-                    "witness_sha256_before_mutation": before_mutation_hash,
-                "witness_sha256": witness_hash, "context_sha256": context_hash,
-                "preverify_stage": "complete synthetic construction, then declared mutation, then optional archive",
-                "archive_file": archive_hash.as_ref().map(|_| format!("{name}.json")),
-                "archive_sha256": archive_hash,
-                    "actual": observed, "full_native_result_debug": format!("{actual:?}"),
-                    "verified": verified, "expected_corrected": expected,
-                    "matches_corrected": matches_corrected,
-                    "oracle_sha256": oracle["independent_oracle_sha256"],
-                })
-            );
             if !matches_corrected {
                 mismatches.push(name.to_string());
             }
         }
-        println!(
-            "AGE_SUMMARY {}",
-            serde_json::json!({
-                "cases": cases.len(), "accepted": accepted, "rejected": cases.len() - accepted,
-                "corrected_expectation_mismatches": mismatches,
-            })
-        );
         assert!(
             mismatches.is_empty(),
             "fixed independent age expectations failed: {mismatches:?}"
