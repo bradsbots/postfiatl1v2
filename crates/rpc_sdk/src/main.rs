@@ -1209,13 +1209,10 @@ fn validate_response(flags: &[String]) -> Result<(), String> {
             validate_owned_recovery_status_response(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
         } else if expected_kind == RpcResponseKind::OwnedCertificate {
-            let request_file = flag_value(flags, "--request-file").ok_or(
+            let request = bound_request.as_ref().ok_or(
                 "owned certificate response validation requires --request-file for selector binding",
             )?;
-            let request = read_request_file(request_file).map_err(|error| {
-                format!("owned certificate request read failed at {request_file}: {error}")
-            })?;
-            validate_owned_certificate_response(&response, &request)
+            validate_owned_certificate_response(&response, request)
                 .map_err(|error| format!("response validation failed at {input}: {error}"))?;
         } else {
             validate_response_kind_with_context(&response, expected_kind, archive_context.as_ref())
