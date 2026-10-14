@@ -33,6 +33,13 @@ function parseUpstreamJson(raw, statusCode) {
 function requestJson(upstream, pathname, { method = 'GET', body = null, timeoutMs = 30_000 } = {}) {
     const encoded = body === null ? null : Buffer.from(JSON.stringify(body), 'utf8');
     return new Promise((resolve, reject) => {
+        let settled = false;
+        const settle = (fn, value) => { if (!settled) { settled = true; fn(value); } };
+        const closedEarly = (error) => settle(reject, /^a666_roundtrip_/.test(String(error?.code || ''))
+            ? error
+            : Object.assign(new Error('A666 round-trip service closed the response early'), {
+                code: 'a666_roundtrip_unavailable',
+            }));
         const request = http.request({
             protocol: upstream.protocol,
             hostname: upstream.hostname,
@@ -61,9 +68,11 @@ function requestJson(upstream, pathname, { method = 'GET', body = null, timeoutM
             });
             response.on('end', () => {
                 try {
-                    resolve(parseUpstreamJson(Buffer.concat(chunks).toString('utf8'), response.statusCode || 502));
-                } catch (error) { reject(error); }
+                    settle(resolve, parseUpstreamJson(Buffer.concat(chunks).toString('utf8'), response.statusCode || 502));
+                } catch (error) { settle(reject, error); }
             });
+            response.on('error', closedEarly);
+            response.on('close', () => { if (!response.complete) closedEarly(); });
         });
         request.setTimeout(timeoutMs, () => request.destroy(Object.assign(
             new Error('A666 round-trip service timed out'),
@@ -73,7 +82,7 @@ function requestJson(upstream, pathname, { method = 'GET', body = null, timeoutM
             if (!error.code || ['ECONNREFUSED', 'ECONNRESET'].includes(error.code)) {
                 error.code = 'a666_roundtrip_unavailable';
             }
-            reject(error);
+            settle(reject, error);
         });
         if (encoded) request.write(encoded);
         request.end();
