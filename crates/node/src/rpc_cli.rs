@@ -3519,26 +3519,58 @@ fn rpc_serve_absolute_path(path: impl AsRef<Path>, label: &str) -> Result<PathBu
     })
 }
 
-/// The parent already knows the request id it spooled for the worker. A
-/// worker that could not read its request file answers with the CLI default
-/// id (`local-1`), which breaks client-side correlation; the parent restores
-/// the real id so the client sees the worker's error under the right request.
+/// Worker fallback id used by `rpc_error_id` when the worker could not read
+/// or parse its spooled request file (and so could not recover the id).
+const RPC_SERVE_CHILD_FALLBACK_ID: &str = "local-1";
+
+/// True only for the exact response shape `print_rpc_error` emits under the
+/// worker's fallback id: `ok: false`, no result, an error, and the single
+/// `("error", <error code>, "rpc request failed")` event.
+fn rpc_serve_child_response_is_fallback_error(response: &RpcResponse) -> bool {
+    if response.id != RPC_SERVE_CHILD_FALLBACK_ID || response.ok || response.result.is_some() {
+        return false;
+    }
+    let Some(error) = response.error.as_ref() else {
+        return false;
+    };
+    matches!(
+        response.events.as_slice(),
+        [event] if event.event_type == "error"
+            && event.subject == error.code
+            && event.message == "rpc request failed"
+    )
+}
+
+/// The parent already knows the request id it spooled for the worker, and a
+/// response id that differs from it means the worker answered a different or
+/// corrupt request. Only one mismatch is recoverable: a worker that could not
+/// read its request file answers with the CLI fallback id (`local-1`) and the
+/// exact `print_rpc_error` shape, so the parent restores the real id on that
+/// error. Every other mismatch, including any `ok: true` response, fails
+/// closed: the worker response is discarded and replaced with a
+/// parent-generated error under the caller's request id, so a worker result is
+/// never attributed to a request it did not answer.
 fn rpc_serve_child_response_with_request_id(
     mut response: RpcResponse,
     request_id: &str,
 ) -> RpcResponse {
-    if response.id != request_id {
+    if response.id == request_id {
+        return response;
+    }
+    if rpc_serve_child_response_is_fallback_error(&response) {
         response.events.push(RpcEvent::new(
             "rpc_serve",
             "rpc_child_id_mismatch",
-            format!(
-                "worker response id `{}` replaced with request id",
-                response.id
-            ),
+            "worker fallback id `local-1` replaced with request id",
         ));
         response.id = request_id.to_string();
+        return response;
     }
-    response
+    rpc_serve_error_response(
+        request_id,
+        "rpc_child_id_mismatch",
+        "RPC worker response id did not match the request id; worker response discarded",
+    )
 }
 
 fn run_rpc_request_via_child(

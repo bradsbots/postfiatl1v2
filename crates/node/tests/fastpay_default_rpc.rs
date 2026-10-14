@@ -210,3 +210,42 @@ fn rpc_child_dispatch_works_with_relative_data_and_spool_directories() {
 
     fs::remove_dir_all(root).expect("remove RPC test directory");
 }
+
+/// Pins the worker-side shape that `rpc-serve` treats as the only recoverable
+/// id mismatch: a worker that cannot read its spooled request file answers
+/// under the CLI fallback id `local-1` with `ok: false`, no result, and the
+/// single `("error", <code>, "rpc request failed")` event. If this shape
+/// drifts, the parent's id recovery stops matching it and fails closed.
+#[test]
+fn rpc_worker_unreadable_request_file_answers_with_fallback_error_shape() {
+    let root = unique_root();
+    fs::create_dir_all(&root).expect("create RPC test directory");
+    let missing_request = root.join("missing-request.json");
+    let output = Command::new(node_bin())
+        .args(["rpc", "--request-file"])
+        .arg(&missing_request)
+        .arg("--data-dir")
+        .arg(root.join("node"))
+        .stdin(Stdio::null())
+        .output()
+        .expect("run rpc worker");
+    assert!(
+        !output.status.success(),
+        "worker must fail on a missing request file"
+    );
+    let response: RpcResponse =
+        serde_json::from_slice(&output.stdout).expect("worker emits a JSON RPC response");
+    response
+        .validate_protocol()
+        .expect("fallback response is protocol valid");
+    assert_eq!(response.id, "local-1");
+    assert!(!response.ok);
+    assert!(response.result.is_none());
+    let error = response.error.as_ref().expect("fallback error");
+    assert_eq!(response.events.len(), 1, "{:?}", response.events);
+    assert_eq!(response.events[0].event_type, "error");
+    assert_eq!(response.events[0].subject, error.code);
+    assert_eq!(response.events[0].message, "rpc request failed");
+
+    fs::remove_dir_all(root).expect("remove RPC test directory");
+}
