@@ -1,11 +1,9 @@
 'use strict';
 
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const fs = require('node:fs');
 const path = require('node:path');
 const { isDeepStrictEqual } = require('node:util');
-const vectors = require('./navswap-request-boolean-vectors.json');
+const vectors = require('./fixtures/navswap-request-boolean-vectors.json');
 
 function encode(value) {
     if (typeof value === 'bigint') return { bigint: String(value) };
@@ -82,9 +80,6 @@ try {
 
     const bridgePath = require.resolve('./navswap-config-bridge');
     const shieldedPath = require.resolve('./navswap-shielded');
-    const sourceHashes = Object.fromEntries([bridgePath, shieldedPath].map((file) => [
-        path.basename(file), crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),
-    ]));
     let constructorCount = 0;
     const bridge = require(bridgePath).create(runtime);
     constructorCount += 1;
@@ -138,13 +133,12 @@ try {
             matches_fixed: isDeepStrictEqual(observed, vectors.outcomes[vector.expectedFixed]),
         };
         records.push(record);
-        console.log(JSON.stringify({ observation: record }));
         assert.deepStrictEqual(counters, vectors.forbidden_effect_counters);
         assert.equal(nativeTimerAttempts, 0);
         assert.deepStrictEqual(process.env, environmentBefore, 'pure reads must not rewrite any environment setting');
     }
     const summary = {
-        runtime: process.version, source_sha256: sourceHashes, oracle_sha256: vectors.independent_oracle_sha256,
+        runtime: process.version, oracle_sha256: vectors.independent_oracle_sha256,
         observations: records.length, constructor_count: constructorCount,
         dynamic_same_instances: records.filter((record) => record.scenario === 'dynamic').every((record) => record.same_instances),
         returns: records.filter((record) => record.observed.kind === 'return').length,
@@ -153,7 +147,6 @@ try {
         fixed_mismatches: records.filter((record) => !record.matches_fixed).map((record) => record.id),
         forbidden_effects: counters, native_timer_attempts: nativeTimerAttempts,
     };
-    console.log(JSON.stringify({ summary }));
     assert.equal(summary.constructor_count, 2);
     assert.equal(summary.dynamic_same_instances, true);
     assert.deepStrictEqual(summary.fixed_mismatches, [], 'request-time boolean configuration contract');
