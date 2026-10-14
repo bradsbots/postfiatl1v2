@@ -1,7 +1,7 @@
 # RPC Method Inventory
 
 Status: code-derived inventory
-Date: 2026-10-13
+Date: 2026-10-14
 Report: `docs/runbooks/rpc-method-inventory.json`
 
 This inventory is generated from Rust SDK method constants, node RPC dispatch,
@@ -114,7 +114,7 @@ method lacks an explicit posture.
 | issuer_nfts | read_only_public | yes | no | yes | yes | yes |  |
 | ledger | read_only_public | yes | no | yes | yes | yes | XRP-like latest ledger alias with bounded block sample |
 | manifests | read_only_public | yes | no | yes | yes | yes | operator manifest read |
-| market_ops_status | read_only_public | yes | no | yes | no | yes |  |
+| market_ops_status | read_only_public | yes | no | yes | yes | yes |  |
 | mempool_batch | operator_or_local_only | no | no | yes | yes | no | operator/proposer batch creation |
 | mempool_status | read_only_public | yes | no | yes | yes | yes | mempool read |
 | mempool_submit_fastlane_primary | controlled_write_gated | no | yes | yes | yes | yes |  |
@@ -133,7 +133,7 @@ method lacks an explicit posture.
 | mempool_submit_signed_transfer_finality | controlled_write_gated | no | yes | no | no | no | controlled in-process write/finality edge; disabled unless explicitly enabled |
 | mempool_submit_transfer | operator_or_local_only | no | no | yes | yes | no | local wallet/debug helper; uses local key file |
 | metrics | read_only_public | yes | no | yes | yes | yes | public node metrics read |
-| nav_reserve_proof_status | read_only_public | yes | no | yes | no | yes | provider-neutral NAV reserve proof and profile status read |
+| nav_reserve_proof_status | read_only_public | yes | no | yes | yes | yes | provider-neutral NAV reserve proof and profile status read |
 | navcoin_bridge_claims | read_only_public | yes | no | yes | yes | yes |  |
 | navcoin_bridge_destination_consume | operator_or_local_only | no | no | yes | no | no |  |
 | navcoin_bridge_export_debit | operator_or_local_only | no | no | yes | no | no |  |
@@ -196,7 +196,7 @@ method lacks an explicit posture.
 | tx | read_only_public | yes | no | yes | yes | yes | transaction finality lookup |
 | validate_local_keys | operator_or_local_only | no | no | yes | yes | no | operator-only local key validation |
 | validators | read_only_public | yes | no | yes | yes | yes | active validator registry read |
-| vault_bridge_route | read_only_public | yes | no | yes | no | yes |  |
+| vault_bridge_route | read_only_public | yes | no | yes | yes | yes |  |
 | vault_bridge_status | read_only_public | yes | no | yes | no | yes |  |
 | verify_blocks | read_only_public | yes | no | yes | yes | yes | local verification surfaced through read RPC |
 | verify_bridge | read_only_public | yes | no | yes | yes | yes | local verification surfaced through read RPC |
