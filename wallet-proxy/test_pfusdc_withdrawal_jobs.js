@@ -179,6 +179,108 @@ fs.writeFileSync(qualification, `${JSON.stringify({ schema: 'postfiat.pfusdc.egr
   assert.strictEqual(unpaidOrdered.pfusdcWithdrawalJobStatus(laterId).status, 'queued');
   unpaidOrdered.closePfusdcWithdrawalJobs();
 
+  // pre-#101 jobs: the proxy used to store any trimmed amount spelling BigInt()
+  // parses in 1..2^64-1 and hash it into job_id. Those jobs must stay readable,
+  // be resumed and keep blocking later burns, with the stored spelling kept.
+  const legacyEnv = jobRoot => ({ env: {
+    PFUSDC_WITHDRAWAL_ENABLED: 'true', PFUSDC_ASSET_ID: assetId,
+    PFUSDC_WITHDRAWAL_JOB_ROOT: jobRoot,
+    PFUSDC_WITHDRAWAL_SCRIPT: script, PFUSDC_WITHDRAWAL_CONFIG_FILE: config,
+    PFUSDC_WITHDRAWAL_LOCAL_PROVER_BIN: prover, PFUSDC_WITHDRAWAL_EGRESS_ELF: elf,
+    PFUSDC_WITHDRAWAL_QUALIFICATION_REPORT: qualification,
+  } });
+  const seed = (jobRoot, id, stored, status, createdAt) => {
+    fs.mkdirSync(path.join(jobRoot, 'jobs', id), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(jobRoot, 'jobs', id, 'job.json'), `${JSON.stringify({
+      schema: 'postfiat-pfusdc-wallet-withdrawal-job-v1', job_id: id, status,
+      stage: status === 'failed' ? 'Needs support' : 'Withdrawal burn confirmed',
+      request: stored, attempts: status === 'failed' ? 3 : 0,
+      created_at_unix: createdAt, updated_at_unix: createdAt,
+    }, null, 2)}\n`, { mode: 0o600 });
+  };
+  const onDisk = (jobRoot, id) => JSON.parse(fs.readFileSync(path.join(jobRoot, 'jobs', id, 'job.json'), 'utf8'));
+  const legacySpellings = ['0100', '+100', '0x64', '0X64', '0o144', '0b1100100', `${'0'.repeat(40)}100`, '018446744073709551615'];
+  for (const [index, amount_atoms] of legacySpellings.entries()) {
+    const legacyRoot = path.join(root, `legacy-${index}`);
+    const stored = { ...request, amount_atoms };
+    assert.throws(() => normalizeRequest(stored, assetId), /Invalid pfUSDC/);
+    const legacyId = jobId(stored);
+    seed(legacyRoot, legacyId, stored, 'failed', now);
+    seed(legacyRoot, laterId, laterRequest, 'queued', now + 1);
+    const legacy = create({}, legacyEnv(legacyRoot));
+    const status = legacy.pfusdcWithdrawalJobStatus(legacyId.toUpperCase());
+    assert.strictEqual(status?.status, 'failed', `pre-#101 amount ${amount_atoms} must stay readable`);
+    assert.strictEqual(status.request.amount_atoms, amount_atoms);
+    assert.deepStrictEqual(Object.keys(status.request), Object.keys(request));
+    assert.deepStrictEqual(
+      legacy.pfusdcWithdrawalJobsForOwner(request.owner).map(job => job.job_id),
+      [laterId, legacyId],
+    );
+    assert.strictEqual(legacy.pfusdcWithdrawalJobStatus(laterId).status, 'queued',
+      `a failed pre-#101 job (${amount_atoms}) must block the later burn`);
+    legacy.closePfusdcWithdrawalJobs();
+  }
+
+  // A pre-#101 job that was in flight is resumed and a failed one can be
+  // retried; neither rewrites the stored spelling. An earlier canonical failed
+  // burn holds the queue so no worker starts.
+  const resumeRoot = path.join(root, 'legacy-resume');
+  const blocker = normalizeRequest({ ...request, burn_tx_id: '77'.repeat(48) }, assetId);
+  const running = { ...request, amount_atoms: '0100' };
+  const failed = { ...request, burn_tx_id: '88'.repeat(48), amount_atoms: '0x64' };
+  seed(resumeRoot, jobId(blocker), blocker, 'failed', now - 10);
+  seed(resumeRoot, jobId(running), { ...running }, 'running', now);
+  seed(resumeRoot, jobId(failed), { ...failed }, 'failed', now + 1);
+  const resumed = create({}, legacyEnv(resumeRoot));
+  const resumedJob = resumed.pfusdcWithdrawalJobStatus(jobId(running));
+  assert.strictEqual(resumedJob?.status, 'queued');
+  assert.match(resumedJob.stage, /Resuming safely/);
+  assert.deepStrictEqual(onDisk(resumeRoot, jobId(running)).request, running);
+  const legacyRetry = await resumed.retryPfusdcWithdrawalJob(jobId(failed).toUpperCase());
+  assert.strictEqual(legacyRetry?.status, 'queued');
+  assert.strictEqual(legacyRetry.idempotent_replay, false);
+  assert.deepStrictEqual(onDisk(resumeRoot, jobId(failed)).request, failed);
+  assert.strictEqual(resumed.pfusdcWithdrawalJobStatus(jobId(running)).status, 'queued');
+  // New requests keep #101's canonical-only rule, and a pre-#101 job_id is not
+  // reachable through submit.
+  await assert.rejects(
+    resumed.submitPfusdcWithdrawalJob({ ...request, amount_atoms: '0100' }),
+    error => error.code === 'pfusdc_withdrawal_request_invalid',
+  );
+  resumed.closePfusdcWithdrawalJobs();
+
+  // Refused as before: only the exact spelling hashed into job_id is readable,
+  // and only under the pre-#101 rule, as a string, trimmed, with the five fields.
+  const refusedRoot = path.join(root, 'legacy-refused');
+  const refused = [
+    ...['1e2', '-1', '0', '-0', '1.0', '18446744073709551616', '', 'abc', '9'.repeat(400), '+0x64', '1_000']
+      .map(amount_atoms => ({ ...request, amount_atoms })),
+    ...[' 100', '100 ', '0100\n', ' 100'].map(amount_atoms => ({ ...request, amount_atoms })),
+    { ...request, amount_atoms: '0100', seed: 'x' },
+    { burn_tx_id: request.burn_tx_id, owner: request.owner, ethereum_recipient: request.ethereum_recipient, amount_atoms: '0100' },
+    { ...request, amount_atoms: 18446744073709551615 },
+    { ...request, amount_atoms: '0100', owner: request.owner.toUpperCase() },
+    { ...request, amount_atoms: '0100', burn_tx_id: `0x${request.burn_tx_id}` },
+    { ...request, amount_atoms: '0100', ethereum_recipient: ` ${request.ethereum_recipient}` },
+    { ...request, amount_atoms: '0100', asset_id: '12'.repeat(48) },
+  ];
+  refused.forEach((stored, index) => {
+    const id = jobId(stored);
+    seed(refusedRoot, id, stored, 'failed', now + index);
+  });
+  // job_id must be the hash of the stored spelling: a 0100 request filed under
+  // the canonical 100 job_id is not readable.
+  const mismatchId = jobId(normalizeRequest({ ...request, amount_atoms: '100' }, assetId));
+  seed(refusedRoot, mismatchId, { ...request, amount_atoms: '0100' }, 'failed', now);
+  const refusing = create({}, legacyEnv(refusedRoot));
+  for (const stored of refused) {
+    assert.strictEqual(refusing.pfusdcWithdrawalJobStatus(jobId(stored)), null,
+      `stored request ${JSON.stringify(stored).slice(0, 80)} must stay unreadable`);
+  }
+  assert.strictEqual(refusing.pfusdcWithdrawalJobStatus(mismatchId), null);
+  assert.deepStrictEqual(refusing.pfusdcWithdrawalJobsForOwner(request.owner), []);
+  refusing.closePfusdcWithdrawalJobs();
+
   fs.chmodSync(elf, 0o622);
   assert.throws(() => create({}, { env: {
     PFUSDC_WITHDRAWAL_ENABLED: 'true', PFUSDC_ASSET_ID: assetId,

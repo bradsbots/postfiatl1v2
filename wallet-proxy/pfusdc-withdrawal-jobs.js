@@ -71,6 +71,27 @@ function normalizeRequest(body, assetId) {
     return request;
 }
 
+// pre-#101 jobs: before #101 the proxy stored amount_atoms as any trimmed
+// spelling BigInt() parses in 1..2^64-1 (0100, +100, 0x64, ...) and hashed that
+// spelling into job_id. normalizeRequest now refuses those spellings, so read()
+// falls back to this check for files the proxy itself wrote: the request is
+// taken exactly as stored (job_id, the worker argument and the summary check
+// stay bound to it) and only under the pre-#101 amount rule. New requests still
+// go through normalizeRequest only.
+function storedRequest(stored, assetId) {
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return null;
+    const keys = Object.keys(stored);
+    if (keys.length !== REQUEST_FIELDS.size
+        || keys.some(key => !REQUEST_FIELDS.has(key) || typeof stored[key] !== 'string')) return null;
+    const { burn_tx_id, owner, ethereum_recipient, amount_atoms, asset_id } = stored;
+    if (!PFTL_TX_RE.test(burn_tx_id) || !PFTL_RE.test(owner) || !EVM_RE.test(ethereum_recipient)
+        || asset_id !== assetId || amount_atoms !== amount_atoms.trim()) return null;
+    let amount = 0n;
+    try { amount = BigInt(amount_atoms); } catch (_) { return null; }
+    if (amount <= 0n || amount > ((1n << 64n) - 1n)) return null;
+    return { burn_tx_id, owner, ethereum_recipient, amount_atoms, asset_id };
+}
+
 function jobId(request) {
     return crypto.createHash('sha256').update([
         request.asset_id, request.burn_tx_id, request.owner,
@@ -129,8 +150,11 @@ function create(runtime = {}, options = {}) {
         if (!HASH_RE.test(String(id || '')) || !fs.existsSync(fileFor(id))) return null;
         try {
             const job = JSON.parse(fs.readFileSync(fileFor(id), 'utf8'));
-            const request = normalizeRequest(job?.request, assetId);
-            if (job?.schema !== 'postfiat-pfusdc-wallet-withdrawal-job-v1'
+            let request = null;
+            try { request = normalizeRequest(job?.request, assetId); } catch (_) {
+                request = storedRequest(job?.request, assetId);
+            }
+            if (!request || job?.schema !== 'postfiat-pfusdc-wallet-withdrawal-job-v1'
                 || job?.job_id !== id || jobId(request) !== id || !JOB_STATUS.has(job?.status)
                 || !Number.isSafeInteger(job?.created_at_unix) || job.created_at_unix <= 0
                 || !Number.isSafeInteger(job?.updated_at_unix) || job.updated_at_unix <= 0
