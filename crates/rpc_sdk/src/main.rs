@@ -38,9 +38,9 @@ use postfiat_rpc_sdk::{
     navcoin_bridge_packet_preflight_request, navcoin_bridge_packet_request,
     navcoin_bridge_receipt_replay_request, navcoin_bridge_routes_request,
     navcoin_bridge_supply_status_request, nft_info_request, offer_fee_quote_request,
-    offer_info_request, owned_objects_request, owned_recovery_status_request, parse_fastswap_phase,
-    read_request_file, read_response_file, receipts_request, server_info_request,
-    shield_batch_migrate_request, shield_batch_mint_request,
+    offer_info_request, owned_objects_request, owned_recovery_capabilities_request,
+    owned_recovery_status_request, parse_fastswap_phase, read_request_file, read_response_file,
+    receipts_request, server_info_request, shield_batch_migrate_request, shield_batch_mint_request,
     shield_batch_orchard_deposit_json_request, shield_batch_orchard_deposit_request,
     shield_batch_orchard_request, shield_batch_orchard_withdraw_request,
     shield_batch_spend_request, shield_batch_swap_json_request, shield_batch_swap_request,
@@ -92,14 +92,14 @@ use postfiat_rpc_sdk::{
     METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT, METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
     METHOD_NAVCOIN_BRIDGE_ROUTES, METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS,
     METHOD_NAV_RESERVE_PROOF_STATUS, METHOD_NFT_INFO, METHOD_OFFER_FEE_QUOTE, METHOD_OFFER_INFO,
-    METHOD_OWNED_OBJECTS, METHOD_OWNED_RECOVERY_STATUS, METHOD_RECEIPTS, METHOD_SERVER_INFO,
-    METHOD_SHIELD_BATCH_MIGRATE, METHOD_SHIELD_BATCH_MINT, METHOD_SHIELD_BATCH_ORCHARD,
-    METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT, METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW,
-    METHOD_SHIELD_BATCH_SPEND, METHOD_SHIELD_BATCH_SWAP, METHOD_SHIELD_DISCLOSE,
-    METHOD_SHIELD_SCAN, METHOD_SHIELD_TURNSTILE, METHOD_STATUS, METHOD_TRANSFER_FEE_QUOTE,
-    METHOD_TX, METHOD_VALIDATE_LOCAL_KEYS, METHOD_VALIDATORS, METHOD_VAULT_BRIDGE_ROUTE,
-    METHOD_VERIFY_BLOCKS, METHOD_VERIFY_BRIDGE, METHOD_VERIFY_MEMPOOL, METHOD_VERIFY_SHIELDED,
-    METHOD_VERIFY_STATE,
+    METHOD_OWNED_OBJECTS, METHOD_OWNED_RECOVERY_CAPABILITIES, METHOD_OWNED_RECOVERY_STATUS,
+    METHOD_RECEIPTS, METHOD_SERVER_INFO, METHOD_SHIELD_BATCH_MIGRATE, METHOD_SHIELD_BATCH_MINT,
+    METHOD_SHIELD_BATCH_ORCHARD, METHOD_SHIELD_BATCH_ORCHARD_DEPOSIT,
+    METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW, METHOD_SHIELD_BATCH_SPEND, METHOD_SHIELD_BATCH_SWAP,
+    METHOD_SHIELD_DISCLOSE, METHOD_SHIELD_SCAN, METHOD_SHIELD_TURNSTILE, METHOD_STATUS,
+    METHOD_TRANSFER_FEE_QUOTE, METHOD_TX, METHOD_VALIDATE_LOCAL_KEYS, METHOD_VALIDATORS,
+    METHOD_VAULT_BRIDGE_ROUTE, METHOD_VERIFY_BLOCKS, METHOD_VERIFY_BRIDGE, METHOD_VERIFY_MEMPOOL,
+    METHOD_VERIFY_SHIELDED, METHOD_VERIFY_STATE,
 };
 use postfiat_types::PaymentMemo;
 
@@ -768,6 +768,7 @@ fn write_request(flags: &[String]) -> Result<(), String> {
                 },
             )
         }
+        METHOD_OWNED_RECOVERY_CAPABILITIES => owned_recovery_capabilities_request(id),
         METHOD_BRIDGE_BATCH_DOMAIN => {
             let domain_id = flag_value(flags, "--domain-id").ok_or("missing --domain-id")?;
             let name = flag_value(flags, "--name").ok_or("missing --name")?;
@@ -2065,6 +2066,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_MARKET_OPS_STATUS => Ok(Some(RpcRequestKind::MarketOpsStatus)),
         METHOD_OWNED_OBJECTS => Ok(Some(RpcRequestKind::OwnedObjects)),
         METHOD_OWNED_RECOVERY_STATUS => Ok(Some(RpcRequestKind::OwnedRecoveryStatus)),
+        METHOD_OWNED_RECOVERY_CAPABILITIES => Ok(Some(RpcRequestKind::OwnedRecoveryCapabilities)),
         METHOD_BRIDGE_BATCH_DOMAIN => Ok(Some(RpcRequestKind::BridgeBatchDomain)),
         METHOD_BRIDGE_BATCH_TRANSFER => Ok(Some(RpcRequestKind::BridgeBatchTransfer)),
         METHOD_BRIDGE_BATCH_PAUSE => Ok(Some(RpcRequestKind::BridgeBatchPause)),
@@ -2216,6 +2218,7 @@ fn response_kind_for_method(
         METHOD_MARKET_OPS_STATUS => Ok(Some(RpcResponseKind::MarketOpsStatus)),
         METHOD_OWNED_OBJECTS => Ok(Some(RpcResponseKind::OwnedObjects)),
         METHOD_OWNED_RECOVERY_STATUS => Ok(Some(RpcResponseKind::OwnedRecoveryStatus)),
+        METHOD_OWNED_RECOVERY_CAPABILITIES => Ok(Some(RpcResponseKind::OwnedRecoveryCapabilities)),
         METHOD_BRIDGE_BATCH_DOMAIN => Ok(Some(RpcResponseKind::BridgeBatchDomain)),
         METHOD_BRIDGE_BATCH_TRANSFER => Ok(Some(RpcResponseKind::BridgeBatchTransfer)),
         METHOD_BRIDGE_BATCH_PAUSE => Ok(Some(RpcResponseKind::BridgeBatchPause)),
@@ -2554,6 +2557,7 @@ const CORE_REQUEST_METHODS: &[&str] = &[
     METHOD_MARKET_OPS_STATUS,
     METHOD_OWNED_OBJECTS,
     METHOD_OWNED_RECOVERY_STATUS,
+    METHOD_OWNED_RECOVERY_CAPABILITIES,
     METHOD_BRIDGE_BATCH_DOMAIN,
     METHOD_BRIDGE_BATCH_TRANSFER,
     METHOD_BRIDGE_BATCH_PAUSE,
@@ -2662,6 +2666,7 @@ Blocks request supports --from-height and --limit.
 Market_ops_status request supports --asset-id (96 lowercase hex characters) and optional --epoch (nonzero u64; latest finalized envelope when omitted). Validating its response requires --request-file: the report asset_id must equal the requested asset and, when the request names an epoch, envelope_epoch must equal it.
 Owned_objects request supports --owner-public-key-hex (hex ML-DSA-65 public key, 3904 characters), optional --asset, and optional --limit (1..=2048). Validating its response requires --request-file: the report owner, asset filter (absent when the request has none), and limit (the request value, or the node default 2048) must match the request.
 Owned_recovery_status request supports --lock-id (96 lowercase hex characters). Validating its response requires --request-file: the report lock_id must equal the requested lock_id.
+Owned_recovery_capabilities request takes no flags.
 Tx request supports --audit-block-log for full replay verification.
 Supported response kinds: {kind_methods}.
 Batch archive response validation can bind payload hashes with --chain-id, --genesis-hash, and --protocol-version.

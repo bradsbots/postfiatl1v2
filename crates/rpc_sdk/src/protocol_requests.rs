@@ -84,6 +84,7 @@ pub const METHOD_OWNED_SIGN: &str = "owned_sign";
 pub const METHOD_OWNED_UNWRAP_SIGN: &str = "owned_unwrap_sign";
 pub const METHOD_OWNED_OBJECTS: &str = "owned_objects";
 pub const METHOD_OWNED_RECOVERY_STATUS: &str = "owned_recovery_status";
+pub const METHOD_OWNED_RECOVERY_CAPABILITIES: &str = "owned_recovery_capabilities";
 pub const METHOD_FASTSWAP_CAPABILITIES: &str = "fastswap_capabilities";
 pub const METHOD_FASTSWAP_PREVIEW: &str = "fastswap_preview";
 pub const METHOD_FASTSWAP_PREPARE: &str = "fastswap_prepare";
@@ -1211,6 +1212,10 @@ pub fn owned_recovery_status_request(
         .with_param_value("lock_id", string_value(params.lock_id))
 }
 
+pub fn owned_recovery_capabilities_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_OWNED_RECOVERY_CAPABILITIES)
+}
+
 pub fn bridge_status_request(id: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_BRIDGE_STATUS)
 }
@@ -1667,6 +1672,7 @@ pub enum RpcRequestKind {
     MarketOpsStatus,
     OwnedObjects,
     OwnedRecoveryStatus,
+    OwnedRecoveryCapabilities,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2077,6 +2083,7 @@ pub enum RpcResponseKind {
     MarketOpsStatus,
     OwnedObjects,
     OwnedRecoveryStatus,
+    OwnedRecoveryCapabilities,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2662,6 +2669,7 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::MarketOpsStatus => METHOD_MARKET_OPS_STATUS,
         RpcRequestKind::OwnedObjects => METHOD_OWNED_OBJECTS,
         RpcRequestKind::OwnedRecoveryStatus => METHOD_OWNED_RECOVERY_STATUS,
+        RpcRequestKind::OwnedRecoveryCapabilities => METHOD_OWNED_RECOVERY_CAPABILITIES,
         RpcRequestKind::BridgeBatchDomain => METHOD_BRIDGE_BATCH_DOMAIN,
         RpcRequestKind::BridgeBatchTransfer => METHOD_BRIDGE_BATCH_TRANSFER,
         RpcRequestKind::BridgeBatchPause => METHOD_BRIDGE_BATCH_PAUSE,
@@ -2852,6 +2860,9 @@ fn validate_request_params(
         RpcRequestKind::OwnedObjects => validate_owned_objects_request_params(&request.params),
         RpcRequestKind::OwnedRecoveryStatus => {
             validate_owned_recovery_status_request_params(&request.params)
+        }
+        RpcRequestKind::OwnedRecoveryCapabilities => {
+            validate_owned_recovery_capabilities_request_params(&request.params)
         }
         RpcRequestKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_request_params(&request.params)
@@ -4369,6 +4380,14 @@ fn validate_owned_recovery_status_request_params(
     let params = request_params(params)?;
     require_only_params(params, &["lock_id"])?;
     lower_hex_param(params, "lock_id", OWNED_RECOVERY_LOCK_ID_HEX_LEN)?;
+    Ok(())
+}
+
+fn validate_owned_recovery_capabilities_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &[])?;
     Ok(())
 }
 

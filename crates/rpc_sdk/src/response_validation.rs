@@ -6063,3 +6063,153 @@ fn validate_owned_recovery_status_result(
     }
     Ok(())
 }
+
+fn nested_u64_field(
+    value: &Value,
+    prefix: &str,
+    name: &str,
+) -> Result<u64, RpcResponseValidationError> {
+    field(value, name)?
+        .as_u64()
+        .ok_or_else(|| invalid_result(format!("{prefix}.{name}"), "expected unsigned integer value"))
+}
+
+fn nested_string_field<'a>(
+    value: &'a Value,
+    prefix: &str,
+    name: &str,
+) -> Result<&'a str, RpcResponseValidationError> {
+    field(value, name)?
+        .as_str()
+        .ok_or_else(|| invalid_result(format!("{prefix}.{name}"), "expected string value"))
+}
+
+/// Validates an `owned_recovery_capabilities` report, mirroring the node's
+/// `owned_recovery_capabilities_v3` (crates/node fastpay_recovery_node.rs),
+/// which builds a `postfiat_types::FastPayRecoveryCapabilitiesV1` and calls
+/// its `validate()` before serializing. Field-level checks run first so a
+/// rejection names the exact field (`domain.genesis_hash`,
+/// `policy.max_validity_blocks`, ...); the result is then deserialized into
+/// the real type (which is `deny_unknown_fields`) and the type's own
+/// `validate()` is applied, so the SDK enforces exactly what the node
+/// enforces and nothing weaker.
+fn validate_owned_recovery_capabilities_result(
+    result: &Value,
+) -> Result<(), RpcResponseValidationError> {
+    expect_string_eq(
+        result,
+        "schema",
+        postfiat_types::FASTPAY_RECOVERY_CAPABILITIES_SCHEMA_V1,
+    )?;
+
+    let domain = field(result, "domain")?;
+    if nested_string_field(domain, "domain", "schema")?
+        != postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+    {
+        return Err(invalid_result(
+            "domain.schema",
+            format!(
+                "expected {}",
+                postfiat_types::OWNED_CERTIFICATE_DOMAIN_SCHEMA_V3
+            ),
+        ));
+    }
+    if nested_string_field(domain, "domain", "chain_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result("domain.chain_id", "expected nonempty string value"));
+    }
+    if !is_lower_hex_len(nested_string_field(domain, "domain", "genesis_hash")?, 96) {
+        return Err(invalid_result(
+            "domain.genesis_hash",
+            "expected 96 lowercase hex characters",
+        ));
+    }
+    let protocol_version = nested_u64_field(domain, "domain", "protocol_version")?;
+    if protocol_version == 0 || protocol_version > u64::from(u32::MAX) {
+        return Err(invalid_result(
+            "domain.protocol_version",
+            "expected nonzero u32 value",
+        ));
+    }
+    if nested_string_field(domain, "domain", "registry_id")?
+        .trim()
+        .is_empty()
+    {
+        return Err(invalid_result("domain.registry_id", "expected nonempty string value"));
+    }
+
+    nonzero_u64_field(result, "committee_epoch")?;
+    u64_field(result, "current_height")?;
+    let validator_count = nonzero_u64_field(result, "validator_count")?;
+    let quorum = nonzero_u64_field(result, "quorum")?;
+    // The node reports its active committee, and committee validation pins
+    // quorum to expected_quorum(validator count) = n - (n - 1) / 3.
+    let validator_count_usize = usize::try_from(validator_count).map_err(|_| {
+        invalid_result("validator_count", "validator_count does not fit in usize")
+    })?;
+    let expected_quorum =
+        postfiat_types::FastPayRecoveryCommitteeV1::expected_quorum(validator_count_usize)
+            .ok_or_else(|| invalid_result("validator_count", "expected nonzero validator_count"))?;
+    if usize::try_from(quorum).ok() != Some(expected_quorum) {
+        return Err(invalid_result(
+            "quorum",
+            format!(
+                "expected the committee quorum {expected_quorum} for {validator_count} validators"
+            ),
+        ));
+    }
+
+    let policy = field(result, "policy")?;
+    if nested_string_field(policy, "policy", "schema")?
+        != postfiat_types::FASTPAY_RECOVERY_POLICY_SCHEMA_V1
+    {
+        return Err(invalid_result(
+            "policy.schema",
+            format!("expected {}", postfiat_types::FASTPAY_RECOVERY_POLICY_SCHEMA_V1),
+        ));
+    }
+    if nested_u64_field(policy, "policy", "activation_height")? == 0 {
+        return Err(invalid_result(
+            "policy.activation_height",
+            "expected nonzero unsigned integer value",
+        ));
+    }
+    let max_validity_blocks = nested_u64_field(policy, "policy", "max_validity_blocks")?;
+    if max_validity_blocks == 0
+        || max_validity_blocks > postfiat_types::MAX_FASTPAY_VALIDITY_BLOCKS
+    {
+        return Err(invalid_result(
+            "policy.max_validity_blocks",
+            format!(
+                "expected 1..={}",
+                postfiat_types::MAX_FASTPAY_VALIDITY_BLOCKS
+            ),
+        ));
+    }
+    let max_recovery_blocks = nested_u64_field(policy, "policy", "max_recovery_blocks")?;
+    if max_recovery_blocks == 0
+        || max_recovery_blocks > postfiat_types::MAX_FASTPAY_RECOVERY_BLOCKS
+    {
+        return Err(invalid_result(
+            "policy.max_recovery_blocks",
+            format!(
+                "expected 1..={}",
+                postfiat_types::MAX_FASTPAY_RECOVERY_BLOCKS
+            ),
+        ));
+    }
+
+    let capabilities: postfiat_types::FastPayRecoveryCapabilitiesV1 =
+        serde_json::from_value(result.clone()).map_err(|error| {
+            invalid_result(
+                "result",
+                format!("expected a FastPay recovery capabilities record: {error}"),
+            )
+        })?;
+    capabilities
+        .validate()
+        .map_err(|error| invalid_result("result", error))?;
+    Ok(())
+}

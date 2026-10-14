@@ -83,6 +83,10 @@ impl FastPayRecoveryCapabilitiesV1 {
             || self.validator_count == 0
             || self.quorum == 0
             || self.quorum > self.validator_count
+            // The serving node reports the active committee, whose own
+            // validate() pins quorum to expected_quorum(validator count).
+            || FastPayRecoveryCommitteeV1::expected_quorum(self.validator_count)
+                != Some(self.quorum)
         {
             return Err("FastPay recovery capabilities are invalid".to_string());
         }
@@ -1156,6 +1160,48 @@ mod fastpay_recovery_type_tests {
                 signature_hex: "cc".repeat(32),
             }],
         })
+    }
+
+    fn capabilities(validator_count: usize, quorum: usize) -> FastPayRecoveryCapabilitiesV1 {
+        FastPayRecoveryCapabilitiesV1 {
+            schema: FASTPAY_RECOVERY_CAPABILITIES_SCHEMA_V1.to_string(),
+            domain: domain(),
+            committee_epoch: 7,
+            current_height: 120,
+            validator_count,
+            quorum,
+            policy: policy(),
+        }
+    }
+
+    #[test]
+    fn capabilities_require_the_exact_committee_quorum() {
+        for (validator_count, quorum) in [(1, 1), (2, 2), (3, 3), (4, 3), (5, 4), (7, 5), (10, 7)] {
+            assert_eq!(
+                FastPayRecoveryCommitteeV1::expected_quorum(validator_count),
+                Some(quorum)
+            );
+        }
+        for validator_count in 1..=31_usize {
+            let expected = FastPayRecoveryCommitteeV1::expected_quorum(validator_count)
+                .expect("nonzero committee");
+            capabilities(validator_count, expected)
+                .validate()
+                .unwrap_or_else(|error| panic!("{validator_count}/{expected}: {error}"));
+            for quorum in (0..=validator_count + 1).filter(|quorum| *quorum != expected) {
+                assert!(
+                    capabilities(validator_count, quorum).validate().is_err(),
+                    "{validator_count}/{quorum} must be rejected"
+                );
+            }
+        }
+        // The in-range wrong quorums from review.
+        assert!(capabilities(4, 2).validate().is_err());
+        assert!(capabilities(4, 4).validate().is_err());
+        let largest = FastPayRecoveryCommitteeV1::expected_quorum(usize::MAX).expect("quorum");
+        capabilities(usize::MAX, largest)
+            .validate()
+            .expect("largest committee at its exact quorum");
     }
 
     #[test]
