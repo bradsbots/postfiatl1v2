@@ -32,6 +32,24 @@ FINALITY_NOT_POLLED_ERROR = (
     "finality_not_polled: submit returned no tx_id, so finality could not be polled"
 )
 
+# Process exit codes. argparse already exits 2 on a usage error, so the
+# "submitted, finality not observed" outcome uses 3 to stay distinct from both
+# a failure with no submit result (1) and a usage error (2).
+EXIT_OK = 0
+EXIT_FAILED = 1
+EXIT_FINALITY_NOT_OBSERVED = 3
+EXIT_CODES_EPILOG = """\
+exit codes:
+  0  ok: the action succeeded (for send --poll-finality: finality observed)
+  1  failed: no submit result came back (an error before or during the
+     submit, including a submit the RPC rejected)
+  2  usage error (argparse)
+  3  send --poll-finality only: the submit returned but finality was not
+     observed (finality_timeout or finality_not_polled). The transfer may
+     still finalize. Do NOT resubmit on this code: poll result.tx_id
+     (or check the account) before sending again.
+"""
+
 
 def pft_to_atoms(value: str) -> int:
     try:
@@ -126,6 +144,11 @@ def require_polled_finality(report: dict[str, Any]) -> dict[str, Any]:
     timed out, a missing or non-bool finalized, a submit that returned no
     tx_id) is a failure; tx_id and the full result stay in the report so the
     caller can poll the transaction later.
+
+    The submit has already returned in every one of those cases, so the
+    report is marked ``finality_not_observed`` and ``main`` exits with
+    EXIT_FINALITY_NOT_OBSERVED (3), not EXIT_FAILED (1): a caller that retries
+    on 1 must not resend a payment that may still finalize.
     """
     body = report.get("result")
     if not isinstance(body, dict):
@@ -134,10 +157,21 @@ def require_polled_finality(report: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(tx_id, str) or not tx_id:
         report["ok"] = False
         report["error"] = FINALITY_NOT_POLLED_ERROR
+        report["finality_not_observed"] = True
     elif body.get("finalized") is not True or body.get("finality_timeout") is True:
         report["ok"] = False
         report["error"] = FINALITY_TIMEOUT_ERROR
+        report["finality_not_observed"] = True
     return report
+
+
+def exit_code_for(report: dict[str, Any]) -> int:
+    """Map a CLI report to the documented process exit code."""
+    if report.get("ok") is True:
+        return EXIT_OK
+    if report.get("finality_not_observed") is True:
+        return EXIT_FINALITY_NOT_OBSERVED
+    return EXIT_FAILED
 
 
 def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
@@ -274,7 +308,11 @@ def add_common_amount_args(parser: argparse.ArgumentParser) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=EXIT_CODES_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     sub = parser.add_subparsers(dest="action", required=True)
 
     faucet = sub.add_parser("faucet", help="Fund an address from the operator faucet")
@@ -298,7 +336,12 @@ def build_parser() -> argparse.ArgumentParser:
     faucet.add_argument("--retry-backoff-ms", type=int, default=250)
     faucet.set_defaults(func=run_faucet)
 
-    send = sub.add_parser("send", help="Quote, sign, and submit from a transparent wallet")
+    send = sub.add_parser(
+        "send",
+        help="Quote, sign, and submit from a transparent wallet",
+        epilog=EXIT_CODES_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     add_common_amount_args(send)
     send.add_argument("--endpoint", help="RPC endpoint host:port; default PFTL_RPC_ENDPOINT")
     send.add_argument("--wallet-dir", help="Transparent wallet dir; default PFTL_WALLET_DIR")
@@ -310,7 +353,14 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("--memo-data")
     send.add_argument("--finalize-data-dir", help="Optional local data dir for mempool-batch finalization (local harness only)")
     send.add_argument("--validator-data-dirs", help="Comma-separated local validator dirs for finalization (local harness only)")
-    send.add_argument("--poll-finality", action="store_true", help="Submit to RPC and poll for finality (WAN/testnet mode)")
+    send.add_argument(
+        "--poll-finality",
+        action="store_true",
+        help=(
+            "Submit to RPC and poll for finality (WAN/testnet mode); exits 3, "
+            "not 1, if the submit returned but finality was not observed"
+        ),
+    )
     send.add_argument("--poll-timeout-seconds", type=float, default=120.0, help="Finality poll timeout in seconds")
     send.add_argument("--poll-interval-seconds", type=float, default=2.0, help="Finality poll interval in seconds")
     send.add_argument("--timeout-seconds", type=float, default=8.0)
@@ -345,7 +395,7 @@ def main(argv: list[str] | None = None) -> int:
             "error": f"{type(error).__name__}: {error}",
         }
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 0 if report.get("ok") is True else 1
+    return exit_code_for(report)
 
 
 if __name__ == "__main__":

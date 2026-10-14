@@ -202,7 +202,9 @@ def _send_result(
     )
 
 
-def _run_send_cli(extra: list[str], *, helper: str, result: object) -> tuple[int, dict, mock.MagicMock]:
+def _run_send_cli(
+    extra: list[str], *, helper: str, result: object = None, error: Exception | None = None
+) -> tuple[int, dict, mock.MagicMock]:
     stdout = io.StringIO()
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -228,6 +230,8 @@ def _run_send_cli(extra: list[str], *, helper: str, result: object) -> tuple[int
             target = {"send_pft": send, "send_pft_and_poll_finality": poll}[helper]
             other = poll if helper == "send_pft" else send
             target.return_value = result
+            if error is not None:
+                target.side_effect = error
             exit_code = cli.main(argv)
         other.assert_not_called()
         target.assert_called_once()
@@ -237,15 +241,16 @@ def _run_send_cli(extra: list[str], *, helper: str, result: object) -> tuple[int
 POLL_ARGS = ["--poll-finality", "--poll-timeout-seconds", "0.01", "--poll-interval-seconds", "0.001"]
 
 
-def test_send_poll_finality_timeout_fails_and_keeps_tx_id_and_result() -> None:
+def test_send_poll_finality_timeout_exits_3_and_keeps_tx_id_and_result() -> None:
     exit_code, report, poll = _run_send_cli(
         POLL_ARGS,
         helper="send_pft_and_poll_finality",
         result=_send_result(pending=True, finalized=False, finality_timeout=True),
     )
 
-    assert exit_code == 1
+    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
     assert report["ok"] is False
+    assert report["finality_not_observed"] is True
     assert report["error"] == cli.FINALITY_TIMEOUT_ERROR
     assert report["error"].startswith("finality_timeout")
     assert report["action"] == "send"
@@ -273,7 +278,7 @@ def test_send_poll_finality_reached_is_ok() -> None:
     assert report["result"]["finalized"] is True
 
 
-def test_send_poll_finality_without_tx_id_fails() -> None:
+def test_send_poll_finality_without_tx_id_exits_3() -> None:
     # send_pft_and_poll_finality returns the bare send_pft result when the
     # submit produced no tx_id, so nothing was polled.
     exit_code, report, _ = _run_send_cli(
@@ -284,8 +289,9 @@ def test_send_poll_finality_without_tx_id_fails() -> None:
         ),
     )
 
-    assert exit_code == 1
+    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
     assert report["ok"] is False
+    assert report["finality_not_observed"] is True
     assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
     assert report["tx_id"] is None
     assert report["result"]["tx_id"] is None
@@ -306,8 +312,9 @@ def test_send_poll_finality_without_tx_id_fails() -> None:
 def test_send_poll_finality_requires_bool_true_finalized(body: dict) -> None:
     exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=body)
 
-    assert exit_code == 1
+    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
     assert report["ok"] is False
+    assert report["finality_not_observed"] is True
     assert report["error"] == cli.FINALITY_TIMEOUT_ERROR
     assert report["tx_id"] == "tx3"
     assert report["result"] == body
@@ -324,17 +331,68 @@ def test_send_poll_finality_requires_bool_true_finalized(body: dict) -> None:
 def test_send_poll_finality_requires_tx_id(body: dict) -> None:
     exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=body)
 
-    assert exit_code == 1
+    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
     assert report["ok"] is False
+    assert report["finality_not_observed"] is True
     assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
 
 
 def test_send_poll_finality_non_dict_result_fails() -> None:
     exit_code, report, _ = _run_send_cli(POLL_ARGS, helper="send_pft_and_poll_finality", result=None)
 
+    assert exit_code == cli.EXIT_FINALITY_NOT_OBSERVED == 3
+    assert report["ok"] is False
+    assert report["finality_not_observed"] is True
+    assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
+
+
+def test_send_poll_finality_submit_failure_still_exits_1() -> None:
+    # A submit that raises returns no submit result, so the exit code stays
+    # 1, distinct from the 3 of a submit that returned.
+    exit_code, report, _ = _run_send_cli(
+        POLL_ARGS,
+        helper="send_pft_and_poll_finality",
+        error=RuntimeError("submit rejected: sequence too low"),
+    )
+
+    assert exit_code == cli.EXIT_FAILED == 1
+    assert report["ok"] is False
+    assert report["error"] == "RuntimeError: submit rejected: sequence too low"
+    assert "finality_not_observed" not in report
+
+
+def test_plain_send_submit_failure_exits_1() -> None:
+    exit_code, report, _ = _run_send_cli(
+        [], helper="send_pft", error=RuntimeError("submit rejected")
+    )
+
     assert exit_code == 1
     assert report["ok"] is False
-    assert report["error"] == cli.FINALITY_NOT_POLLED_ERROR
+    assert "finality_not_observed" not in report
+
+
+def test_exit_code_for_maps_reports_to_documented_codes() -> None:
+    assert {cli.EXIT_OK, cli.EXIT_FAILED, cli.EXIT_FINALITY_NOT_OBSERVED} == {0, 1, 3}
+    assert cli.exit_code_for({"ok": True}) == 0
+    assert cli.exit_code_for({"ok": False}) == 1
+    assert cli.exit_code_for({"ok": False, "finality_not_observed": True}) == 3
+    # ok wins over a stray marker; only an explicit True marker gives 3.
+    assert cli.exit_code_for({"ok": True, "finality_not_observed": True}) == 0
+    assert cli.exit_code_for({"ok": False, "finality_not_observed": "true"}) == 1
+
+
+@pytest.mark.parametrize("argv", [["--help"], ["send", "--help"]])
+def test_exit_codes_are_documented_in_help(argv: list[str]) -> None:
+    stdout = io.StringIO()
+    with contextlib.redirect_stdout(stdout), pytest.raises(SystemExit) as exited:
+        cli.main(argv)
+    assert exited.value.code == 0
+    text = stdout.getvalue()
+    assert "exit codes:" in text
+    assert "  1  failed" in text
+    assert "  2  usage error" in text
+    assert "  3  send --poll-finality only" in text
+    assert "Do NOT resubmit" in text
 
 
 def test_plain_send_pending_result_is_still_ok() -> None:
