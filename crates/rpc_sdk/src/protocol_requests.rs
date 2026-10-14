@@ -116,6 +116,7 @@ pub const METHOD_OFFER_INFO: &str = "offer_info";
 pub const METHOD_ACCOUNT_OFFERS: &str = "account_offers";
 pub const METHOD_BOOK_OFFERS: &str = "book_offers";
 pub const METHOD_ASSET_INFO: &str = "asset_info";
+pub const METHOD_NAV_RESERVE_PROOF_STATUS: &str = "nav_reserve_proof_status";
 pub const METHOD_ACCOUNT_LINES: &str = "account_lines";
 pub const METHOD_ACCOUNT_ASSETS: &str = "account_assets";
 pub const METHOD_ISSUER_ASSETS: &str = "issuer_assets";
@@ -170,6 +171,8 @@ pub const METHOD_BRIDGE_BATCH_RESUME: &str = "bridge_batch_resume";
 pub const METHOD_APPLY_BRIDGE_BATCH: &str = "apply_bridge_batch";
 pub const METRICS_SCHEMA: &str = "postfiat-node-metrics-v1";
 pub const ACCOUNT_TX_INDEX_STATUS_SCHEMA: &str = "postfiat-account-tx-index-status-v1";
+pub const NAV_RESERVE_PROOF_STATUS_SCHEMA: &str = "postfiat.nav_reserve_proof_status.v1";
+pub const NAV_RESERVE_PROOF_STATUS_MAX_PACKETS: usize = 16;
 pub const SERVER_INFO_SCHEMA: &str = "postfiat-server-info-v1";
 pub const LEDGER_SCHEMA: &str = "postfiat-ledger-v1";
 pub const FEE_SCHEMA: &str = "postfiat-fee-v1";
@@ -576,6 +579,13 @@ pub fn atomic_settlement_template_request(
 
 pub fn asset_info_request(id: impl Into<String>, asset_id: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_ASSET_INFO).with_param_value("asset_id", string_value(asset_id))
+}
+
+pub fn nav_reserve_proof_status_request(
+    id: impl Into<String>,
+    asset_id: impl Into<String>,
+) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_NAV_RESERVE_PROOF_STATUS).with_param_value("asset_id", string_value(asset_id))
 }
 
 pub fn account_lines_request(
@@ -1534,6 +1544,7 @@ pub enum RpcRequestKind {
     AccountOffers,
     BookOffers,
     AssetInfo,
+    NavReserveProofStatus,
     AccountLines,
     AccountAssets,
     IssuerAssets,
@@ -1939,6 +1950,7 @@ pub enum RpcResponseKind {
     AccountOffers,
     BookOffers,
     AssetInfo,
+    NavReserveProofStatus,
     AccountLines,
     AccountAssets,
     IssuerAssets,
@@ -2507,6 +2519,7 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::AccountOffers => METHOD_ACCOUNT_OFFERS,
         RpcRequestKind::BookOffers => METHOD_BOOK_OFFERS,
         RpcRequestKind::AssetInfo => METHOD_ASSET_INFO,
+        RpcRequestKind::NavReserveProofStatus => METHOD_NAV_RESERVE_PROOF_STATUS,
         RpcRequestKind::AccountLines => METHOD_ACCOUNT_LINES,
         RpcRequestKind::AccountAssets => METHOD_ACCOUNT_ASSETS,
         RpcRequestKind::IssuerAssets => METHOD_ISSUER_ASSETS,
@@ -2644,6 +2657,7 @@ fn validate_request_params(
         RpcRequestKind::AccountOffers => validate_account_offers_request_params(&request.params),
         RpcRequestKind::BookOffers => validate_book_offers_request_params(&request.params),
         RpcRequestKind::AssetInfo => validate_asset_info_request_params(&request.params),
+        RpcRequestKind::NavReserveProofStatus => validate_nav_reserve_proof_status_request_params(&request.params),
         RpcRequestKind::AccountLines => validate_account_lines_request_params(&request.params),
         RpcRequestKind::AccountAssets => validate_account_assets_request_params(&request.params),
         RpcRequestKind::IssuerAssets => validate_issuer_assets_request_params(&request.params),
@@ -3123,6 +3137,17 @@ fn validate_book_offers_request_params(params: &Value) -> Result<(), RpcRequestV
 }
 
 fn validate_asset_info_request_params(params: &Value) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["asset_id"])?;
+    lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    Ok(())
+}
+
+/// Same shape as `asset_info`: the node validates `asset_id` as a lowercase
+/// 96-hex issued-asset id before reading anything.
+fn validate_nav_reserve_proof_status_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
     let params = request_params(params)?;
     require_only_params(params, &["asset_id"])?;
     lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
