@@ -722,6 +722,101 @@ function testRpcTcpRequestReusesKeepAliveConnectionWhenEnabled() {
   assert.strictEqual(result.status, 0, result.stderr || result.stdout);
 }
 
+function testBooleanEnvFlagsAreValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+
+  // A spelling that is not true/false/1/0 used to be silently the default
+  // (default-on flags stayed on, default-off flags stayed off); it must refuse.
+  for (const [name, value] of [
+    ['ENABLE_PROPOSER_ROUTING', 'off'],
+    ['INJECT_RPC_CAPS', 'no'],
+    ['ENABLE_FIRST_READY_SEQUENCED_READ', 'disabled'],
+    ['ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE', 'f'],
+    ['OPTIMISTIC_CACHED_FINALITY_ROUTE', 'on'],
+    ['ENABLE_FINALITY_RESPONDER_READ_CACHE', 'yes'],
+    ['ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE', 'nope'],
+    ['FASTPAY_ROUTE_WARMUP_ENABLED', 'Off'],
+    ['FASTPAY_REQUIRE_PRIMARY_SUCCESS', 'enabled'],
+    ['ENABLE_UPSTREAM_KEEPALIVE', '2'],
+    ['FASTPAY_CERTIFICATE_FINALITY_ENABLED', 'tru'],
+  ]) {
+    const refused = run({ [name]: value });
+    assert.notStrictEqual(refused.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(refused.stderr.includes(`${name} must be true or false`), refused.stderr);
+  }
+
+  // true/false in any case, 1/0 and padding are accepted for both flag kinds.
+  const accepted = run({
+    ENABLE_PROPOSER_ROUTING: 'True',
+    INJECT_RPC_CAPS: 'FALSE',
+    ENABLE_FIRST_READY_SEQUENCED_READ: '1',
+    ENABLE_RPC_PARENT_WAIT_FINALITY_ROUTE: '0',
+    OPTIMISTIC_CACHED_FINALITY_ROUTE: ' true ',
+    ENABLE_FINALITY_RESPONDER_READ_CACHE: '1',
+    ENABLE_RPC_PARENT_WAIT_SEQUENCED_READ_ROUTE: 'false',
+    FASTPAY_ROUTE_WARMUP_ENABLED: '0',
+    FASTPAY_REQUIRE_PRIMARY_SUCCESS: 'TRUE',
+    ENABLE_UPSTREAM_KEEPALIVE: 'False',
+    FASTPAY_CERTIFICATE_FINALITY_ENABLED: 'true',
+  });
+  assert.strictEqual(accepted.status, 0, accepted.stderr);
+  assert.strictEqual(accepted.stdout, 'loaded');
+
+  const empty = run({ ENABLE_PROPOSER_ROUTING: '', FASTPAY_REQUIRE_PRIMARY_SUCCESS: '', ENABLE_UPSTREAM_KEEPALIVE: '' });
+  assert.strictEqual(empty.status, 0, empty.stderr);
+  assert.strictEqual(empty.stdout, 'loaded');
+
+  // The parsed value is what the proxy acts on: with ENABLE_UPSTREAM_KEEPALIVE=0 two
+  // requests to the same upstream must open two connections (one-shot), as with 'false';
+  // with 1 they share one pooled connection, as with 'true'.
+  const script = `
+    const net = require('net');
+    const { closeUpstreamRpcConnections, rpcTcpRequest } = require('./wallet-proxy/server');
+    let connections = 0;
+    const server = net.createServer((socket) => {
+      connections += 1;
+      let buffer = '';
+      socket.on('data', (chunk) => {
+        buffer += chunk.toString('utf8');
+        let idx;
+        while ((idx = buffer.indexOf('\\n')) >= 0) {
+          const request = JSON.parse(buffer.slice(0, idx));
+          buffer = buffer.slice(idx + 1);
+          socket.write(JSON.stringify({ version: 'postfiat-local-rpc-v1', id: request.id, ok: true, result: {}, error: null, events: [] }) + '\\n');
+        }
+      });
+    });
+    server.listen(0, '127.0.0.1', async () => {
+      const port = server.address().port;
+      const request = (id) => rpcTcpRequest('127.0.0.1', port, { version: 'postfiat-local-rpc-v1', id, method: 'status', params: {} }, 1000);
+      await request('first');
+      await request('second');
+      process.stdout.write(String(connections));
+      closeUpstreamRpcConnections();
+      server.close(() => process.exit(0));
+    });
+  `;
+  const connectionsWith = (value) => {
+    const result = spawnSync(process.execPath, ['-e', script], {
+      cwd,
+      encoding: 'utf8',
+      env: { ...process.env, ENABLE_UPSTREAM_KEEPALIVE: value },
+    });
+    assert.strictEqual(result.status, 0, result.stderr);
+    return result.stdout;
+  };
+  assert.strictEqual(connectionsWith('false'), '2');
+  assert.strictEqual(connectionsWith('0'), '2', 'ENABLE_UPSTREAM_KEEPALIVE=0 must disable the keep-alive pool');
+  assert.strictEqual(connectionsWith('true'), '1');
+  assert.strictEqual(connectionsWith('1'), '1', 'ENABLE_UPSTREAM_KEEPALIVE=1 must enable the keep-alive pool');
+}
+
 function testSequencedReadCanUseFinalityResponderWhenEnabled() {
   const script = `
     const {
@@ -828,6 +923,60 @@ function testRouteTimingEnvIsValidatedAtStartup() {
   assert.strictEqual(unset.stdout, '10000');
 }
 
+function testRemainingIntegerEnvIsValidatedAtStartup() {
+  const cwd = require('path').join(__dirname, '..');
+  const probe = "require('./wallet-proxy/server'); process.stdout.write('loaded');";
+  const run = (env) => spawnSync(process.execPath, ['-e', probe], {
+    cwd,
+    encoding: 'utf8',
+    env: { ...process.env, FASTPAY_ROUTE_WARMUP_ENABLED: 'false', ...env },
+  });
+
+  // Number.parseInt reads only a numeric prefix: a numeric-prefix, fraction, exponent or unit
+  // suffix spelling must be refused at startup, not truncated into a port, timer or TTL.
+  for (const [name, value, bounds] of [
+    ['RPC_PORT', '8080x', '1 and 65535'],
+    ['LISTEN_PORT', '8080.5', '0 and 65535'],
+    ['FASTPAY_FLEET_STATUS_CACHE_MS', '1e4', '0 and 600000'],
+    ['FASTPAY_ROUTE_REFRESH_MS', '5e3', '250 and 600000'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '2000ms', '250 and 600000'],
+    ['NAVSWAP_IDEMPOTENCY_TTL_MS', '86400000junk', '1000 and 2592000000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '3e5', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '100.0', '1 and 100000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS', '5blocks', '0 and 100000'],
+    // Out of range, including values the runtime used to replace silently.
+    ['RPC_PORT', '65536', '1 and 65535'],
+    ['LISTEN_PORT', '-1', '0 and 65535'],
+    ['FASTPAY_CERTIFICATE_RETRY_MS', '249', '250 and 600000'],
+    ['NAVSWAP_QUOTE_FRESHNESS_TTL_MS', '999', '1000 and 86400000'],
+    ['NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS', '0', '1 and 100000'],
+  ]) {
+    const refused = run({ [name]: value });
+    assert.notStrictEqual(refused.status, 0, `${name}=${value} must not start the proxy`);
+    assert.ok(refused.stderr.includes(`${name} must be an integer between ${bounds}`), refused.stderr);
+  }
+
+  // Both ends of each range load, and a padded value is trimmed.
+  const bounds = run({
+    RPC_PORT: '65535',
+    LISTEN_PORT: '0',
+    FASTPAY_FLEET_STATUS_CACHE_MS: '0',
+    FASTPAY_ROUTE_REFRESH_MS: '250',
+    FASTPAY_CERTIFICATE_RETRY_MS: '250',
+    NAVSWAP_IDEMPOTENCY_TTL_MS: '1000',
+    NAVSWAP_QUOTE_FRESHNESS_TTL_MS: ' 86400000 ',
+    NAVSWAP_SETTLEMENT_RECEIPT_MAX_SNAPSHOT_AGE_BLOCKS: '100000',
+    NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '0',
+  });
+  assert.strictEqual(bounds.status, 0, bounds.stderr);
+  assert.strictEqual(bounds.stdout, 'loaded');
+
+  // Unset and empty variables keep the defaults and load.
+  const defaults = run({ RPC_PORT: '', LISTEN_PORT: '', FASTPAY_FLEET_STATUS_CACHE_MS: '', NAVSWAP_SETTLEMENT_RECEIPT_SAFETY_BLOCKS: '' });
+  assert.strictEqual(defaults.status, 0, defaults.stderr);
+  assert.strictEqual(defaults.stdout, 'loaded');
+}
+
 function testFirstReadySequencedReadsDefaultOn() {
   primeNextProposerRouteCacheFromResponse(JSON.stringify({
     id: 'submit',
@@ -920,6 +1069,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
     testRpcTcpRequestReusesKeepAliveConnectionWhenEnabled();
   })
   .then(() => {
+    testBooleanEnvFlagsAreValidatedAtStartup();
+  })
+  .then(() => {
     testSequencedReadCanUseFinalityResponderWhenEnabled();
   })
   .then(() => {
@@ -931,6 +1083,9 @@ testChooseProposerEndpointRetriesTransientDivergence()
   })
   .then(() => {
     testRouteTimingEnvIsValidatedAtStartup();
+  })
+  .then(() => {
+    testRemainingIntegerEnvIsValidatedAtStartup();
   })
   .then(() => {
     console.log('proposer routing tests passed');

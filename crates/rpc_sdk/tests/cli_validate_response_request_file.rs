@@ -170,12 +170,12 @@ fn help_describes_request_file_binding() {
     );
 }
 
-/// The atomic-swap branches must validate the payload against the same parsed
-/// request that bound the id and kind. The request file is a FIFO that yields
+/// The atomic-swap and owned-certificate branches must validate the payload
+/// against the same parsed request that bound the id and kind. The request file is a FIFO that yields
 /// its content to exactly one reader, so a second read would block forever.
 #[cfg(unix)]
 #[test]
-fn atomic_swap_kinds_read_the_request_file_once() {
+fn request_bound_kinds_read_the_request_file_once() {
     use std::io::Write;
     use std::time::{Duration, Instant};
 
@@ -183,6 +183,7 @@ fn atomic_swap_kinds_read_the_request_file_once() {
         "atomic_swap_fee_quote",
         "mempool_submit_signed_atomic_swap_transaction",
         "mempool_submit_signed_atomic_swap_transaction_finality",
+        "owned_certificate",
     ] {
         let fifo = temp_path(&format!("{method}-request.fifo"));
         let response_path = temp_path(&format!("{method}-response.json"));

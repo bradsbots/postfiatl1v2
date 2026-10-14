@@ -399,6 +399,17 @@ fn wait_for_rpc_finality_required_parent(
         params,
         "proxy_required_current_height",
     )? else {
+        // A root or parent-hash pin only means something relative to the
+        // pinned height; without it the pin cannot be honoured, so it is
+        // rejected instead of being ignored. Null pins stay "no requirement".
+        for key in ["proxy_required_state_root", "proxy_required_parent_hash"] {
+            if rpc_finality_required_str_param(params, key)?.is_some() {
+                return Err((
+                    "rpc_protocol_error".to_string(),
+                    format!("{key} requires proxy_required_current_height"),
+                ));
+            }
+        }
         return Ok(0.0);
     };
     let required_state_root =
@@ -572,6 +583,23 @@ fn rpc_serve_method_accepts_proxy_parent_wait(method: &str) -> bool {
             | "nft_fee_quote"
             | "offer_fee_quote"
     )
+}
+
+/// True when the request carries any proxy parent pin. The rpc-serve
+/// dispatcher routes a pinned fee-quote request through the parent wait on
+/// this predicate (previously only on `proxy_required_current_height`), so a
+/// root or parent-hash pin sent without the height is rejected there instead
+/// of being ignored.
+fn rpc_serve_params_carry_proxy_parent_pins(
+    params: &serde_json::Map<String, serde_json::Value>,
+) -> bool {
+    [
+        "proxy_required_current_height",
+        "proxy_required_state_root",
+        "proxy_required_parent_hash",
+    ]
+    .iter()
+    .any(|key| params.contains_key(*key))
 }
 
 const RPC_OWNED_SIGN_DECOMPRESSED_MAX_BYTES: u64 = 128 * 1024;
@@ -921,7 +949,7 @@ fn handle_rpc_serve_connection(
         && request
             .params
             .as_object()
-            .map(|params| params.contains_key("proxy_required_current_height"))
+            .map(rpc_serve_params_carry_proxy_parent_pins)
             .unwrap_or(false)
     {
         match request.params.as_object() {
@@ -932,7 +960,7 @@ fn handle_rpc_serve_connection(
                     } else if method == "atomic_swap_fee_quote" {
                         run_rpc_serve_atomic_swap_fee_quote(&request, context)
                     } else {
-                        match run_rpc_request_via_child_limited(context, request_index, &line) {
+                        match run_rpc_request_via_child_limited(context, request_index, &id, &line) {
                             Ok(response) => response,
                             Err(error) => rpc_serve_child_error_response(&id, &error),
                         }
@@ -1022,7 +1050,7 @@ fn handle_rpc_serve_connection(
                     if let Some(counts) = orchard_batch_create_counts.as_mut() {
                         counts.active_count = active_count;
                     }
-                    match run_rpc_request_via_child_limited(context, request_index, &line) {
+                    match run_rpc_request_via_child_limited(context, request_index, &id, &line) {
                         Ok(response) => response,
                         Err(error) => rpc_serve_child_error_response(&id, &error),
                     }
@@ -1208,10 +1236,10 @@ fn handle_rpc_serve_connection(
                         .and_then(|signed| service.exit(&signed))
                         .and_then(|vote| serde_json::to_value(vote).map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))),
                     "fastswap_checkpoint_status" => {
-                        let previous = request.params.get("previous_checkpoint_id")
-                            .and_then(serde_json::Value::as_str)
-                            .map(crate::fastswap_service::parse_checkpoint_id_hex)
-                            .transpose();
+                        let previous = fastswap_optional_str(&request.params, "fastswap_checkpoint_status", "previous_checkpoint_id")
+                            .and_then(|previous| previous
+                                .map(crate::fastswap_service::parse_checkpoint_id_hex)
+                                .transpose());
                         previous.and_then(|previous| {
                             postfiat_storage::NodeStore::new(&context.data_dir)
                                 .read_ledger()
@@ -1227,11 +1255,11 @@ fn handle_rpc_serve_connection(
                             .and_then(|value| postfiat_crypto_provider::hex_to_bytes(value)
                                 .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, format!("FastSwap owner pubkey hex invalid: {error}"))));
                         owner.and_then(|owner| {
-                            let asset = fastswap_objects_optional_str(&request.params, "asset_id")?
+                            let asset = fastswap_optional_str(&request.params, "fastswap_objects", "asset_id")?
                                 .map(crate::fastswap_service::parse_asset_id_hex)
                                 .transpose()?;
-                            let cursor_id = fastswap_objects_optional_str(&request.params, "cursor_object_id")?;
-                            let cursor_version = fastswap_objects_optional_u64(&request.params, "cursor_version")?;
+                            let cursor_id = fastswap_optional_str(&request.params, "fastswap_objects", "cursor_object_id")?;
+                            let cursor_version = fastswap_optional_u64(&request.params, "fastswap_objects", "cursor_version")?;
                             let cursor = match (cursor_id, cursor_version) {
                                 (None, None) => None,
                                 (Some(id), Some(version)) => Some(crate::fastswap_service::parse_object_key(id, version)?),
@@ -1244,14 +1272,14 @@ fn handle_rpc_serve_connection(
                         })
                     },
                     "fastswap_policy" => {
-                        let policy_hash = request.params.get("policy_hash")
-                            .and_then(serde_json::Value::as_str)
-                            .map(crate::fastswap_service::parse_policy_hash_hex)
-                            .transpose();
+                        let policy_hash = fastswap_optional_str(&request.params, "fastswap_policy", "policy_hash")
+                            .and_then(|policy_hash| policy_hash
+                                .map(crate::fastswap_service::parse_policy_hash_hex)
+                                .transpose());
                         policy_hash.and_then(|policy_hash| {
-                            let asset_0 = request.params.get("asset_0").and_then(serde_json::Value::as_str)
+                            let asset_0 = fastswap_optional_str(&request.params, "fastswap_policy", "asset_0")?
                                 .map(crate::fastswap_service::parse_asset_id_hex).transpose()?;
-                            let asset_1 = request.params.get("asset_1").and_then(serde_json::Value::as_str)
+                            let asset_1 = fastswap_optional_str(&request.params, "fastswap_policy", "asset_1")?
                                 .map(crate::fastswap_service::parse_asset_id_hex).transpose()?;
                             let pair = match (asset_0, asset_1) {
                                 (None, None) => None,
@@ -1673,7 +1701,7 @@ fn handle_rpc_serve_connection(
             }
         }
     } else if method == "server_info" {
-        match run_rpc_request_via_child_limited(context, request_index, &line) {
+        match run_rpc_request_via_child_limited(context, request_index, &id, &line) {
             Ok(mut response) => {
                 if response.ok {
                     if let Some(result) = response.result.as_mut() {
@@ -1694,7 +1722,7 @@ fn handle_rpc_serve_connection(
             Err(error) => rpc_serve_child_error_response(&id, &error),
         }
     } else {
-        match run_rpc_request_via_child_limited(context, request_index, &line) {
+        match run_rpc_request_via_child_limited(context, request_index, &id, &line) {
             Ok(response) => response,
             Err(error) => rpc_serve_child_error_response(&id, &error),
         }
@@ -2025,6 +2053,7 @@ fn try_acquire_rpc_serve_child_dispatch(
 fn run_rpc_request_via_child_limited(
     context: &RpcServeConnectionContext,
     request_index: u64,
+    request_id: &str,
     request_json: &str,
 ) -> Result<RpcResponse, String> {
     let _dispatch_guard = try_acquire_rpc_serve_child_dispatch(context)?;
@@ -2032,6 +2061,7 @@ fn run_rpc_request_via_child_limited(
         &context.data_dir,
         &context.spool_dir,
         request_index,
+        request_id,
         request_json,
         context.child_timeout_ms,
     )
@@ -3475,10 +3505,79 @@ fn validate_rpc_serve_request_line(line: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Resolve `path` against the current working directory without requiring
+/// it to exist. `rpc-serve` spawns one worker per request with its working
+/// directory moved to the data directory, so relative paths captured at
+/// startup must be made absolute before they are handed to a worker.
+fn rpc_serve_absolute_path(path: impl AsRef<Path>, label: &str) -> Result<PathBuf, String> {
+    let path = path.as_ref();
+    std::path::absolute(path).map_err(|error| {
+        format!(
+            "rpc serve {label} resolution failed for `{}`: {error}",
+            path.display()
+        )
+    })
+}
+
+/// Worker fallback id used by `rpc_error_id` when the worker could not read
+/// or parse its spooled request file (and so could not recover the id).
+const RPC_SERVE_CHILD_FALLBACK_ID: &str = "local-1";
+
+/// True only for the exact response shape `print_rpc_error` emits under the
+/// worker's fallback id: `ok: false`, no result, an error, and the single
+/// `("error", <error code>, "rpc request failed")` event.
+fn rpc_serve_child_response_is_fallback_error(response: &RpcResponse) -> bool {
+    if response.id != RPC_SERVE_CHILD_FALLBACK_ID || response.ok || response.result.is_some() {
+        return false;
+    }
+    let Some(error) = response.error.as_ref() else {
+        return false;
+    };
+    matches!(
+        response.events.as_slice(),
+        [event] if event.event_type == "error"
+            && event.subject == error.code
+            && event.message == "rpc request failed"
+    )
+}
+
+/// The parent already knows the request id it spooled for the worker, and a
+/// response id that differs from it means the worker answered a different or
+/// corrupt request. Only one mismatch is recoverable: a worker that could not
+/// read its request file answers with the CLI fallback id (`local-1`) and the
+/// exact `print_rpc_error` shape, so the parent restores the real id on that
+/// error. Every other mismatch, including any `ok: true` response, fails
+/// closed: the worker response is discarded and replaced with a
+/// parent-generated error under the caller's request id, so a worker result is
+/// never attributed to a request it did not answer.
+fn rpc_serve_child_response_with_request_id(
+    mut response: RpcResponse,
+    request_id: &str,
+) -> RpcResponse {
+    if response.id == request_id {
+        return response;
+    }
+    if rpc_serve_child_response_is_fallback_error(&response) {
+        response.events.push(RpcEvent::new(
+            "rpc_serve",
+            "rpc_child_id_mismatch",
+            "worker fallback id `local-1` replaced with request id",
+        ));
+        response.id = request_id.to_string();
+        return response;
+    }
+    rpc_serve_error_response(
+        request_id,
+        "rpc_child_id_mismatch",
+        "RPC worker response id did not match the request id; worker response discarded",
+    )
+}
+
 fn run_rpc_request_via_child(
     data_dir: &Path,
     spool_root: &Path,
     request_index: u64,
+    request_id: &str,
     request_json: &str,
     child_timeout_ms: u64,
 ) -> Result<RpcResponse, String> {
@@ -3518,7 +3617,7 @@ fn run_rpc_request_via_child(
     response
         .validate_protocol()
         .map_err(|error| format!("rpc serve child response protocol failed: {error}"))?;
-    Ok(response)
+    Ok(rpc_serve_child_response_with_request_id(response, request_id))
 }
 
 fn validate_rpc_serve_bind_host(host: &str) -> Result<(), String> {
@@ -3667,6 +3766,10 @@ fn run_rpc_child_command(
             data_dir.display()
         )
     })?;
+    // The child changes its working directory before reading the request
+    // file, so a relative spool path must be resolved against the parent's
+    // working directory here, not left for the child to misresolve.
+    let child_request_file = rpc_serve_absolute_path(request_file, "request file")?;
     let child = Command::new(exe)
         .env_clear()
         .current_dir(&child_data_dir)
@@ -3675,7 +3778,7 @@ fn run_rpc_child_command(
         .stderr(Stdio::piped())
         .arg("rpc")
         .arg("--request-file")
-        .arg(request_file)
+        .arg(&child_request_file)
         .arg("--data-dir")
         .arg(&child_data_dir)
         .spawn()
@@ -3927,6 +4030,121 @@ fn rpc_serve_method_allowed_with_owned_lane(
                     | "owned_unwrap_sign_v3"
                     | "owned_unwrap_apply_v3"
             ))
+}
+
+#[cfg(test)]
+mod proxy_parent_pin_gate_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// Any of the three pin keys routes the request through the parent wait,
+    /// a present-but-null pin included (the wait treats it as no
+    /// requirement); the timeout alone, or no pins, does not.
+    #[test]
+    fn any_pin_key_routes_through_the_parent_wait() {
+        for key in [
+            "proxy_required_current_height",
+            "proxy_required_state_root",
+            "proxy_required_parent_hash",
+        ] {
+            assert!(
+                rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({ key: "x" }))),
+                "{key} must route through the parent wait"
+            );
+        }
+        assert!(rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({
+            "proxy_required_state_root": null,
+        }))));
+        assert!(!rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({}))));
+        assert!(!rpc_serve_params_carry_proxy_parent_pins(&params_of(json!({
+            "proxy_readiness_timeout_ms": 5,
+        }))));
+    }
+}
+
+#[cfg(test)]
+mod proxy_parent_pin_arm_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn params_of(value: serde_json::Value) -> serde_json::Map<String, serde_json::Value> {
+        value.as_object().expect("params object").clone()
+    }
+
+    /// A root or parent-hash pin sent without `proxy_required_current_height`
+    /// must be rejected before the readiness loop reads local status instead
+    /// of being ignored; null pins and a pin-free request still mean "no
+    /// requirement" and return without waiting. The pinned control reaches
+    /// the loop and fails there on the missing ledger. On the previous code
+    /// the root-only and hash-only requests returned `Ok(0.0)` like the
+    /// pin-free request: the pins were silently dropped.
+    #[test]
+    fn pins_without_height_are_rejected_before_the_readiness_loop() {
+        let mut context = super::child_dispatch_limit_tests::child_dispatch_test_context(1, 1);
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-proxy-parent-pin-arm-test-{}-{}",
+            process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|duration| duration.as_nanos())
+                .unwrap_or_default()
+        ));
+        context.data_dir = data_dir.clone();
+        context.finality_timeout_ms = 1;
+
+        let root_only = params_of(json!({ "proxy_required_state_root": "22".repeat(48) }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &root_only)
+            .expect_err("root pin without height is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(
+            message,
+            "proxy_required_state_root requires proxy_required_current_height"
+        );
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let hash_only = params_of(json!({
+            "proxy_required_parent_hash": "11".repeat(48),
+            "proxy_readiness_timeout_ms": 5,
+        }));
+        let (code, message) = wait_for_rpc_finality_required_parent(&context, &hash_only)
+            .expect_err("parent-hash pin without height is an error");
+        assert_eq!(code, "rpc_protocol_error");
+        assert_eq!(
+            message,
+            "proxy_required_parent_hash requires proxy_required_current_height"
+        );
+        assert!(!data_dir.exists(), "rejected request must not touch the data directory");
+
+        let null_pins = params_of(json!({
+            "proxy_required_state_root": null,
+            "proxy_required_parent_hash": null,
+        }));
+        assert_eq!(
+            wait_for_rpc_finality_required_parent(&context, &null_pins)
+                .expect("null pins are no requirement"),
+            0.0
+        );
+        let unpinned = params_of(json!({ "proxy_readiness_timeout_ms": 5 }));
+        assert_eq!(
+            wait_for_rpc_finality_required_parent(&context, &unpinned)
+                .expect("pin-free request does not wait"),
+            0.0
+        );
+        assert!(!data_dir.exists(), "unpinned requests must not touch the data directory");
+
+        let pinned = params_of(json!({
+            "proxy_required_current_height": 5,
+            "proxy_required_state_root": "22".repeat(48),
+        }));
+        let (code, _) = wait_for_rpc_finality_required_parent(&context, &pinned)
+            .expect_err("pinned control reaches the readiness loop and fails on the missing ledger");
+        assert_eq!(code, "rpc_finality_parent_wait_failed");
+        let _ = std::fs::remove_dir_all(&data_dir);
+    }
 }
 
 #[cfg(test)]
@@ -4962,12 +5180,14 @@ fn rpc_serve_error_class(method: &str, response: &RpcResponse) -> Option<String>
     Some(error.code.clone())
 }
 
-/// Reads an optional string parameter of `fastswap_objects` strictly: a key
-/// that is present must carry a JSON string. Previously a present key of the
-/// wrong type was silently treated as absent, so `"asset_id": 5` queried every
-/// asset and `"cursor_object_id": 7` dropped the cursor.
-fn fastswap_objects_optional_str<'a>(
+/// Reads an optional string parameter of a FastSwap RPC method strictly: a
+/// key that is present must carry a JSON string. Previously a present key of
+/// the wrong type was silently treated as absent, so `"asset_id": 5` queried
+/// every asset, `"cursor_object_id": 7` dropped the cursor, and
+/// `"policy_hash": 7` returned the default policy.
+fn fastswap_optional_str<'a>(
     params: &'a serde_json::Value,
+    method: &str,
     key: &str,
 ) -> std::io::Result<Option<&'a str>> {
     match params.get(key) {
@@ -4975,16 +5195,17 @@ fn fastswap_objects_optional_str<'a>(
         Some(value) => value.as_str().map(Some).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("fastswap_objects {key} must be a string"),
+                format!("{method} {key} must be a string"),
             )
         }),
     }
 }
 
-/// Reads an optional unsigned-integer parameter of `fastswap_objects`
-/// strictly; see `fastswap_objects_optional_str`.
-fn fastswap_objects_optional_u64(
+/// Reads an optional unsigned-integer parameter of a FastSwap RPC method
+/// strictly; see `fastswap_optional_str`.
+fn fastswap_optional_u64(
     params: &serde_json::Value,
+    method: &str,
     key: &str,
 ) -> std::io::Result<Option<u64>> {
     match params.get(key) {
@@ -4992,7 +5213,7 @@ fn fastswap_objects_optional_u64(
         Some(value) => value.as_u64().map(Some).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("fastswap_objects {key} must be an unsigned integer"),
+                format!("{method} {key} must be an unsigned integer"),
             )
         }),
     }
@@ -5003,7 +5224,7 @@ fn fastswap_objects_optional_u64(
 /// `FastSwapService::objects`. Previously `"limit": "10"` or `"limit": -1`
 /// silently became 50.
 fn fastswap_objects_limit(params: &serde_json::Value) -> std::io::Result<usize> {
-    let limit = fastswap_objects_optional_u64(params, "limit")?.unwrap_or(50);
+    let limit = fastswap_optional_u64(params, "fastswap_objects", "limit")?.unwrap_or(50);
     limit.try_into().map_err(|_| {
         std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -5013,7 +5234,7 @@ fn fastswap_objects_limit(params: &serde_json::Value) -> std::io::Result<usize> 
 }
 
 #[cfg(test)]
-mod fastswap_objects_param_tests {
+mod fastswap_optional_param_tests {
     use super::*;
     use serde_json::json;
 
@@ -5021,11 +5242,11 @@ mod fastswap_objects_param_tests {
     fn absent_optional_params_stay_absent_and_limit_defaults() {
         let params = json!({ "owner_pubkey": "aa" });
         assert_eq!(
-            fastswap_objects_optional_str(&params, "asset_id").expect("absent asset"),
+            fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect("absent asset"),
             None
         );
         assert_eq!(
-            fastswap_objects_optional_u64(&params, "cursor_version").expect("absent cursor"),
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect("absent cursor"),
             None
         );
         assert_eq!(fastswap_objects_limit(&params).expect("default limit"), 50);
@@ -5040,15 +5261,15 @@ mod fastswap_objects_param_tests {
             "limit": 7
         });
         assert_eq!(
-            fastswap_objects_optional_str(&params, "asset_id").expect("asset"),
+            fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect("asset"),
             Some("ab")
         );
         assert_eq!(
-            fastswap_objects_optional_str(&params, "cursor_object_id").expect("cursor id"),
+            fastswap_optional_str(&params, "fastswap_objects", "cursor_object_id").expect("cursor id"),
             Some("cd")
         );
         assert_eq!(
-            fastswap_objects_optional_u64(&params, "cursor_version").expect("cursor version"),
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect("cursor version"),
             Some(3)
         );
         assert_eq!(fastswap_objects_limit(&params).expect("limit"), 7);
@@ -5070,20 +5291,91 @@ mod fastswap_objects_param_tests {
     #[test]
     fn wrong_typed_selectors_are_rejected_not_dropped() {
         let params = json!({ "asset_id": 5, "cursor_object_id": 7, "cursor_version": "3" });
-        let error = fastswap_objects_optional_str(&params, "asset_id").expect_err("asset");
+        let error = fastswap_optional_str(&params, "fastswap_objects", "asset_id").expect_err("asset");
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
         assert_eq!(error.to_string(), "fastswap_objects asset_id must be a string");
         let error =
-            fastswap_objects_optional_str(&params, "cursor_object_id").expect_err("cursor id");
+            fastswap_optional_str(&params, "fastswap_objects", "cursor_object_id").expect_err("cursor id");
         assert_eq!(
             error.to_string(),
             "fastswap_objects cursor_object_id must be a string"
         );
         let error =
-            fastswap_objects_optional_u64(&params, "cursor_version").expect_err("cursor version");
+            fastswap_optional_u64(&params, "fastswap_objects", "cursor_version").expect_err("cursor version");
         assert_eq!(
             error.to_string(),
             "fastswap_objects cursor_version must be an unsigned integer"
+        );
+    }
+
+    #[test]
+    fn policy_and_checkpoint_optional_params_are_read_strictly() {
+        let params = json!({ "policy_hash": 7, "asset_0": "ab", "asset_1": null });
+        let error = fastswap_optional_str(&params, "fastswap_policy", "policy_hash")
+            .expect_err("policy hash");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(error.to_string(), "fastswap_policy policy_hash must be a string");
+        assert_eq!(
+            fastswap_optional_str(&params, "fastswap_policy", "asset_0").expect("asset_0"),
+            Some("ab")
+        );
+        let error =
+            fastswap_optional_str(&params, "fastswap_policy", "asset_1").expect_err("asset_1");
+        assert_eq!(error.to_string(), "fastswap_policy asset_1 must be a string");
+
+        let params = json!({ "previous_checkpoint_id": ["ab"] });
+        let error = fastswap_optional_str(
+            &params,
+            "fastswap_checkpoint_status",
+            "previous_checkpoint_id",
+        )
+        .expect_err("previous checkpoint id");
+        assert_eq!(
+            error.to_string(),
+            "fastswap_checkpoint_status previous_checkpoint_id must be a string"
+        );
+        assert_eq!(
+            fastswap_optional_str(&json!({}), "fastswap_checkpoint_status", "previous_checkpoint_id")
+                .expect("absent previous checkpoint id"),
+            None
+        );
+    }
+
+    /// Presence is judged by key: an explicit JSON null is a present key of
+    /// the wrong type and is rejected, while an absent key keeps the default.
+    /// Clients that want the default omit the key (the SDK never emits null
+    /// for an optional parameter), so a null is a malformed request, not a
+    /// second spelling of "absent".
+    #[test]
+    fn explicit_null_is_rejected_while_absent_key_is_default() {
+        let absent = json!({});
+        let null = json!({ "previous_checkpoint_id": null, "limit": null, "cursor_version": null });
+        assert_eq!(
+            fastswap_optional_str(&absent, "fastswap_checkpoint_status", "previous_checkpoint_id")
+                .expect("absent key"),
+            None
+        );
+        let error = fastswap_optional_str(&null, "fastswap_checkpoint_status", "previous_checkpoint_id")
+            .expect_err("explicit null");
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
+        assert_eq!(
+            error.to_string(),
+            "fastswap_checkpoint_status previous_checkpoint_id must be a string"
+        );
+        assert_eq!(
+            fastswap_optional_u64(&absent, "fastswap_objects", "cursor_version").expect("absent key"),
+            None
+        );
+        assert_eq!(
+            fastswap_optional_u64(&null, "fastswap_objects", "cursor_version")
+                .expect_err("explicit null")
+                .to_string(),
+            "fastswap_objects cursor_version must be an unsigned integer"
+        );
+        assert_eq!(fastswap_objects_limit(&absent).expect("absent limit"), 50);
+        assert_eq!(
+            fastswap_objects_limit(&null).expect_err("explicit null limit").to_string(),
+            "fastswap_objects limit must be an unsigned integer"
         );
     }
 }

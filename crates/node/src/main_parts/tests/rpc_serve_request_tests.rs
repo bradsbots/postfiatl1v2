@@ -1300,6 +1300,150 @@ mod rpc_serve_request_tests {
     }
 
     #[test]
+    fn rpc_serve_absolute_path_resolves_relative_against_cwd_without_existing() {
+        let cwd = env::current_dir().expect("cwd");
+        let relative = Path::new(".postfiat-issue-27-does-not-exist/runtime/rpc-spool");
+        let resolved = rpc_serve_absolute_path(relative, "--spool-dir").expect("resolve");
+        assert!(resolved.is_absolute(), "{}", resolved.display());
+        assert!(resolved.starts_with(&cwd), "{}", resolved.display());
+        assert!(resolved.ends_with(relative), "{}", resolved.display());
+
+        let absolute = cwd.join("already-absolute");
+        let unchanged = rpc_serve_absolute_path(&absolute, "--data-dir").expect("resolve");
+        assert_eq!(unchanged, absolute);
+    }
+
+    #[test]
+    fn rpc_serve_child_response_restores_request_id_on_mismatch() {
+        // A worker that cannot read its spooled request answers with the CLI
+        // default id in the exact `print_rpc_error` shape; the parent must put
+        // the real request id on the wire for that error only.
+        let fallback = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        let restored = rpc_serve_child_response_with_request_id(fallback, "py-00000001");
+        assert_eq!(restored.id, "py-00000001");
+        assert!(!restored.ok);
+        assert_eq!(
+            restored.error.as_ref().map(|error| error.code.as_str()),
+            Some("rpc_read_error")
+        );
+        assert_eq!(
+            restored.error.as_ref().map(|error| error.message.as_str()),
+            Some("rpc request read failed")
+        );
+        assert!(
+            restored.events.iter().any(|event| event.subject == "rpc_child_id_mismatch"),
+            "{:?}",
+            restored.events
+        );
+
+        let matching = error_response("py-00000002", "rpc_error", "unchanged", vec![]);
+        let untouched = rpc_serve_child_response_with_request_id(matching.clone(), "py-00000002");
+        assert_eq!(untouched, matching);
+
+        let matching_success =
+            success_response("py-00000003", &serde_json::json!({"height": 7}), vec![])
+                .expect("success response");
+        let untouched_success =
+            rpc_serve_child_response_with_request_id(matching_success.clone(), "py-00000003");
+        assert_eq!(untouched_success, matching_success);
+    }
+
+    fn assert_rpc_serve_child_mismatch_discarded(response: &RpcResponse, request_id: &str) {
+        assert_eq!(response.id, request_id);
+        assert!(!response.ok, "{response:?}");
+        assert!(response.result.is_none(), "{response:?}");
+        assert_eq!(
+            response.error.as_ref().map(|error| error.code.as_str()),
+            Some("rpc_child_id_mismatch"),
+            "{response:?}"
+        );
+        assert_eq!(
+            response.events,
+            vec![RpcEvent::new(
+                "rpc_serve",
+                "rpc_child_id_mismatch",
+                "remote rpc request rejected",
+            )]
+        );
+        response.validate_protocol().expect("parent error is protocol valid");
+    }
+
+    #[test]
+    fn rpc_serve_child_response_rejects_mismatched_success() {
+        // A valid `ok: true` worker response for a different request id must
+        // not be relabeled as the caller's success.
+        let other = success_response(
+            "other-id",
+            &serde_json::json!({"balance": "1000", "account": "rOther"}),
+            vec![RpcEvent::new("rpc", "account_info", "served")],
+        )
+        .expect("success response");
+        other.validate_protocol().expect("worker success is protocol valid");
+        let response = rpc_serve_child_response_with_request_id(other, "py-00000004");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000004");
+
+        // The fallback id alone does not unlock recovery for a success.
+        let fallback_success =
+            success_response("local-1", &serde_json::json!({"balance": "1"}), vec![])
+                .expect("success response");
+        let response = rpc_serve_child_response_with_request_id(fallback_success, "py-00000005");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000005");
+    }
+
+    #[test]
+    fn rpc_serve_child_response_rejects_mismatched_non_fallback_errors() {
+        // An error under some other request id is a different request's
+        // answer, not the read-failure fallback.
+        let other_error = error_response(
+            "other-id",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        let response = rpc_serve_child_response_with_request_id(other_error, "py-00000006");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000006");
+
+        // `local-1` errors that deviate from the exact `print_rpc_error`
+        // shape (extra events, mismatched event subject, carried result) are
+        // not the fallback either.
+        let extra_event = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![
+                RpcEvent::new("error", "rpc_read_error", "rpc request failed"),
+                RpcEvent::new("rpc", "account_info", "served"),
+            ],
+        );
+        let response = rpc_serve_child_response_with_request_id(extra_event, "py-00000007");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000007");
+
+        let wrong_subject = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "other_code", "rpc request failed")],
+        );
+        let response = rpc_serve_child_response_with_request_id(wrong_subject, "py-00000008");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000008");
+
+        let mut with_result = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        with_result.result = Some(serde_json::json!({"balance": "1"}));
+        let response = rpc_serve_child_response_with_request_id(with_result, "py-00000009");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000009");
+    }
+
+    #[test]
     fn rpc_serve_spool_root_rejects_non_directory() {
         let path = env::temp_dir().join(format!("postfiat-rpc-spool-file-{}", process::id()));
         std::fs::write(&path, b"not a directory").expect("write spool root file");

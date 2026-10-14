@@ -659,9 +659,7 @@ class PostFiatRpcClient:
         if not offer_id:
             raise ValueError("offer_id is required")
         result = self._call("offer_info", {"offer_id": offer_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("offer_info result must be an object")
-        return result
+        return self._bound_info_result("offer_info", result, "offer_id", "offer", offer_id)
 
     def account_offers(
         self,
@@ -712,9 +710,7 @@ class PostFiatRpcClient:
         if not asset_id:
             raise ValueError("asset_id is required")
         result = self._call("asset_info", {"asset_id": asset_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("asset_info result must be an object")
-        return result
+        return self._bound_info_result("asset_info", result, "asset_id", "asset", asset_id)
 
     def account_lines(
         self,
@@ -778,9 +774,7 @@ class PostFiatRpcClient:
         if not escrow_id:
             raise ValueError("escrow_id is required")
         result = self._call("escrow_info", {"escrow_id": escrow_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("escrow_info result must be an object")
-        return result
+        return self._bound_info_result("escrow_info", result, "escrow_id", "escrow", escrow_id)
 
     def account_escrows(
         self,
@@ -812,9 +806,7 @@ class PostFiatRpcClient:
         if not nft_id:
             raise ValueError("nft_id is required")
         result = self._call("nft_info", {"nft_id": nft_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("nft_info result must be an object")
-        return result
+        return self._bound_info_result("nft_info", result, "nft_id", "nft", nft_id)
 
     def account_nfts(
         self,
@@ -1558,6 +1550,45 @@ class PostFiatRpcClient:
         if not isinstance(value, str) or not value:
             raise ValueError(f"{field} must be a non-empty string")
         return value
+
+    @staticmethod
+    def _bound_info_result(
+        method: str,
+        result: Any,
+        id_field: str,
+        object_field: str,
+        requested_id: str,
+    ) -> dict[str, Any]:
+        """Bind a single-object ``*_info`` read to the id that was requested.
+
+        The node echoes the queried id verbatim (it only accepts lowercase hex,
+        so no case folding applies), reports ``found`` as a bool, and serializes
+        the object as null when it is absent (``Option<...Report>``). Any other
+        shape describes a different object or is malformed.
+        """
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        echoed_id = result.get(id_field)
+        if type(echoed_id) is not str or echoed_id != requested_id:
+            raise RpcProtocolError(f"{method} {id_field} does not match the requested id")
+        found = result.get("found")
+        if type(found) is not bool:
+            raise RpcProtocolError(f"{method} found must be a boolean")
+        if object_field not in result:
+            raise RpcProtocolError(f"{method} {object_field} is missing")
+        report = result[object_field]
+        if not found:
+            if report is not None:
+                raise RpcProtocolError(f"{method} {object_field} must be null when found is false")
+            return result
+        if not isinstance(report, dict):
+            raise RpcProtocolError(f"{method} {object_field} must be an object when found is true")
+        report_id = report.get(id_field)
+        if type(report_id) is not str or report_id != requested_id:
+            raise RpcProtocolError(
+                f"{method} {object_field}.{id_field} does not match the requested id"
+            )
+        return result
 
     def _object_read(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         result = self._call(method, params)

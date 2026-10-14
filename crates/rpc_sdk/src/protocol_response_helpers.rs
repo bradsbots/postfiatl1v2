@@ -118,6 +118,8 @@ pub fn validate_response_kind_with_context(
         RpcResponseKind::AccountOffers => validate_account_offers_result(result),
         RpcResponseKind::BookOffers => validate_book_offers_result(result),
         RpcResponseKind::AssetInfo => validate_asset_info_result(result),
+        RpcResponseKind::NavReserveProofStatus => validate_nav_reserve_proof_status_result(result),
+        RpcResponseKind::VaultBridgeRoute => validate_vault_bridge_route_result(result),
         RpcResponseKind::AccountLines => validate_account_lines_result(result),
         RpcResponseKind::AccountAssets => validate_account_assets_result(result),
         RpcResponseKind::IssuerAssets => validate_issuer_assets_result(result),
@@ -194,6 +196,13 @@ pub fn validate_response_kind_with_context(
             validate_navcoin_bridge_supply_status_result(result)
         }
         RpcResponseKind::VaultBridgeStatus => validate_vault_bridge_status_result(result),
+        RpcResponseKind::MarketOpsStatus => validate_market_ops_status_result(result),
+        RpcResponseKind::OwnedObjects => validate_owned_objects_result(result),
+        RpcResponseKind::OwnedRecoveryStatus => validate_owned_recovery_status_result(result),
+        RpcResponseKind::OwnedRecoveryCapabilities => {
+            validate_owned_recovery_capabilities_result(result)
+        }
+        RpcResponseKind::OwnedCertificate => validate_owned_certificate_result(result),
         RpcResponseKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_result(result)
         }
@@ -707,4 +716,183 @@ fn validated_summary_result(
         .result
         .as_ref()
         .ok_or_else(|| invalid_result("result", "missing successful response result"))
+}
+
+/// Validates an `owned_objects` response against the request that produced
+/// it. `validate_owned_objects_result` (reachable through
+/// `validate_response_kind` with `RpcResponseKind::OwnedObjects`) checks the
+/// report against its own echoed `owner_public_key_hex`, `asset`, and
+/// `limit`; on its own that lets a complete report for another query pass.
+/// This function binds the report to the request: the response id must equal
+/// the request id, the request must be a valid `owned_objects` request, and
+/// the echoed selector must be exactly the one the node derives from it
+/// (crates/node lifecycle_queries.rs `owned_objects`):
+/// - `owner_public_key_hex` equals the requested string (the node echoes the
+///   request value and filters rows by exact string match);
+/// - `asset` equals the requested asset, or is absent/null when the request
+///   carried no asset filter;
+/// - `limit` equals the requested limit, or `OWNED_OBJECTS_MAX_LIMIT` (the
+///   node default) when the request omitted it.
+///
+/// The CLI requires `--request-file` for this kind and calls this function.
+pub fn validate_owned_objects_response(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
+    validate_request(
+        request,
+        Some(request.id.as_str()),
+        Some(RpcRequestKind::OwnedObjects),
+    )
+    .map_err(|error| invalid_result("request", error.to_string()))?;
+    let result = validated_summary_result(response, RpcResponseKind::OwnedObjects)?;
+    let params = request
+        .params
+        .as_object()
+        .ok_or_else(|| invalid_result("request.params", "expected object params"))?;
+
+    let requested_owner = params
+        .get("owner_public_key_hex")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.owner_public_key_hex", "missing owner"))?;
+    if string_field(result, "owner_public_key_hex")? != requested_owner {
+        return Err(invalid_result(
+            "owner_public_key_hex",
+            "expected the owner selected by the request",
+        ));
+    }
+
+    let requested_asset = params.get("asset").and_then(Value::as_str);
+    let result_asset = match result.get("asset") {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(clean_string_field(result, "asset")?),
+    };
+    if result_asset != requested_asset {
+        return Err(invalid_result(
+            "asset",
+            match requested_asset {
+                Some(_) => "expected the asset filter selected by the request",
+                None => "expected no asset filter because the request selected none",
+            },
+        ));
+    }
+
+    let requested_limit = match params.get("limit") {
+        Some(limit) => limit
+            .as_u64()
+            .ok_or_else(|| invalid_result("request.params.limit", "expected unsigned integer"))?,
+        None => OWNED_OBJECTS_MAX_LIMIT as u64,
+    };
+    if u64_field(result, "limit")? != requested_limit {
+        return Err(invalid_result(
+            "limit",
+            "expected the requested limit, or the node default when the request omitted it",
+        ));
+    }
+    Ok(())
+}
+
+/// Validates an `owned_recovery_status` response against the request that
+/// produced it. `validate_owned_recovery_status_result` (reachable through
+/// `validate_response_kind` with `RpcResponseKind::OwnedRecoveryStatus`) only
+/// checks the report against itself: the echoed `lock_id` and `fence.lock_id`
+/// agree, but nothing ties them to the lock the caller asked about. The node
+/// builds the report for the requested lock (`owned_recovery_status_v3`), so
+/// this function binds it: the response id must equal the request id, the
+/// request must be a valid `owned_recovery_status` request (method and
+/// params), the report must pass the shape validator, and `result.lock_id`
+/// must equal `request.params.lock_id` (the shape validator already pins
+/// `fence.lock_id` to `result.lock_id`). The CLI requires `--request-file` for
+/// this kind and calls this function, like the atomic-swap request-bound
+/// paths.
+pub fn validate_owned_recovery_status_response(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
+    validate_request(
+        request,
+        Some(request.id.as_str()),
+        Some(RpcRequestKind::OwnedRecoveryStatus),
+    )
+    .map_err(|error| invalid_result("request", error.to_string()))?;
+    let result = validated_summary_result(response, RpcResponseKind::OwnedRecoveryStatus)?;
+    let requested_lock_id = request
+        .params
+        .get("lock_id")
+        .and_then(Value::as_str)
+        .ok_or_else(|| invalid_result("request.params.lock_id", "missing lock_id"))?;
+    if string_field(result, "lock_id")? != requested_lock_id {
+        return Err(invalid_result(
+            "lock_id",
+            "expected the recovery status for the requested lock",
+        ));
+    }
+    Ok(())
+}
+
+/// Validates an `owned_certificate` response against the request that
+/// produced it. The shape checks come from `validate_owned_certificate_result`
+/// (reachable through `validate_response_kind` with
+/// `RpcResponseKind::OwnedCertificate`); this function adds the selector
+/// binding the node guarantees, which needs the request: when the request
+/// selected by `lock_id` the certificate's recovery lock id must equal it
+/// (fences and reveals both pin `certificate.recovery().lock_id` to their
+/// `lock_id`), and when it selected by `certificate_digest` the certificate's
+/// own digest, recomputed with the SDK's existing digest helpers, must equal
+/// it. Like the atomic-swap request-bound decoders, the response id is first
+/// required to equal the request id. The CLI threads the request in through
+/// `--request-file`, the same way the atomic-swap response validations bind
+/// to their requests.
+pub fn validate_owned_certificate_response(
+    response: &RpcResponse,
+    request: &RpcRequest,
+) -> Result<(), RpcResponseValidationError> {
+    validate_response(response, Some(&request.id), true)?;
+    validate_response_kind(response, RpcResponseKind::OwnedCertificate)?;
+    if request.method != METHOD_OWNED_CERTIFICATE {
+        return Err(invalid_result(
+            "request.method",
+            format!("expected an {METHOD_OWNED_CERTIFICATE} request for selector binding"),
+        ));
+    }
+    let selector = owned_certificate_selector_from_params(&request.params)
+        .map_err(|error| invalid_result("request.params", error.to_string()))?;
+    let result = response
+        .result
+        .as_ref()
+        .ok_or_else(|| invalid_result("result", "missing successful response result"))?;
+    let certificate: postfiat_types::FastPayCertificateV1 = serde_json::from_value(result.clone())
+        .map_err(|error| {
+            invalid_result("result", format!("expected a FastPay certificate: {error}"))
+        })?;
+    match selector {
+        OwnedCertificateSelector::LockId(lock_id) => {
+            if certificate.recovery().lock_id != lock_id {
+                return Err(invalid_result(
+                    "certificate.order.recovery.lock_id",
+                    "expected the certificate for the requested lock",
+                ));
+            }
+        }
+        OwnedCertificateSelector::CertificateDigest(certificate_digest) => {
+            let digest = match &certificate {
+                postfiat_types::FastPayCertificateV1::Transfer(certificate) => {
+                    wallet_fastpay_transfer_certificate_digest_v3(certificate)
+                }
+                postfiat_types::FastPayCertificateV1::Unwrap(certificate) => {
+                    wallet_fastpay_unwrap_certificate_digest_v3(certificate)
+                }
+            }
+            .map_err(|error| invalid_result("certificate", error.to_string()))?;
+            if digest != certificate_digest {
+                return Err(invalid_result(
+                    "certificate_digest",
+                    "expected the certificate whose digest was requested",
+                ));
+            }
+        }
+    }
+    Ok(())
 }

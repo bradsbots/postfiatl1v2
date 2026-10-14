@@ -82,6 +82,10 @@ pub const METHOD_FEE: &str = "fee";
 pub const METHOD_TRANSFER_FEE_QUOTE: &str = "transfer_fee_quote";
 pub const METHOD_OWNED_SIGN: &str = "owned_sign";
 pub const METHOD_OWNED_UNWRAP_SIGN: &str = "owned_unwrap_sign";
+pub const METHOD_OWNED_OBJECTS: &str = "owned_objects";
+pub const METHOD_OWNED_RECOVERY_STATUS: &str = "owned_recovery_status";
+pub const METHOD_OWNED_RECOVERY_CAPABILITIES: &str = "owned_recovery_capabilities";
+pub const METHOD_OWNED_CERTIFICATE: &str = "owned_certificate";
 pub const METHOD_FASTSWAP_CAPABILITIES: &str = "fastswap_capabilities";
 pub const METHOD_FASTSWAP_PREVIEW: &str = "fastswap_preview";
 pub const METHOD_FASTSWAP_PREPARE: &str = "fastswap_prepare";
@@ -116,6 +120,9 @@ pub const METHOD_OFFER_INFO: &str = "offer_info";
 pub const METHOD_ACCOUNT_OFFERS: &str = "account_offers";
 pub const METHOD_BOOK_OFFERS: &str = "book_offers";
 pub const METHOD_ASSET_INFO: &str = "asset_info";
+pub const METHOD_NAV_RESERVE_PROOF_STATUS: &str = "nav_reserve_proof_status";
+
+pub const METHOD_VAULT_BRIDGE_ROUTE: &str = "vault_bridge_route";
 pub const METHOD_ACCOUNT_LINES: &str = "account_lines";
 pub const METHOD_ACCOUNT_ASSETS: &str = "account_assets";
 pub const METHOD_ISSUER_ASSETS: &str = "issuer_assets";
@@ -164,6 +171,7 @@ pub const METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS: &str = "navcoin_bridge_supply_sta
 pub const METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY: &str = "navcoin_bridge_receipt_replay";
 pub const METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT: &str = "navcoin_bridge_packet_preflight";
 pub const METHOD_VAULT_BRIDGE_STATUS: &str = "vault_bridge_status";
+pub const METHOD_MARKET_OPS_STATUS: &str = "market_ops_status";
 pub const METHOD_BRIDGE_BATCH_DOMAIN: &str = "bridge_batch_domain";
 pub const METHOD_BRIDGE_BATCH_TRANSFER: &str = "bridge_batch_transfer";
 pub const METHOD_BRIDGE_BATCH_PAUSE: &str = "bridge_batch_pause";
@@ -171,6 +179,10 @@ pub const METHOD_BRIDGE_BATCH_RESUME: &str = "bridge_batch_resume";
 pub const METHOD_APPLY_BRIDGE_BATCH: &str = "apply_bridge_batch";
 pub const METRICS_SCHEMA: &str = "postfiat-node-metrics-v1";
 pub const ACCOUNT_TX_INDEX_STATUS_SCHEMA: &str = "postfiat-account-tx-index-status-v1";
+pub const NAV_RESERVE_PROOF_STATUS_SCHEMA: &str = "postfiat.nav_reserve_proof_status.v1";
+pub const NAV_RESERVE_PROOF_STATUS_MAX_PACKETS: usize = 16;
+
+pub const VAULT_BRIDGE_ROUTE_REPORT_SCHEMA: &str = "postfiat.vault_bridge.route_report.v1";
 pub const SERVER_INFO_SCHEMA: &str = "postfiat-server-info-v1";
 pub const LEDGER_SCHEMA: &str = "postfiat-ledger-v1";
 pub const FEE_SCHEMA: &str = "postfiat-fee-v1";
@@ -223,6 +235,19 @@ pub const MAX_RPC_SHIELD_BATCH_JSON_BYTES: usize = 8 * 1024 * 1024;
 pub const MAX_RPC_ASSET_ORCHARD_ENCRYPTED_OUTPUT_BYTES: usize = 4096;
 pub const MAX_RPC_ASSET_ORCHARD_PROOF_BYTES: usize = 1_048_576;
 pub const MAX_RPC_READ_QUERY_LIMIT: usize = 512;
+/// `owned_objects` is bounded by the node's `MAX_OWNED_INPUTS_PER_TRANSFER`
+/// (crates/types core_chain.rs), not the generic read-query limit.
+pub const OWNED_OBJECTS_MAX_LIMIT: usize = 2048;
+/// Hex length of an ML-DSA-65 public key (1952 bytes, FIPS 204), the
+/// owner identity the node requires for `owned_objects`.
+pub const OWNED_OWNER_PUBLIC_KEY_HEX_LEN: usize = 3904;
+/// Hex length of a FastPay lock id, as the node's `owned_recovery_status_v3`
+/// requires (`validate_hex_string(.., Some(96))`, lowercase only).
+pub const OWNED_RECOVERY_LOCK_ID_HEX_LEN: usize = 96;
+/// Hex length of an `owned_certificate` selector (a FastPay lock id or
+/// certificate digest), as the node's `owned_certificate_v3` requires
+/// (`validate_hex_string(.., Some(96))`, lowercase only).
+pub const OWNED_CERTIFICATE_SELECTOR_HEX_LEN: usize = 96;
 pub const MAX_RPC_BATCH_ARCHIVE_PAYLOAD_BYTES: usize = 8 * 1024 * 1024;
 pub const WALLET_BACKUP_FILE_SCHEMA: &str = "postfiat-wallet-backup-v1";
 pub const WALLET_DERIVATION_DOMAIN: &str = "postfiat.wallet.seed.v1";
@@ -577,6 +602,17 @@ pub fn atomic_settlement_template_request(
 
 pub fn asset_info_request(id: impl Into<String>, asset_id: impl Into<String>) -> RpcRequest {
     RpcRequest::empty(id, METHOD_ASSET_INFO).with_param_value("asset_id", string_value(asset_id))
+}
+
+pub fn nav_reserve_proof_status_request(
+    id: impl Into<String>,
+    asset_id: impl Into<String>,
+) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_NAV_RESERVE_PROOF_STATUS).with_param_value("asset_id", string_value(asset_id))
+}
+
+pub fn vault_bridge_route_request(id: impl Into<String>, asset_id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VAULT_BRIDGE_ROUTE).with_param_value("asset_id", string_value(asset_id))
 }
 
 pub fn account_lines_request(
@@ -1123,6 +1159,33 @@ pub struct NavcoinBridgeReceiptReplayParams {
     pub route_id: String,
 }
 
+/// Exactly one of the two selectors the node accepts for `owned_certificate`
+/// (`params.lock_id`, else `params.certificate_digest`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OwnedCertificateSelector {
+    LockId(String),
+    CertificateDigest(String),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MarketOpsStatusParams {
+    pub asset_id: String,
+    pub epoch: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+
+pub struct OwnedObjectsParams {
+    pub owner_public_key_hex: String,
+    pub asset: Option<String>,
+    pub limit: Option<usize>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedRecoveryStatusParams {
+    pub lock_id: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct VaultBridgeStatusParams {
     pub asset_id: String,
@@ -1132,6 +1195,91 @@ pub struct VaultBridgeStatusParams {
 pub struct NavcoinBridgePacketPreflightParams {
     pub route_id: String,
     pub packet_file: String,
+}
+
+pub fn market_ops_status_request(
+    id: impl Into<String>,
+    params: MarketOpsStatusParams,
+) -> RpcRequest {
+    let mut request = RpcRequest::empty(id, METHOD_MARKET_OPS_STATUS)
+        .with_param_value("asset_id", string_value(params.asset_id));
+    if let Some(epoch) = params.epoch {
+        request = request.with_param_value("epoch", u64_value(epoch));
+    }
+    request
+}
+
+pub fn owned_objects_request(id: impl Into<String>, params: OwnedObjectsParams) -> RpcRequest {
+    let mut request = RpcRequest::empty(id, METHOD_OWNED_OBJECTS).with_param_value(
+        "owner_public_key_hex",
+        string_value(params.owner_public_key_hex),
+    );
+    if let Some(asset) = params.asset {
+        request = request.with_param_value("asset", string_value(asset));
+    }
+    if let Some(limit) = params.limit {
+        request = request.with_param_value("limit", usize_value(limit));
+    }
+    request
+}
+
+pub fn owned_recovery_status_request(
+    id: impl Into<String>,
+    params: OwnedRecoveryStatusParams,
+) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_OWNED_RECOVERY_STATUS)
+        .with_param_value("lock_id", string_value(params.lock_id))
+}
+
+pub fn owned_recovery_capabilities_request(id: impl Into<String>) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_OWNED_RECOVERY_CAPABILITIES)
+}
+
+pub fn owned_certificate_request(
+    id: impl Into<String>,
+    selector: OwnedCertificateSelector,
+) -> RpcRequest {
+    let request = RpcRequest::empty(id, METHOD_OWNED_CERTIFICATE);
+    match selector {
+        OwnedCertificateSelector::LockId(lock_id) => {
+            request.with_param_value("lock_id", string_value(lock_id))
+        }
+        OwnedCertificateSelector::CertificateDigest(certificate_digest) => {
+            request.with_param_value("certificate_digest", string_value(certificate_digest))
+        }
+    }
+}
+
+/// Reads the `owned_certificate` selector out of request params, enforcing
+/// the node's rules: exactly one of `lock_id` / `certificate_digest`, 96
+/// lowercase hex characters, nothing else.
+pub fn owned_certificate_selector_from_params(
+    params: &Value,
+) -> Result<OwnedCertificateSelector, RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["lock_id", "certificate_digest"])?;
+    match (params.contains_key("lock_id"), params.contains_key("certificate_digest")) {
+        (true, false) => {
+            lower_hex_param(params, "lock_id", OWNED_CERTIFICATE_SELECTOR_HEX_LEN)?;
+            Ok(OwnedCertificateSelector::LockId(
+                string_param(params, "lock_id")?.to_string(),
+            ))
+        }
+        (false, true) => {
+            lower_hex_param(params, "certificate_digest", OWNED_CERTIFICATE_SELECTOR_HEX_LEN)?;
+            Ok(OwnedCertificateSelector::CertificateDigest(
+                string_param(params, "certificate_digest")?.to_string(),
+            ))
+        }
+        (true, true) => Err(invalid_request_params(
+            "certificate_digest",
+            "expected exactly one of lock_id or certificate_digest, not both",
+        )),
+        (false, false) => Err(invalid_request_params(
+            "lock_id",
+            "expected exactly one of lock_id or certificate_digest",
+        )),
+    }
 }
 
 pub fn vault_bridge_status_request(
@@ -1548,6 +1696,8 @@ pub enum RpcRequestKind {
     AccountOffers,
     BookOffers,
     AssetInfo,
+    NavReserveProofStatus,
+    VaultBridgeRoute,
     AccountLines,
     AccountAssets,
     IssuerAssets,
@@ -1594,6 +1744,11 @@ pub enum RpcRequestKind {
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
     VaultBridgeStatus,
+    MarketOpsStatus,
+    OwnedObjects,
+    OwnedRecoveryStatus,
+    OwnedRecoveryCapabilities,
+    OwnedCertificate,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -1954,6 +2109,8 @@ pub enum RpcResponseKind {
     AccountOffers,
     BookOffers,
     AssetInfo,
+    NavReserveProofStatus,
+    VaultBridgeRoute,
     AccountLines,
     AccountAssets,
     IssuerAssets,
@@ -2000,6 +2157,11 @@ pub enum RpcResponseKind {
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
     VaultBridgeStatus,
+    MarketOpsStatus,
+    OwnedObjects,
+    OwnedRecoveryStatus,
+    OwnedRecoveryCapabilities,
+    OwnedCertificate,
     BridgeBatchDomain,
     BridgeBatchTransfer,
     BridgeBatchPause,
@@ -2523,6 +2685,8 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::AccountOffers => METHOD_ACCOUNT_OFFERS,
         RpcRequestKind::BookOffers => METHOD_BOOK_OFFERS,
         RpcRequestKind::AssetInfo => METHOD_ASSET_INFO,
+        RpcRequestKind::NavReserveProofStatus => METHOD_NAV_RESERVE_PROOF_STATUS,
+        RpcRequestKind::VaultBridgeRoute => METHOD_VAULT_BRIDGE_ROUTE,
         RpcRequestKind::AccountLines => METHOD_ACCOUNT_LINES,
         RpcRequestKind::AccountAssets => METHOD_ACCOUNT_ASSETS,
         RpcRequestKind::IssuerAssets => METHOD_ISSUER_ASSETS,
@@ -2581,6 +2745,11 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::NavcoinBridgeReceiptReplay => METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
         RpcRequestKind::NavcoinBridgePacketPreflight => METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
         RpcRequestKind::VaultBridgeStatus => METHOD_VAULT_BRIDGE_STATUS,
+        RpcRequestKind::MarketOpsStatus => METHOD_MARKET_OPS_STATUS,
+        RpcRequestKind::OwnedObjects => METHOD_OWNED_OBJECTS,
+        RpcRequestKind::OwnedRecoveryStatus => METHOD_OWNED_RECOVERY_STATUS,
+        RpcRequestKind::OwnedRecoveryCapabilities => METHOD_OWNED_RECOVERY_CAPABILITIES,
+        RpcRequestKind::OwnedCertificate => METHOD_OWNED_CERTIFICATE,
         RpcRequestKind::BridgeBatchDomain => METHOD_BRIDGE_BATCH_DOMAIN,
         RpcRequestKind::BridgeBatchTransfer => METHOD_BRIDGE_BATCH_TRANSFER,
         RpcRequestKind::BridgeBatchPause => METHOD_BRIDGE_BATCH_PAUSE,
@@ -2661,6 +2830,8 @@ fn validate_request_params(
         RpcRequestKind::AccountOffers => validate_account_offers_request_params(&request.params),
         RpcRequestKind::BookOffers => validate_book_offers_request_params(&request.params),
         RpcRequestKind::AssetInfo => validate_asset_info_request_params(&request.params),
+        RpcRequestKind::NavReserveProofStatus => validate_nav_reserve_proof_status_request_params(&request.params),
+        RpcRequestKind::VaultBridgeRoute => validate_vault_bridge_route_request_params(&request.params),
         RpcRequestKind::AccountLines => validate_account_lines_request_params(&request.params),
         RpcRequestKind::AccountAssets => validate_account_assets_request_params(&request.params),
         RpcRequestKind::IssuerAssets => validate_issuer_assets_request_params(&request.params),
@@ -2765,6 +2936,19 @@ fn validate_request_params(
         }
         RpcRequestKind::VaultBridgeStatus => {
             validate_vault_bridge_status_request_params(&request.params)
+        }
+        RpcRequestKind::MarketOpsStatus => {
+            validate_market_ops_status_request_params(&request.params)
+        }
+        RpcRequestKind::OwnedObjects => validate_owned_objects_request_params(&request.params),
+        RpcRequestKind::OwnedRecoveryStatus => {
+            validate_owned_recovery_status_request_params(&request.params)
+        }
+        RpcRequestKind::OwnedRecoveryCapabilities => {
+            validate_owned_recovery_capabilities_request_params(&request.params)
+        }
+        RpcRequestKind::OwnedCertificate => {
+            owned_certificate_selector_from_params(&request.params).map(|_| ())
         }
         RpcRequestKind::NavcoinBridgeReceiptReplay => {
             validate_navcoin_bridge_receipt_replay_request_params(&request.params)
@@ -3143,6 +3327,28 @@ fn validate_book_offers_request_params(params: &Value) -> Result<(), RpcRequestV
 }
 
 fn validate_asset_info_request_params(params: &Value) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["asset_id"])?;
+    lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    Ok(())
+}
+
+/// Same shape as `asset_info`: the node validates `asset_id` as a lowercase
+/// 96-hex issued-asset id before reading anything.
+fn validate_nav_reserve_proof_status_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["asset_id"])?;
+    lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    Ok(())
+}
+
+/// Same shape as `asset_info`: the node validates `asset_id` as a lowercase
+/// 96-hex issued-asset id before resolving the governed route.
+fn validate_vault_bridge_route_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
     let params = request_params(params)?;
     require_only_params(params, &["asset_id"])?;
     lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
@@ -4211,6 +4417,72 @@ fn validate_vault_bridge_status_request_params(
     let params = request_params(params)?;
     require_only_params(params, &["asset_id"])?;
     lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    Ok(())
+}
+
+fn validate_market_ops_status_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["asset_id", "epoch"])?;
+    lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+    optional_nonzero_u64_param(params, "epoch")?;
+    Ok(())
+}
+
+fn validate_owned_objects_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["owner_public_key_hex", "asset", "limit"])?;
+    // The node decodes the key case-insensitively (crypto_provider hex_to_bytes)
+    // and requires exactly ML_DSA_65_PUBLIC_KEY_BYTES * 2 characters, so this
+    // mirrors that rather than the lowercase-only rule used for asset ids.
+    let owner_public_key_hex = params
+        .get("owner_public_key_hex")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            invalid_request_params("owner_public_key_hex", "expected string value")
+        })?;
+    if owner_public_key_hex.len() != OWNED_OWNER_PUBLIC_KEY_HEX_LEN
+        || !owner_public_key_hex
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err(invalid_request_params(
+            "owner_public_key_hex",
+            format!(
+                "expected a hex-encoded ML-DSA-65 public key ({OWNED_OWNER_PUBLIC_KEY_HEX_LEN} characters)"
+            ),
+        ));
+    }
+    if params.contains_key("asset") {
+        let asset = string_param(params, "asset")?;
+        if asset != asset.trim() || asset.chars().any(char::is_control) {
+            return Err(invalid_request_params(
+                "asset",
+                "expected text without leading, trailing, or control whitespace",
+            ));
+        }
+    }
+    optional_bounded_nonzero_usize_param(params, "limit", OWNED_OBJECTS_MAX_LIMIT)?;
+    Ok(())
+}
+
+fn validate_owned_recovery_status_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["lock_id"])?;
+    lower_hex_param(params, "lock_id", OWNED_RECOVERY_LOCK_ID_HEX_LEN)?;
+    Ok(())
+}
+
+fn validate_owned_recovery_capabilities_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &[])?;
     Ok(())
 }
 

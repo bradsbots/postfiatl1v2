@@ -126,6 +126,17 @@ report, and fails closed when method-specific checks fail.
   [method-coverage.md](../rpc/method-coverage.md) has a wrapper of the same
   name, and `tests/test_client_read_wrappers.py` fails if a row is added
   without one
+
+The CLI (`python -m postfiat_rpc --method ...`) accepts every documented
+public read as a `--method` value, with the node's parameter names as flags
+(`--from-height`/`--to-height`/`--archive-uri`, `--owner`, `--note-id`,
+`--asset-id`, `--epoch`, `--nullifier-1/2`, `--output-commitment-1/2`,
+`--base-asset-id`/`--quote-asset-id`/`--active-only`/`--limit`,
+`--fix-packet-hash`, `--reservation-id`, `--base-atoms`, `--recipient`,
+`--depositor`, `--amount-atoms`, `--withdrawal-id`, `--prior-checkpoint`,
+`--registration-id`); the report records an `<method>_is_object` (or
+`shield_scan_is_list`) check. `tests/test_cli_public_reads.py` fails if a
+`public read` row is added to method-coverage.md without a CLI method.
 - `account_tx(address, from_height=None, to_height=None, limit=None)`
 - `account_tx_history(address, from_height=0, to_height=None,
   window_size=100, limit_per_window=512, max_windows=1000)`
