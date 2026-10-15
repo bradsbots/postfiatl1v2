@@ -1,10 +1,10 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-15T11:14:00Z` (release `fastlane-cap-20261014` deployed to all six, blocks 1124–1129); latest fleet observation `2026-10-15T11:07:27Z`
+Updated: `2026-10-15T11:50:00Z` (bridge committee epoch 2 activated at height 1131); latest fleet observation `2026-10-15T11:45:37Z`
 
 Status: **canonical operational-state reference**
 
-!!! success "2026-10-15: fastlane-cap release deployed to all six validators"
+!!! success "2026-10-15: fastlane-cap release deployed; bridge committee epoch 2 active"
 
     Release `fastlane-cap-20261014` runs on all six validators: source
     `8bed9b90` on branch `release/fastlane-cap-20261014`, executable
@@ -36,11 +36,32 @@ Status: **canonical operational-state reference**
     stay on every host. The per-validator path is `rollback-one.sh` (data in
     place, verified by that executable first); the signed validator-1 backup at
     1123 is the fallback. Rollback was not needed. The 70,944 B anchor passes
-    the release's request validation offline; its live admission is the first
-    step of the bridge half of the signer-group activation (sheet §7), not done
-    yet. Records:
+    the release's request validation offline; it was admitted live in sheet §7
+    (below). Records:
     [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md),
     [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/rollout-record.json).
+
+    Bridge half of the signer-group activation (sheet §7, 11:25–11:46Z), with a
+    state read before and after each step. Validators 0–4 gave fresh, identical
+    drained epoch-1 checkpoint votes (policy epoch 1 fenced, no previous
+    checkpoint). The `AnchorCheckpoint` (71,005 B, tx `f34dd1f5…`) was admitted
+    at height 1130 through validator-2 (block `4dafdfc8…`). `ActivateCommittee`
+    epoch 2 (root `72836827…`, six members with validator-5's current key,
+    quorum 5; 176,546 B, tx `2b2efa37…`), signed by validators 0–4 on their own
+    hosts, was admitted at 1131 through validator-3 (block `9b054f09…`). The
+    receipts are `fastlane_checkpoint_anchored` and `fastlane_control_applied` on
+    all six, and the RPC reported both as success. After (`11:45:37Z`): height
+    1131, tip `9b054f09…`, root `a12e7c5f…`, mempools empty, six-way agreement.
+    The A666 and BMNRC routes stay on `authority_epoch` 1 (root `a2eebcba…`),
+    so validators 0–4 still sign Ethereum checkpoints. The A666 update to
+    `authority_epoch` 2 is prepared unsigned (sha256 `24aa2e28…`) and awaits
+    the other lane's signature; BMNRC needs the same update from its issuer.
+    `fastswap_capabilities` still reports each validator's local FastSwap
+    committee (epoch 1, `enabled: false`); the local committee was not
+    switched. Records:
+    [sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half),
+    [activation record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/bridge-activation/bridge-activation-record.json),
+    [unsigned update](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/a666-bridge-policy-update.unsigned.json).
 
 !!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
 

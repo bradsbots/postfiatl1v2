@@ -155,7 +155,7 @@ bradsbots (fork, read permission) opened #56–#108 between 2026-10-08 and 2026-
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `signer-rotation-20261007`). A consensus candidate adds its own qualification before the cut.
 
-- [ ] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half))
+- [x] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half)). 2026-10-15: anchor at 1130, bridge committee epoch 2 (`72836827…`) at 1131, both on all six; the issuer's update (§8.4) is prepared unsigned and awaits the other lane.
 
 Cut 2026-10-15: `fastlane-cap-20261014`, main at `8bed9b90`, branch `release/fastlane-cap-20261014`
 ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md),
@@ -168,4 +168,4 @@ Local checks only; CI `rust-supply-chain` green on the tip's run, `rust-ci` `tes
 - [x] The 70,944 B `AnchorCheckpoint` and a 176,181 B `ActivateCommittee` pass `validate-request` and the rpc-serve parameter check; the deployed build refuses them at 64 KiB.
 - [x] Signed manifest `4f379c57…` (publisher `pfc531e0…`); units byte-identical to `signer-rotation-20261007` after the release-ID change; `systemd-analyze verify` clean.
 - [x] Focused suites of this release's changes.
-- [ ] Canary backup, fleet before-state, rollout, bridge activation (release day, operator's go).
+- [x] Canary backup, fleet before-state, rollout, bridge activation (release day, operator's go). 2026-10-15: deployed at 1129, bridge activation at 1130–1131.
