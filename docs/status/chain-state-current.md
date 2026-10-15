@@ -1,8 +1,46 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-13T09:50:00Z` (Ethereum relays 28701 and 28702 run as systemd units); latest fleet observation `2026-10-13T09:45:09Z`
+Updated: `2026-10-15T11:14:00Z` (release `fastlane-cap-20261014` deployed to all six, blocks 1124–1129); latest fleet observation `2026-10-15T11:07:27Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-15: fastlane-cap release deployed to all six validators"
+
+    Release `fastlane-cap-20261014` runs on all six validators: source
+    `8bed9b90` on branch `release/fastlane-cap-20261014`, executable
+    `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`,
+    signed manifest `4f379c57…` (publisher `pfc531e0…`). It is
+    `signer-rotation-20261007` plus the 256 KiB `fastlane_primary_json` RPC cap
+    with per-operation finality receipt checks (`7f9d0d98`), the rustls 0.23.46
+    advisory fix (#123) and the reviewed contributor merges. It replaced
+    `signer-rotation-20261007` (`decaa411…`) with
+    `scripts/postfiat-safe-rollout apply-next`, one validator at a time
+    (validator-1 canary, then 0, 2, 3, 4, 5), 10:38:19–11:03:35Z.
+
+    Before (`10:19:51Z`): six on `signer-rotation-20261007` at height 1123,
+    tip `bafcc6ef…`, root `942d1fc2…`, mempools empty. Signed canary backup from
+    validator-1 at 1123: manifest `d957141e…`, re-imported, checkpoint verified
+    and fully replayed to the same root. After (`11:07:27Z`): all 12 validator
+    and RPC processes on `b1b3dbb1…`, `deployment_manifest_verified=true` on
+    every host, RPC units with `--max-requests 100000` and `RestartSec=1`,
+    height 1129, tip `41154d2c…`, root `053fb35c…`; `demo-preflight.py` READY
+    (60 PASS). No divergence at any step.
+
+    Grants used: six devnet faucet grants of 1 PFT from the faucet account to
+    the `testing` wallet (StakeHub `pft faucet`), one after each apply, at
+    heights 1124–1129 (proposers validator-2, 3, 4, 5, 0, 1). Each certified at
+    view 0 with quorum 5 of 6 and the same block, tip and root on all six
+    (`blocks` RPC). Total: 6 PFT plus 192 atoms of fees. Nothing else moved.
+
+    Rollback: the `signer-rotation-20261007` executable and release directory
+    stay on every host. The per-validator path is `rollback-one.sh` (data in
+    place, verified by that executable first); the signed validator-1 backup at
+    1123 is the fallback. Rollback was not needed. The 70,944 B anchor passes
+    the release's request validation offline; its live admission is the first
+    step of the bridge half of the signer-group activation (sheet §7), not done
+    yet. Records:
+    [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md),
+    [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/rollout-record.json).
 
 !!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
 
@@ -35,10 +73,10 @@ Status: **canonical operational-state reference**
     height 1123, root `942d1fc2…`, with six-way agreement
     ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
 
-    On 2026-10-15 the next candidate, `fastlane-cap-20261014` (`main` at `8bed9b90`,
-    executable `b1b3dbb1…`), which admits the anchor and `ActivateCommittee`, was cut and
-    qualified locally; it is cut, not deployed
-    ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md)).
+    On 2026-10-15 the next release, `fastlane-cap-20261014` (`main` at `8bed9b90`,
+    executable `b1b3dbb1…`), which admits the anchor and `ActivateCommittee`, was cut,
+    qualified locally and deployed (2026-10-15 entry above;
+    [release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md)).
 
 !!! success "2026-10-09: signer-rotation release deployed to all six validators"
 
