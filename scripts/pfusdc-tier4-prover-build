@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Build the default prover with a checksum-pinned copy of one retired module."""
+import argparse
+import hashlib
+import os
+from pathlib import Path
+import subprocess
+import tempfile
+import tomllib
+import urllib.request
+
+MODULE = "github.com/consensys/gnark-ignition-verifier"
+VERSION = "v0.0.0-20230527014722-10693546ab33"
+PROXY_COMMIT = "9580323dfab6a759db4eea04fac40c3c31612da8"
+PROXY_URL = (
+    "https://raw.githubusercontent.com/polytope-labs/gnark-ignition-verifier/"
+    + PROXY_COMMIT
+)
+# The original module, not a fork replacement. Its Go h1 sums are unchanged:
+# zip: h1:z42ewLaLxoTYeQ17arcF4WExZc/eSaN3YVlF7eEaPt4=
+# mod: h1:JdKor28c/KR4BbznP88bz8AAvnCgovzrB3KWsiR7lwk=
+SHA256 = {
+    "info": "26037cb93d895964b14497bca5fa804c7c6648a829ea5634c7e1089cfbf193e5",
+    "mod": "ec4644d14112551c2ea6344e0375434407442d87d0f478f9289cb77275d76a21",
+    "zip": "be6a42645b23ef77c2877e82923c4286138fa425ebed136a8f61b56760ff6172",
+}
+
+
+def checked(data, extension):
+    if hashlib.sha256(data).hexdigest() != SHA256[extension]:
+        raise ValueError(f"original module {extension} checksum mismatch")
+    return data
+
+
+def download(extension):
+    url = f"{PROXY_URL}/{MODULE}/@v/{VERSION}.{extension}"
+    with urllib.request.urlopen(url, timeout=30) as response:
+        data = response.read(1_000_001)
+    if len(data) > 1_000_000:
+        raise ValueError("original module response exceeds bound")
+    return data
+
+
+def prepare_proxy(cache, fetch=download):
+    directory = cache.resolve() / MODULE / "@v"
+    directory.mkdir(parents=True, exist_ok=True)
+    for extension in SHA256:
+        target = directory / f"{VERSION}.{extension}"
+        if target.exists():
+            checked(target.read_bytes(), extension)
+            continue
+        data = checked(fetch(extension), extension)
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(data)
+        try:
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+    return cache.resolve().as_uri()
+
+
+def build_command(root, test):
+    manifest = root / "tools/pfusdc-tier4-prover/Cargo.toml"
+    config = tomllib.loads(manifest.read_text())
+    if config["features"]["default"] != ["sp1-native-gnark"]:
+        raise ValueError("default native Gnark feature contract changed; review recovery")
+    if config["dependencies"]["sp1-sdk"]["version"] != "=6.3.1":
+        raise ValueError("SP1 version changed; review recovery before reuse")
+    return ["cargo", "test" if test else "build", "--manifest-path", str(manifest), "--locked"]
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--test", action="store_true", help="run the tool's host unit tests")
+    parser.add_argument(
+        "--cache-dir", type=Path,
+        default=Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache"))
+        / "postfiat/original-go-module",
+    )
+    args = parser.parse_args()
+    root = Path(__file__).resolve().parent.parent
+    command = build_command(root, args.test)
+    local_proxy = prepare_proxy(args.cache_dir)
+    environment = os.environ.copy()
+    environment.update(
+        GOPROXY=f"https://proxy.golang.org,{local_proxy}",
+        GOSUMDB="sum.golang.org", GONOSUMDB="", GOPRIVATE="", GONOPROXY="",
+        GOINSECURE="", GOENV="off", GOWORK="off", GOFLAGS="-mod=readonly",
+    )
+    # Only compile/test this host tool. Never invoke its proving CLI. The Go
+    # toolchain checks the original go.sum and authenticated checksum database.
+    return subprocess.run(command, cwd=root, env=environment, check=False).returncode
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (OSError, ValueError) as error:
+        raise SystemExit(f"prover build preparation failed: {error}") from error
