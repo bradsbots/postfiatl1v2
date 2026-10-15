@@ -111,6 +111,44 @@ def transfer_report(action: str, amount_atoms: int, result: Any) -> dict[str, An
     }
 
 
+def finality_warning(report: dict[str, Any]) -> str | None:
+    """Return the stderr warning for a --poll-finality report, or None.
+
+    A poll that times out is a reported outcome (``finality_timeout`` in the
+    result), not a failure: stdout and the exit code stay as they are. The
+    warning only tells an operator that the transfer may still finalize, so
+    it must be polled rather than resubmitted.
+    """
+    body = report.get("result")
+    if not isinstance(body, dict):
+        body = {}
+    tx_id = body.get("tx_id")
+    if not isinstance(tx_id, str) or not tx_id:
+        return (
+            "warning: finality not polled: submit returned no tx_id; the transfer "
+            "may still finalize - check the account, do not resubmit"
+        )
+    if body.get("finalized") is True and body.get("finality_timeout") is not True:
+        return None
+    # Escape control characters so an RPC-supplied tx_id cannot split the line.
+    shown = tx_id.encode("unicode_escape").decode("ascii")
+    return (
+        "warning: finality not observed before --poll-timeout-seconds; "
+        f"transaction {shown} may still finalize - poll it, do not resubmit"
+    )
+
+
+def warn_if_finality_not_observed(report: dict[str, Any]) -> None:
+    message = finality_warning(report)
+    if message is None:
+        return
+    try:
+        print(message, file=sys.stderr)
+    except (OSError, ValueError):
+        # An unusable stderr must not change the stdout report or exit code.
+        pass
+
+
 def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
     if not args.allow_faucet_apply:
         raise ValueError("faucet requires --allow-faucet-apply before changing validator state")
@@ -189,6 +227,9 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
             poll_timeout_seconds=args.poll_timeout_seconds,
             poll_interval_seconds=args.poll_interval_seconds,
         )
+        report = transfer_report("send", amount_atoms, result)
+        warn_if_finality_not_observed(report)
+        return report
     else:
         result = send_pft(
             client,

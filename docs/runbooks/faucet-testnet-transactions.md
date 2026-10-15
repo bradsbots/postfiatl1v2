@@ -197,6 +197,11 @@ result = send_pft_and_poll_finality(
 print(result.tx_id, result.submit_mode, result.finalized)  # submit_and_poll, True
 ```
 
+From the command line, `scripts/pftl-transfer.py send --poll-finality` reports
+a poll that times out as a result, not an error: it exits `0` with `"ok": true` and
+`result.finality_timeout: true`, and prints one warning line on stderr. The
+transfer may still finalize: poll `result.tx_id`, and do not resubmit.
+
 Neither of these functions calls `apply-batch`. The
 `--finalize-data-dir` flag on `pftl-transfer.py` is labeled "(local
 harness only)" and is the only path that invokes `apply-batch`.
