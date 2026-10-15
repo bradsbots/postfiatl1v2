@@ -105,6 +105,7 @@ function loadConfig(env, supplied) {
         retry_delay_ms: Number(raw.retry_delay_ms || 5_000),
     };
     if (!Number.isSafeInteger(config.worker_timeout_ms) || config.worker_timeout_ms < 60_000
+        || config.worker_timeout_ms > 2_147_483_647
         || !Number.isSafeInteger(config.max_retries) || config.max_retries < 1 || config.max_retries > 10
         || !Number.isSafeInteger(config.retry_delay_ms) || config.retry_delay_ms < 100) {
         throw new Error('invalid pNOK FIX worker limits');

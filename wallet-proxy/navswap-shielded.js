@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseBooleanEnv } = require('./boolean-env');
+
 function create(runtime) {
     const { execFileSync,
  spawn } = runtime;
@@ -1434,7 +1436,7 @@ wss } = runtime;
         // background thread) recovers the ~14s round the optimized operator runner achieves. The
         // dropped slow peer is reconciled afterward via rpc-catch-up (see runShieldedLaggardCatchUp),
         // so 6/6 convergence is preserved without full state-sync repair. Env-gated + reversible.
-        if (process.env.SHIELDED_EARLY_QUORUM === 'true') {
+        if (parseBooleanEnv('SHIELDED_EARLY_QUORUM', false)) {
             args.push('--quorum-early-full-propagation', '--local-apply-before-certified-send', '--defer-certified-sends');
         }
         if (config.proposal_key_file) {
@@ -1709,7 +1711,7 @@ wss } = runtime;
     }
 
     function shieldedEarlyQuorumEnabled() {
-        return process.env.SHIELDED_EARLY_QUORUM === 'true';
+        return parseBooleanEnv('SHIELDED_EARLY_QUORUM', false);
     }
 
     function shieldedLaggardCatchUpConfig() {

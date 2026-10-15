@@ -680,7 +680,9 @@ class PostFiatRpcClient:
         result = self._call("account_offers", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_offers result must be an object")
-        return result
+        return self._bound_account_collection_result(
+            "account_offers", result, account, state=state
+        )
 
     def book_offers(
         self,
@@ -800,6 +802,49 @@ class PostFiatRpcClient:
         result = self._call("account_escrows", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_escrows result must be an object")
+        return self._bound_account_collection_result(
+            "account_escrows", result, account, state=state, role=role
+        )
+
+    @staticmethod
+    def _bound_account_collection_result(
+        method: str,
+        result: dict[str, Any],
+        account: str,
+        *,
+        state: str | None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        if type(result.get("account")) is not str or result["account"] != account:
+            raise RpcProtocolError(f"{method} result.account must match requested account")
+        collection = "offers" if method == "account_offers" else "escrows"
+        filters = {"role": role, "state": state} if collection == "escrows" else {"state": state}
+        for field, requested in filters.items():
+            value = result.get(field)
+            matches = value is None if requested is None else type(value) is str and value == requested
+            if field not in result or not matches:
+                raise RpcProtocolError(f"{method} result.{field} must match requested {field}")
+        rows = result.get(collection)
+        if not isinstance(rows, list):
+            raise RpcProtocolError(f"{method} result.{collection} must be an array")
+        fields = ("owner", "recipient", "state") if collection == "escrows" else ("owner", "state")
+        for index, row in enumerate(rows):
+            label = f"{method} result.{collection}[{index}]"
+            if not isinstance(row, dict):
+                raise RpcProtocolError(f"{label} must be an object")
+            for field in fields:
+                if type(row.get(field)) is not str:
+                    raise RpcProtocolError(f"{label}.{field} must be a string")
+            if collection == "offers":
+                if row["owner"] != account:
+                    raise RpcProtocolError(f"{label}.owner must match requested account")
+            elif role is not None:
+                if row[role] != account:
+                    raise RpcProtocolError(f"{label}.{role} must match requested account for role {role}")
+            elif row["owner"] != account and row["recipient"] != account:
+                raise RpcProtocolError(f"{label} must belong to requested account")
+            if state is not None and row["state"] != state:
+                raise RpcProtocolError(f"{label}.state must match requested state")
         return result
 
     def nft_info(self, nft_id: str) -> dict[str, Any]:
@@ -2984,12 +3029,13 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
             self._close_websocket()
 
     def _close_websocket(self) -> None:
-        if self._websocket is not None:
+        websocket = self._websocket
+        self._websocket = None
+        if websocket is not None:
             try:
-                self._websocket.close()
+                websocket.close()
             except Exception:
                 pass
-        self._websocket = None
 
     def persistent_worker(self, key: str) -> "PostFiatWebSocketRpcClient":
         """Return a client-lifetime WebSocket session for one concurrent lane."""
@@ -3066,26 +3112,33 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
                 websocket = self._connect_websocket()
                 websocket.send(wire)
                 message = websocket.recv(timeout=self.timeout_seconds)
+                if isinstance(message, bytes):
+                    raw = message.decode("utf-8")
+                else:
+                    raw = str(message)
+                if len(raw.encode("utf-8")) > self.response_byte_cap:
+                    raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
+                try:
+                    response = json.loads(raw)
+                except json.JSONDecodeError as error:
+                    raise RpcProtocolError(f"response was not valid JSON: {error}") from error
+                if not isinstance(response, dict):
+                    raise RpcProtocolError("response envelope must be an object")
+                # Bind and validate before another call can reuse this session.
+                # A bound RPC refusal is valid; the caller will raise RpcError.
+                try:
+                    self._unwrap_response(request["method"], request["id"], response)
+                except RpcError:
+                    pass
+                return response
             except TimeoutError as error:
                 self._close_websocket()
                 raise RpcProtocolError(f"WebSocket RPC timeout: {request.get('method')}") from error
-            except Exception as error:
+            except BaseException as error:
                 self._close_websocket()
+                if isinstance(error, RpcProtocolError) or not isinstance(error, Exception):
+                    raise
                 raise RpcProtocolError(f"WebSocket RPC failed: {error}") from error
-
-        if isinstance(message, bytes):
-            raw = message.decode("utf-8")
-        else:
-            raw = str(message)
-        if len(raw.encode("utf-8")) > self.response_byte_cap:
-            raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
-        try:
-            response = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise RpcProtocolError(f"response was not valid JSON: {error}") from error
-        if not isinstance(response, dict):
-            raise RpcProtocolError("response envelope must be an object")
-        return response
 
 
 def _hash_hex_domain(domain: str, payload: bytes) -> str:

@@ -470,6 +470,12 @@ class WalletHelperTests(unittest.TestCase):
                         kind: {f"{kind}_id": requested_id},
                     }
                 )
+            elif method in {"account_offers", "account_escrows"}:
+                params = request["params"]
+                result.update({"account": params["account"], "state": params.get("state")})
+                if method == "account_escrows":
+                    result["role"] = params.get("role")
+                result[method.removeprefix("account_")] = []
             return {
                 "version": "postfiat-local-rpc-v1",
                 "id": request["id"],
