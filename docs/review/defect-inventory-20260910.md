@@ -102,7 +102,8 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 
 These 22 findings are from the [burn 5 campaign](qa-campaign-20260916.md):
 1 P1, 14 P2 and 7 P3. Fourteen findings have source repairs, seven P3s remain
-recorded without repair, and SMG-07 is blocked by an out-of-scope dependency.
+recorded without repair, and SMG-07 was blocked by an out-of-scope dependency
+(repaired 2026-10-14; see its row).
 All five repair commits still have a full Rust suite verdict pending.
 Consensus-affecting repairs remain source-only and were not activated or deployed.
 
@@ -119,12 +120,12 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 | CHO-05 | Code-observed defect | P3 | Fixed — `f0225b23`, `7bd9c3e3`; not consensus-affecting (rehearsal probes only) | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): negative rehearsal probes discarded signed approvals, so a missing-quorum rejection could be reported as independent stale-height or replay evidence. |
 | CHO-06 | Code-observed defect | P3 | Fixed — `de3731b3` | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): rehearsal manifest digest checks accepted lowercase letters outside hexadecimal, carrying malformed anchors into prepared evidence without establishing a live admission bypass. |
 | SMG-01 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): check-then-replace output could overwrite a competing activation/cancellation artifact or dangling symlink; publication now uses an atomic no-replace hard link and directory sync. |
-| SMG-02 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting; append recovery only | [Storage migration review](storage-migration-review-20260916.md#findings): append recovery skipped move-directory sync when an earlier rename was already visible, then published its index and cleared the intent. Both append barriers now retry; prune durability remains unqualified behind SMG-07. |
+| SMG-02 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting; append recovery only | [Storage migration review](storage-migration-review-20260916.md#findings): append recovery skipped move-directory sync when an earlier rename was already visible, then published its index and cleared the intent. Both append barriers now retry; the prune half is repaired under SMG-07 (2026-10-14). |
 | SMG-03 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): pending-intent recovery could stamp unrelated completed-directory additions or omissions as consistent; bounded membership checks now preserve the old index and intent on refusal. |
 | SMG-04 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): backend selection left the candidate mode published after post-validation failed; returned errors now restore the previous mode and report restoration failure. |
 | SMG-05 | Code-observed defect | P3 | Fixed — `8b97667f`; symlink substitution corrected 2026-10-13 by the PR #62 follow-up, excluded on Unix only (no-follow open); not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): migration manifest/checksum reads were unbounded, and index metadata checks preceded a separate unbounded read vulnerable to non-cooperating local replacement or growth. |
 | SMG-06 | Code-observed defect | P3 | Fixed — `8b97667f` | [Storage migration review](storage-migration-review-20260916.md#findings): a bare relative output could fail disk-space preflight on its empty parent path; an existing output mount could also differ from the parent filesystem used for estimation. |
-| SMG-07 | Reproduced defect | P2 | Recorded, repair blocked by A4 scope | [Storage migration review](storage-migration-review-20260916.md#findings): interrupted prune recovery rejected an already moved retention payload as non-canonical. Repair requires the shared resolver in `crates/node/src/transport_cli.rs`, outside A4's four-file list; the record does not establish a release-candidate exclusion. |
+| SMG-07 | Reproduced defect | P2 | Fixed — 2026-10-14; not consensus-affecting; the path refusal was fixture-only, and prune recovery now retries both directory barriers before index publication | [Storage migration review](storage-migration-review-20260916.md#findings): interrupted prune recovery rejected an already moved retention payload as non-canonical. Repair requires the shared resolver in `crates/node/src/transport_cli.rs`, outside A4's four-file list; the record does not establish a release-candidate exclusion. The refusal needs stored `completed/` payload paths, which only the test fixture writes; production jobs store `outbox/<job_id>/` paths, which the resolver already accepts from retention, so `transport_cli.rs` is unchanged and the fixture shape stays refused. Recovery of an indexed prune now syncs the completed and retention directories before removing the index entry, also when the rename was already visible. |
 | SWP-01 | Reproduced defect | P2 | Fixed — `d679f8e8`; consensus-affecting, because recovery reconciliation results change; source-only; not activated or deployed | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): FastPay rollback zipped ledger-position inverse records with certificate-ordered inputs and rejected valid differing orders. Exact identity/version sets and unique ascending positions now restore the original ledger; the fixture does not establish quorum admission or historical replay. |
 | SWP-02 | Reproduced defect | P2 | Fixed — `d679f8e8`; not consensus-affecting | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): forward PFTL journal transitions could substitute the prepared or published batch hash, making recovery identity ambiguous; publication and resolution now reject substitution while permitting prepublication reproof. |
 | SWP-03 | Reproduced defect | P2 | Fixed — `d679f8e8`; not consensus-affecting | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): the journal writer could persist valid histories exceeding the reader's 32 MiB limit; serialized bytes including the newline are now bounded before replacing the readable file. |
@@ -287,11 +288,11 @@ broader production claim.
 | P1 | 26 |
 | P2 | 77 |
 | P3 | 38 |
-| Fixed | 107 |
+| Fixed | 108 |
 | Dispositioned | 16 |
 | Reproduced and retained (prior campaigns) | 5 |
 | Recorded, not fixed (burn 3–6 P3) | 1 |
-| Recorded, repair blocked by A4 scope (SMG-07) | 1 |
+| Recorded, repair blocked by A4 scope (SMG-07) | 0 |
 | Closed 2026-10-02 on postfiat-wan-devnet-2 | 4 |
 | Narrowed 2026-10-02 (PI-18, not a live-environment need) | 1 |
 | Needs a traffic campaign on postfiat-wan-devnet-2 | 1 |
@@ -340,6 +341,8 @@ they remain source-only, not activated or deployed. All five repair commits
 have a full Rust suite verdict pending. SMG-07 requires the shared retention-path
 resolver outside A4; the append fix does not qualify the blocked prune path.
 No burn 5 finding is documented as blocked specifically by the release candidate.
+On 2026-10-14 SMG-07 was repaired without the resolver: its path refusal needs
+a fixture-only stored path, and the prune barriers are now retried.
 
 Burn 6 added nine repaired P2s and six code-observed P3s recorded without
 repair: PFV-01, BRW-04/05/06 and NOD-03/04. The consensus-affecting repairs are NAV-03

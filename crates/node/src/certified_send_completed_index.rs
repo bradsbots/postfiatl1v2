@@ -1011,6 +1011,17 @@ fn sync_append_move(data_dir: &Path) -> Result<(), String> {
     )
 }
 
+fn sync_prune_move(data_dir: &Path) -> Result<(), String> {
+    sync_recovery_directory(
+        &certified_send_completed_dir(data_dir),
+        "completed directory after prune move",
+    )?;
+    sync_recovery_directory(
+        &certified_send_completed_retention_dir(data_dir),
+        "retention directory after prune move",
+    )
+}
+
 fn retention_destination(data_dir: &Path, job_id: &str) -> PathBuf {
     certified_send_completed_retention_dir(data_dir).join(job_id)
 }
@@ -1136,14 +1147,12 @@ fn reconcile_prune_op(
                     entry.job_id
                 )
             })?;
-            sync_certified_send_directory(
-                &certified_send_completed_dir(data_dir),
-                "completed directory after prune recovery move",
-            )?;
-            sync_certified_send_directory(
-                &certified_send_completed_retention_dir(data_dir),
-                "retention directory after prune recovery move",
-            )?;
+        }
+        if source_exists || destination_exists {
+            // A previous rename can be visible after an interrupted or failed
+            // sync. Retry both directory barriers before the index and intent
+            // acknowledge the prune.
+            sync_prune_move(data_dir)?;
         }
         index.entries.remove(position);
         return Ok(());
@@ -2440,6 +2449,108 @@ mod completed_index_tests {
             assert!(!completed_index_intent_path(&root).exists());
             std::fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    /// Seeds a production-shaped completed job (stored paths under `outbox/`,
+    /// as `enqueue` writes them, then moved into `completed/` as an append
+    /// does), indexes it and writes a durable prune intent for it.
+    fn seed_prune_intent(root: &Path, topology: &NetworkTopology) -> (String, PathBuf) {
+        seed_completed(root, topology, 2);
+        let (job_id, outbox_dir) = tombstone_job(root, topology, 50, false);
+        let completed = certified_send_completed_dir(root).join(&job_id);
+        std::fs::rename(&outbox_dir, &completed).unwrap();
+        verify_and_rebuild_completed_index(root).unwrap();
+        let mut work = DurableCertifiedSendWorkReport::default();
+        let entry = validate_job_directory(&completed, &job_id, &mut work)
+            .unwrap()
+            .entry;
+        write_intent(root, "prune", &entry).unwrap();
+        (job_id, completed)
+    }
+
+    fn assert_prune_recovery_retries_sync(moved_before_crash: bool) {
+        for fail_retention in [false, true] {
+            let root = test_root("smg07-prune-sync");
+            let topology = test_topology();
+            let (job_id, completed) = seed_prune_intent(&root, &topology);
+            let retained = retention_destination(&root, &job_id);
+            if moved_before_crash {
+                ensure_retention_directory(&root).unwrap();
+                std::fs::rename(&completed, &retained).unwrap();
+            }
+            let prior_index = std::fs::read(completed_index_path(&root)).unwrap();
+            let fail_path = if fail_retention {
+                certified_send_completed_retention_dir(&root)
+            } else {
+                certified_send_completed_dir(&root)
+            };
+            for _ in 0..2 {
+                RECOVERY_SYNC_FAILURE
+                    .with(|failure| *failure.borrow_mut() = Some(fail_path.clone()));
+                let result = compact_completed_with_index(&root);
+                RECOVERY_SYNC_FAILURE.with(|failure| *failure.borrow_mut() = None);
+                let error = result.unwrap_err();
+                assert!(
+                    error.contains("injected completed-index recovery sync failure"),
+                    "{error}"
+                );
+                assert_eq!(
+                    std::fs::read(completed_index_path(&root)).unwrap(),
+                    prior_index
+                );
+                assert!(completed_index_intent_path(&root).is_file());
+                assert!(retained.is_dir());
+                assert!(!completed.exists());
+            }
+            compact_completed_with_index(&root).unwrap();
+            let index = read_index(&root, &mut DurableCertifiedSendWorkReport::default())
+                .unwrap()
+                .unwrap();
+            assert_eq!(index.entries.len(), 2);
+            assert!(index_entry_position(&index, &job_id).is_none());
+            assert!(!completed_index_intent_path(&root).exists());
+            assert!(!retained.exists());
+            let verified = verify_and_rebuild_completed_index(&root).unwrap();
+            assert_eq!(verified.entry_count, 2);
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn smg07_prune_recovery_retries_directory_sync_before_index_publication() {
+        assert_prune_recovery_retries_sync(true);
+    }
+
+    #[test]
+    fn smg07_prune_recovery_rename_branch_retries_directory_sync() {
+        assert_prune_recovery_retries_sync(false);
+    }
+
+    #[test]
+    fn smg07_fixture_completed_paths_stay_refused() {
+        let root = test_root("smg07-fixture-paths");
+        let topology = test_topology();
+        seed_completed(&root, &topology, 2);
+        let (job_id, completed) = tombstone_job(&root, &topology, 50, true);
+        verify_and_rebuild_completed_index(&root).unwrap();
+        let mut work = DurableCertifiedSendWorkReport::default();
+        let entry = validate_job_directory(&completed, &job_id, &mut work)
+            .unwrap()
+            .entry;
+        write_intent(&root, "prune", &entry).unwrap();
+        ensure_retention_directory(&root).unwrap();
+        let retained = retention_destination(&root, &job_id);
+        std::fs::rename(&completed, &retained).unwrap();
+        let prior_index = std::fs::read(completed_index_path(&root)).unwrap();
+        let error = compact_completed_with_index(&root).unwrap_err();
+        assert!(error.contains("not canonical"), "{error}");
+        assert_eq!(
+            std::fs::read(completed_index_path(&root)).unwrap(),
+            prior_index
+        );
+        assert!(completed_index_intent_path(&root).is_file());
+        assert!(retained.is_dir());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
