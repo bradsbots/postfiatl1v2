@@ -6,7 +6,7 @@ release starts after `signer-rotation-20261007` is deployed and its activation i
 
 ## Summary
 
-1. `signer-rotation-20261007` is cut from main at `0fa55d0b` (`release/signer-rotation-20261007`, tip `b4d3ebde`); rollout 2026-10-09 at the earliest.
+1. `signer-rotation-20261007` (`0fa55d0b`) runs on all six since 2026-10-09; this release, `fastlane-cap-20261014`, is cut from main at `8bed9b90` (2026-10-15).
 2. This release carries main past that cut plus the candidates below that are ready and reviewed.
 3. Main past the cut changes node behaviour in the RPC size cap and receipt codes, rpc-serve strict params, the child-dispatch id check, bounded index reads, prune recovery syncs, the Cobalt rehearsal probes, swap timing and `latest_tx_id` order, and the exact-quorum check (list below); the rest is `rpc_sdk`, Python, wallet-proxy, tests and docs.
 4. Rule kept from the current plan: changes that alter a consensus or state result get their own qualification; read-path and tooling changes ride along.
@@ -155,4 +155,17 @@ bradsbots (fork, read permission) opened #56–#108 between 2026-10-08 and 2026-
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `signer-rotation-20261007`). A consensus candidate adds its own qualification before the cut.
 
-- [ ] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release
+- [ ] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half))
+
+Cut 2026-10-15: `fastlane-cap-20261014`, main at `8bed9b90`, branch `release/fastlane-cap-20261014`
+([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md),
+[qualification packet](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/qualification/README.md)).
+Local checks only; CI `rust-supply-chain` green on the tip's run, `rust-ci` `test` still running at the cut.
+
+- [x] Two identical clean builds: `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`.
+- [x] History: signed canaries 1115 (2026-10-09) and 1050, checkpoint and full replay, recorded roots; six 1020 originals.
+- [x] Rotation on six disposable copies; rollback build `decaa411…` reads the new build's data (checkpoint ×6, full replay, `rollback-one.sh` checks).
+- [x] The 70,944 B `AnchorCheckpoint` and a 176,181 B `ActivateCommittee` pass `validate-request` and the rpc-serve parameter check; the deployed build refuses them at 64 KiB.
+- [x] Signed manifest `4f379c57…` (publisher `pfc531e0…`); units byte-identical to `signer-rotation-20261007` after the release-ID change; `systemd-analyze verify` clean.
+- [x] Focused suites of this release's changes.
+- [ ] Canary backup, fleet before-state, rollout, bridge activation (release day, operator's go).

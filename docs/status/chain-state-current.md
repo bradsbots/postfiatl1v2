@@ -35,6 +35,11 @@ Status: **canonical operational-state reference**
     height 1123, root `942d1fc2…`, with six-way agreement
     ([sheet §8](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md#8-signer-group-activation)).
 
+    On 2026-10-15 the next candidate, `fastlane-cap-20261014` (`main` at `8bed9b90`,
+    executable `b1b3dbb1…`), which admits the anchor and `ActivateCommittee`, was cut and
+    qualified locally; it is cut, not deployed
+    ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/README.md)).
+
 !!! success "2026-10-09: signer-rotation release deployed to all six validators"
 
     Release `signer-rotation-20261007` runs on all six validators: source
