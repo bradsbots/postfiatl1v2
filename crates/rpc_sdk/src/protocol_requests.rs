@@ -170,6 +170,7 @@ pub const METHOD_NAVCOIN_BRIDGE_CLAIMS: &str = "navcoin_bridge_claims";
 pub const METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS: &str = "navcoin_bridge_supply_status";
 pub const METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY: &str = "navcoin_bridge_receipt_replay";
 pub const METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT: &str = "navcoin_bridge_packet_preflight";
+pub const METHOD_VAULT_BRIDGE_STATUS: &str = "vault_bridge_status";
 pub const METHOD_MARKET_OPS_STATUS: &str = "market_ops_status";
 pub const METHOD_BRIDGE_BATCH_DOMAIN: &str = "bridge_batch_domain";
 pub const METHOD_BRIDGE_BATCH_TRANSFER: &str = "bridge_batch_transfer";
@@ -1186,6 +1187,11 @@ pub struct OwnedRecoveryStatusParams {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VaultBridgeStatusParams {
+    pub asset_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NavcoinBridgePacketPreflightParams {
     pub route_id: String,
     pub packet_file: String,
@@ -1274,6 +1280,14 @@ pub fn owned_certificate_selector_from_params(
             "expected exactly one of lock_id or certificate_digest",
         )),
     }
+}
+
+pub fn vault_bridge_status_request(
+    id: impl Into<String>,
+    params: VaultBridgeStatusParams,
+) -> RpcRequest {
+    RpcRequest::empty(id, METHOD_VAULT_BRIDGE_STATUS)
+        .with_param_value("asset_id", string_value(params.asset_id))
 }
 
 pub fn bridge_status_request(id: impl Into<String>) -> RpcRequest {
@@ -1729,6 +1743,7 @@ pub enum RpcRequestKind {
     NavcoinBridgeSupplyStatus,
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
+    VaultBridgeStatus,
     MarketOpsStatus,
     OwnedObjects,
     OwnedRecoveryStatus,
@@ -2141,6 +2156,7 @@ pub enum RpcResponseKind {
     NavcoinBridgeSupplyStatus,
     NavcoinBridgeReceiptReplay,
     NavcoinBridgePacketPreflight,
+    VaultBridgeStatus,
     MarketOpsStatus,
     OwnedObjects,
     OwnedRecoveryStatus,
@@ -2728,6 +2744,7 @@ fn request_kind_method(kind: RpcRequestKind) -> &'static str {
         RpcRequestKind::NavcoinBridgeSupplyStatus => METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS,
         RpcRequestKind::NavcoinBridgeReceiptReplay => METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
         RpcRequestKind::NavcoinBridgePacketPreflight => METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
+        RpcRequestKind::VaultBridgeStatus => METHOD_VAULT_BRIDGE_STATUS,
         RpcRequestKind::MarketOpsStatus => METHOD_MARKET_OPS_STATUS,
         RpcRequestKind::OwnedObjects => METHOD_OWNED_OBJECTS,
         RpcRequestKind::OwnedRecoveryStatus => METHOD_OWNED_RECOVERY_STATUS,
@@ -2916,6 +2933,9 @@ fn validate_request_params(
         RpcRequestKind::NavcoinBridgeClaims => validate_navcoin_bridge_claims_request_params(&request.params),
         RpcRequestKind::NavcoinBridgeSupplyStatus => {
             validate_navcoin_bridge_supply_status_request_params(&request.params)
+        }
+        RpcRequestKind::VaultBridgeStatus => {
+            validate_vault_bridge_status_request_params(&request.params)
         }
         RpcRequestKind::MarketOpsStatus => {
             validate_market_ops_status_request_params(&request.params)
@@ -4388,6 +4408,15 @@ fn validate_navcoin_bridge_claims_request_params(
     string_param(params, "route_id")?;
     optional_bounded_nonzero_usize_param(params, "limit", MAX_RPC_READ_QUERY_LIMIT)?;
     optional_bool_param(params, "include_terminal")?;
+    Ok(())
+}
+
+fn validate_vault_bridge_status_request_params(
+    params: &Value,
+) -> Result<(), RpcRequestValidationError> {
+    let params = request_params(params)?;
+    require_only_params(params, &["asset_id"])?;
+    lower_hex_param(params, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
     Ok(())
 }
 

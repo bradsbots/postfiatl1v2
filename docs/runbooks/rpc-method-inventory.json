@@ -34,10 +34,10 @@
       "severity": "authenticated_protocol_surface"
     }
   ],
-  "generated_utc": "2026-10-14T11:36:45Z",
+  "generated_utc": "2026-10-15T00:56:22Z",
   "git": {
     "dirty": false,
-    "revision": "3d8dd1002f945753531a4ea0bd45e4fc2a2dd4df"
+    "revision": "a60061af87faa0d5cdcb7be6cfef22252a9430c8"
   },
   "methods": [
     {
@@ -2273,7 +2273,7 @@
       "remote_enabled_by_default": true,
       "remote_read_allowed": true,
       "remote_rpc_implemented": true,
-      "sdk_constant": false
+      "sdk_constant": true
     },
     {
       "authorized_protocol_mutation_public": false,

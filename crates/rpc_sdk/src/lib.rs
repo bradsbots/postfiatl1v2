@@ -26,6 +26,7 @@ use wallet_sdk::{owned_transfer_signing_bytes, owned_unwrap_signing_bytes};
 mod tests {
     include!("protocol_request_tests.rs");
     include!("response_validation_tests.rs");
+    include!("vault_bridge_status_tests.rs");
     include!("market_ops_status_tests.rs");
     include!("owned_objects_tests.rs");
     include!("owned_recovery_status_tests.rs");

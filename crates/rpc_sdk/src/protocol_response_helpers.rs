@@ -195,6 +195,7 @@ pub fn validate_response_kind_with_context(
         RpcResponseKind::NavcoinBridgeSupplyStatus => {
             validate_navcoin_bridge_supply_status_result(result)
         }
+        RpcResponseKind::VaultBridgeStatus => validate_vault_bridge_status_result(result),
         RpcResponseKind::MarketOpsStatus => validate_market_ops_status_result(result),
         RpcResponseKind::OwnedObjects => validate_owned_objects_result(result),
         RpcResponseKind::OwnedRecoveryStatus => validate_owned_recovery_status_result(result),

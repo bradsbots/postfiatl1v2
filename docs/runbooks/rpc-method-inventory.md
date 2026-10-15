@@ -1,7 +1,7 @@
 # RPC Method Inventory
 
 Status: code-derived inventory
-Date: 2026-10-14
+Date: 2026-10-15
 Report: `docs/runbooks/rpc-method-inventory.json`
 
 This inventory is generated from Rust SDK method constants, node RPC dispatch,
@@ -197,7 +197,7 @@ method lacks an explicit posture.
 | validate_local_keys | operator_or_local_only | no | no | yes | yes | no | operator-only local key validation |
 | validators | read_only_public | yes | no | yes | yes | yes | active validator registry read |
 | vault_bridge_route | read_only_public | yes | no | yes | yes | yes |  |
-| vault_bridge_status | read_only_public | yes | no | yes | no | yes |  |
+| vault_bridge_status | read_only_public | yes | no | yes | yes | yes |  |
 | verify_blocks | read_only_public | yes | no | yes | yes | yes | local verification surfaced through read RPC |
 | verify_bridge | read_only_public | yes | no | yes | yes | yes | local verification surfaced through read RPC |
 | verify_mempool | read_only_public | yes | no | yes | yes | yes | local verification surfaced through read RPC |

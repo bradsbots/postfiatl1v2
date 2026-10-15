@@ -50,9 +50,9 @@ use postfiat_rpc_sdk::{
     validate_market_ops_status_response_for_request, validate_owned_certificate_response,
     validate_owned_objects_response, validate_owned_recovery_status_response,
     validate_request_file, validate_response_file, validate_response_kind_with_context,
-    validators_request, vault_bridge_route_request, verify_blocks_request, verify_bridge_request,
-    verify_mempool_request, verify_shielded_request, verify_state_request,
-    wallet_backup_from_master_seed, wallet_dual_sign_fastswap_intent,
+    validators_request, vault_bridge_route_request, vault_bridge_status_request,
+    verify_blocks_request, verify_bridge_request, verify_mempool_request, verify_shielded_request,
+    verify_state_request, wallet_backup_from_master_seed, wallet_dual_sign_fastswap_intent,
     wallet_fastpay_transfer_certificate_digest_v3, wallet_fastpay_transfer_lock_id_v1,
     wallet_fastpay_unwrap_certificate_digest_v3, wallet_fastpay_unwrap_lock_id_v1,
     wallet_identity_from_backup, wallet_sign_asset_transaction_from_quote,
@@ -67,14 +67,15 @@ use postfiat_rpc_sdk::{
     MarketOpsStatusParams, NavcoinBridgeClaimsParams, NavcoinBridgePacketParams,
     NavcoinBridgePacketPreflightParams, NavcoinBridgeReceiptReplayParams,
     NavcoinBridgeSupplyStatusParams, OwnedCertificateSelector, OwnedObjectsParams,
-    OwnedRecoveryStatusParams, RpcRequest, RpcRequestKind, RpcResponseKind, WalletBackupFile,
-    WalletSignPaymentV2Fields, METHOD_ACCOUNT, METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS,
-    METHOD_ACCOUNT_OFFERS, METHOD_ACCOUNT_TX, METHOD_ACCOUNT_TX_INDEX_STATUS, METHOD_APPLY_BATCH,
-    METHOD_APPLY_BRIDGE_BATCH, METHOD_APPLY_SHIELD_BATCH, METHOD_ARCHIVE_WINDOW,
-    METHOD_ATOMIC_SETTLEMENT_TEMPLATE, METHOD_ATOMIC_SWAP_FEE_QUOTE, METHOD_BATCH_ARCHIVE,
-    METHOD_BLOCKS, METHOD_BOOK_OFFERS, METHOD_BRIDGE_BATCH_DOMAIN, METHOD_BRIDGE_BATCH_PAUSE,
-    METHOD_BRIDGE_BATCH_RESUME, METHOD_BRIDGE_BATCH_TRANSFER, METHOD_BRIDGE_STATUS,
-    METHOD_ESCROW_FEE_QUOTE, METHOD_ESCROW_INFO, METHOD_FASTLANE_ASSET_CONTROL_APPLY,
+    OwnedRecoveryStatusParams, RpcRequest, RpcRequestKind, RpcResponseKind,
+    VaultBridgeStatusParams, WalletBackupFile, WalletSignPaymentV2Fields, METHOD_ACCOUNT,
+    METHOD_ACCOUNT_ESCROWS, METHOD_ACCOUNT_NFTS, METHOD_ACCOUNT_OFFERS, METHOD_ACCOUNT_TX,
+    METHOD_ACCOUNT_TX_INDEX_STATUS, METHOD_APPLY_BATCH, METHOD_APPLY_BRIDGE_BATCH,
+    METHOD_APPLY_SHIELD_BATCH, METHOD_ARCHIVE_WINDOW, METHOD_ATOMIC_SETTLEMENT_TEMPLATE,
+    METHOD_ATOMIC_SWAP_FEE_QUOTE, METHOD_BATCH_ARCHIVE, METHOD_BLOCKS, METHOD_BOOK_OFFERS,
+    METHOD_BRIDGE_BATCH_DOMAIN, METHOD_BRIDGE_BATCH_PAUSE, METHOD_BRIDGE_BATCH_RESUME,
+    METHOD_BRIDGE_BATCH_TRANSFER, METHOD_BRIDGE_STATUS, METHOD_ESCROW_FEE_QUOTE,
+    METHOD_ESCROW_INFO, METHOD_FASTLANE_ASSET_CONTROL_APPLY,
     METHOD_FASTLANE_ASSET_CONTROL_CATCH_UP, METHOD_FASTLANE_ASSET_CONTROL_PREPARE,
     METHOD_FASTLANE_ASSET_CONTROL_PREVIEW, METHOD_FASTLANE_EXIT, METHOD_FASTSWAP_APPLY,
     METHOD_FASTSWAP_CANCEL_APPLY, METHOD_FASTSWAP_CAPABILITIES, METHOD_FASTSWAP_CATCH_UP,
@@ -100,8 +101,8 @@ use postfiat_rpc_sdk::{
     METHOD_SHIELD_BATCH_ORCHARD_WITHDRAW, METHOD_SHIELD_BATCH_SPEND, METHOD_SHIELD_BATCH_SWAP,
     METHOD_SHIELD_DISCLOSE, METHOD_SHIELD_SCAN, METHOD_SHIELD_TURNSTILE, METHOD_STATUS,
     METHOD_TRANSFER_FEE_QUOTE, METHOD_TX, METHOD_VALIDATE_LOCAL_KEYS, METHOD_VALIDATORS,
-    METHOD_VAULT_BRIDGE_ROUTE, METHOD_VERIFY_BLOCKS, METHOD_VERIFY_BRIDGE, METHOD_VERIFY_MEMPOOL,
-    METHOD_VERIFY_SHIELDED, METHOD_VERIFY_STATE,
+    METHOD_VAULT_BRIDGE_ROUTE, METHOD_VAULT_BRIDGE_STATUS, METHOD_VERIFY_BLOCKS,
+    METHOD_VERIFY_BRIDGE, METHOD_VERIFY_MEMPOOL, METHOD_VERIFY_SHIELDED, METHOD_VERIFY_STATE,
 };
 use postfiat_types::PaymentMemo;
 
@@ -736,6 +737,15 @@ fn write_request(flags: &[String]) -> Result<(), String> {
                 NavcoinBridgePacketPreflightParams {
                     route_id: route_id.to_string(),
                     packet_file: packet_file.to_string(),
+                },
+            )
+        }
+        METHOD_VAULT_BRIDGE_STATUS => {
+            let asset_id = flag_value(flags, "--asset-id").ok_or("missing --asset-id")?;
+            vault_bridge_status_request(
+                id,
+                VaultBridgeStatusParams {
+                    asset_id: asset_id.to_string(),
                 },
             )
         }
@@ -2074,6 +2084,7 @@ fn request_kind_for_method(kind: &str, flags: &[String]) -> Result<Option<RpcReq
         METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT => {
             Ok(Some(RpcRequestKind::NavcoinBridgePacketPreflight))
         }
+        METHOD_VAULT_BRIDGE_STATUS => Ok(Some(RpcRequestKind::VaultBridgeStatus)),
         METHOD_MARKET_OPS_STATUS => Ok(Some(RpcRequestKind::MarketOpsStatus)),
         METHOD_OWNED_OBJECTS => Ok(Some(RpcRequestKind::OwnedObjects)),
         METHOD_OWNED_RECOVERY_STATUS => Ok(Some(RpcRequestKind::OwnedRecoveryStatus)),
@@ -2227,6 +2238,7 @@ fn response_kind_for_method(
         METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT => {
             Ok(Some(RpcResponseKind::NavcoinBridgePacketPreflight))
         }
+        METHOD_VAULT_BRIDGE_STATUS => Ok(Some(RpcResponseKind::VaultBridgeStatus)),
         METHOD_MARKET_OPS_STATUS => Ok(Some(RpcResponseKind::MarketOpsStatus)),
         METHOD_OWNED_OBJECTS => Ok(Some(RpcResponseKind::OwnedObjects)),
         METHOD_OWNED_RECOVERY_STATUS => Ok(Some(RpcResponseKind::OwnedRecoveryStatus)),
@@ -2583,6 +2595,7 @@ const CORE_REQUEST_METHODS: &[&str] = &[
     METHOD_NAVCOIN_BRIDGE_SUPPLY_STATUS,
     METHOD_NAVCOIN_BRIDGE_RECEIPT_REPLAY,
     METHOD_NAVCOIN_BRIDGE_PACKET_PREFLIGHT,
+    METHOD_VAULT_BRIDGE_STATUS,
     METHOD_MARKET_OPS_STATUS,
     METHOD_OWNED_OBJECTS,
     METHOD_OWNED_RECOVERY_STATUS,
@@ -2693,6 +2706,7 @@ Offer_info request supports --offer-id. Account_offers request supports --accoun
 Escrow_info request supports --escrow-id. Account_escrows request supports --account, --role, --state, and --limit.
 Nft_info request supports --nft-id. Account_nfts request supports --account, --include-burned, and --limit. Issuer_nfts request supports --issuer, --collection-id, --include-burned, and --limit.
 Blocks request supports --from-height and --limit.
+Vault_bridge_status request supports --asset-id (96 lowercase hex characters).
 Market_ops_status request supports --asset-id (96 lowercase hex characters) and optional --epoch (nonzero u64; latest finalized envelope when omitted). Validating its response requires --request-file: the report asset_id must equal the requested asset and, when the request names an epoch, envelope_epoch must equal it.
 Owned_objects request supports --owner-public-key-hex (hex ML-DSA-65 public key, 3904 characters), optional --asset, and optional --limit (1..=2048). Validating its response requires --request-file: the report owner, asset filter (absent when the request has none), and limit (the request value, or the node default 2048) must match the request.
 Owned_recovery_status request supports --lock-id (96 lowercase hex characters). Validating its response requires --request-file: the report lock_id must equal the requested lock_id.
