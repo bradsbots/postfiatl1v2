@@ -1,7 +1,6 @@
 'use strict';
 
-function parseBooleanEnv(name, fallback) {
-    const raw = process.env[name];
+function parseBooleanValue(name, raw, fallback) {
     if (raw === undefined || String(raw).trim() === '') return fallback;
     const token = String(raw).trim().toLowerCase();
     if (token === 'true' || token === '1') return true;
@@ -9,4 +8,8 @@ function parseBooleanEnv(name, fallback) {
     throw new Error(`${name} must be true or false`);
 }
 
-module.exports = { parseBooleanEnv };
+function parseBooleanEnv(name, fallback) {
+    return parseBooleanValue(name, process.env[name], fallback);
+}
+
+module.exports = { parseBooleanEnv, parseBooleanValue };

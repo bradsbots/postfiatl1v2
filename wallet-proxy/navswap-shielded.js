@@ -1,6 +1,6 @@
 'use strict';
 
-const { parseBooleanEnv } = require('./boolean-env');
+const { parseBooleanEnv, parseBooleanValue } = require('./boolean-env');
 
 function create(runtime) {
     const { execFileSync,
@@ -1445,6 +1445,12 @@ wss } = runtime;
         return args;
     }
 
+    function shieldedRoundPrewarmEnabled(env) {
+        const name = ['NAVSWAP_SHIELDED_ROUND_PREWARM', 'POSTFIAT_SHIELDED_ROUND_PREWARM']
+            .find((candidate) => String(env[candidate] ?? '').trim() !== '');
+        return name === undefined ? false : parseBooleanValue(name, env[name], false);
+    }
+
     function shieldedCertifiedRoundEnv(baseEnv = process.env) {
         const env = { ...baseEnv };
         const defaultIfUnset = (name, value) => {
@@ -1452,9 +1458,7 @@ wss } = runtime;
                 env[name] = value;
             }
         };
-        const roundPrewarmEnabled = ['1', 'true', 'yes'].includes(lower(
-            env.NAVSWAP_SHIELDED_ROUND_PREWARM || env.POSTFIAT_SHIELDED_ROUND_PREWARM || ''
-        ));
+        const roundPrewarmEnabled = shieldedRoundPrewarmEnabled(env);
         if (roundPrewarmEnabled) {
             defaultIfUnset('POSTFIAT_PREWARM_SHIELDED_VERIFIER', '1');
             defaultIfUnset('POSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER', '1');
@@ -1523,11 +1527,7 @@ wss } = runtime;
             args.push('--quorum-early-full-propagation', '--local-apply-before-certified-send', '--defer-certified-sends');
         }
 
-        const certifierLoopPrewarm = ['1', 'true', 'yes', 'enabled'].includes(
-            String(process.env.NAVSWAP_SHIELDED_ROUND_PREWARM || process.env.POSTFIAT_SHIELDED_ROUND_PREWARM || '')
-                .trim()
-                .toLowerCase(),
-        );
+        const certifierLoopPrewarm = shieldedRoundPrewarmEnabled(process.env);
         const childEnv = {
             ...process.env,
             POSTFIAT_CERTIFIED_BATCH_LOOP_READY_FILE: loop.ready_file,

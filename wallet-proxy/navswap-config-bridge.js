@@ -395,6 +395,11 @@ wss } = runtime;
         return String(value).trim();
     }
 
+    function parseBooleanEnvAliases(names, fallback) {
+        const name = names.find((candidate) => presentEnv(candidate) !== null);
+        return name === undefined ? fallback : parseBooleanEnv(name, fallback);
+    }
+
     function presentPositiveSafeIntegerEnv(name) {
         const value = presentEnv(name);
         if (!value || !/^[1-9][0-9]*$/.test(value)) return null;
@@ -484,11 +489,11 @@ wss } = runtime;
             || presentEnv('NAVSWAP_NODE_LAUNCH_CONFIG_DIGEST');
         const legacyPoolSelected = lower(poolIdOrPath) === lower(LEGACY_A651_UNISWAP_POOL_ID)
             || lower(wrappedToken) === lower(LEGACY_A651_ETH_TOKEN);
-        const explicitBeta = ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_ENABLE_UNISWAP_BETA_ROUTE));
+        const explicitBeta = parseBooleanEnv('NAVSWAP_ENABLE_UNISWAP_BETA_ROUTE', false);
         const betaRunsEnabled = explicitBeta
-            && ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_ENABLE_UNISWAP_BETA_RUNS));
-        const routePaused = ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_UNISWAP_ROUTE_PAUSED));
-        const publicRoutingEnabled = ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_UNISWAP_PUBLIC_ROUTING_ENABLED));
+            && parseBooleanEnv('NAVSWAP_ENABLE_UNISWAP_BETA_RUNS', false);
+        const routePaused = parseBooleanEnv('NAVSWAP_UNISWAP_ROUTE_PAUSED', false);
+        const publicRoutingEnabled = parseBooleanEnv('NAVSWAP_UNISWAP_PUBLIC_ROUTING_ENABLED', false);
         const missing = [];
         if (!nativeNavAssetId || !/^[0-9a-f]{96}$/i.test(nativeNavAssetId)) missing.push('NAVSWAP_NATIVE_NAV_ASSET_ID');
         if (!settlementAssetId || !/^[0-9a-f]{96}$/i.test(settlementAssetId)) missing.push('NAVSWAP_SETTLEMENT_ASSET_ID');
@@ -792,7 +797,7 @@ wss } = runtime;
             || presentEnv('POSTFIAT_PROPOSAL_KEY_FILE');
         const artifactRoot = presentEnv('NAVSWAP_SHIELDED_INGRESS_ARTIFACT_ROOT')
             || path.join(os.homedir(), '.local', 'share', 'postfiat', 'wallet-proxy', 'shielded-ingress');
-        const enabled = ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_ENABLE_SHIELDED_INGRESS));
+        const enabled = parseBooleanEnv('NAVSWAP_ENABLE_SHIELDED_INGRESS', false);
         const timeoutMs = Number.parseInt(
             process.env.NAVSWAP_SHIELDED_INGRESS_TIMEOUT_MS || String(SHIELDED_ROUND_TIMEOUT_DEFAULT_MS),
             10,
@@ -832,14 +837,13 @@ wss } = runtime;
     function shieldedNavswapSwapConfig() {
         const ingress = shieldedNavswapIngressConfig();
         const localService = assetOrchardLocalServiceConfig();
-        const enabled = ['1', 'true', 'yes'].includes(lower(process.env.NAVSWAP_ENABLE_SHIELDED_SWAPS));
+        const enabled = parseBooleanEnv('NAVSWAP_ENABLE_SHIELDED_SWAPS', false);
         const artifactRoot = presentEnv('NAVSWAP_SHIELDED_SWAP_ARTIFACT_ROOT')
             || path.join(os.homedir(), '.local', 'share', 'postfiat', 'wallet-proxy', 'shielded-swaps');
-        const certifierLoopEnabled = ['1', 'true', 'yes'].includes(lower(
-            process.env.NAVSWAP_SHIELDED_CERTIFIER_LOOP
-                || process.env.NAVSWAP_SHIELDED_SWAP_CERTIFIER_LOOP
-                || '',
-        ));
+        const certifierLoopEnabled = parseBooleanEnvAliases(
+            ['NAVSWAP_SHIELDED_CERTIFIER_LOOP', 'NAVSWAP_SHIELDED_SWAP_CERTIFIER_LOOP'],
+            false,
+        );
         const certifierLoopRoot = presentEnv('NAVSWAP_SHIELDED_CERTIFIER_LOOP_ROOT')
             || path.join(artifactRoot, 'certifier-loop');
         const certifierLoop = {
@@ -875,11 +879,10 @@ wss } = runtime;
 
     function shieldedNavswapEgressConfig() {
         const ingress = shieldedNavswapIngressConfig();
-        const enabled = ['1', 'true', 'yes'].includes(lower(
-            process.env.NAVSWAP_ENABLE_SHIELDED_EGRESS
-                || process.env.NAVSWAP_ENABLE_SHIELDED_SWAPS
-                || '',
-        ));
+        const enabled = parseBooleanEnvAliases(
+            ['NAVSWAP_ENABLE_SHIELDED_EGRESS', 'NAVSWAP_ENABLE_SHIELDED_SWAPS'],
+            false,
+        );
         const artifactRoot = presentEnv('NAVSWAP_SHIELDED_EGRESS_ARTIFACT_ROOT')
             || path.join(os.homedir(), '.local', 'share', 'postfiat', 'wallet-proxy', 'shielded-egress');
         const policyId = presentEnv('NAVSWAP_SHIELDED_EGRESS_POLICY_ID') || SHIELDED_NAVSWAP_EGRESS_POLICY_ID;
@@ -959,11 +962,10 @@ wss } = runtime;
 
     function shieldedNavswapQuoteConfig(nowMs = Date.now()) {
         const a652AssetId = currentA652AssetId();
-        const enabled = ['1', 'true', 'yes'].includes(lower(
-            process.env.NAVSWAP_ENABLE_SHIELDED_QUOTES
-                || process.env.NAVSWAP_ENABLE_SHIELDED_NAVSWAP_QUOTES
-                || 'true',
-        ));
+        const enabled = parseBooleanEnvAliases(
+            ['NAVSWAP_ENABLE_SHIELDED_QUOTES', 'NAVSWAP_ENABLE_SHIELDED_NAVSWAP_QUOTES'],
+            true,
+        );
         const liquidityMode = normalizeShieldedLiquidityMode(process.env.NAVSWAP_SHIELDED_LIQUIDITY_MODE);
         const liquidityCommitment = String(
             presentEnv('NAVSWAP_SHIELDED_LIQUIDITY_COMMITMENT')
