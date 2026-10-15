@@ -2991,7 +2991,11 @@ class PostFiatRpcClient:
 
 
 class PostFiatWebSocketRpcClient(PostFiatRpcClient):
-    """Synchronous WebSocket RPC client for wallet-facing proxy endpoints."""
+    """Synchronous WebSocket RPC client for wallet-facing proxy endpoints.
+
+    As on the persistent TCP client, request ids are never reused on a
+    session, so a late or stray message can never match a later request.
+    """
 
     def __init__(
         self,
@@ -3013,6 +3017,7 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
         self.origin = origin
         self.proxy_auth_token = proxy_auth_token
         self._websocket = None
+        self._sent_request_ids: set[str] = set()
         self._send_lock = threading.Lock()
         self._worker_lock = threading.Lock()
         self._worker_clients: dict[str, PostFiatWebSocketRpcClient] = {}
@@ -3031,6 +3036,7 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
     def _close_websocket(self) -> None:
         websocket = self._websocket
         self._websocket = None
+        self._sent_request_ids.clear()
         if websocket is not None:
             try:
                 websocket.close()
@@ -3110,6 +3116,10 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
         with self._send_lock:
             try:
                 websocket = self._connect_websocket()
+                wire_id = json.dumps(request["id"])
+                if wire_id in self._sent_request_ids:
+                    raise RpcProtocolError("request id reused on this WebSocket session")
+                self._sent_request_ids.add(wire_id)
                 websocket.send(wire)
                 message = websocket.recv(timeout=self.timeout_seconds)
                 if isinstance(message, bytes):

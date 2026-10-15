@@ -41,6 +41,8 @@ WRONG_ID = {**FIRST, "id": FOREIGN_ID}
 WRONG_VERSION = {**FIRST, "version": "postfiat-local-rpc-v0"}
 MISSING_RESULT = {key: value for key, value in FIRST.items() if key != "result"}
 OVER_CAP = {**FIRST, "result": {"padding": "x" * 1000}}
+DUPLICATE_A = reply(ID_A, "status", "stale-duplicate-generation-1")
+CLEAN_A = reply(ID_A, "status", "clean-generation-2")
 BOUND_ERROR = {"code": "synthetic_rpc_error", "message": "inert bound refusal", "detail": {"source": "generation-1"}}
 FAULTS = (
     ("wrong_response_id", WRONG_ID, "_call", "response id mismatch", None),
@@ -274,6 +276,85 @@ class WebSocketSessionTests(unittest.TestCase):
         self.assertEqual(old.close_calls, 1)
         self.assertEqual(fresh.close_calls, 0)
         self.assertEqual(old.replies, [STALE])
+
+    def assert_reuse_refused(self, client, method, request_id):
+        with self.assertRaisesRegex(
+            CLIENT.RpcProtocolError, "request id reused on this WebSocket session"
+        ):
+            client._call(method, {}, request_id=request_id)
+
+    def test_reused_request_id_is_refused_before_send_and_closes(self):
+        old, fresh = ScriptedSocket([FIRST]), ScriptedSocket([CLEAN_A])
+        client, connections = self.connect_adapter(old, fresh)
+        self.assertEqual(client._call("status", {}, request_id=ID_A), FIRST["result"])
+        self.assert_reuse_refused(client, "server_info", ID_A)
+        self.assertEqual([r["id"] for r in old.sent], [ID_A])
+        self.assertEqual(old.received, 1)
+        self.assertIsNone(client._websocket)
+        self.assertEqual(old.close_calls, 1)
+        self.assertEqual(old.detached_at_close, [True])
+        self.assertEqual(client._call("status", {}, request_id=ID_A), CLEAN_A["result"])
+        self.assertIs(client._websocket, fresh)
+        self.assertEqual(len(connections), 2)
+        self.assertEqual([r["id"] for r in fresh.sent], [ID_A])
+
+    def test_stray_duplicate_never_answers_a_reused_id(self):
+        old, fresh = ScriptedSocket([FIRST, DUPLICATE_A]), ScriptedSocket([CLEAN_A])
+        client, connections = self.connect_adapter(old, fresh)
+        returned = None
+        self.assertEqual(client._call("status", {}, request_id=ID_A), FIRST["result"])
+        with self.assertRaises(CLIENT.RpcProtocolError):
+            returned = client._call("status", {}, request_id=ID_A)
+        self.assertIsNone(returned)
+        self.assertEqual(old.replies, [DUPLICATE_A])
+        self.assertEqual([r["id"] for r in old.sent], [ID_A])
+        self.assertIsNone(client._websocket)
+        self.assertEqual(client._call("status", {}, request_id=ID_A), CLEAN_A["result"])
+        self.assertEqual(len(connections), 2)
+
+    def test_caller_id_matching_an_earlier_auto_id_is_refused(self):
+        old = ScriptedSocket([])
+        fresh = ScriptedSocket([])
+        client, connections = self.connect_adapter(old, fresh)
+        old.on_send = lambda r: old.replies.append(reply(r["id"], r["method"], "generation-1"))
+        fresh.on_send = lambda r: fresh.replies.append(reply(r["id"], r["method"], "generation-2"))
+        auto_id = client.call_response("status", {})["id"]
+        self.assertEqual(auto_id, "py-00000001")
+        self.assert_reuse_refused(client, "server_info", auto_id)
+        self.assertEqual([r["id"] for r in old.sent], [auto_id])
+        self.assertIsNone(client._websocket)
+        self.assertEqual(client._call("server_info", {}, request_id=auto_id)["origin"], "generation-2")
+        self.assertEqual([r["id"] for r in fresh.sent], [auto_id])
+        self.assertEqual(len(connections), 2)
+
+    def test_same_id_is_allowed_again_after_close_or_failure(self):
+        first, second, third = ScriptedSocket([FIRST]), ScriptedSocket([WRONG_ID]), ScriptedSocket([CLEAN_A])
+        client, connections = self.connect_adapter(first, second, third)
+        self.assertEqual(client._call("status", {}, request_id=ID_A), FIRST["result"])
+        client.close()
+        with self.assertRaisesRegex(CLIENT.RpcProtocolError, "response id mismatch"):
+            client._call("status", {}, request_id=ID_A)
+        self.assertIsNone(client._websocket)
+        self.assertEqual(client._call("status", {}, request_id=ID_A), CLEAN_A["result"])
+        self.assertEqual(len(connections), 3)
+        self.assertEqual([[r["id"] for r in s.sent] for s in connections], [[ID_A], [ID_A], [ID_A]])
+
+    def test_bound_rpc_error_keeps_session_and_its_id_stays_recorded(self):
+        refusal = {**FIRST, "ok": False, "result": None, "error": BOUND_ERROR}
+        old, fresh = ScriptedSocket([refusal, VALID_B]), ScriptedSocket([CLEAN])
+        client, connections = self.connect_adapter(old, fresh)
+        with self.assertRaises(CLIENT.RpcError):
+            client._call("status", {}, request_id=ID_A)
+        self.assertIs(client._websocket, old)
+        self.assertEqual(old.close_calls, 0)
+        self.assert_reuse_refused(client, "status", ID_A)
+        self.assertEqual([r["id"] for r in old.sent], [ID_A])
+        self.assertEqual(old.replies, [VALID_B])
+        self.assertIsNone(client._websocket)
+        self.assertEqual(old.close_calls, 1)
+        self.assertEqual(client._call("server_info", {}, request_id=ID_B), CLEAN["result"])
+        self.assertIs(client._websocket, fresh)
+        self.assertEqual(len(connections), 2)
 
 
 def fault_test(case):
