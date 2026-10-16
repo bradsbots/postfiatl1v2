@@ -1012,6 +1012,9 @@ mod tests {
         SignedCobaltAuthorityTransitionApprovalV1, SignedCobaltValidatorUpdateAuthorizationV1,
         ValidatorRegistryEntry, COBALT_VALIDATOR_UPDATE_DECISION_CERTIFICATE_SCHEMA_V1,
     };
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_FIXTURE_ROOT: AtomicU64 = AtomicU64::new(0);
 
     struct Fixture {
         genesis: Genesis,
@@ -1048,14 +1051,7 @@ mod tests {
         };
         let governance = GovernanceState::new(validator_count_u32);
         let registry_root = validator_registry_root(&registry, &validators).expect("registry root");
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let cobalt_root = std::env::temp_dir().join(format!(
-            "postfiat-cobalt-authority-certificate-{}-{nonce}",
-            std::process::id()
-        ));
+        let cobalt_root = fixture_root();
         let mut services = validators
             .iter()
             .map(|validator| {
@@ -1121,6 +1117,49 @@ mod tests {
 
     fn fixture() -> Fixture {
         fixture_with_validator_count(4)
+    }
+
+    /// libtest runs this module's tests on threads of one process, so the pid is
+    /// shared and two fixtures can read the same clock nanoseconds; the counter
+    /// keeps every root distinct within the process.
+    fn fixture_root() -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "postfiat-cobalt-authority-certificate-{}-{nonce}-{}",
+            std::process::id(),
+            NEXT_FIXTURE_ROOT.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    #[test]
+    fn fixture_roots_are_unique_within_one_process() {
+        const THREADS: usize = 16;
+        const ROUNDS: usize = 200;
+        let mut roots = std::collections::BTreeSet::new();
+        for _ in 0..ROUNDS {
+            let barrier = std::sync::Arc::new(std::sync::Barrier::new(THREADS));
+            let handles = (0..THREADS)
+                .map(|_| {
+                    let barrier = barrier.clone();
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        fixture_root()
+                    })
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                let root = handle.join().expect("fixture root thread");
+                assert!(
+                    roots.insert(root.clone()),
+                    "duplicate fixture root {}",
+                    root.display()
+                );
+            }
+        }
+        assert_eq!(roots.len(), THREADS * ROUNDS);
     }
 
     fn signed_transition(
@@ -2271,6 +2310,8 @@ mod tests {
 
     #[test]
     fn production_operator_lifecycle_emits_an_applicable_cobalt_handoff_batch() {
+        // Only this test uses this prefix, so it cannot meet another root from the
+        // same process; it does not need fixture_root()'s counter.
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")
