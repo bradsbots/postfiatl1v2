@@ -991,3 +991,22 @@ transaction was sent. The release preflight `demo-preflight.py` then reported
 ([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/observed/ethereum-relays-20261013.json)).
 The 28703 unit on all six hosts and validator-1's 28701 unit are still transient
 and do not survive a reboot.
+
+## 2026-10-16: archive relay runs as a systemd unit
+
+At 10:45–10:47Z the transient `systemd-run` relay units were replaced by enabled
+units in `/etc/systemd/system`, modelled on `navcoin-ethereum-rpc-28702.service`
+with the same command line: `127.0.0.1:28703` (drpc) on all six hosts moved from
+`navcoin-ethereum-archive-rpc-20260907.service` to
+`navcoin-ethereum-rpc-28703.service`, and validator-1's `127.0.0.1:28701`
+(publicnode) moved from `navcoin-ethereum-rpc-proxy-20260907.service` to
+`navcoin-ethereum-rpc-28701.service`. Each port was free for about one second
+between stop and start; `eth_blockNumber` returned HTTP 200 through it afterwards.
+Validator and RPC PIDs and the other lane's `navcoin-proof-watchdog@` user units
+(validators 0 and 3, all paused or `pause_retry`) did not change, and no
+transaction was sent. All relays on all six hosts now restart on boot. The
+release preflight `demo-preflight.py` (10:46:48Z) reported **NOT READY**: 54
+PASS, 0 ATTENTION, 6 FAIL, six-way agreement at height 1131, root `a12e7c5f…`.
+Every relay row passed; the six FAIL rows are its `units` check, which still names
+the removed transient unit `navcoin-ethereum-archive-rpc-20260907.service`
+([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/ethereum-relays-20261016.json)).
