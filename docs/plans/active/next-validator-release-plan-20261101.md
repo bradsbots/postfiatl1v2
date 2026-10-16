@@ -29,6 +29,7 @@ release starts after `signer-rotation-20261007` is deployed and its activation i
 - [x] `9157e7cd` (PR #84): `FastPayRecoveryCapabilitiesV1::validate()` requires the exact committee quorum (`crates/types/src/fastpay_recovery_types.rs`), used by the node's `owned_recovery_capabilities` and wallet v3 signing; the active committee already enforces it, so no valid report changes.
 - [x] `97bb4d35` (PR #123): root `Cargo.lock` rustls 0.23.45 → 0.23.46 (RUSTSEC-2026-0346/-0347/-0348/-0349), the `rust-supply-chain` gate fix; same edges (`reqwest`/`hyper-rustls`/`tokio-rustls` → `arc-conformance`). Goes into the release binary.
 - [x] `a9bbf7c9` (PR #122, SMG-07): interrupted-prune recovery syncs the completed and retention directories before it removes the index entry, also when the job is already in retention (`crates/node/src/certified_send_completed_index.rs`). Storage tooling, recovery only; goes into this release.
+- [x] `2737f080` (past the `8bed9b90` cut): offline `postfiat-node fastswap-committee-migrate` moves a stopped validator's FastSwap store to the activated committee epoch (`crates/node/src/fastswap_committee_migration.rs`, `crates/storage/src/fastswap_store/committee_migration.rs`; [runbook](../../runbooks/fastpay-committee-recovery.md#moving-the-fastswap-store-to-the-activated-committee-epoch)). Node CLI only, no consensus or execution change; ships with the next release.
 
 ## Candidates
 

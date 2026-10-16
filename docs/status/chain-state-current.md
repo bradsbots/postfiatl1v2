@@ -1010,3 +1010,11 @@ PASS, 0 ATTENTION, 6 FAIL, six-way agreement at height 1131, root `a12e7c5f…`.
 Every relay row passed; the six FAIL rows are its `units` check, which still names
 the removed transient unit `navcoin-ethereum-archive-rpc-20260907.service`
 ([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/ethereum-relays-20261016.json)).
+That NOT READY was only the stale unit name in the scripts, not the fleet: with
+`demo-preflight.py` and `observe-fleet.py` checking
+`navcoin-ethereum-rpc-28703.service` (release `6b4fa4b0`), the preflight at
+10:55:03Z reported **READY**: 60 PASS, 0 ATTENTION, 0 FAIL, six-way agreement at
+height 1131, root `a12e7c5f…`
+([preflight](https://github.com/postfiatorg/postfiatl1v2/blob/6b4fa4b0596fecbdad663d9cddf902ae7b56d8b7/deployments/fastlane-cap-20261014/observed/demo-preflight-20261016.json),
+[fleet observation](https://github.com/postfiatorg/postfiatl1v2/blob/6b4fa4b0596fecbdad663d9cddf902ae7b56d8b7/deployments/fastlane-cap-20261014/observed/observe-fleet-20261016.json)
+at 10:56:22Z, PASS).
