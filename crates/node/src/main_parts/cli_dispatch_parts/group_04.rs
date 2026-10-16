@@ -1123,6 +1123,31 @@ fn run_cli_group_04(command: &str, flags: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
+        "fastswap-committee-migrate" => {
+            // Offline only: both validator units must be stopped first.
+            let data_dir = flag_value(flags, "--data-dir").ok_or("missing --data-dir")?;
+            let options = crate::fastswap_service::FastSwapCommitteeMigrationOptions {
+                data_dir: PathBuf::from(data_dir),
+                committee_file: PathBuf::from(
+                    flag_value(flags, "--committee-file").ok_or("missing --committee-file")?,
+                ),
+                anchor_file: PathBuf::from(
+                    flag_value(flags, "--anchor-file").ok_or("missing --anchor-file")?,
+                ),
+                backup_directory: flag_value(flags, "--backup-dir").map(PathBuf::from),
+                validator_id: flag_value(flags, "--validator-id").map(str::to_owned),
+                dry_run: flag_present(flags, "--dry-run"),
+            };
+            let report = crate::fastswap_service::fastswap_committee_migrate(&options)
+                .map_err(|error| format!("fastswap-committee-migrate refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|error| {
+                    format!("FastSwap committee migration report serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
         "vault-bridge-route-profile-governance" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let validators =

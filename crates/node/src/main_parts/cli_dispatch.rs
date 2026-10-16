@@ -530,6 +530,7 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "fastpay-recovery-governance-bootstrap-assemble"
         | "fastpay-committee-prepare"
         | "fastswap-store-migrate"
+        | "fastswap-committee-migrate"
         | "vault-bridge-route-profile-governance"
         | "vault-bridge-route-profile-governance-assemble"
         | "apply-governance-batch"

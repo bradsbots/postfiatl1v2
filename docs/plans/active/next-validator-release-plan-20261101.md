@@ -155,6 +155,7 @@ bradsbots (fork, read permission) opened #56–#108 between 2026-10-08 and 2026-
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `signer-rotation-20261007`). A consensus candidate adds its own qualification before the cut.
 
+- [ ] fastswap-committee-migrate on the six validators on the next release day ([runbook](../../runbooks/fastpay-committee-recovery.md#moving-the-fastswap-store-to-the-activated-committee-epoch); `crates/node/src/fastswap_committee_migration.rs`).
 - [x] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half)). 2026-10-15: anchor at 1130, bridge committee epoch 2 (`72836827…`) at 1131, both on all six; the issuer's update (§8.4) is prepared unsigned and awaits the other lane.
 
 Cut 2026-10-15: `fastlane-cap-20261014`, main at `8bed9b90`, branch `release/fastlane-cap-20261014`

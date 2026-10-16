@@ -18,7 +18,14 @@ use std::io::{self, Read, Write};
 use std::os::fd::AsRawFd;
 use std::path::{Path, PathBuf};
 
+mod committee_migration;
 mod legacy_migration;
+pub use committee_migration::{
+    backup_fastswap_store, fastswap_file_sha3_384, load_fastswap_store_read_only,
+    lock_fastswap_store_offline, remove_fastswap_wal_and_snapshot, restore_fastswap_store_backup,
+    write_fastswap_file_owner_only, FastSwapBackupFileV1, FastSwapStoreLock,
+    FastSwapStoreReadOnlyLoadV1,
+};
 pub use legacy_migration::{
     migrate_legacy_fastswap_store, FastSwapStoreMigrationOptions, FastSwapStoreMigrationReport,
 };

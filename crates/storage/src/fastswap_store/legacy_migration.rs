@@ -172,7 +172,9 @@ pub fn migrate_legacy_fastswap_store(
 
 /// Dry run: take the flock through a read-only descriptor when the lock file
 /// exists, so a held lock refuses without creating or writing anything.
-fn probe_store_lock(directory: &Path) -> Result<Option<ProcessLock>, FastSwapStoreError> {
+pub(super) fn probe_store_lock(
+    directory: &Path,
+) -> Result<Option<ProcessLock>, FastSwapStoreError> {
     let file = match File::open(directory.join(FASTSWAP_LOCK_FILE)) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -372,6 +374,14 @@ fn default_backup_directory(directory: &Path) -> Result<PathBuf, FastSwapStoreEr
 /// Copy every regular file except the lock into `backup`, fsync, and compare
 /// SHA3-384 digests. Refuses a non-empty target or a target inside the store.
 fn write_verified_backup(store: &Path, backup: &Path) -> Result<usize, FastSwapStoreError> {
+    write_verified_backup_manifest(store, backup).map(|manifest| manifest.len())
+}
+
+/// As `write_verified_backup`, returning the per-file SHA3-384 manifest.
+pub(super) fn write_verified_backup_manifest(
+    store: &Path,
+    backup: &Path,
+) -> Result<Vec<super::FastSwapBackupFileV1>, FastSwapStoreError> {
     if backup.exists() && (!backup.is_dir() || fs::read_dir(backup)?.next().is_some()) {
         return Err(FastSwapStoreError::Conflict(
             "backup directory exists and is not an empty directory",
@@ -392,14 +402,25 @@ fn write_verified_backup(store: &Path, backup: &Path) -> Result<usize, FastSwapS
     let mut copied = Vec::new();
     copy_tree(store, backup, true, &mut copied)?;
     File::open(backup)?.sync_all()?;
+    let mut manifest = Vec::with_capacity(copied.len());
     for (source, target) in &copied {
-        if file_digest(source)? != file_digest(target)? {
+        let digest = file_digest(source)?;
+        if digest != file_digest(target)? {
             return Err(FastSwapStoreError::Conflict(
                 "backup verification failed: digest mismatch",
             ));
         }
+        manifest.push(super::FastSwapBackupFileV1 {
+            path: source
+                .strip_prefix(store)
+                .unwrap_or(source)
+                .display()
+                .to_string(),
+            bytes: fs::metadata(target)?.len(),
+            sha3_384: crate::integrity::to_hex(&digest),
+        });
     }
-    Ok(copied.len())
+    Ok(manifest)
 }
 
 fn copy_tree(

@@ -171,6 +171,49 @@ Rollback: stop both units, move `fastswap-v1/` aside, copy the backup back to
 `<data-dir>/fastswap-v1/` with `cp -a`, and start the units. The restored store
 is the legacy store again, so FastSwap stays unavailable on that host.
 
+## Moving the FastSwap store to the activated committee epoch
+
+The FastSwap service reads its committee only from `fastswap-v1/committee.json` and
+`base-state.json`; it never follows the chain, and only epoch 1 is provisioned
+automatically (`crates/node/src/fastswap_service.rs`). After `ActivateCommittee`
+(epoch 2 at height 1131, root `72836827…`), each validator needs the offline
+`fastswap-committee-migrate` from the next release. It ships with that release
+and changes only files under `fastswap-v1/`, not consensus or execution.
+
+The command takes the store lock (refuses if held) and replays the store as the
+service does: the snapshot if present, else base plus WAL. It checks the drained
+state against the anchor file: no reservations, no pending burns, canonical
+epoch-1 fences, and every root and total equal to the anchored checkpoint
+(`355fe608…`). Otherwise it refuses with the reason. A store that never applied
+the fence or the anchor (validator-5) is refused unless its replayed state still
+equals the anchored drained state; the report then carries a note. It backs up
+`fastswap-v1/` (fsync, SHA3-384 manifest) and writes the epoch-2 `committee.json`
+and `base-state.json` (0600, atomic). The epoch-2 base keeps the objects, drops the
+epoch-1 fences and records the anchor. It moves the WAL and snapshot aside into the
+backup, then verifies with a normal service open: epoch 2, the new root, enabled.
+Any failure restores the backup. The JSON report gives the before and after domain,
+epoch, root, fences and file hashes, the backup manifest and the verification.
+
+Per host, validator-5 first, then validators 0–4, one at a time:
+
+1. Stop both units; `systemctl is-active` shows both inactive.
+2. As root: `install -d -o postfiat -g postfiat -m 700 /var/lib/postfiat/fastswap-v1-epoch2-backup-validator-N`.
+3. As `postfiat`, dry run: `postfiat-node fastswap-committee-migrate --data-dir /var/lib/postfiat/validator-N --committee-file 7.2-activate-committee.fastlane-primary.json --anchor-file 7.1-anchor-checkpoint.fastlane-primary.json --dry-run`.
+   Expect `would-migrate`; read `notes`. Both files are in the release packet's
+   `observed/bridge-activation/`.
+4. Real run: the same command with `--backup-dir /var/lib/postfiat/fastswap-v1-epoch2-backup-validator-N`
+   instead of `--dry-run`. Expect `migrated` and `service open: committee epoch 2, root 72836827…, enabled true`.
+5. Start both units. `fastswap_capabilities` shows epoch 2, root `72836827…` and
+   `enabled: true`; `fastswap_checkpoint_status` answers.
+
+Rollback: stop both units, restore `fastswap-v1/` from the backup directory with
+`cp -a`, and start the units.
+
+The migration is harmless before the issuer's route update. Epoch-2 FastLane
+checkpoint votes stay local until someone submits an `AnchorCheckpoint`.
+Ethereum checkpoint signing follows the route's `authority_epoch`, which stays 1
+until that update.
+
 ## Release and backup basis
 
 Use [the safe rollout runbook](safe-validator-rollout.md), preserving the signed

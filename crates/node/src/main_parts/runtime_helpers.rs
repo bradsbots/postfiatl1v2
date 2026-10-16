@@ -789,6 +789,7 @@ fn print_usage() {
   postfiat-node fastpay-recovery-governance-bootstrap-assemble [--data-dir PATH] --payload-file PATH --signed-amendment-file PATH --proposal-slot H --batch-file PATH
   postfiat-node fastpay-committee-prepare [--data-dir PATH] [--registry-file PATH] [--valid-from H] [--new-orders-through H]
   postfiat-node fastswap-store-migrate --data-dir PATH [--dry-run] [--backup-dir PATH]
+  postfiat-node fastswap-committee-migrate --data-dir PATH --committee-file PATH --anchor-file PATH [--backup-dir PATH] [--validator-id ID] [--dry-run]
   postfiat-node apply-governance-batch [--data-dir PATH] --batch-file PATH [--certificate-file PATH]
   postfiat-node account [--data-dir PATH] --address ADDRESS
   postfiat-node account-tx [--data-dir PATH] --address ADDRESS [--from-height HEIGHT] [--to-height HEIGHT] [--limit N]

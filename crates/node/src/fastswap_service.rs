@@ -28,6 +28,12 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+#[path = "fastswap_committee_migration.rs"]
+mod committee_migration;
+pub(crate) use committee_migration::{
+    fastswap_committee_migrate, FastSwapCommitteeMigrationOptions,
+};
+
 const FASTSWAP_DIRECTORY: &str = "fastswap-v1";
 const FASTSWAP_BASE_STATE: &str = "base-state.json";
 const FASTSWAP_COMMITTEE: &str = "committee.json";
@@ -1738,6 +1744,10 @@ pub(crate) fn swap_id_hex(value: FastSwapIdV1) -> String {
 }
 
 #[cfg(test)]
+#[path = "fastswap_committee_migration_tests.rs"]
+mod committee_migration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use postfiat_crypto_provider::{
@@ -1779,11 +1789,11 @@ mod tests {
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
 
-    struct Fixture {
-        root: PathBuf,
-        base: FastLaneStateV1,
-        committee: FastSwapCommitteeV1,
-        validator_keys: Vec<Vec<u8>>,
+    pub(super) struct Fixture {
+        pub(super) root: PathBuf,
+        pub(super) base: FastLaneStateV1,
+        pub(super) committee: FastSwapCommitteeV1,
+        pub(super) validator_keys: Vec<Vec<u8>>,
         owner_0_private_key: Vec<u8>,
         owner_1_private_key: Vec<u8>,
         signed: SignedFastSwapIntentV1,
@@ -2141,7 +2151,7 @@ mod tests {
         }
     }
 
-    fn fixture() -> Fixture {
+    pub(super) fn fixture() -> Fixture {
         let root = std::env::temp_dir().join(format!(
             "postfiat-fastswap-service-{}-{}",
             std::process::id(),
@@ -2848,9 +2858,11 @@ mod tests {
         next_committee.domain.committee_root = postfiat_types::FastSwapCommitteeRootV1::ZERO;
         next_committee.domain.committee_root = next_committee.computed_root().expect("next root");
         ledger.fastswap_committees.push(next_committee.clone());
-        let mut migrated = old_state;
-        migrated.committee = next_committee.domain.clone();
-        migrated.prepare_fences.clear();
+        let mut migrated = committee_migration::migrate_drained_fastlane_state(
+            &old_state,
+            &next_committee.domain,
+            None,
+        );
         verify_migrated_committee_base(&migrated, &ledger, &next_committee)
             .expect("matching migration base");
 
