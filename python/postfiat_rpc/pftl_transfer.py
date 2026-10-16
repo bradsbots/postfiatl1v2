@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from dataclasses import asdict, is_dataclass
-from decimal import Decimal, DecimalException
+from decimal import Decimal, DecimalException, localcontext
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -35,12 +35,16 @@ def pft_to_atoms(value: str) -> int:
         raise ValueError("amount must be a finite decimal PFTL value")
     if amount <= 0:
         raise ValueError("amount must be positive")
-    try:
-        atoms_decimal = amount * PFTL_PRECISION
-    except DecimalException as error:
-        # Decimal() parses any exponent, but scaling one beyond the context's
-        # Emax (e.g. "1e400000000") raises decimal.Overflow.
-        raise ValueError("amount exponent is out of decimal range") from error
+    with localcontext() as ctx:
+        # Exact: the product's coefficient has at most len(digits) + 7 digits,
+        # so it is never rounded to the default 28 before the 6-decimal check.
+        ctx.prec = max(ctx.prec, len(amount.as_tuple().digits) + len(PFTL_PRECISION.as_tuple().digits))
+        try:
+            atoms_decimal = amount * PFTL_PRECISION
+        except DecimalException as error:
+            # Decimal() parses any exponent, but scaling one beyond the context's
+            # Emax (e.g. "1e400000000") raises decimal.Overflow.
+            raise ValueError("amount exponent is out of decimal range") from error
     if atoms_decimal != atoms_decimal.to_integral_value():
         raise ValueError("amount has more than 6 decimal places")
     atoms = int(atoms_decimal)

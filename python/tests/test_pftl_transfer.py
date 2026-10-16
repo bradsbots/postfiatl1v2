@@ -43,6 +43,54 @@ class PftlTransferCliTests(unittest.TestCase):
         self.assertEqual(cli.pft_to_atoms("12.5"), 12_500_000)
         self.assertEqual(cli.pft_to_atoms(" 3 "), 3_000_000)
 
+    def test_pft_to_atoms_refuses_extra_decimals_beyond_28_significant_digits(self) -> None:
+        for value in [
+            "1." + "0" * 27 + "1",
+            "1." + "0" * 35 + "1",
+            "12345678901234567890123.4567891",
+            "9999999999999999999999.9999991",
+        ]:
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "^amount has more than 6 decimal places$"):
+                    cli.pft_to_atoms(value)
+
+    def test_pft_to_atoms_keeps_trailing_zero_spellings(self) -> None:
+        for value in ["1.000000000000000000000000000000", "1." + "0" * 40]:
+            with self.subTest(value=value):
+                self.assertEqual(cli.pft_to_atoms(value), 1_000_000)
+
+    def test_pft_to_atoms_scales_long_integers_exactly(self) -> None:
+        for value in ["123456789012345678901234567891", "1" * 60]:
+            with self.subTest(value=value):
+                self.assertEqual(cli.pft_to_atoms(value), int(value) * 10**6)
+
+    def test_pft_to_atoms_existing_results_are_unchanged(self) -> None:
+        for value, atoms in [
+            ("1", 1_000_000),
+            ("1.000001", 1_000_001),
+            ("1e3", 1_000_000_000),
+            ("1E-6", 1),
+            (" 7 ", 7_000_000),
+            ("18446744073709.551615", 2**64 - 1),
+            ("9" * 22 + ".999999", int("9" * 28)),
+        ]:
+            with self.subTest(value=value):
+                self.assertEqual(cli.pft_to_atoms(value), atoms)
+        for value, message in [
+            ("1.0000001", "amount has more than 6 decimal places"),
+            ("18446744073709.5516151", "amount has more than 6 decimal places"),
+            ("0", "amount must be positive"),
+            ("-1", "amount must be positive"),
+            ("abc", "amount must be a decimal PFTL value"),
+            ("NaN", "amount must be a finite decimal PFTL value"),
+            ("Infinity", "amount must be a finite decimal PFTL value"),
+            ("1e400000000", "amount exponent is out of decimal range"),
+            ("1e-400000000", "amount is below PFTL precision"),
+        ]:
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "^" + message + "$"):
+                    cli.pft_to_atoms(value)
+
     def test_send_cli_reports_nan_amount_as_value_error(self) -> None:
         stdout = io.StringIO()
         with (
