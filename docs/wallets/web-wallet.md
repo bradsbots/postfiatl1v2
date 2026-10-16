@@ -82,7 +82,7 @@ The optional HTTPS dev cert paths are controlled by:
 | `WALLET_PROXY_MUTATION_RATE_WINDOW_MS` | `60000` | Principal mutation-rate window. |
 | `WALLET_PROXY_MUTATION_CONCURRENCY` | `16` | Process-wide in-flight authenticated HTTP mutation ceiling. |
 | `WALLET_STATIC_DIR` | `wallet-web/dist` | Immutable production wallet build served same-origin by the hardened proxy. |
-| `INJECT_RPC_CAPS` | `true` | Injects RPC capability fields into `server_info` responses. Like every wallet-proxy on/off setting, it takes `true`/`false` (any case) or `1`/`0`; any other value stops startup. |
+| `INJECT_RPC_CAPS` | `true` | Injects RPC capability fields into `server_info` responses. Like every wallet-proxy on/off setting, it takes `true`/`false` (any case) or `1`/`0`; any other value stops startup, or fails the request for a setting read per request (`<NAME> must be true or false`). Exception: `PFUSDC_WITHDRAWAL_ENABLED` is on only for exactly `true`. |
 
 Capability injection currently reports `read_only: false`,
 `mempool_submit_enabled: false`, and `mempool_submit_finality_enabled: true`
