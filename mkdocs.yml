@@ -125,6 +125,7 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - Storage Regression Campaign On The Running Code: handoffs/2026-10-19___dravlic__storage_regression_campaign_on_the_running_code.md
       - Committee Migration Command And Relays Persistent: handoffs/2026-10-16___dravlic__committee_migration_command_and_relays_persistent.md
       - Fastlane Cap Release Deployed And Bridge Committee Activated: handoffs/2026-10-15___dravlic__fastlane_cap_release_deployed_and_bridge_committee_activated.md
       - Contributor Pull Requests Cleared And Release Tomorrow: handoffs/2026-10-14___dravlic__contributor_pull_requests_cleared_release_tomorrow.md
