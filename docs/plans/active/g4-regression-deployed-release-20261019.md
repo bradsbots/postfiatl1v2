@@ -1,6 +1,8 @@
 # G4 Regression on the Deployed Release `8bed9b90`: Executable Plan
 
-**Status:** Authorized 2026-10-19 (operator go). G1 build started; no gate has passed yet.
+**Status:** Authorized 2026-10-19 (operator go). Attempt 1 (`8bed9b90`) stopped at G2 on the
+proposal page bound (74/64 reads). Attempt 2 is re-frozen at the bounds commit; see
+[Deviation 2026-10-19](#deviation-2026-10-19).
 **Date:** 2026-10-19
 **Parent:** [Storage scaling milestone](storage-scaling-milestone.md)
 **Predecessor:** [Model-floor G4 plan](model-floor-g4-campaign-plan.md) (PASS on `d0ae79f3`, 2026-08-30)
@@ -91,3 +93,47 @@ The report gives:
 
 PASS or FAIL is stated plainly. A failure includes its one diagnosis. Private
 material stays in `$C/`.
+
+## Bound re-derivation 2026-10-19
+
+Attempt 1's G2 rollback rehearsal stopped on `reads=74/64` for the proposal.
+The per-round page cost of `8bed9b90` is fixed and higher than that of `d0ae79f3`. `f0013c29`
+re-validates the generation pointer on every handle lookup, which adds one metadata
+read per state read. `d8f65885`/`943c4ca7` make `read_fastpay_ledger` do about 11
+lookups where it did 2. The old figures come from the `d0ae79f3` G2 (round 1 of all
+three phases) and from the `ae6ec9cb` G4 packet (all 250 selected-lane rounds,
+identical at heights 50 and 5,000). The new figures come from the attempt 1 G2
+current-post-activation round 1. Each bound keeps its old headroom and is
+rounded up to a multiple of 16 (`benchmarks/storage-scaling/run_campaign.py`).
+
+| Constant | Governs | Old bound | Old obs | Headroom | New obs | New bound |
+| --- | --- | --- | --- | --- | --- | --- |
+| `MAX_PROPOSAL_PAGE_READS_PER_ROUND` | proposal | 64 | 29 | 2.21× | 74 | 163.3 → 176 |
+| (same constant) | validator reconstruction | 64 | 35 | 1.83× | 80 | 146.3 → 160 (176 covers it) |
+| `MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND` | local + certified apply | 64 | 34 | 1.88× | 79 | 148.7 → 160 |
+| `MAX_APPLY_PAGE_WRITES_PER_VALIDATOR_ROUND` | apply writes | 32 | 8 | 4.0× | 8 | 32 (unchanged) |
+
+The bounds remain per-round constants that do not depend on height, and
+`full_history_*` must still be 0. The follow-up that caches the pointer
+validation is a candidate in the
+[next release plan](next-validator-release-plan-20261101.md#candidates).
+
+## Deviation 2026-10-19
+
+Operator decision: the harness design is unchanged and the bounds are committed.
+The deployed bytes cannot carry the new bounds, because the candidate's G2
+scripts require their checkout's HEAD to equal the binary's embedded revision.
+The campaign therefore qualifies the next release candidate rather than the
+exact deployed `8bed9b90` binary.
+
+- [x] Candidate: the `main` commit that adds this section (`S` above becomes that commit).
+  Its node code is the deployed source `8bed9b90` plus the crate changes merged since:
+  - `2737f080` offline `fastswap-committee-migrate` command (`crates/node/src/fastswap_committee_migration.rs`, `crates/storage/src/fastswap_store/committee_migration.rs`);
+  - `4bc5dca3` (#131, merged by `b18e4e02`): unique `cobalt_handoff` fixture temp root, test code only (`crates/node/src/cobalt_handoff.rs`).
+- [x] Runner: `51a1927220637158f26a3b1383be1065e7f1ada4` on `g4-runner-bounds-20261019`,
+  which is `ae6ec9cb` plus the same bound change. The helper is rebuilt from it.
+- [x] The harness scripts bind to these same commits. No script is modified outside its tree.
+- [x] Unchanged from attempt 1: the rollback binary `signer-rotation-20261007`
+  (`0fa55d0b`, SHA-256 `decaa411…370f`), the G2 scripts taken from the candidate checkout, and the prepared input.
+- [ ] Attempt 2 runs from G1 tests through G4. Attempt 1's G1 and G2 records are
+  kept as attempt 1 in `$C/status.json`.
