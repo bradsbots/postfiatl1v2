@@ -1,8 +1,8 @@
 # G4 Regression on the Deployed Release `8bed9b90`: Executable Plan
 
-**Status:** Authorized 2026-10-19 (operator go). Attempt 1 (`8bed9b90`) stopped at G2 on the
-proposal page bound (74/64 reads). Attempt 2 is re-frozen at the bounds commit; see
-[Deviation 2026-10-19](#deviation-2026-10-19).
+**Status:** Closed 2026-10-19: **PUBLIC TESTNET BLOCKED**. Attempt 2 (candidate `29824ed7`) ran
+G1 through G4. The height-cost model and three ratio gates failed. The cause is a performance
+regression since `f0013c29`. See [Result 2026-10-19](#result-2026-10-19).
 **Date:** 2026-10-19
 **Parent:** [Storage scaling milestone](storage-scaling-milestone.md)
 **Predecessor:** [Model-floor G4 plan](model-floor-g4-campaign-plan.md) (PASS on `d0ae79f3`, 2026-08-30)
@@ -135,5 +135,90 @@ exact deployed `8bed9b90` binary.
 - [x] The harness scripts bind to these same commits. No script is modified outside its tree.
 - [x] Unchanged from attempt 1: the rollback binary `signer-rotation-20261007`
   (`0fa55d0b`, SHA-256 `decaa411…370f`), the G2 scripts taken from the candidate checkout, and the prepared input.
-- [ ] Attempt 2 runs from G1 tests through G4. Attempt 1's G1 and G2 records are
+- [x] Attempt 2 runs from G1 tests through G4. Attempt 1's G1 and G2 records are
   kept as attempt 1 in `$C/status.json`.
+
+## Result 2026-10-19
+
+- [x] G4 run: 10:52:46–12:03:29Z (3,975 s), output `~/repos/postfiat-storage-g4-regression-20261019` (work server, private).
+- [x] Verdict: **PUBLIC TESTNET BLOCKED**, `evidence_eligible = false`. No devnet or network contact.
+
+| Item | Value |
+| --- | --- |
+| Candidate `C` | `29824ed7becc634ab33679a4c8bcb5516856c00e`; node SHA-256 `df0114a2…b6ac` |
+| Runner `R` | `51a1927220637158f26a3b1383be1065e7f1ada4`; helper SHA-256 `fb83d467…5f13` |
+| `frozen-binaries.json` | `47a38dfc…db08` |
+| G1 manifest / G2 rollback / G2 tamper | `71497ca5…6261` / `6f0a88b2…5da2` / `570c22ed…0ca8` (37 tests) |
+| Derived prepared-input manifest | `f0072483…4c51` (from `ec5a4715…98c3`) |
+| `campaign-report.json` | `94188f3ce5b294e898deeee9c34cee89ca05e748e3c691a34f7aa5e07206140e` |
+| `campaign-checkpoint.json` | `d1bb6e977cb7d878cf4475d9c6d5a265660abadb6cdd4525b886f516e4fed831` |
+| Free disk at close | 20 GB |
+
+### Gates
+
+| Gate | Result | Figures |
+| --- | --- | --- |
+| G1 build, freeze, tests | PASS | four filters pass; manifest `71497ca5…` |
+| G2 rollback, tamper | PASS | six validators converge; 37 tamper tests, no uncovered requirement |
+| Input restore, rebind | PASS | every bound SHA-256 matches; derived manifest `f0072483…` |
+| Chain opens | PASS (attempt 2b) | six clones at height 5,000, tip `d246148a…`, root `b3d2f5eb…` |
+| Receipts, agreement, coverage | PASS | 15/15 windows: literal receipts exact, six validators converge, round coverage passes |
+| Certified-send, vote-lock, backend work | PASS | every selected window within bounds; zero full-history reads |
+| Consensus round, 5,000 vs 50 | PASS (barely) | p95 1,635.8 / 1,487.9 ms = 1.0994 (≤1.10) |
+| Wallet-to-final, 5,000 vs 50 | **FAIL** | p95 1,735.2 / 1,570.9 ms = 1.1046 (>1.10) |
+| Height 50 vs legacy (consensus, wallet) | **FAIL** | 1.531, 1.600 (>1.10; August 0.345, 0.356); legacy 972.0 / 981.9 ms |
+| Height-cost model, 5 ms floor | **FAIL** | `certified_sends_ms`: per-window p95 median 662.8 → 842.4 ms, fitted +170 ms, threshold 150.1 ms, r² 0.76 |
+
+The runner's `release_pass` requires all of these (`run_paired_campaign.py:3376-3388` at `R`).
+
+### Per-stage p95 (per-window median, ms): August `d0ae79f3` vs today `29824ed7`
+
+| Stage | Aug h50 | Today h50 | Aug h5000 | Today h5000 | Height-material today |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `certificate_ms` | 167.4 | 762.8 | 172.1 | 770.3 | no |
+| `certified_sends_ms` | 80.2 | 662.8 | 81.1 | 842.4 | **yes** |
+| `local_vote_ms` | 40.2 | 440.6 | 42.7 | 478.6 | no |
+| `vote_requests_ms` | 65.3 | 586.1 | 69.2 | 718.0 | no |
+| `proposal_ms` | 31.6 | 93.9 | 32.4 | 99.4 | no |
+| `post_apply_status_ms` | 0.9 | 27.7 | 0.9 | 29.2 | no |
+| `local_apply_ms` | 31.7 | 38.9 | 33.2 | 42.8 | no |
+| `write_commit_ms` | 8.1 | 8.1 | 9.2 | 8.8 | no |
+
+The legacy lane did not change (height-50 p95 992.5 → 972.0 ms consensus; 336 → 338 MB written per
+window), so the host environment is not the cause.
+
+### Mechanism
+
+- `f0013c29` (bounded writer lease) replaced the always-open store with a weak-registry lease
+  (`crates/storage/src/transactional.rs:97`, `shared_transactional_store` at `:2664`). A lookup
+  reuses a live handle only while another caller holds one (`:2683`). Otherwise it reopens the
+  database (`:2686`), and the database closes when the last `Arc` drops.
+- On every close, redb 4.2.0 writes the allocator-state (free-space) table and trims the file
+  (`redb-4.2.0/src/db.rs:1325` `ensure_allocator_state_table_and_trim`, `:1352` `close_database`,
+  `:1366` `Drop for Database`). This cost grows with the database size.
+- Disk bytes written per selected window: 0.47 GB in August at height 50 → 10.9 GB today (23×).
+  At height 5,000: 3.3 GB → 36.8 GB (78× the August height-50 figure). Logical writes are the same.
+- Lookups per window went from about 17,700 to 44,700 (`f0013c29` pointer re-validation, plus
+  `d8f65885`/`943c4ca7` in `read_fastpay_ledger`), so the number of reopens grew as well.
+
+### Harness gap
+
+The runner's work counters count only the application's own fsyncs (`fsync_count`,
+`run_campaign.py:935`). They do not count redb's writes at close time. The work gates therefore
+passed while the bytes written per window grew 23×. The fix adds an open/close counter.
+
+### Pipeline-glue fixes (before the run; records in `~/.cache/storage-g4-20261019/status.json`)
+
+- [x] Attempt 1 (`8bed9b90`): stopped at G2 on the page bound. Bounds were re-derived at `29824ed7`
+  ([above](#bound-re-derivation-2026-10-19)).
+- [x] Attempt 2: the pipeline's helper up-to-date check was corrected.
+- [x] Attempt 2a: chain-open stopped because the copied pointers named the original database
+  directory. Attempt 2b rebases the pointers the way G4 does (`run_campaign.py:271`), then opens
+  all six validators. PASS.
+- [x] No node, runner, or gate script changed. The binary stayed fixed from G1 to the end of G4.
+
+### Next
+
+- [ ] Fix the store handle lifetime, then one re-run
+  ([next release plan](next-validator-release-plan-20261101.md#candidates);
+  [STO-07](../../review/defect-inventory-20260910.md)).

@@ -1018,3 +1018,17 @@ height 1131, root `a12e7c5f…`
 ([preflight](https://github.com/postfiatorg/postfiatl1v2/blob/6b4fa4b0596fecbdad663d9cddf902ae7b56d8b7/deployments/fastlane-cap-20261014/observed/demo-preflight-20261016.json),
 [fleet observation](https://github.com/postfiatorg/postfiatl1v2/blob/6b4fa4b0596fecbdad663d9cddf902ae7b56d8b7/deployments/fastlane-cap-20261014/observed/observe-fleet-20261016.json)
 at 10:56:22Z, PASS).
+
+## 2026-10-19: G4 regression campaign (work server only)
+
+The devnet was not touched: there was no validator-host contact and no transaction. The G4
+regression run on candidate `29824ed7` reported **PUBLIC TESTNET BLOCKED**
+([result](../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-19),
+report `94188f3c…`). Since `f0013c29`, the store handle lease reopens and closes the redb
+database on most lookups. Round stages are several times slower than in August, and
+certified sends grow with height
+([STO-07](../review/defect-inventory-20260910.md)). The devnet runs this code (`8bed9b90`),
+so the cost is real there too. The chain is idle at height 1131, though, and nothing changes
+on the validators today. The fix and one G4 re-run are in the
+[next release plan](../plans/active/next-validator-release-plan-20261101.md#candidates).
+

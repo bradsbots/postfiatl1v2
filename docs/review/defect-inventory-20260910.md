@@ -1,7 +1,7 @@
 # QA defect inventory — 2026-09-10
 
 Status: burn 2 inventory reconciled; burn 3–6 findings appended; P3 sweep recorded.
-The inventory has 141 rows: 26 P1, 77 P2 and 38 P3. The burn 2
+The inventory has 142 rows: 27 P1, 77 P2 and 38 P3. The burn 2
 Text Improvement Harness result is in the [2026-09-10 campaign log](qa-campaign-20260910.md);
 the burn 3 gate is in the [2026-09-11 campaign log](qa-campaign-20260911.md);
 the burn 4 gate is in the [2026-09-15 campaign log](qa-campaign-20260915.md);
@@ -43,6 +43,7 @@ must not be described as shipped or authoritative.
 
 These 28 findings are from the [burn 3 campaign](qa-campaign-20260911.md).
 Consensus-affecting repairs remain source-only and were not activated or deployed.
+STO-07 was added later, from the 2026-10-19 G4 regression campaign.
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -52,6 +53,7 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 | STO-04 | Reproduced defect | P3 | Recorded, not fixed | [Storage review](storage-snapshots-review-20260911.md): legacy receipt compaction performs the same atomic state write twice, doubling I/O without improving crash safety. Comparison-only backend. |
 | STO-05 | Evidence gap | P2 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing record; source clarification `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): the block-924 source repair predates the deployed base, but no post-repair signed fleet snapshot export establishes backup usability. Evidence: on 2026-09-28, with all six at height 1050 on `combined-fastpay-20260925` (source `f60e9639`, which contains `353156c3` and `69e1f1ce`), a finalized-checkpoint export from validator-1 was signed (manifest `a40d6a99…`), imported, checkpoint-verified and fully replayed to root `13d9e652…`; a copy with a changed signature was rejected ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md), [result](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/canary-backup/result.json)). Scope: one host's export of the six-way-agreed state. |
 | STO-06 | Reproduced defect | P1 | Fixed — `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): a torn FastSwap WAL suffix remained after replay, so a subsequent synced vote record appended behind it could not be replayed after restart. |
+| STO-07 | Reproduced defect | P1 | Open 2026-10-19 | Campaign report `94188f3c…`, [G4 regression result](../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-19): since `f0013c29` the store handle lease reopens and closes the redb database on most lookups. Close cost grows with the database size, so disk writes for identical logical writes are 23× August's at height 50 and 78× at height 5,000. |
 | EXE-01 | Reproduced defect | P1 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): a repeated transaction generated duplicate receipt IDs eligible for certification but rejected at ordered commit, halting that height. |
 | EXE-02 | Reproduced defect | P2 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): ordered `OwnedDeposit` bypassed the 100,000-object cap and could commit object 100,001. |
 | EXE-03 | Reproduced defect | P2 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): validators could certify a state root whose serialized state file exceeded storage's 256 MiB limit and could not be persisted. |
@@ -271,21 +273,22 @@ Free space on `/` (GB), from the preflight and the dated
 
 ## Final disposition
 
-The inventory contains 141 unique rows, including 28 burn 3 findings (6 P1,
+The inventory contains 142 unique rows, including 28 burn 3 findings (6 P1,
 14 P2, 8 P3), 15 burn 4 findings (0 P1, 10 P2, 5 P3), 22 burn 5 findings
-(1 P1, 14 P2, 7 P3), and 15 burn 6 findings (0 P1, 9 P2, 6 P3).
+(1 P1, 14 P2, 7 P3), 15 burn 6 findings (0 P1, 9 P2, 6 P3), and one
+2026-10-19 G4 regression finding (STO-07, P1).
 Classification and severity describe what the cited evidence
 establishes; status describes the bounded disposition in that row, not a
 broader production claim.
 
 | Measure | Count |
 | --- | ---: |
-| Reproduced defects | 101 |
+| Reproduced defects | 102 |
 | Code-observed defects (burn 5–6 P3) | 13 |
 | Evidence gaps | 22 |
 | Economic assumptions | 1 |
 | Proposed capabilities | 4 |
-| P1 | 26 |
+| P1 | 27 |
 | P2 | 77 |
 | P3 | 38 |
 | Fixed | 108 |
@@ -299,6 +302,7 @@ broader production claim.
 | Closed 2026-10-12 (SQ-02) | 1 |
 | Decided 2026-10-12 (SQ-01, SQ-06, SCT-08) | 3 |
 | Needs operator decision | 2 |
+| Open 2026-10-19, fix planned (STO-07) | 1 |
 | Bare open | 0 |
 
 Burn 2 grounded all nineteen rows that entered it as open. Three received
@@ -391,7 +395,8 @@ or StakeHub write.
 | Burn 6 swap and settlement execution (SWX-) | 1 |
 | Burn 6 bridge workflows (BRW-) | 6 |
 | Burn 6 remaining node files (NOD-) | 4 |
-| **Total** | **141** |
+| 2026-10-19 G4 regression campaign (STO-07) | 1 |
+| **Total** | **142** |
 
 Campaign review and repair commits are recorded in the
 [campaign log](qa-campaign-20260910.md). The inventory preserves open design,
