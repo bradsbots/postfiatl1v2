@@ -1,5 +1,33 @@
 use super::*;
 
+/// Live writable handles whose generation pointer binding was validated when
+/// they were acquired, keyed by node data directory. An entry is reused only
+/// while its handle is open, so the binding is re-validated on the next open.
+static VALIDATED_HANDLES: OnceLock<Mutex<HashMap<PathBuf, Weak<TransactionalStore>>>> =
+    OnceLock::new();
+
+fn validated_handle(data_dir: &Path) -> Option<Arc<TransactionalStore>> {
+    VALIDATED_HANDLES
+        .get()?
+        .lock()
+        .ok()?
+        .get(data_dir)
+        .and_then(Weak::upgrade)
+}
+
+fn remember_validated_handle(data_dir: &Path, store: &Arc<TransactionalStore>) {
+    if let Ok(mut handles) = VALIDATED_HANDLES.get_or_init(Default::default).lock() {
+        handles.retain(|_, handle| handle.strong_count() > 0);
+        handles.insert(data_dir.to_path_buf(), Arc::downgrade(store));
+    }
+}
+
+fn forget_validated_handle(data_dir: &Path) {
+    if let Some(Ok(mut handles)) = VALIDATED_HANDLES.get().map(Mutex::lock) {
+        handles.remove(data_dir);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransactionalGenerationPointerV1 {
     pub schema: String,
@@ -89,6 +117,7 @@ impl NodeStore {
             migration_packet_root: migration_packet_root.to_owned(),
         };
         validate_generation_pointer(&pointer)?;
+        forget_validated_handle(&self.data_dir);
         self.write_json(
             self.data_dir.join(TRANSACTIONAL_GENERATION_POINTER_FILE),
             &pointer,
@@ -142,6 +171,7 @@ impl NodeStore {
             ..pointer
         };
         validate_generation_pointer_shape(&relocated)?;
+        forget_validated_handle(&self.data_dir);
         self.write_json(
             self.data_dir.join(TRANSACTIONAL_GENERATION_POINTER_FILE),
             &relocated,
@@ -159,7 +189,13 @@ impl NodeStore {
     /// excludes read-only opens too), so holding an idle handle starves the
     /// sibling `transport-validator-serve`/`rpc-serve` process; that is the
     /// exact defect that stopped the 2026-08-30 storage canary.
+    ///
+    /// While a writable handle is open, later lookups reuse it and its
+    /// validated pointer binding without reading the pointer file again.
     pub fn transactional_store(&self) -> StorageResult<Arc<TransactionalStore>> {
+        if let Some(store) = self.live_transactional_store() {
+            return Ok(store);
+        }
         let pointer = self.transactional_generation_pointer().map_err(|error| {
             StorageError::new(StorageErrorCode::IntegrityFailure, error.to_string())
         })?;
@@ -178,10 +214,51 @@ impl NodeStore {
         if let Some(pointer) = pointer.as_ref() {
             validate_generation_pointer_binding(pointer, &store.meta()?)?;
         }
+        if !self.read_only {
+            remember_validated_handle(&self.data_dir, &store);
+        }
         Ok(store)
     }
 
+    /// Hold the database open for one consensus operation (STO-07).
+    ///
+    /// Every store lookup made while the returned lease is alive reuses its
+    /// handle and validated pointer binding; dropping it closes the database
+    /// so the sibling service can open it between operations. Returns `None`
+    /// for read-only or non-transactional stores and when no database exists.
+    /// It adds no failure mode: a pointer or binding error is left to the
+    /// lookups that already report it, and only `storage_writer_busy` fails.
+    pub fn transactional_store_lease(&self) -> io::Result<Option<Arc<TransactionalStore>>> {
+        if self.read_only
+            || !matches!(self.storage_backend_mode(), Ok(mode) if mode.is_transactional())
+        {
+            return Ok(None);
+        }
+        if let Some(store) = self.live_transactional_store() {
+            return Ok(Some(store));
+        }
+        match self.transactional_database_directory() {
+            Ok(directory) if directory.join(TRANSACTIONAL_DATABASE_FILE).exists() => {}
+            _ => return Ok(None),
+        }
+        match self.transactional_store() {
+            Ok(store) => Ok(Some(store)),
+            Err(error) if error.code() == StorageErrorCode::WriterBusy => Err(error.into()),
+            Err(_) => Ok(None),
+        }
+    }
+
+    fn live_transactional_store(&self) -> Option<Arc<TransactionalStore>> {
+        (!self.read_only)
+            .then(|| validated_handle(&self.data_dir))
+            .flatten()
+    }
+
     pub fn transactional_storage_configured(&self) -> io::Result<bool> {
+        if let Some(store) = self.live_transactional_store() {
+            store.meta()?;
+            return Ok(true);
+        }
         let directory = self.transactional_database_directory()?;
         if !directory.join(TRANSACTIONAL_DATABASE_FILE).exists() {
             return Ok(false);
@@ -194,11 +271,16 @@ impl NodeStore {
         if !self.storage_backend_mode()?.is_transactional() {
             return Ok(false);
         }
-        let directory = self.transactional_database_directory()?;
-        if !directory.join(TRANSACTIONAL_DATABASE_FILE).exists() {
-            return Ok(false);
-        }
-        let meta = self.transactional_store()?.meta()?;
+        let meta = match self.live_transactional_store() {
+            Some(store) => store.meta()?,
+            None => {
+                let directory = self.transactional_database_directory()?;
+                if !directory.join(TRANSACTIONAL_DATABASE_FILE).exists() {
+                    return Ok(false);
+                }
+                self.transactional_store()?.meta()?
+            }
+        };
         let Some(activation_height) = meta.scheduled_activation_height else {
             return Ok(false);
         };

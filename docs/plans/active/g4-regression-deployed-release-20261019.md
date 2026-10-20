@@ -219,6 +219,26 @@ passed while the bytes written per window grew 23×. The fix adds an open/close 
 
 ### Next
 
-- [ ] Fix the store handle lifetime, then one re-run
+- [x] Fix the store handle lifetime ([Fix 2026-10-20](#fix-2026-10-20)).
+- [ ] One re-run on the fix commit
   ([next release plan](next-validator-release-plan-20261101.md#candidates);
   [STO-07](../../review/defect-inventory-20260910.md)).
+
+## Fix 2026-10-20
+
+`transport-validator-serve` now holds one store handle per request (it also covers the next status
+read and is released before the connection blocks), the round driver holds one per round, and
+`status` holds one for its body (`crates/node/src/store_lease.rs`, `transport_runtime.rs`). While a
+handle is open, lookups reuse it and its validated pointer binding without reading the pointer file;
+the next open re-validates (`crates/storage/src/transactional/generation.rs`). The ≥50 ms backoff
+remains for another process holding the file; a close still running in this process is polled every
+1 ms (`crates/storage/src/transactional/lease.rs`). Disk format, pointer file, consensus and execution
+are unchanged. In one six-validator round
+(`transactional_six_validator_round_opens_each_database_a_bounded_number_of_times`), database opens
+per validator fell from 126 to 8, and on the proposer from 163 to 5. Each stage's `storage_work`
+now reports `database_opens`/`database_closes`, and `run_campaign.py` on main adds them next to
+`page_reads`; the runner `R` stays at `51a19272`, so in the re-run they appear only in the raw stage
+reports. The re-run freezes `S` and `C` on the fix commit, reuses `R` and the inputs at the manifest
+paths, keeps the per-round page bounds from `29824ed7`, and must pass the unchanged G4 criteria. It
+should also show per-window disk writes back near August's (0.47 GB at height 50, 3.3 GB at height
+5,000), per-stage p95 near the August column above, and stage `database_opens` near zero.

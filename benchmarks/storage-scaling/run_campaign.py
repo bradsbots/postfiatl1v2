@@ -704,6 +704,9 @@ TRANSACTIONAL_COUNTER_FIELDS = [
     "full_history_bytes_read",
     "durable_commit_micros",
 ]
+# redb opens and closes inside each measured stage (STO-07). Optional so a
+# binary that predates the counter still runs; the window then records None.
+DATABASE_OPEN_FIELDS = ["database_opens", "database_closes"]
 LEGACY_COUNTER_FIELDS = [
     "jsonl_append_calls",
     "checkpoint_bytes_read",
@@ -753,6 +756,9 @@ def storage_work_from_report(
         raise RuntimeError("benchmark report omitted iterations")
     transactional_totals = {field: 0 for field in TRANSACTIONAL_COUNTER_FIELDS}
     legacy_totals = {field: 0 for field in LEGACY_COUNTER_FIELDS}
+    database_open_totals: dict[str, int | None] = {
+        field: 0 for field in DATABASE_OPEN_FIELDS
+    }
     full_history_records_read = 0
     full_history_bytes_read = 0
     remote_latest: dict[str, dict[str, Any]] = {}
@@ -769,6 +775,15 @@ def storage_work_from_report(
             raise RuntimeError(f"{stage} reported invalid full-history work")
         full_history_records_read += records
         full_history_bytes_read += byte_count
+        for field in DATABASE_OPEN_FIELDS:
+            value = work.get(field)
+            total = database_open_totals[field]
+            if value is None or total is None:
+                database_open_totals[field] = None
+            elif int(value) < 0:
+                raise RuntimeError(f"{stage} storage telemetry was negative: {field}")
+            else:
+                database_open_totals[field] = total + int(value)
         legacy = work.get("legacy")
         if not isinstance(legacy, dict):
             raise RuntimeError(f"{stage} omitted legacy storage counters")
@@ -872,6 +887,7 @@ def storage_work_from_report(
     totals["legacy"] = legacy_totals
     totals["full_history_records_read"] = full_history_records_read
     totals["full_history_bytes_read"] = full_history_bytes_read
+    totals.update(database_open_totals)
     totals["fsync_count"] = (
         transactional_totals["committed_write_transactions"]
         if selected_transactional
@@ -1672,6 +1688,8 @@ def run_rounds(
             "bytes_written": resource["validator_write_bytes"],
             "page_reads": counters.get("page_reads"),
             "page_writes": counters.get("page_writes"),
+            "database_opens": counters.get("database_opens"),
+            "database_closes": counters.get("database_closes"),
             "fsync_count": counters.get("fsync_count"),
             "fsync_micros": counters.get("durable_commit_micros"),
             "sample_count": resource["sample_count"],
@@ -2191,6 +2209,8 @@ def run_persistent_advance(
             "bytes_written": resource["validator_write_bytes"],
             "page_reads": counters.get("page_reads"),
             "page_writes": counters.get("page_writes"),
+            "database_opens": counters.get("database_opens"),
+            "database_closes": counters.get("database_closes"),
             "fsync_count": counters.get("fsync_count"),
             "fsync_micros": counters.get("durable_commit_micros"),
             "sample_count": resource["sample_count"],

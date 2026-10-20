@@ -257,6 +257,11 @@ pub struct ApplyBatchStorageWorkReport {
     pub legacy: postfiat_storage::StorageWorkCounters,
     pub full_history_records_read: u64,
     pub full_history_bytes_read: u64,
+    /// redb opens and closes inside this stage, process-wide (STO-07).
+    #[serde(default)]
+    pub database_opens: u64,
+    #[serde(default)]
+    pub database_closes: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -445,7 +450,10 @@ pub(super) fn legacy_work_delta(
 pub(super) fn storage_work_report(
     transactional: Option<postfiat_storage::transactional::TransactionalWorkCounters>,
     legacy: postfiat_storage::StorageWorkCounters,
+    opens_before: postfiat_storage::transactional::TransactionalOpenCounts,
 ) -> ApplyBatchStorageWorkReport {
+    let opens =
+        postfiat_storage::transactional::transactional_open_counts().saturating_delta(opens_before);
     let transactional_full_history_records = transactional
         .as_ref()
         .map(|work| work.full_history_records_read)
@@ -467,6 +475,8 @@ pub(super) fn storage_work_report(
             .saturating_add(legacy.ordered_history_bytes_read)
             .saturating_add(legacy.ordered_index_bitmap_bytes_read),
         legacy,
+        database_opens: opens.database_opens,
+        database_closes: opens.database_closes,
     }
 }
 
@@ -517,6 +527,7 @@ fn apply_batch_with_timings_inner(
     let stage_start = std::time::Instant::now();
     let store = NodeStore::new(&options.data_dir);
     let store_init_ms = apply_batch_elapsed_ms(stage_start);
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -741,7 +752,7 @@ fn apply_batch_with_timings_inner(
         .map(|(transactional, before)| {
             transactional_work_delta(transactional.work_counters(), before)
         });
-    let storage_work = storage_work_report(transactional_work, legacy_work);
+    let storage_work = storage_work_report(transactional_work, legacy_work, opens_before);
 
     Ok(ApplyBatchWithTimingsReport {
         receipts,

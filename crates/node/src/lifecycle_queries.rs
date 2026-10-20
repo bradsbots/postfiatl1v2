@@ -629,6 +629,7 @@ pub fn run_once(options: NodeOptions) -> io::Result<StatusReport> {
 
 pub fn status(options: NodeOptions) -> io::Result<StatusReport> {
     let store = NodeStore::new(options.data_dir);
+    let _store_lease = store.transactional_store_lease()?;
     recover_ordered_commit_journal(&store)?;
     let genesis = store.read_genesis()?;
     let state = store.read_node_state()?;

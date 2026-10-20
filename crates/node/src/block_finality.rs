@@ -2238,6 +2238,7 @@ pub fn create_block_vote_with_timings(
     let store = NodeStore::new(&options.data_dir);
     timings.store_init_ms = node_timing_elapsed_ms(stage_start);
     let legacy_work_before = store.work_counters();
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -2279,7 +2280,11 @@ pub fn create_block_vote_with_timings(
         .zip(transactional_work_before)
         .map(|(transactional, before)| transactional.work_counters().saturating_delta(before));
     let legacy_work = legacy_work_delta(store.work_counters(), legacy_work_before);
-    vote.timings.storage_work = Some(storage_work_report(transactional_work, legacy_work));
+    vote.timings.storage_work = Some(storage_work_report(
+        transactional_work,
+        legacy_work,
+        opens_before,
+    ));
     Ok(vote)
 }
 

@@ -400,6 +400,7 @@ pub use pftl_swap_service::*;
 mod state_commitment;
 mod state_commitment_governance;
 mod storage_vote_guard;
+mod store_lease;
 pub use state_commitment::global_issued_asset_supply;
 #[allow(unused_imports)]
 use state_commitment::{
@@ -451,6 +452,7 @@ use state_commitment::{
     verify_global_issued_asset_supply_caps_legacy_non_nav_spread_omitted,
     LegacyJsonGovernanceState, LegacyJsonLedgerState, LegacyJsonShieldedState,
 };
+pub use store_lease::hold_transactional_store;
 mod execution_actions;
 #[cfg(test)]
 use execution_actions::execute_transparent_batch;

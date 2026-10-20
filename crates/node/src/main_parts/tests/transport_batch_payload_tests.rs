@@ -7,6 +7,11 @@ mod transport_batch_payload_tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     static CONSENSUS_V2_TRANSPORT_TEST_LOCK: Mutex<()> = Mutex::new(());
+    /// Observed after the STO-07 fix: each serving validator opens its
+    /// database once at service start, once per connection's first status and
+    /// once per request (8); the proposer opens it 5 times (2 peer-health
+    /// reads, the round, 2 harness status reads). Before the fix: 126 and 163.
+    const MAX_DATABASE_OPENS_PER_VALIDATOR_ROUND: u64 = 8;
 
     fn send_consensus_v2_test_rpc(port: u16, request: &RpcRequest) -> RpcResponse {
         let mut stream = (0..500)
@@ -201,11 +206,24 @@ mod transport_batch_payload_tests {
         }));
     }
 
-    fn run_activated_consensus_v2_transport_failed_proposer(validator_count: usize) {
-        prewarm_shielded_verifier_cache("consensus v2 transport test")
-            .expect("prewarm verifier");
+    struct ConsensusV2TransportFleet {
+        root: PathBuf,
+        data_dirs: Vec<PathBuf>,
+        topology_file: PathBuf,
+        base_port: u16,
+        listeners: Vec<TcpListener>,
+        rpc_listeners: Vec<TcpListener>,
+        validators: postfiat_ordering_fast::ConsensusV2ValidatorSet,
+        key_file: ValidatorKeyFile,
+    }
+
+    fn consensus_v2_transport_fleet(
+        label: &str,
+        validator_count: usize,
+        storage_activation_height: Option<u64>,
+    ) -> ConsensusV2TransportFleet {
         let root = std::env::temp_dir().join(format!(
-            "postfiat-consensus-v2-transport-{}-{}",
+            "postfiat-{label}-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
@@ -221,7 +239,7 @@ mod transport_batch_payload_tests {
                     node_id: format!("validator-{index}"),
                     validator_count: validator_count as u32,
                     activation_height: 2,
-                    storage_activation_height: None,
+                    storage_activation_height,
                 })
                 .expect("init validator");
                 data_dir
@@ -290,11 +308,37 @@ mod transport_batch_payload_tests {
             hosts: Some(vec!["127.0.0.1".to_string(); validator_count]),
             output_file: topology_file.clone(),
             activation_height: 2,
-            storage_activation_height: None,
+            storage_activation_height,
         })
         .expect("write topology");
         let (_, validators) =
             live_consensus_v2_context(&data_dirs[0]).expect("consensus context");
+        ConsensusV2TransportFleet {
+            root,
+            data_dirs,
+            topology_file,
+            base_port,
+            listeners,
+            rpc_listeners,
+            validators,
+            key_file,
+        }
+    }
+
+
+    fn run_activated_consensus_v2_transport_failed_proposer(validator_count: usize) {
+        prewarm_shielded_verifier_cache("consensus v2 transport test")
+            .expect("prewarm verifier");
+        let ConsensusV2TransportFleet {
+            root,
+            data_dirs,
+            topology_file,
+            base_port,
+            listeners,
+            rpc_listeners,
+            validators,
+            key_file,
+        } = consensus_v2_transport_fleet("consensus-v2-transport", validator_count, None);
 
         let first_proposer = postfiat_ordering_fast::leader_for_view(
             &validators.validator_ids(),
@@ -1056,6 +1100,140 @@ mod transport_batch_payload_tests {
     fn activated_consensus_v2_transport_survives_failed_view_zero_proposer_n6() {
         let _guard = CONSENSUS_V2_TRANSPORT_TEST_LOCK.lock().expect("test lock");
         run_activated_consensus_v2_transport_failed_proposer(6);
+    }
+
+    fn transactional_database_directory(data_dir: &Path) -> PathBuf {
+        NodeStore::new(data_dir)
+            .transactional_generation_pointer()
+            .expect("read generation pointer")
+            .map(|pointer| pointer.database_directory)
+            .unwrap_or_else(|| data_dir.to_path_buf())
+    }
+
+    fn database_opens(database_directories: &[PathBuf]) -> Vec<u64> {
+        database_directories
+            .iter()
+            .map(|directory| {
+                postfiat_storage::transactional::transactional_open_counts_for(directory)
+                    .database_opens
+            })
+            .collect()
+    }
+
+    /// An rpc-serve-style reader on another thread: a read-only open with no
+    /// retry, which redb refuses while any writer handle is open.
+    fn assert_database_free_for_rpc_reader(data_dirs: &[PathBuf]) {
+        for data_dir in data_dirs {
+            let data_dir = data_dir.clone();
+            std::thread::spawn(move || {
+                let store = NodeStore::new(&data_dir);
+                let directory = transactional_database_directory(&data_dir);
+                store
+                    .open_transactional_store_read_only_at(&directory)
+                    .expect("rpc-serve-style reader opens the database between rounds")
+                    .meta()
+                    .expect("rpc-serve-style reader reads the store meta");
+            })
+            .join()
+            .expect("rpc-serve-style reader thread");
+        }
+    }
+
+    /// Run one round and return each validator's database opens during it.
+    fn transactional_six_validator_round(
+        fleet: &ConsensusV2TransportFleet,
+        height: u64,
+        expected_block_vote_count: u64,
+    ) -> Vec<u64> {
+        let proposer =
+            postfiat_ordering_fast::leader_for_view(&fleet.validators.validator_ids(), height, 0)
+                .expect("proposer");
+        let proposer_index = fleet
+            .validators
+            .validator_ids()
+            .iter()
+            .position(|validator| validator == &proposer)
+            .expect("proposer index");
+        let batch = fleet.root.join(format!("height-{height}.batch.json"));
+        create_transfer_batch(BatchTransferOptions {
+            data_dir: fleet.data_dirs[proposer_index].clone(),
+            key_file: Some(fleet.data_dirs[0].join("faucet_key.json")),
+            to: format!("pf{}", "c".repeat(40)),
+            amount: height,
+            batch_file: batch.clone(),
+        })
+        .expect("transfer batch");
+        let directories = fleet
+            .data_dirs
+            .iter()
+            .map(|data_dir| transactional_database_directory(data_dir))
+            .collect::<Vec<_>>();
+        let before = database_opens(&directories);
+        run_consensus_v2_transport_round(
+            &fleet.data_dirs,
+            &fleet.topology_file,
+            &fleet.listeners,
+            proposer_index,
+            "transparent",
+            batch,
+            fleet.root.join(format!("height-{height}-artifacts")),
+            height,
+            0,
+            None,
+            expected_block_vote_count,
+        );
+        database_opens(&directories)
+            .iter()
+            .zip(&before)
+            .map(|(after, before)| after - before)
+            .collect()
+    }
+
+    /// STO-07: one consensus round must not reopen each validator's redb
+    /// database per store lookup, and rpc-serve must still be able to open it
+    /// between rounds.
+    #[test]
+    fn transactional_six_validator_round_opens_each_database_a_bounded_number_of_times() {
+        let _guard = CONSENSUS_V2_TRANSPORT_TEST_LOCK.lock().expect("test lock");
+        prewarm_shielded_verifier_cache("transactional open-count test").expect("prewarm");
+        let fleet = consensus_v2_transport_fleet("transactional-open-count", 6, Some(2));
+        let _ = transactional_six_validator_round(&fleet, 1, 1);
+        // Snapshot import builds no store before activation; build each
+        // replica's verified generation at the shared height-1 tip.
+        for data_dir in fleet.data_dirs.iter().skip(1) {
+            let tip = status(NodeOptions {
+                data_dir: data_dir.clone(),
+            })
+            .expect("replica status");
+            rebuild_transactional_storage(StorageMigrationOptions {
+                data_dir: data_dir.clone(),
+                output_dir: data_dir.join("transactional-generation-v1"),
+                expected_tip: tip.block_tip_hash,
+                expected_state_root: tip.state_root,
+                verify_only: false,
+            })
+            .expect("build the replica's transactional store");
+        }
+        let _ = transactional_six_validator_round(&fleet, 2, 2);
+        for data_dir in &fleet.data_dirs {
+            let storage = status(NodeOptions {
+                data_dir: data_dir.clone(),
+            })
+            .expect("status")
+            .storage
+            .expect("transactional storage status");
+            assert!(storage.transactional_active, "{storage:?}");
+        }
+        assert_database_free_for_rpc_reader(&fleet.data_dirs);
+
+        let opens = transactional_six_validator_round(&fleet, 3, 2);
+        eprintln!("STO-07 database opens per validator for one round: {opens:?}");
+        assert_database_free_for_rpc_reader(&fleet.data_dirs);
+        assert!(
+            opens.iter().all(|count| *count <= MAX_DATABASE_OPENS_PER_VALIDATOR_ROUND),
+            "per-validator database opens {opens:?} exceed {MAX_DATABASE_OPENS_PER_VALIDATOR_ROUND}"
+        );
+        std::fs::remove_dir_all(&fleet.root).expect("cleanup transactional open-count fleet");
     }
 
     #[test]

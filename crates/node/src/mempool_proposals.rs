@@ -2736,6 +2736,7 @@ fn propose_batch_with_optional_required_parent(
     let stage_start = std::time::Instant::now();
     let store = NodeStore::new(&options.data_dir);
     let legacy_work_before = store.work_counters();
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -2851,7 +2852,11 @@ fn propose_batch_with_optional_required_parent(
         .map(|(transactional, before)| transactional.work_counters().saturating_delta(before));
     let legacy_work = legacy_work_delta(store.work_counters(), legacy_work_before);
     timings.transactional_work = transactional_work;
-    timings.storage_work = Some(storage_work_report(transactional_work, legacy_work));
+    timings.storage_work = Some(storage_work_report(
+        transactional_work,
+        legacy_work,
+        opens_before,
+    ));
     timings.total_ms = node_timing_elapsed_ms(total_start);
     Ok(BatchProposalWithTimingsReport { proposal, timings })
 }
