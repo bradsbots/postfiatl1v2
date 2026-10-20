@@ -110,19 +110,20 @@ impl FastSwapValidatorServiceV1 {
             .iter()
             .map(|permit| (permit.permit_id, permit.clone()))
             .collect::<std::collections::BTreeMap<_, _>>();
+        // Verify the migrated base itself, before canonical controls replace
+        // its policies: the service never rewrites base-state.json, so this is
+        // the file the migration checked. The replayed state and the canonical
+        // policy set legitimately diverge once epoch-2 records or policies exist.
+        let committee_active = ledger.fastswap_committees.last() == Some(&committee);
+        if committee_active && committee.domain.committee_epoch > 1 {
+            verify_migrated_base_at_open(&base, &ledger, &committee)?;
+        }
         // Canonical consensus state is authoritative for mutable controls. The
         // base file seeds object state only; it cannot override a finalized
         // rule or policy registration.
         base.asset_rules = canonical_rules;
         base.holder_permits = canonical_holder_permits;
         base.policy_snapshots = canonical_policies;
-        // Verify the migrated base itself: the service never rewrites
-        // base-state.json, so this is the file the migration checked. The
-        // replayed state legitimately diverges once epoch-2 records exist.
-        let committee_active = ledger.fastswap_committees.last() == Some(&committee);
-        if committee_active && committee.domain.committee_epoch > 1 {
-            verify_migrated_base_at_open(&base, &ledger, &committee)?;
-        }
         let mut store = FastSwapStore::open(&directory).map_err(store_error)?;
         let mut state = store.replay(&base).map_err(store_error)?;
         for fence in ledger
@@ -1504,8 +1505,12 @@ fn verify_migrated_committee_base(
     ledger: &LedgerState,
     committee: &FastSwapCommitteeV1,
 ) -> io::Result<()> {
-    let (previous_checkpoint_id, previous_checkpoint) =
-        migrated_base_drain_checkpoint(state, ledger, committee)?;
+    let (previous_checkpoint_id, previous_checkpoint) = migrated_base_drain_checkpoint(
+        state,
+        ledger,
+        committee,
+        &ledger.fastswap_policy_snapshots,
+    )?;
     let candidate = build_fastlane_checkpoint(state, ledger, Some(previous_checkpoint_id), 0)
         .map_err(|error| {
             invalid_data(&format!(
@@ -1534,8 +1539,14 @@ fn verify_migrated_base_at_open(
     ledger: &LedgerState,
     committee: &FastSwapCommitteeV1,
 ) -> io::Result<()> {
-    let (previous_checkpoint_id, previous_checkpoint) =
-        migrated_base_drain_checkpoint(base, ledger, committee)?;
+    let (previous_checkpoint_id, previous_checkpoint) = migrated_base_drain_checkpoint(
+        base,
+        ledger,
+        committee,
+        // The policies the migration wrote; the canonical set may grow in
+        // epoch 2 without an epoch-1 fence for the new policy epoch.
+        &base.policy_snapshots.values().cloned().collect::<Vec<_>>(),
+    )?;
     let mut drain_view = LedgerState::empty();
     drain_view.fast_lane_reserves = previous_checkpoint.live_object_totals.clone();
     drain_view
@@ -1559,6 +1570,7 @@ fn migrated_base_drain_checkpoint(
     state: &FastLaneStateV1,
     ledger: &LedgerState,
     committee: &FastSwapCommitteeV1,
+    drained_policies: &[postfiat_types::FastSwapPolicySnapshotV1],
 ) -> io::Result<(FastLaneCheckpointIdV1, postfiat_types::FastLaneCheckpointV1)> {
     let previous_epoch = committee.domain.committee_epoch.saturating_sub(1);
     let previous_committee = ledger
@@ -1581,8 +1593,7 @@ fn migrated_base_drain_checkpoint(
             Some((checkpoint_id, checkpoint))
         })
         .ok_or_else(|| invalid_data("FastSwap migration drain checkpoint is absent or invalid"))?;
-    let mut expected_fences = ledger
-        .fastswap_policy_snapshots
+    let mut expected_fences = drained_policies
         .iter()
         .map(|policy| policy.policy_epoch)
         .collect::<Vec<_>>();

@@ -644,3 +644,29 @@ fn committee_migrated_open_refuses_edited_base() {
         "{error}"
     );
 }
+
+#[test]
+fn committee_migrate_store_reopens_after_epoch_two_policy_registration() {
+    let node = node(Shape::Snapshot);
+    assert_migrates(&node, "snapshot");
+    // A FastSwap policy registered on chain after the migration (any committee
+    // epoch may register one) reaches the service as a canonical control.
+    let node_store = NodeStore::new(&node.data_dir);
+    let mut ledger = node_store.read_ledger().expect("ledger");
+    let mut policy = ledger.fastswap_policy_snapshots[0].clone();
+    policy.policy_epoch = ledger
+        .fastswap_policy_snapshots
+        .iter()
+        .map(|policy| policy.policy_epoch)
+        .max()
+        .expect("policy")
+        + 1;
+    policy.policy_hash = postfiat_types::FastSwapPolicyHashV1([29; 48]);
+    ledger.fastswap_policy_snapshots.push(policy.clone());
+    node_store.write_ledger(&ledger).expect("ledger");
+    let service = assert_reopens(&node);
+    assert!(service
+        .state
+        .policy_snapshots
+        .contains_key(&policy.policy_hash));
+}
