@@ -6,6 +6,25 @@ Task Node: `task_8dacbe0a2767fa10c90ff70e12080f78`, requested and accepted throu
 
 The existing 39/39 dry-run result is inherited, not rerun. Its immutable seed remains `~/.cache/z3-dry-run-fix-20260921/inputs-reviewed.json`, SHA-256 `5cd8d89ae9dc9ed159cbff61e4cacafc2f1a9747c89986f6c68ae35d457497b7`. No seed, signer, validator data, service, or chain state was changed. Only the requested documentation, temporary worktree, publication gates, Task Node lifecycle and Git publication are writes in this task. No transaction, chain signature, proof generation, deployment, remote shell command, or wallet-secret read occurred. SSH forwarded read-only RPC traffic; signer-file checks used names and file metadata only.
 
+## Answers of 2026-10-20 and the order of events
+
+The other lane answered asks (b), (c), (d) and (f) on 2026-10-20 ([handoff](../handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md)). I record them here; no row value changed.
+
+- **Keys:** the issuer, pfUSDC and reserve keys stay on the other lane's host, and cycle 1 signs there. The six `@SIGNER_*@` arguments are not bound to files on this server.
+- **Rows 8, 12, 13:** follow the governed NAV profile (d).
+- **Rows 4, 11, 16, 17:** come from the other lane after PR #49 (f).
+- **Arc source row:** goes into the A666 route-epoch advance after (d). That advance lists both the Ethereum source and the Arc series, or the existing row is disabled.
+- **Command sheet:** rebound on 2026-10-20 from `combined-fastpay-20260928` to the running release `fastlane-cap-20261014` (source `8bed9b90`, executable `b1b3dbb1…`); see the [rebind note](#ordered-live-command-sheet-blocked-not-executed).
+
+Order of events:
+
+1. PR #49 conditions: re-pin past the header-time fix, the two failing jobs pass, the re-review.
+2. Successor reserve-proof build.
+3. Registration, signed with the A666 issuer key on the other lane's host.
+4. Governed NAV profile with fresh proofs (rows 8, 12, 13).
+5. A666 route-epoch advance with the Arc source row.
+6. Cycle 1, signed on the other lane's host.
+
 ## Re-read after the 2026-09-25 deployment
 
 Read 2026-09-28, read-only, no Task Node action. No transaction, key access or SSH write. **D** is the deployed source, [`f60e9639f83649769f29276a9de14f5f16271877`](https://github.com/postfiatorg/postfiatl1v2/tree/f60e9639f83649769f29276a9de14f5f16271877); both NAV scripts there are byte-identical to R.
@@ -14,7 +33,7 @@ Read 2026-09-28, read-only, no Task Node action. No transaction, key access or S
 - **E2, Arc:** the E getter list at block 64401669, 07:13:22–07:13:24Z. Every value equals E: all three code hashes; wallet 20,000,000 and vault 1,000,000 atoms; allowance **0**; not paused; binding `0xd9e0cd40…`; egress vkey `0x0036cbe7…`; route epoch 9; finalized height 948; checkpoint commitment `0x2e64ef8e…`; native balance 20×10¹⁸ wei.
 - Local unversioned captures: `~/.cache/z3-reread-20260928/fleet-capture.json`, SHA-256 `d7ee7e3a7c640472bf608a07d84de5f63a71095fc5d5bfc2c2aea3c38b0db5a0`, and `arc-capture.json`, SHA-256 `5ef33c10bdc8a35eb3685fb8385156d4438e72c728af36dc75fd6e7d268a8c21`.
 
-**What changed.** Only the release changed. The fleet moved from `a666-source-route-20260907` (build `707e006f`, height 1020) to `combined-fastpay-20260925` (build `f60e9639`, height 1050). Rows 2, 3 and 9 and the A666 NAV state are unchanged, and the row-14 ceiling recomputes to the same value. The pfUSDC and A666 issuers are also unchanged. At F2 the deployed binary and topology were `/opt/postfiat/releases/combined-fastpay-20260925/postfiat-node` and `/etc/postfiat/releases/combined-fastpay-20260925/topology.json`. The 2026-09-23 lineage (`1a0989ad`, `e7bb1afa…`) was never the running executable. The command sheet now names `combined-fastpay-20260928` (see the [lineage note](#ordered-live-command-sheet-blocked-not-executed)).
+**What changed.** Only the release changed. The fleet moved from `a666-source-route-20260907` (build `707e006f`, height 1020) to `combined-fastpay-20260925` (build `f60e9639`, height 1050). Rows 2, 3 and 9 and the A666 NAV state are unchanged, and the row-14 ceiling recomputes to the same value. The pfUSDC and A666 issuers are also unchanged. At F2 the deployed binary and topology were `/opt/postfiat/releases/combined-fastpay-20260925/postfiat-node` and `/etc/postfiat/releases/combined-fastpay-20260925/topology.json`. The 2026-09-23 lineage (`1a0989ad`, `e7bb1afa…`) was never the running executable. The command sheet then named `combined-fastpay-20260928`; since 2026-10-20 it names `fastlane-cap-20261014` (see the [lineage note](#ordered-live-command-sheet-blocked-not-executed)).
 
 **First direct route reads.** These states predate the deployment:
 
@@ -28,13 +47,13 @@ Read 2026-09-28, read-only, no Task Node action. No transaction, key access or S
 
 **Cycle 1 remains blocked by:**
 
-1. *Other lane:* PFTL signer keys and custody for holder/owner, pfUSDC proposer/finalizer/settler, A666 issuer and NAV reserve submitter.
-2. *Other lane:* rows 4, 8, 11, 12, 13, 16 and 17. Row 14's live quote then follows from rows 4 and 12–13.
-3. *Other lane:* a governed NAV profile compatible with the tooling, with fresh opening and post-subscription proofs. Rows 3 and 9 follow it if the profile changes.
-4. *Other lane:* an Arc custody row enabled for issue on the primary route, through a route-epoch advance signed by `pffcb93…`.
+1. *Other lane:* PFTL signer keys and custody for holder/owner, pfUSDC proposer/finalizer/settler, A666 issuer and NAV reserve submitter. **Answered 2026-10-20:** the keys stay on the other lane's host; cycle 1 signs there.
+2. *Other lane:* rows 4, 8, 11, 12, 13, 16 and 17. Row 14's live quote then follows from rows 4 and 12–13. **Answered 2026-10-20:** rows 8, 12 and 13 follow the NAV profile (d); rows 4, 11, 16 and 17 come from the other lane after PR #49.
+3. *Other lane:* a governed NAV profile compatible with the tooling, with fresh opening and post-subscription proofs. Rows 3 and 9 follow it if the profile changes. **Answered 2026-10-20:** it follows PR #49 and the successor registration.
+4. *Other lane:* an Arc custody row enabled for issue on the primary route, through a route-epoch advance signed by `pffcb93…`. **Answered 2026-10-20:** it goes into the route-epoch advance after the NAV profile.
 5. *Our side, operator decision:* Arc ingress needs an active governed Arc route, which the decided epoch-9 identities cannot supply.
 6. *Our side, fixed 2026-09-28:* the `reservation_escrows` tooling mismatch (`25610696`).
-7. *Our side:* bind INPUTS to the running release `combined-fastpay-20260928`. The command sheet was rebound on 2026-09-28.
+7. *Our side:* bind INPUTS to the running release `fastlane-cap-20261014`. The command sheet was rebound on 2026-10-20.
 8. *Our side:* the separately authorized Arc allowance approval, because the allowance is 0.
 9. The [predecessor and monitoring items](#predecessors-read-backs-and-monitoring-still-required) below.
 
@@ -56,20 +75,20 @@ Read 2026-09-28, read-only, no Task Node action. No transaction, key access or S
 | 1 | `manifest.identities.anchor_code_hash` | `0x3782655d3b1faac7889003995a6bf461bde994bb3968ab832c213f64675625f0` | resolved | E: `eth_getCode(anchor,0x3c76d3f)`, 09:49:21.420971Z; Keccak-256 of 3,084 runtime bytes. Independent of the PFTL executable; refresh at preflight. |
 | 2 | `manifest.policy_hashes.primary_route` | **Advanced 2026-10-04/05:** policy `32c970e9…`, route epoch 11, valid heights 1110–10000, not paused. Only custody row: still the Ethereum pfUSDC source `2bae082a…`. The sources record only the hash prefix; take the full hash from a fresh read-back before sealing INPUTS. Before block 1110: policy `fffecee58fdf91cde477f71214fde2b1d9d7a94fa27d671e6e0081017c03e7bd53d74ee8199b899efffa81beaad46e37`, policy and route epoch 10, valid heights 1012–10000 | resolved | Block 1110 `pftl_uniswap_route_epoch_advance` 10 → 11, signed by `pffcb93d…` ([Current State, 2026-10-05](chain-state-current.md#2026-10-05-weekend-state-before-the-other-lanes-conference-day)); validator-1 read-only read 2026-10-05 10:55Z ([handoff](../handoffs/2026-10-05___dravlic__release_after_the_conference_prepared_on_main.md)), one validator. Epoch 10 value: F2, 2026-09-28 07:12:23–07:13:56Z, `navcoin_bridge_supply_status` for `pftl-a666-ethereum-wA666-usdc-v1`, identical on all six. Formerly H only. Distinct from Arc route epoch 9 and from route-config digest `12ed00ca…`. |
 | 3 | `manifest.proof_keys.nav` | **Unchanged:** a94a profile key `0x00580ee8c389192568a29dc23d54c22e73a3a45203b22e3d5a934801871e11a7` | resolved | F2, same window: `nav_reserve_proof_status` for A666, `active_profile.sp1_program_vkey`, identical on all six. Recomputing the profile ID from that profile reproduces `a94a3929…`. This legacy key does **not** solve the NAV-builder mismatch below; it changes if row 8's compatible profile is activated. |
-| 4 | `manifest.accounts.owner` | **null**. Existing A666 subscriber/owner: `pfab9b9228942e5c529633a13aa271d5297bec6353`; September 2 deposit recipient: `pffcb93d9f87a843a8aa34e1adf241f5d58143e81b`; claim signer: `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8` | needs the other lane | R:`deployments/a666-mainnet-20260727/04-opening-holder-trust.ops.json`; A:`devnet/relay-bundle.report.json#/relay_bundle/plan`. Supply one explicit cycle owner with recoverable custody and the required source/A666 balances and permissions. The wrapper uses that one owner for deposit recipient, claim signer, subscriber, redeem and burn; the old packets cannot be spliced into that binding. |
+| 4 | `manifest.accounts.owner` | **null**. Existing A666 subscriber/owner: `pfab9b9228942e5c529633a13aa271d5297bec6353`; September 2 deposit recipient: `pffcb93d9f87a843a8aa34e1adf241f5d58143e81b`; claim signer: `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8` | needs the other lane — after PR #49 (2026-10-20) | R:`deployments/a666-mainnet-20260727/04-opening-holder-trust.ops.json`; A:`devnet/relay-bundle.report.json#/relay_bundle/plan`. Supply one explicit cycle owner with recoverable custody and the required source/A666 balances and permissions. The wrapper uses that one owner for deposit recipient, claim signer, subscriber, redeem and burn; the old packets cannot be spliced into that binding. |
 | 5 | `manifest.accounts.proposer` | `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8` | resolved | A:`devnet/relay-bundle.report.json#/relay_bundle/plan/propose_operation/proposer`. Existing pfUSDC operation signer; distinct from the elected validator proposer. Re-read eligibility after deployment; custody remains open. |
 | 6 | `manifest.accounts.finalizer` | `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8` | resolved | A:`devnet/relay-bundle.report.json#/relay_bundle/plan/finalize_operation/finalizer`. Re-read governed finalization eligibility after deployment; custody remains open. |
 | 7 | `manifest.accounts.bridge_settler` | `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8` | resolved | H:`resumed-epoch10/pfusdc-egress/settle.ops.json` names both source and `issuer_or_redemption_account`; R:`deployments/pfusdc-tier4-v3-accel-short-20260719/input.json#/asset/issuer` supplies the same committed public issuer. Re-read current issuer/redemption authority after deployment. |
-| 8 | `reserve_identities.nav_source_manifest_hash` | **null**. The observed legacy a94a profile has no provider-neutral source-manifest binding | needs the other lane | F plus R:`tools/nav-reserve-proof/qualifications/a666-shadow-20260730/reconciliation.json`. Supply a governed, compatible profile/source manifest and its provenance. Neither the retired shadow hash nor the public-successor hash can be inserted under a94a. |
+| 8 | `reserve_identities.nav_source_manifest_hash` | **null**. The observed legacy a94a profile has no provider-neutral source-manifest binding | needs the other lane — follows the NAV profile (2026-10-20) | F plus R:`tools/nav-reserve-proof/qualifications/a666-shadow-20260730/reconciliation.json`. Supply a governed, compatible profile/source manifest and its provenance. Neither the retired shadow hash nor the public-successor hash can be inserted under a94a. |
 | 9 | `reserve_identities.nav_program_vkey` | **Unchanged:** same `0x00580ee8c389192568a29dc23d54c22e73a3a45203b22e3d5a934801871e11a7` as row 3 | resolved | Same F2 read as row 3. The two input fields must remain identical; re-read the full selected profile before sealing INPUTS. |
 | 10 | `paths.remote_runner` | `/home/postfiatchad/repos/postfiatl1v2/scripts/a666-remote-sync-round.py` | resolved | Main base and R contain identical bytes, SHA-256 `1e090f92b3cce27266231fc202c23299c60dfe69dc3a86fa276fd4a9c3edfaff`. R:`scripts/a666-ce22-remote-finality-op.py` copies this helper to `/usr/local/sbin/a666-remote-sync-round.py` only during a future authorized submission. It was only read here. |
-| 11 | `paths.proposer_hosts_file` | **null** path; all six mapping values are established in the fleet table | needs the other lane | F and [September 17 preflight](z3-preflight-20260917.md#fleet). H:`profile-live.json` expects `/home/postfiat/.local/share/stakehub/navcoin-reproduction-20260906/hosts.json`, absent on this server. Supply an operator-owned JSON file mapping exactly validator-0 through validator-5 to those hosts; no host-map file was created here. |
-| 12 | `paths.opening_nav_manifest` | **null**. Historical epoch-8 path: `/home/postfiat/.local/share/stakehub/navcoin-reproduction-20260906/nav-refresh-e8/ops/live-nav-mark-manifest.json`, absent locally | needs the other lane | H:`profile-live.json`. The committed July opening manifest has another schema/profile/epoch; it is not a substitute. Supply a fresh accepted manifest satisfying every field in `validate_nav_binding`, under the selected deployed profile. |
-| 13 | `paths.fresh_packet_operation` | **null**; a same-cycle, post-subscription NAV reserve packet does not yet exist | needs the other lane | R:`scripts/a666-build-live-nav-mark-ops.py`, `active_profile` / `validate_packet`. Needs fresh source observations, qualified proof, post-subscription supply and the source-reserve overlay counted once. It depends on future verified predecessor artifacts, not only deployment. |
+| 11 | `paths.proposer_hosts_file` | **null** path; all six mapping values are established in the fleet table | needs the other lane — after PR #49 (2026-10-20) | F and [September 17 preflight](z3-preflight-20260917.md#fleet). H:`profile-live.json` expects `/home/postfiat/.local/share/stakehub/navcoin-reproduction-20260906/hosts.json`, absent on this server. Supply an operator-owned JSON file mapping exactly validator-0 through validator-5 to those hosts; no host-map file was created here. |
+| 12 | `paths.opening_nav_manifest` | **null**. Historical epoch-8 path: `/home/postfiat/.local/share/stakehub/navcoin-reproduction-20260906/nav-refresh-e8/ops/live-nav-mark-manifest.json`, absent locally | needs the other lane — follows the NAV profile (2026-10-20) | H:`profile-live.json`. The committed July opening manifest has another schema/profile/epoch; it is not a substitute. Supply a fresh accepted manifest satisfying every field in `validate_nav_binding`, under the selected deployed profile. |
+| 13 | `paths.fresh_packet_operation` | **null**; a same-cycle, post-subscription NAV reserve packet does not yet exist | needs the other lane — follows the NAV profile (2026-10-20) | R:`scripts/a666-build-live-nav-mark-ops.py`, `active_profile` / `validate_packet`. Needs fresh source observations, qualified proof, post-subscription supply and the source-reserve overlay counted once. It depends on future verified predecessor artifacts, not only deployment. |
 | 14 | `parameters.mint_amount_atoms` | **null live quote**. Cap ceiling **unchanged: 1,922,312 native atoms**, base 1,990,049, spread 9,951, spend 2,000,000 source atoms | needs the other lane | F2, same window, `navcoin_bridge_supply_status`: pricing NAV epoch 8 at 103,523,693 USD_1E8, issue multiplier 10,050 bps, orders 1,000,000–1,000,000,000,000, available issue 1,000,000,000,000; all unchanged. Recomputed with `derive_issue_amounts` at `f60e9639`. A live quote still needs the fresh NAV (rows 12–13), row 4's owner and source balance, and an Arc source custody row enabled for issue, which does not exist ([re-read](#re-read-after-the-2026-09-25-deployment)). This is not a chosen mint amount. |
 | 15 | `parameters.reservation_ttl_blocks` | **128 blocks**, recovered tool default | resolved | R:`scripts/a666-pfusdc-reserve-demo.py`, `--reservation-ttl-blocks`. Future `ISSUE_HEIGHT + 128` must be strictly below policy expiry. Record operator adoption with the live envelope; this is not a seconds-based deadline. |
-| 16 | `parameters.deposit_nonce` | **null**; no unused cycle-1 bytes32 nonce has been supplied | needs the other lane | A's deposit nonce is already historical. R:`crates/ethereum-contracts/src/ERC20BridgeVaultV2.sol::depositV2` keys `depositSeen` by the full deposit ID, not nonce alone. Supply the nonce and selected owner, derive the exact wallet/amount/recipient/route-bound ID, then read `depositSeen(bytes32)` on vault and anchor at preflight. No nonce was generated or reserved here. |
-| 17 | `parameters.reservation_recipient` | **null**. Existing A666 tooling recipient: `0x1455bd7fbfbf92a171ef36025e13959e3b0ad8c0` | needs the other lane | H:`profile-live.json` and [G2](../review/z3-g2-route-compatibility-20260917.md). Supply/confirm the reservation recipient. It is an existing Ethereum export binding; it is not implicitly the Arc wallet. This cycle releases the export entitlement. |
+| 16 | `parameters.deposit_nonce` | **null**; no unused cycle-1 bytes32 nonce has been supplied | needs the other lane — after PR #49 (2026-10-20) | A's deposit nonce is already historical. R:`crates/ethereum-contracts/src/ERC20BridgeVaultV2.sol::depositV2` keys `depositSeen` by the full deposit ID, not nonce alone. Supply the nonce and selected owner, derive the exact wallet/amount/recipient/route-bound ID, then read `depositSeen(bytes32)` on vault and anchor at preflight. No nonce was generated or reserved here. |
+| 17 | `parameters.reservation_recipient` | **null**. Existing A666 tooling recipient: `0x1455bd7fbfbf92a171ef36025e13959e3b0ad8c0` | needs the other lane — after PR #49 (2026-10-20) | H:`profile-live.json` and [G2](../review/z3-g2-route-compatibility-20260917.md). Supply/confirm the reservation recipient. It is an existing Ethereum export binding; it is not implicitly the Arc wallet. This cycle releases the export entitlement. |
 
 The archived family definition in `~/.cache/release-repair-20260918/rollback/validator-0/ledger.json` names pfUSDC issuer `pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8`; its a94a profile contains the row-3 key and no source-manifest/schema field. This legacy JSON file has trailing data and was inspected as a historical first JSON document only, **not** treated as the active transactional database. Whole-file SHA-256: `5ecb7b738406b371cf4058d33878b7754eae9ab1fa0a3f803a5c20ef0de898d6`; source commit of this local capture is unavailable.
 
@@ -103,8 +122,8 @@ These are copied from the reviewed seed and the user's decided facts; no route/a
 | NAV valuation | `076c071e44127158ef82350e7feeb64e0be0a06bf8ba4be5f0374ac36b992ac7`; unit `USD_1E8` | Seed requires schema `postfiat.nav_reserve_public_values.v1`; F's legacy profile does not establish that schema. |
 | Source verifier policy | `1c61349713b41cc15b3ec0863605b1ed5ef65ee43faa862ff17211c194023b26` | Decided seed binding; refresh on deployed source profile. |
 | Issuer / reserve operator | `pffcb93d9f87a843a8aa34e1adf241f5d58143e81b` / `pfd0c86d9084915e1fefd22eab891806397d5a5937` | Explicit existing NAV-builder authorities; signer custody still required. |
-| Qualified-node reference | `~/.cache/release-repair-20260928/binaries/candidate-1`; SHA-256 `1f8b332d9f482cdcf6ccf5cc15307ebd5d9bf0058b7a6db80a7132690d97e24a` | 2026-09-28: the running executable, source `c93b2137`, qualified PASS in `deployments/release-repair-20260928/`; local copy rehashed. Supersedes the 2026-09-18 reference `~/.cache/qualify-fix-20260918/binaries/candidate-1`, `051ad12c…` (R:`deployments/release-repair-20260918/node-builds.json`, source `03e422a7`). |
-| Deployment / checkout | `combined-fastpay-20260928`; remote binary `/opt/postfiat/releases/combined-fastpay-20260928/postfiat-node`; topology `/etc/postfiat/releases/combined-fastpay-20260928/topology.json` | 2026-09-28: the running release ([after F2](#re-read-after-the-2026-09-25-deployment)). It supersedes the prepared `combined-devnet-20260921` and the 2026-09-25 `combined-fastpay-20260925`. Seed checkout commit `b1201bc9f2d30822359ce5610b2a465f120d4b96` and inspected R are distinct from `c93b2137`; INPUTS must bind the running checkout, source and runtime. Do not relabel R as a `1f8b332d` build. |
+| Qualified-node reference | `~/.cache/release-fastlane-cap-20261014/binaries/candidate-1`; SHA-256 `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405` | 2026-10-20 rebind: the running executable since 2026-10-15, source `8bed9b90`, two identical clean builds (`deployments/fastlane-cap-20261014/node-builds.json`, [release branch](https://github.com/postfiatorg/postfiatl1v2/tree/release/fastlane-cap-20261014)). Supersedes 2026-09-28 `1f8b332d…`: then the running executable, source `c93b2137`, qualified PASS in `deployments/release-repair-20260928/`; local copy rehashed. Supersedes the 2026-09-18 reference `~/.cache/qualify-fix-20260918/binaries/candidate-1`, `051ad12c…` (R:`deployments/release-repair-20260918/node-builds.json`, source `03e422a7`). |
+| Deployment / checkout | `fastlane-cap-20261014`; remote binary `/opt/postfiat/releases/fastlane-cap-20261014/postfiat-node`; topology `/etc/postfiat/releases/fastlane-cap-20261014/topology.json` | 2026-10-20 rebind: the running release since 2026-10-15 ([Current State](chain-state-current.md)); INPUTS binds source `8bed9b90`. Superseded `combined-fastpay-20260928`, which was on 2026-09-28 the running release ([after F2](#re-read-after-the-2026-09-25-deployment)). It supersedes the prepared `combined-devnet-20260921` and the 2026-09-25 `combined-fastpay-20260925`. Seed checkout commit `b1201bc9f2d30822359ce5610b2a465f120d4b96` and inspected R are distinct from `c93b2137`; INPUTS must bind the running checkout, source and runtime. Do not relabel R as a `1f8b332d` build. |
 | Paths / evidence | Future local WORK `~/.cache/z3-cycle1-20260922/work`, PACKET `~/.cache/z3-cycle1-20260922/packet` | Proposed output destinations only; not created. INPUTS, VALUES, CHECKPOINT and authoritative per-validator data sources still need preparation. Seed `work/validator-data` is a nominal path, not a current state capture. |
 | Window / timers | Seed window `2026-09-18T00:00:00Z`–`2026-09-25T00:00:00Z`; per-command timeout **7200 s** | Do not carry forward September 21 cycle timestamps. Confirm the remaining window, live start, all aggregate timers and live authorization. |
 
@@ -243,7 +262,9 @@ Use E's same getter/method list with a **new pinned Arc block**, including code/
 
 ## Ordered live command sheet — blocked, not executed
 
-**Lineage note, 2026-09-28.** The lineage decided on 2026-09-23 (source `1a0989ad`, executable `e7bb1afa…`, prepared as `combined-devnet-20260923`) was never deployed. Until today this sheet kept the paths of the earlier prepared release `combined-devnet-20260921` and the `051ad12c…` node. Both were superseded by the deployments of 2026-09-25 (`combined-fastpay-20260925`, `f60e9639`) and 2026-09-28 (`combined-fastpay-20260928`, source `c93b2137`, executable `1f8b332d…`). The sheet now names the 2026-09-28 release: `NODE` and every `--remote-binary` / `--remote-topology`. The decided Arc pair, cap and route are unchanged.
+**Lineage note, 2026-09-28.** The lineage decided on 2026-09-23 (source `1a0989ad`, executable `e7bb1afa…`, prepared as `combined-devnet-20260923`) was never deployed. Until today this sheet kept the paths of the earlier prepared release `combined-devnet-20260921` and the `051ad12c…` node. Both were superseded by the deployments of 2026-09-25 (`combined-fastpay-20260925`, `f60e9639`) and 2026-09-28 (`combined-fastpay-20260928`, source `c93b2137`, executable `1f8b332d…`). The sheet then named the 2026-09-28 release: `NODE` and every `--remote-binary` / `--remote-topology`. The decided Arc pair, cap and route are unchanged.
+
+**Rebind, 2026-10-20.** The fleet has run `fastlane-cap-20261014` since 2026-10-15 (source `8bed9b90`, executable `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`). `NODE`, every `--remote-binary` and every `--remote-topology` now name it. `PROVER` still points into `~/repos/postfiatl1v2-arcusdc-current`, which the other lane's answer (l) approves deleting; it must be relocated or rebuilt before that deletion.
 
 This is a review copy of the already-retained 39 commands, with recovered values filled, fresh output-directory names and the unresolved placeholders listed below. It does not rerun the dry-run harness, qualify a build, create INPUTS or authorize execution.
 
@@ -253,7 +274,7 @@ Command aliases (fixed reference paths remain subject to the qualification block
 
 ~~~bash
 TOOLING=/home/postfiatchad/repos/postfiatl1v2
-NODE=/home/postfiatchad/.cache/release-repair-20260928/binaries/candidate-1
+NODE=/home/postfiatchad/.cache/release-fastlane-cap-20261014/binaries/candidate-1
 PROVER=/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover
 EGRESS_ELF=/home/postfiatchad/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program
 WORK=/home/postfiatchad/.cache/z3-cycle1-20260922/work
@@ -262,7 +283,7 @@ INPUTS=/home/postfiatchad/.cache/z3-cycle1-20260922/inputs-reviewed.json
 export PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$TOOLING/python"
 ~~~
 
-INPUTS is a **future path**, not the September 21 seed. Its `manifest.source_commit` must match the running lineage checkout (`c93b2137`); its release/binary must match the actual deployment (`combined-fastpay-20260928`, `1f8b332d…`). The six PFTL signer arguments remain `@SIGNER_HOLDER@`, `@SIGNER_PROPOSER@`, `@SIGNER_FINALIZER@`, `@SIGNER_ISSUER@`, `@SIGNER_RESERVE@`, `@SIGNER_SETTLER@` until custody is bound. `@VALIDATOR_DATA_DIR@` requires the authoritative data source. `@CHECKPOINT@` and all future VALUES names are defined in the predecessor table. Other `@MANIFEST_*@`, `@PATHS_*@` and `@PARAMETERS_*@` names map exactly to unresolved rows in the 17-field table.
+INPUTS is a **future path**, not the September 21 seed. Its `manifest.source_commit` must match the running lineage checkout (`8bed9b90`); its release/binary must match the actual deployment (`fastlane-cap-20261014`, `b1b3dbb1…`). The six PFTL signer arguments remain `@SIGNER_HOLDER@`, `@SIGNER_PROPOSER@`, `@SIGNER_FINALIZER@`, `@SIGNER_ISSUER@`, `@SIGNER_RESERVE@`, `@SIGNER_SETTLER@` until custody is bound. `@VALIDATOR_DATA_DIR@` requires the authoritative data source. `@CHECKPOINT@` and all future VALUES names are defined in the predecessor table. Other `@MANIFEST_*@`, `@PATHS_*@` and `@PARAMETERS_*@` names map exactly to unresolved rows in the 17-field table.
 
 The historical height-948 `PRIOR_CHECKPOINT` candidate is filled below to make the required **96-hex** format reviewable; replace it if the fresh accepted checkpoint/ancestry evidence requires a different value. Native quote remains a placeholder because the historical ceiling is not a live quote.
 
@@ -346,8 +367,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -370,8 +391,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -394,8 +415,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -424,8 +445,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -438,8 +459,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -452,8 +473,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -494,8 +515,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -508,8 +529,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -533,8 +554,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -560,8 +581,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -585,8 +606,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -613,8 +634,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -664,8 +685,8 @@ cast send 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'depositV2(uint256,string,b
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
@@ -728,8 +749,8 @@ cast call 0x160307f3efead79b6a3629c4b8d90e8301fc250f 'withdrawWithProof(bytes,by
   --node-bin "$NODE" \
   --remote-runner "$TOOLING"/scripts/a666-remote-sync-round.py \
   --proposer-hosts-file @PATHS_PROPOSER_HOSTS_FILE@ \
-  --remote-binary /opt/postfiat/releases/combined-fastpay-20260928/postfiat-node \
-  --remote-topology /etc/postfiat/releases/combined-fastpay-20260928/topology.json \
+  --remote-binary /opt/postfiat/releases/fastlane-cap-20261014/postfiat-node \
+  --remote-topology /etc/postfiat/releases/fastlane-cap-20261014/topology.json \
   --timeout-seconds 7200
 ~~~
 
