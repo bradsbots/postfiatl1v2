@@ -1,8 +1,9 @@
 # G4 Regression on the Deployed Release `8bed9b90`: Executable Plan
 
-**Status:** Closed 2026-10-19: **PUBLIC TESTNET BLOCKED**. Attempt 2 (candidate `29824ed7`) ran
-G1 through G4. The height-cost model and three ratio gates failed. The cause is a performance
-regression since `f0013c29`. See [Result 2026-10-19](#result-2026-10-19).
+**Status:** **CLOSED 2026-10-20: PASS.** Attempt 3 (candidate `8644f0af`, the STO-07 fix) meets the
+G4 criteria; see [Result 2026-10-20](#result-2026-10-20-attempt-3-after-the-fix). Attempt 2
+(`29824ed7`, 2026-10-19) was **PUBLIC TESTNET BLOCKED** by the regression since `f0013c29`; see
+[Result 2026-10-19](#result-2026-10-19).
 **Date:** 2026-10-19
 **Parent:** [Storage scaling milestone](storage-scaling-milestone.md)
 **Predecessor:** [Model-floor G4 plan](model-floor-g4-campaign-plan.md) (PASS on `d0ae79f3`, 2026-08-30)
@@ -118,6 +119,24 @@ The bounds remain per-round constants that do not depend on height, and
 validation is a candidate in the
 [next release plan](next-validator-release-plan-20261101.md#candidates).
 
+**2026-10-20, back down after the fix.** `8644f0af` reuses the validated pointer binding while a
+handle is open, so the per-lookup pointer read is gone. The extra `read_fastpay_ledger` lookups
+remain: 8 more read transactions per stage than August (450 against 354 per round). The observed
+figures are the same in the attempt 3 G2 current-binary phases and in all 250 G4 rounds at heights
+50 and 5,000. They are lower than attempt 2's but not equal to August's, so 64 / 64 / 32 is not
+restored. The same headroom rule gives:
+
+| Constant | Governs | Aug obs | Attempt 2 obs | Attempt 3 obs | Bound (was 176 / 160 / 32) |
+| --- | --- | ---: | ---: | ---: | --- |
+| `MAX_PROPOSAL_PAGE_READS_PER_ROUND` | proposal | 29 | 74 | 37 | 37 × 64/29 = 81.7 → **96** |
+| (same constant) | validator reconstruction | 35 | 80 | 43 | 43 × 64/35 = 78.6 → 80 (96 covers it) |
+| `MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND` | local + certified apply | 34 | 79 | 42 | 42 × 64/34 = 79.1 → **80** |
+| `MAX_APPLY_PAGE_WRITES_PER_VALIDATOR_ROUND` | apply writes | 8 | 8 | 8 | **32** (unchanged) |
+
+The G2 rollback binary `0fa55d0b` still reads 74 / 80 / 79 in its rollback phase. That is
+inside the new bounds, with apply at 79 of 80. The runner branch `g4-runner-bounds-20261019`
+(`51a19272`) stays as the record of the 176 / 160 bounds.
+
 ## Deviation 2026-10-19
 
 Operator decision: the harness design is unchanged and the bounds are committed.
@@ -220,8 +239,9 @@ passed while the bytes written per window grew 23×. The fix adds an open/close 
 ### Next
 
 - [x] Fix the store handle lifetime ([Fix 2026-10-20](#fix-2026-10-20)).
-- [ ] One re-run on the fix commit
-  ([next release plan](next-validator-release-plan-20261101.md#candidates);
+- [x] One re-run on the fix commit: PASS
+  ([Result 2026-10-20](#result-2026-10-20-attempt-3-after-the-fix);
+  [next release plan](next-validator-release-plan-20261101.md#candidates);
   [STO-07](../../review/defect-inventory-20260910.md)).
 
 ## Fix 2026-10-20
@@ -242,3 +262,90 @@ reports. The re-run freezes `S` and `C` on the fix commit, reuses `R` and the in
 paths, keeps the per-round page bounds from `29824ed7`, and must pass the unchanged G4 criteria. It
 should also show per-window disk writes back near August's (0.47 GB at height 50, 3.3 GB at height
 5,000), per-stage p95 near the August column above, and stage `database_opens` near zero.
+
+## Result 2026-10-20 (attempt 3, after the fix)
+
+- [x] G1 tests through G4 on the fix commit; G4 campaign 12:22:22–13:17:10Z (3,288 s; gate
+  12:17:41–13:17:10Z), output `~/repos/postfiat-storage-g4-regression-20261020` (work server, private).
+- [x] Verdict: **PASS**, `evidence_eligible = true`, `no_positive_linear_height_relationship = true`.
+  No validator-host contact, no transaction (`network_contacted = false`).
+- [x] Campaign **CLOSED**.
+
+| Item | Value |
+| --- | --- |
+| Candidate `C` | `8644f0afdab472c62db803c0b663b207dd08fcdb` (tree `0b85cf52…9f81`); node SHA-256 `d1799edb…3e93b` |
+| Runner `R` | `51a1927220637158f26a3b1383be1065e7f1ada4`; helper SHA-256 `fb83d467…5f13` (attempt 2's binary) |
+| Rollback binary | `signer-rotation-20261007` (`0fa55d0b`), SHA-256 `decaa411…370f` |
+| `frozen-binaries.json` | `818d071c…efba4` |
+| G1 manifest / G2 rollback / G2 tamper | `8fd73286…9dde` / `83340ab9…dcaae` / `410e8478…19cf` (37 tests) |
+| Derived prepared-input manifest | `247e31f2…27df` (from `ec5a4715…98c3`) |
+| `campaign-report.json` | `d1e9b39c6498558da7c2bd3aa979ec2a71fd6cffd0a3c9abe376c513ebb0aac0` |
+| `campaign-checkpoint.json` | `0b6608e3fb3a49e614a5d44dcebf7d900c1cee38bf59f023f448b0427b54ec11` |
+| Free disk at close | 175 GB |
+
+### Gates
+
+| Gate | Result | Figures |
+| --- | --- | --- |
+| G1 build, freeze, tests | PASS | `completed_index` 28, `certified_send` 48, `vote_lock` 19, `transactional_verify_only` 2 passed |
+| G2 rollback, tamper | PASS | six validators converge; 37 tamper tests, no uncovered requirement |
+| Input restore, rebind | PASS | every bound SHA-256 matches; derived manifest `247e31f2…` |
+| Chain opens | PASS | six clones at height 5,000, tip `d246148a…`, root `b3d2f5eb…` |
+| Receipts, agreement, coverage | PASS | 15/15 windows: literal receipts exact, six validators converge, round coverage passes |
+| Certified-send, vote-lock, backend work | PASS | every selected window within bounds; zero full-history reads |
+| Consensus round, 5,000 vs 50 | PASS | p95 338.5 / 329.9 ms = 1.0261 (≤1.10; August 1.0581) |
+| Wallet-to-final, 5,000 vs 50 | PASS | p95 453.0 / 438.7 ms = 1.0326 (≤1.10; August 1.0623) |
+| Height 50 vs legacy (consensus, wallet) | PASS | 0.340, 0.447 (August 0.345, 0.356); legacy 970.5 / 980.8 ms |
+| Height-cost model, 5 ms floor | PASS | no stage material; largest fitted delta `vote_requests_ms` +3.7 ms (threshold 7.7 ms) |
+
+### Per-stage p95 (per-window median, ms; height 50 / height 5,000)
+
+| Stage | August `d0ae79f3` | Attempt 2 `29824ed7` | Attempt 3 `8644f0af` |
+| --- | ---: | ---: | ---: |
+| `certificate_ms` | 167.4 / 172.1 | 762.8 / 770.3 | 156.3 / 152.9 |
+| `certified_sends_ms` | 80.2 / 81.1 | 662.8 / 842.4 | 81.5 / 82.7 |
+| `local_vote_ms` | 40.2 / 42.7 | 440.6 / 478.6 | 39.0 / 38.6 |
+| `vote_requests_ms` | 65.3 / 69.2 | 586.1 / 718.0 | 69.3 / 71.9 |
+| `proposal_ms` | 31.6 / 32.4 | 93.9 / 99.4 | 33.1 / 33.0 |
+| `post_apply_status_ms` | 0.9 / 0.9 | 27.7 / 29.2 | 0.7 / 0.6 |
+| `local_apply_ms` | 31.7 / 33.2 | 38.9 / 42.8 | 31.3 / 30.0 |
+| `write_commit_ms` | 8.1 / 9.2 | 8.1 / 8.8 | 7.9 / 8.1 |
+
+### Disk writes and lookups per selected window (height 50 / height 5,000)
+
+| Measure | August | Attempt 2 | Attempt 3 |
+| --- | --- | --- | --- |
+| Disk bytes written (median of 5) | 0.47 / 3.3 GB | 10.9 / 36.9 GB | 1.03 / 3.68 GB (ranges 1.00–1.04, 3.01–3.76) |
+| Read transactions (lookups) | ~17,700 | 44,700 / 44,700 | 22,500 / 22,500 |
+| Page reads | — | 47,400 / 47,400 | 25,200 / 25,200 |
+| Page reads per round: proposal / reconstruction / apply | 29 / 35 / 34 | 74 / 80 / 79 | 37 / 43 / 42 (8 writes) |
+| Stage `database_opens` / `database_closes` | — | not reported | 0 / 0 in all 6,000 stage reports (500 rounds × 12 stages) |
+
+Runner `R` does not total the open counters, so the last row comes from the raw stage reports
+(`lanes/selected-indexed/*/round-*/iterations.jsonl`). The height-5,000 writes are back near
+August's (1.1×). The height-50 writes are 2.2× August's, though 10.6× below attempt 2. This is
+recorded only: it is not a gate, the cause is not yet known, and the August packet is no longer
+on disk to compare against. The legacy lane is unchanged (970.5 ms p95, 0.34 GB per window).
+
+### What it proves
+
+- The running code line with `8644f0af` meets the unchanged G4 criteria. The regression from
+  `f0013c29` is gone, and every stage is back at the August level.
+- The deployed release `fastlane-cap-20261014` (`8bed9b90`) does **not** contain the fix. It
+  still has STO-07 until the next release
+  ([next release plan](next-validator-release-plan-20261101.md#candidates)).
+- No milestone label changes. G3 (the height-924 replay with our custody copy, plus the 915
+  replacement) can start after that release.
+
+### Pipeline-glue fixes (today; records in `~/.cache/storage-g4-20261019/status.json`)
+
+- [x] Copy gate sources: `P` was deleted on 2026-10-20 with the other lane's approval, so attempt 3
+  stopped at the copy gate (12:03:42Z). The gate now takes each input from `P` if it exists.
+  Otherwise it hash-checks the copy already at the manifest path. For the private bundle and the
+  topology only, it falls back to attempt 2's G4 output and hash-checks before and after the
+  copy. The expected hashes are still `ec5a4715`'s.
+- [x] Resume labels: a resumed run now takes its label from the frozen attempt
+  (`attempt 3 continued`), not the hard-coded `attempt 2a`/`2b`. The G1 and G2 PASS records were kept.
+- [x] No node, runner, or gate script changed. The binary stayed fixed from G1 to the end of G4.
+- [x] Page bounds re-derived down after the run
+  ([Bound re-derivation](#bound-re-derivation-2026-10-19)).

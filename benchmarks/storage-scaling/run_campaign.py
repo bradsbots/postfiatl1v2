@@ -51,14 +51,16 @@ PERSISTENT_ADVANCE_REPORT_SCHEMA = (
 )
 BATCH_BUILD_REPORT_SCHEMA = "postfiat-storage-corpus-batch-build-report-v1"
 QUALIFICATION_TIMEOUT_MS = 900_000
-# Re-derived 2026-10-19 for the fixed per-round cost of 8bed9b90: f0013c29 re-validates
-# the generation pointer on every handle lookup (+1 metadata read per state read), and
-# d8f65885/943c4ca7 make read_fastpay_ledger do ~11 lookups where it did 2. Each bound
-# keeps its old headroom over the d0ae79f3 figures (flat at heights 2, 50 and 5,000),
-# rounded up to a multiple of 16: proposal 74 x 64/29 -> 176 (also covers validator
-# reconstruction, 80 x 64/35 -> 160); apply 79 x 64/34 -> 160; writes unchanged at 8.
-MAX_PROPOSAL_PAGE_READS_PER_ROUND = 176
-MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND = 160
+# Re-derived 2026-10-20 for 8644f0af (STO-07 fix): an open handle reuses its validated
+# pointer binding, so the per-lookup pointer read of f0013c29 is gone; the extra
+# read_fastpay_ledger lookups of d8f65885/943c4ca7 remain. Observed per round in the
+# 8644f0af G2 and all 250 G4 rounds at heights 50 and 5,000: proposal 37, validator
+# reconstruction 43, apply 42 reads, 8 writes. Each bound keeps its headroom over the
+# d0ae79f3 figures (29/35/34 under 64), rounded up to a multiple of 16: proposal
+# 37 x 64/29 -> 96 (also covers reconstruction, 43 x 64/35 -> 80); apply 42 x 64/34 -> 80;
+# writes unchanged at 8. The G2 rollback binary 0fa55d0b reads 74/80/79, inside these.
+MAX_PROPOSAL_PAGE_READS_PER_ROUND = 96
+MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND = 80
 MAX_APPLY_PAGE_WRITES_PER_VALIDATOR_ROUND = 32
 MATERIAL_STAGE_PATHS = {
     "proposal_ms": ("round_timings", "proposal_ms"),

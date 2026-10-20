@@ -1025,6 +1025,8 @@ The founder signs the two issuer bridge policy updates on his own host. The wind
 
 At 10:25Z the other lane's `navcoin-proof-watchdog@` user units, which watched only loopback forks, were stopped and disabled on validator-0 (3) and validator-3 (14), with the validator and RPC PIDs unchanged and the state and config files kept ([record](https://github.com/postfiatorg/postfiatl1v2/blob/819918d2b0cd5798f365bd1c6341537f11b64ead/deployments/fastlane-cap-20261014/observed/watchdog-units-stopped-20261020.json)).
 
+The STO-07 fix (`8644f0af`) is on main, and the G4 re-run on the work server qualifies it: **PASS**, report `d1e9b39c…0ac0`, consensus ratio 1.0261, wallet 1.0326, stage p95 back at the August level ([result](../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix)). The devnet still runs `fastlane-cap-20261014` (`8bed9b90`), which does not have the fix, at height 1131 (last observed). The fix ships with the [next release](../plans/active/next-validator-release-plan-20261101.md#candidates). The re-run made no validator-host contact and sent no transaction, and nothing changed on the validators.
+
 ## 2026-10-19: G4 regression campaign (work server only)
 
 The devnet was not touched: there was no validator-host contact and no transaction. The G4
