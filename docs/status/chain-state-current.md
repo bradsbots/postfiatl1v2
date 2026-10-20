@@ -1023,6 +1023,8 @@ at 10:56:22Z, PASS).
 
 The founder signs the two issuer bridge policy updates on his own host. The window is 2026-10-20 12:00–16:00 UTC, A666 first, then BMNRC. The files are the [A666 update](https://github.com/postfiatorg/postfiatl1v2/blob/30c6dcd647ae1efe5b52061fa0321e21946e7a0b/deployments/fastlane-cap-20261014/observed/a666-bridge-policy-update.unsigned.json) (`24aa2e28…`) and the [BMNRC update](https://github.com/postfiatorg/postfiatl1v2/blob/30c6dcd647ae1efe5b52061fa0321e21946e7a0b/deployments/fastlane-cap-20261014/observed/bmnrc-bridge-policy-update.unsigned.json) (`5179d6f7…`), both to `authority_epoch` 2, root `72836827…`. The steps are in the [signing sheet](https://github.com/postfiatorg/postfiatl1v2/blob/30c6dcd647ae1efe5b52061fa0321e21946e7a0b/deployments/fastlane-cap-20261014/ISSUER-SIGNING-SHEET-20261020.md). At 10:13Z no transaction had been sent and the chain was at height 1131.
 
+At 10:25Z the other lane's `navcoin-proof-watchdog@` user units, which watched only loopback forks, were stopped and disabled on validator-0 (3) and validator-3 (14), with the validator and RPC PIDs unchanged and the state and config files kept ([record](https://github.com/postfiatorg/postfiatl1v2/blob/819918d2b0cd5798f365bd1c6341537f11b64ead/deployments/fastlane-cap-20261014/observed/watchdog-units-stopped-20261020.json)).
+
 ## 2026-10-19: G4 regression campaign (work server only)
 
 The devnet was not touched: there was no validator-host contact and no transaction. The G4
