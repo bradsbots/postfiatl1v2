@@ -264,7 +264,9 @@ Use E's same getter/method list with a **new pinned Arc block**, including code/
 
 **Lineage note, 2026-09-28.** The lineage decided on 2026-09-23 (source `1a0989ad`, executable `e7bb1afa…`, prepared as `combined-devnet-20260923`) was never deployed. Until today this sheet kept the paths of the earlier prepared release `combined-devnet-20260921` and the `051ad12c…` node. Both were superseded by the deployments of 2026-09-25 (`combined-fastpay-20260925`, `f60e9639`) and 2026-09-28 (`combined-fastpay-20260928`, source `c93b2137`, executable `1f8b332d…`). The sheet then named the 2026-09-28 release: `NODE` and every `--remote-binary` / `--remote-topology`. The decided Arc pair, cap and route are unchanged.
 
-**Rebind, 2026-10-20.** The fleet has run `fastlane-cap-20261014` since 2026-10-15 (source `8bed9b90`, executable `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`). `NODE`, every `--remote-binary` and every `--remote-topology` now name it. `PROVER` still points into `~/repos/postfiatl1v2-arcusdc-current`, which the other lane's answer (l) approves deleting; it must be relocated or rebuilt before that deletion.
+**Rebind, 2026-10-20.** The fleet has run `fastlane-cap-20261014` since 2026-10-15 (source `8bed9b90`, executable `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`). `NODE`, every `--remote-binary` and every `--remote-topology` now name it. `~/repos/postfiatl1v2-arcusdc-current` was deleted on the morning of 2026-10-20 with the other lane's approval (answer (l)), so the `PROVER` path below no longer exists.
+
+- [ ] Rebuild the prover from the pinned source into a path of ours before cycle 1
 
 This is a review copy of the already-retained 39 commands, with recovered values filled, fresh output-directory names and the unresolved placeholders listed below. It does not rerun the dry-run harness, qualify a build, create INPUTS or authorize execution.
 
