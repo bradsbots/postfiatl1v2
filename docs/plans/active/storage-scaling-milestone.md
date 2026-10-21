@@ -519,31 +519,24 @@ paths sorted; per entry a type tag, path length and path, plus size and
 contents for files. The scratch copy hashed the same, and the archive hashed
 the same after the import.
 
-- [ ] Replay the 1123 archive with the frozen successor binary on a scratch
-      copy; match height, tip and root; bind the receipt.
+- [x] Replay the 1123 archive with the frozen successor binary on a scratch
+      copy; match height, tip and root; bind the receipt (2026-10-21).
 
-**1123 replay (2026-10-21): interim PASS by hand; harness gap.** Binary:
-release `store-handle-20261021` (`eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`,
-source `86706699`, with the STO-07 fix). `run_replay_evidence.py` at `86706699`
-cannot replay this archive:
-
-- its CLI requires the fixed 915/924 pair (`--quarantine-dir` missing, exit 2);
-- its `replay_source()` on the raw export stops at `status` (an export is not a
-  data directory: legacy untagged genesis);
-- on the signed import it stops at "source is not below storage activation".
-  At 1123 the store is transactional (commitment v2, activation height 930),
-  and the harness accepts only legacy pre-activation sources.
-
-Missing: a harness path for post-activation sources. Interim evidence: the
-release packet's by-hand sequence, rerun on a scratch copy with that binary.
-Signed import passed, then `verify-finalized-checkpoint` and full
-`verify-state` both returned `verified: true` at 1123, tip `bafcc6ef…`, root
-`942d1fc2…`, equal to the signed manifest. The archive tree hash was
-`724389ad…` before and after the run. Receipt (work server, not in git):
-`~/.cache/g3-1123-replay-20261021/receipts/height-1123-interim.json`, SHA-256
-`dbef984a1ff58c0471c2c9ef820af54be3c2c8e7b4ee331b845b5964b68d3553`. The box
-stays open until a harness receipt exists or the interim receipt is accepted
-in its place.
+**1123 replay (2026-10-21): PASS with the harness.** Method:
+`run_replay_evidence.py --signed-archive-dir` (added in `2ebc7b13`; the
+915/924 pair mode is unchanged). On a scratch copy it runs the signed import,
+`verify-finalized-checkpoint` and the full `verify-state` replay, checks
+height, tip and root at each step, and hashes the archive before and after.
+Binary: release `store-handle-20261021`
+(`eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`, source
+`86706699`, with the STO-07 fix). Result: 1123, tip `bafcc6ef…`, root
+`942d1fc2…`, equal to the signed manifest. The store is transactional
+(commitment v2, activation height 930). Archive tree hash `724389ad…` before
+and after. Receipt (work server, not in git):
+`~/.cache/g3-1123-replay-20261021/receipts/height-1123-harness/receipts/height-1123.json`,
+SHA-256 `c172d31e6169d37e3fbee416596f4603f5f38bbfc74fb8d307602e6ce26112b2`.
+It replaces the interim by-hand receipt (`height-1123-interim.json`,
+`dbef984a…`).
 
 **Height 924 (2026-10-20).** I am the custodian; the other lane approved one
 read-only copy (same answer). The six stopped copies of 2026-08-30 are on the
