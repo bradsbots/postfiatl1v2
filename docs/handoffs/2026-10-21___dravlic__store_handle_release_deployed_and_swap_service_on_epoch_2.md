@@ -198,10 +198,11 @@ I ask the other lane for the following; each shows the date first asked.
   2026-09-28.
 - Its review of its unpublished work, the delayed-precommit RED fix first.
   2026-10-20.
-- **New:** whether a dust pfUSDC → a651 run on the controlled devnet counts as
-  a testnet rehearsal under custody rule (b), since pfUSDC there is backed by
-  mainnet USDC ([plan §2][rehearsal]). It blocks the first StakeHub rehearsal.
-  2026-10-21.
+- **New:** the first StakeHub rehearsal, on your machine in a shift of yours,
+  when it suits you. It uses your venue inventory wallet, your operator
+  passphrase file and about a dollar of real funds, with the steps of the
+  [plan][rehearsal] (§4). Custody is decided (rule (a), see End of session); we
+  prepare our preconditions first. 2026-10-21.
 
 ## References
 
@@ -267,3 +268,20 @@ I ask the other lane for the following; each shows the date first asked.
 - **Live state.** Not probed again: this part had no host or RPC contact. Last
   observed at 12:50:58Z: six at 1137, swap service on committee epoch 2 on all
   six, both routes still on authority epoch 1.
+- **Rehearsal custody, decided (2026-10-21).** The first StakeHub rehearsal
+  runs under custody rule (a): every key stays on the founder's machine and the
+  validators receive only signed objects, which the [plan][rehearsal] already
+  meets. The capped single-use key and the dust amounts stay as hygiene, not as
+  the authority for the run. Rule (b) does not apply: the repository has no
+  asset that is not backed by mainnet value, so there is no testnet rehearsal
+  in the proposal's sense. The run uses your machine, your venue inventory
+  wallet and operator passphrase file and about a dollar of real funds, so it
+  happens on your machine in a shift of yours. We prepare our preconditions
+  first: check 0c, the three binaries, the wallet proxy with its relay and the
+  warm prover. Recorded in StakeHub `844d4b2`.
+- **[PR #49][pr49], from 2026-10-22.** I take conditions 1–2 (re-pin
+  `candidate-identity.json` past `340d5de1`/`d14c703e`; make
+  `open-reserve-proof-kit` and `public-tree-hygiene` pass) and condition 3 (the
+  re-review of the 2026-10-15 fix) myself, so only the registration signature
+  on the founder's host stays with the other lane. If that work is already in
+  progress on its side, I ask it to say so in its handoff.
