@@ -63,6 +63,11 @@ Status: **canonical operational-state reference**
     [activation record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/bridge-activation/bridge-activation-record.json),
     [unsigned update](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/a666-bridge-policy-update.unsigned.json).
 
+    On 2026-10-21 the next candidate, `store-handle-20261021` (`main` at `86706699`,
+    executable `eea96ba6…`), which carries the STO-07 store-handle fix and the offline
+    `fastswap-committee-migrate`, was cut and qualified locally; it is cut, not deployed
+    ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md)).
+
 !!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
 
     The July `fastswap-v1` store (26 records, 177,899 B) was converted with

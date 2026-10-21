@@ -161,9 +161,9 @@ bradsbots (fork, read permission) opened #56–#108 between 2026-10-08 and 2026-
 
 ## Not before
 
-- [ ] `signer-rotation-20261007` deployed on all six validators and its activation finished (both signer groups; [activation](next-validator-release-plan-20261005.md#activation-after-rollout)).
-- [ ] CI green on main at the cut commit.
-- [ ] Full workspace suite at the cut commit (the release gate for the full suite).
+- [x] `signer-rotation-20261007` deployed on all six validators and its activation finished (both signer groups; [activation](next-validator-release-plan-20261005.md#activation-after-rollout)). Done 2026-10-15: anchor at 1130, bridge committee epoch 2 at 1131.
+- [x] CI green on main at the cut commit. `86706699`: `docs-build` 39433228893, `rust-ci` 39433228794, `product-security-ci` 39433228932, all success.
+- [x] Full workspace suite at the cut commit (the release gate for the full suite). `rust-ci` `test` (job 118663408449) runs `cargo test --workspace --locked`: success on `86706699`; it stands in for this gate, so it was not rerun locally.
 
 ## Qualification and rollout
 
@@ -184,3 +184,16 @@ Local checks only; CI `rust-supply-chain` green on the tip's run, `rust-ci` `tes
 - [x] Signed manifest `4f379c57…` (publisher `pfc531e0…`); units byte-identical to `signer-rotation-20261007` after the release-ID change; `systemd-analyze verify` clean.
 - [x] Focused suites of this release's changes.
 - [x] Canary backup, fleet before-state, rollout, bridge activation (release day, operator's go). 2026-10-15: deployed at 1129, bridge activation at 1130–1131.
+
+Cut 2026-10-21: `store-handle-20261021`, main at `86706699`, branch `release/store-handle-20261021`
+([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md),
+[qualification packet](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/qualification/README.md)).
+Local checks only; CI on the tip all green, `rust-ci` `test` (the workspace suite) included. Crates changed since `8bed9b90`: `node`, `storage`.
+
+- [x] Two identical clean builds: `eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`.
+- [x] History: signed canaries 1123 (2026-10-15), 1115 and 1050, checkpoint and full replay, recorded roots. The six 1020 originals are deleted; the six 2026-09-28 copies replay to their recorded 1021 root.
+- [x] Six new-build services on those copies (startup, restart); rollback build `b1b3dbb1…` reads them (checkpoint ×6, full replay, `rollback-one.sh` checks) and the new build's 1123 import. The governed rotation was not rerun (needs the deleted originals).
+- [x] STO-07: G4 re-run PASS (`d1e9b39c…`) and its three tests. `fastswap-committee-migrate`: its suite, and dry and real runs on scratch stores (`would-migrate`, `migrated`, epoch 2 enabled); the real 2026-10-15 files are refused on a scratch store before any write.
+- [x] Signed manifest `8ce1da30…` (publisher `pfc531e0…`); units byte-identical to `fastlane-cap-20261014` after the release-ID change; `systemd-analyze verify` clean.
+- [x] Focused suites of this release's changes.
+- [ ] Canary backup, fleet before-state, rollout, FastSwap committee migration (release day, operator's go; [sheet](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/DEPLOY-SHEET.md)).
