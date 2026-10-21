@@ -499,6 +499,26 @@ manifest `d957141e68a29f8cf690aec9f9193ec0631fede0fad95a2329f4cf3a8b21189a`
   2026-08-31, so it does not exercise the legacy-format import. The 924 copies
   below keep that part.
 
+**1123 archive check (2026-10-21).** The export is on the work server at
+`~/.postfiat/deployments/fastlane-cap-20261014/evidence/pre-rollout-backup/backup-signed/`
+(22 files, 247,991,712 bytes); its `snapshot.signed-manifest.json` hashes to
+`d957141e…`. Signature: **PASS**. `snapshot-import-signed-finalized-checkpoint`
+of the deployed executable (`b1b3dbb1…`) imported a scratch copy against the
+trusted publisher file
+`~/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json`
+(SHA-256 `adb52f49…`, publisher `pf4ebb800c5a…`, as pinned in
+`deployments/release-repair-20260925/canary-backup-1036/result.json`) and
+reported height 1123, tip `bafcc6ef…`, root `942d1fc2…`. The same import of a
+copy with one manifest field changed failed on the signature.
+
+Source-tree SHA-256:
+`724389ad583b36aa979b1497a8377babd724fa389686a2ee41765441f0934ee0`.
+Method: `tree_sha256` in `benchmarks/storage-scaling/run_replay_evidence.py`
+over `backup-signed/`, the function the replay harness applies to its sources:
+paths sorted; per entry a type tag, path length and path, plus size and
+contents for files. The scratch copy hashed the same, and the archive hashed
+the same after the import.
+
 - [ ] Replay the 1123 archive with the frozen successor binary on a scratch
       copy; match height, tip and root; bind the receipt.
 
@@ -511,11 +531,34 @@ work server (top-level `ls` only, 2026-10-20):
 | `~/.postfiat/deployments/storage-rollout-d0ae79f3` | 28 GB | `g6-sources/`, `g6-private/`, `g6-rehearsal-20260830-v1/`, `stage/`; per-validator probes before and after G6; `read-only-fleet-preflight.json`; `manifest-create.stdout`. `manifest-signature-verify.json` is a copy of the manifest (15,367 B), not a verdict; `manifest-verify-validator-0.json` is empty. |
 | `~/.postfiat/deployments/storage-rollout-10dd9f20` | 26 GB | `g6-rehearsal-20260830-v3/`, `stage/`. No verify file. Its `six-clone-migration-report.json` records PASS at 924, 925 and 928 and `all_certified_sends_verified=false` at 932. |
 
+**Manifest check (2026-10-21).** Each copy holds one signed manifest, a
+deployment manifest of its release stage. Both verify with
+`deployment-manifest-verify` of the deployed executable (`b1b3dbb1…`) against
+the `deployment.public.json` staged beside them (SHA-256 `270a20da…`, publisher
+`pfba2ba95720…`, ML-DSA-65); the same check of a copy with one field changed
+failed.
+
+| Copy | Manifest (under `stage/rootfs/etc/postfiat/releases/`) | SHA-256 | Verdict |
+| --- | --- | --- | --- |
+| `storage-rollout-d0ae79f3` | `storage-d0ae79f3-20260830/deployment-manifest.json` | `55f4822d9a21fae08c0c1ddad666612eeea9b74b4dea71191230f50f3c9e952b` | **PASS**; binary, topology, both circuit metadata files and 24 unit and environment files present and matching |
+| `storage-rollout-10dd9f20` | `storage-10dd9f20-20260830/deployment-manifest.json` | `97c6518ed2c0d3d3080fb6cf20dcc030af396dc7d436eed927564b82859242d4` | **PASS**; the same 28 files present and matching |
+
+The top-level `manifest-create.stdout` and `manifest-signature-verify.json` of
+the first copy are byte-identical to its manifest; the verifier prints the
+manifest on success. Limits: these manifests bind the release stages (builds
+`d0ae79f3` and `10dd9f20`), not the validator data. No signed manifest covers
+the height-924 directories; the source-tree hash below will be their only identity.
+The publisher key is not pinned in the repository. The verifier checked the
+binary, topology and circuit files; the unit and environment files were
+compared by SHA-256 outside it, because its per-validator check reads host
+`/etc/systemd` paths.
+
 - [x] Name the authorized custodian of one complete, quiescent height-924
       validator data directory: me, on the work server (2026-10-20).
 - [x] Obtain separate authorization for the read-only copy: approved by the
       other lane, one copy (2026-10-20).
-- [ ] Verify both copies' manifest signatures before any use.
+- [x] Verify both copies' manifest signatures before any use (2026-10-21,
+      both PASS; release-stage manifests only, see above).
 - [ ] Hash the source tree before use, preserve it read-only, and perform all
       replay work on a scratch copy.
 - [ ] After STO-07 is fixed, replay through exact height 924 and match the recorded chain, height, tip,
