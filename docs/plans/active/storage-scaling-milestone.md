@@ -128,7 +128,7 @@ work idling.
 | Which storage implementation? | Transactional `redb`. | Decided | Freeze and qualify this candidate; do not restart candidate research. |
 | Which performance campaign? | Selected `redb` at heights 50 and 5,000; same-binary legacy control at height 50. Build height 1→5,000 once, freeze it, then apply the four-hour budget to the unchanged 5+5+5 measurement matrix. | Decided by operator on 2026-08-28 | Do not rebuild inside the measurement clock or run the superseded three-lane/five-height matrix. |
 | How does the selected lane move between high-height chunks? | By a content-hashed prepared transactional fleet and one persistent setup-only batch loop, not by exporting full history or restarting a process per block. | Decided; remediation smoke passes, fresh evidence required | Bind the separate canonical batch-builder binary, raw batches, certificates, every round, and the before/after fleet digests. Keep the portable snapshot only for the shared height-50 legacy control, and keep measured windows on the unchanged measurement path. |
-| Is one height-924 validator directory needed? | Yes, for exact replay only. | Custodian: me; one read-only copy approved by the other lane (2026-10-20) | Verify both copies' manifest signatures; the replay waits for STO-07. Finish G1, G2, the replacement-input part of G3, and G4 without waiting for it. |
+| Is one height-924 validator directory needed? | Yes, for exact replay only. | Custodian: me; one read-only copy approved by the other lane (2026-10-20) | Both copies' release-stage manifests verified on 2026-10-21; no signed manifest covers the height-924 data ([G3](#g3-exact-replay)). The replay waits for the deployed STO-07 release. Finish G1, G2, the replacement-input part of G3, and G4 without waiting for it. |
 | What replaces the lost height-915 archive? | The signed validator-1 canary archive at height 1123 (my proposal, [G3](#g3-exact-replay)). | 915 recorded as lost (2026-10-20) | Replay the 1123 archive in its place. |
 | Are six validator directories needed now? | No. They are needed only for G6 immediately before a deployment decision. | Deferred | Spend no time collecting or rehearsing six clones during offline qualification. |
 | May this plan touch the controlled devnet? | No. | Not authorized | No fleet query, copy, service action, deployment, or mutation. |
@@ -521,6 +521,29 @@ the same after the import.
 
 - [ ] Replay the 1123 archive with the frozen successor binary on a scratch
       copy; match height, tip and root; bind the receipt.
+
+**1123 replay (2026-10-21): interim PASS by hand; harness gap.** Binary:
+release `store-handle-20261021` (`eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`,
+source `86706699`, with the STO-07 fix). `run_replay_evidence.py` at `86706699`
+cannot replay this archive:
+
+- its CLI requires the fixed 915/924 pair (`--quarantine-dir` missing, exit 2);
+- its `replay_source()` on the raw export stops at `status` (an export is not a
+  data directory: legacy untagged genesis);
+- on the signed import it stops at "source is not below storage activation".
+  At 1123 the store is transactional (commitment v2, activation height 930),
+  and the harness accepts only legacy pre-activation sources.
+
+Missing: a harness path for post-activation sources. Interim evidence: the
+release packet's by-hand sequence, rerun on a scratch copy with that binary.
+Signed import passed, then `verify-finalized-checkpoint` and full
+`verify-state` both returned `verified: true` at 1123, tip `bafcc6ef…`, root
+`942d1fc2…`, equal to the signed manifest. The archive tree hash was
+`724389ad…` before and after the run. Receipt (work server, not in git):
+`~/.cache/g3-1123-replay-20261021/receipts/height-1123-interim.json`, SHA-256
+`dbef984a1ff58c0471c2c9ef820af54be3c2c8e7b4ee331b845b5964b68d3553`. The box
+stays open until a harness receipt exists or the interim receipt is accepted
+in its place.
 
 **Height 924 (2026-10-20).** I am the custodian; the other lane approved one
 read-only copy (same answer). The six stopped copies of 2026-08-30 are on the
