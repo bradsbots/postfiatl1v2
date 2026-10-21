@@ -125,6 +125,7 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - Store Handle Release Deployed And Swap Service On Epoch 2: handoffs/2026-10-21___dravlic__store_handle_release_deployed_and_swap_service_on_epoch_2.md
       - Answers Acted On And Store Handle Fix Qualified: handoffs/2026-10-20___dravlic__answers_acted_on_and_store_handle_fix_qualified.md
       - Founder Lane Resync And Answers To Open Asks: handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md
       - Storage Regression Campaign On The Running Code: handoffs/2026-10-19___dravlic__storage_regression_campaign_on_the_running_code.md
