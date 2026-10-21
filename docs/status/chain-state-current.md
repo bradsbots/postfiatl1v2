@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-21T11:50:00Z` (release `store-handle-20261021` deployed to all six, blocks 1132–1137); latest fleet observation `2026-10-21T11:47:26Z`
+Updated: `2026-10-21T12:35:00Z` (release `store-handle-20261021` deployed to all six, blocks 1132–1137; FastSwap committee epoch 2 on all six); latest fleet observation `2026-10-21T12:30:55Z`
 
 Status: **canonical operational-state reference**
 
@@ -12,7 +12,7 @@ Status: **canonical operational-state reference**
     signed manifest `8ce1da30…` (publisher `pfc531e0…`). It is
     `fastlane-cap-20261014` plus the STO-07 store-handle fix (`8644f0af`: the
     transactional store stays open for the life of a consensus operation), the
-    offline `fastswap-committee-migrate` command (`2737f080`, not run yet) and
+    offline `fastswap-committee-migrate` command (`2737f080`, run below) and
     the reviewed contributor merges. It replaced `fastlane-cap-20261014`
     (`b1b3dbb1…`) with `scripts/postfiat-safe-rollout apply-next`, one validator
     at a time (validator-1 canary, then 0, 2, 3, 4, 5), 11:15:17–11:38:16Z.
@@ -40,10 +40,25 @@ Status: **canonical operational-state reference**
     Rollback: the `fastlane-cap-20261014` executable and release directory stay
     on every host. The per-validator path is `rollback-one.sh` (data in place,
     verified by that executable first); the signed validator-1 backup at 1131 is
-    the fallback. Rollback was not needed. Not done yet: the per-host FastSwap
-    committee migration (sheet §7). Records:
+    the fallback. Rollback was not needed. Records:
     [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md),
     [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/observed/rollout-record.json).
+
+    FastSwap committee migration (sheet §7), 12:07–12:27Z: this release's
+    `fastswap-committee-migrate` moved each `fastswap-v1/` store from committee
+    epoch 1 to the activated epoch 2, one host at a time (validator-5, then
+    0–4; both units stopped, dry run, real run with a verified backup, units
+    started). All six validators now run the swap service at committee epoch 2,
+    root `72836827…`, `enabled: true`; `fastswap_checkpoint_status` answers.
+    validator-5 was not refused: its store never applied the epoch-1 fence or
+    anchor, but its replayed state equals the anchored drained state
+    (`355fe608…`), as its report notes; its service, unavailable before, now
+    opens. The fleet stayed at 1137 / `18a4dc86…` / `1277c76c…` with six-way
+    agreement after every host; `demo-preflight.py` READY (60 PASS). The routes
+    keep `authority_epoch` 1, so Ethereum checkpoint signing is unchanged.
+    Backups: `/var/lib/postfiat/fastswap-v1-epoch2-backup-validator-N`. Records:
+    [sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/DEPLOY-SHEET.md#7-fastswap-committee-migration-one-host-at-a-time--covered-by-the-operators-go-of-the-day),
+    [per-host reports](https://github.com/postfiatorg/postfiatl1v2/tree/release/store-handle-20261021/deployments/store-handle-20261021/observed/committee-migration).
 
 !!! success "2026-10-15: fastlane-cap release deployed; bridge committee epoch 2 active"
 

@@ -169,7 +169,7 @@ bradsbots (fork, read permission) opened #56–#108 between 2026-10-08 and 2026-
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `signer-rotation-20261007`). A consensus candidate adds its own qualification before the cut.
 
-- [ ] fastswap-committee-migrate on the six validators on the next release day ([runbook](../../runbooks/fastpay-committee-recovery.md#moving-the-fastswap-store-to-the-activated-committee-epoch); `crates/node/src/fastswap_committee_migration.rs`).
+- [x] fastswap-committee-migrate on the six validators on the next release day ([runbook](../../runbooks/fastpay-committee-recovery.md#moving-the-fastswap-store-to-the-activated-committee-epoch); `crates/node/src/fastswap_committee_migration.rs`). 2026-10-21 12:07–12:27Z on `store-handle-20261021`, validator-5 then 0–4: all six `migrated`, service at committee epoch 2 (`72836827…`), enabled; validator-5 migrated with the legacy-store note (replayed state equals the anchored drain `355fe608…`).
 - [x] AnchorCheckpoint + ActivateCommittee of the signer rotation (§8.2–8.4) on the release day of this release ([sheet §7](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/DEPLOY-SHEET.md#7-signer-group-activation-bridge-half)). 2026-10-15: anchor at 1130, bridge committee epoch 2 (`72836827…`) at 1131, both on all six; the issuer's update (§8.4) is prepared unsigned and awaits the other lane.
 
 Cut 2026-10-15: `fastlane-cap-20261014`, main at `8bed9b90`, branch `release/fastlane-cap-20261014`
@@ -196,4 +196,4 @@ Local checks only; CI on the tip all green, `rust-ci` `test` (the workspace suit
 - [x] STO-07: G4 re-run PASS (`d1e9b39c…`) and its three tests. `fastswap-committee-migrate`: its suite, and dry and real runs on scratch stores (`would-migrate`, `migrated`, epoch 2 enabled); the real 2026-10-15 files are refused on a scratch store before any write.
 - [x] Signed manifest `8ce1da30…` (publisher `pfc531e0…`); units byte-identical to `fastlane-cap-20261014` after the release-ID change; `systemd-analyze verify` clean.
 - [x] Focused suites of this release's changes.
-- [ ] Canary backup, fleet before-state, rollout, FastSwap committee migration (release day, operator's go; [sheet](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/DEPLOY-SHEET.md)).
+- [x] Canary backup, fleet before-state, rollout, FastSwap committee migration (release day, operator's go; [sheet](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/DEPLOY-SHEET.md)). 2026-10-21: deployed at 1137, migration on all six, six-way agreement throughout.
