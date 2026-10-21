@@ -147,8 +147,9 @@ both issuer updates still wait for the other lane. Records: [Current State][stat
     (a) holds as well. 1.5–3 h once the preconditions hold.
   - **Finding.** On the repository's own terms the run moves mainnet-backed
     pfUSDC (real money, in dust amounts), while the custody proposal's option
-    (b) assumes a chain without mainnet-backed assets. The plan therefore asks
-    the other lane whether a dust run on ce22 counts as a rule (b) rehearsal.
+    (b) assumes a chain without mainnet-backed assets. The run is therefore
+    governed by custody rule (a) (decision of 2026-10-21, StakeHub `844d4b2`)
+    and happens on the founder's machine in a shift of his.
   - Preconditions and owners (plan §6):
     - ours: the wallet's FastSwap activation file must match today's epoch-2
       committee (preflight check 0c reads it without sending; a stale file
@@ -177,12 +178,13 @@ both issuer updates still wait for the other lane. Records: [Current State][stat
    with validator-5.
 2. The height-924 exact replay (G3's second half) with the deployed STO-07
    release on a scratch copy, then A4's packet.
-3. StakeHub: the first testnet rehearsal per the [plan][rehearsal], once the
-   other lane says whether a dust run counts under rule (b) and the
-   preconditions are in place.
+3. StakeHub: the first testnet rehearsal per the [plan][rehearsal], once our
+   preconditions are prepared and the founder has run it in a shift of his.
 4. New bot pull requests, and [#95][pr95]/[#103][pr103] as their authors
    answer.
-5. The re-review of [PR #49][pr49] once the other lane's conditions 1–2 land.
+5. [PR #49][pr49] conditions 1–3 myself from 2026-10-22 (re-pin, the two red
+   jobs, the re-review), unless its handoff says that work has started on its
+   side.
 
 ### Only the other lane can provide
 
@@ -192,8 +194,8 @@ I ask the other lane for the following; each shows the date first asked.
   [sheet][issuer] (`61e9b00c`): A666 first, then BMNRC; the sheet reads the
   heights itself. It blocks the validator-5 checkpoint. 2026-09-25 /
   2026-10-01.
-- **(f)** [PR #49][pr49] conditions 1–2, and the registration on its host.
-  2026-09-24.
+- **(f)** [PR #49][pr49]: only the registration, signed on its host, after
+  conditions 1–3 are done on my side. 2026-09-24.
 - **(k)** The `ETHEREUM_MAINNET_RPC_URL` secret, after its local fork-test run.
   2026-09-28.
 - Its review of its unpublished work, the delayed-precommit RED fix first.
