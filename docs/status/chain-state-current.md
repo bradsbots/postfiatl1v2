@@ -1,8 +1,49 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-15T11:50:00Z` (bridge committee epoch 2 activated at height 1131); latest fleet observation `2026-10-15T11:45:37Z`
+Updated: `2026-10-21T11:50:00Z` (release `store-handle-20261021` deployed to all six, blocks 1132–1137); latest fleet observation `2026-10-21T11:47:26Z`
 
 Status: **canonical operational-state reference**
+
+!!! success "2026-10-21: store-handle release deployed to all six validators"
+
+    Release `store-handle-20261021` runs on all six validators: source
+    `86706699` on branch `release/store-handle-20261021`, executable
+    `eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`,
+    signed manifest `8ce1da30…` (publisher `pfc531e0…`). It is
+    `fastlane-cap-20261014` plus the STO-07 store-handle fix (`8644f0af`: the
+    transactional store stays open for the life of a consensus operation), the
+    offline `fastswap-committee-migrate` command (`2737f080`, not run yet) and
+    the reviewed contributor merges. It replaced `fastlane-cap-20261014`
+    (`b1b3dbb1…`) with `scripts/postfiat-safe-rollout apply-next`, one validator
+    at a time (validator-1 canary, then 0, 2, 3, 4, 5), 11:15:17–11:38:16Z.
+
+    Before (`10:57:52Z`): six on `fastlane-cap-20261014` at height 1131, tip
+    `9b054f09…`, root `a12e7c5f…`, mempools empty. Signed canary backup from
+    validator-1 at 1131: manifest `df9b3847…`, re-imported, checkpoint verified
+    and fully replayed to the same root. After (`11:43:17Z`): all 12 validator
+    and RPC processes on `eea96ba6…`, `deployment_manifest_verified=true` and
+    build `86706699` on every host, RPC units with `--max-requests 100000` and
+    `RestartSec=1`, height 1137, tip `18a4dc86…`, root `1277c76c…`;
+    `demo-preflight.py` READY (60 PASS). No divergence at any step. The fix is
+    visible in the transport event logs: every batch the new executable
+    accepted reports `storage_work.database_opens=0`.
+
+    Grants used: six devnet faucet grants of 1 PFT from the faucet account to
+    the `testing` wallet (StakeHub `pft faucet`), one after each apply, at
+    heights 1132–1137 (proposers validator-4, 5, 0, 1, 2, 3). Each certified at
+    view 0 with quorum 5 of 6 and the same block, tip and root on all six
+    (`blocks` RPC). Total: 6 PFT plus 192 atoms of fees. Nothing else moved:
+    the A666 and BMNRC routes keep `authority_epoch` 1 and their hashes
+    (`57da3837…`, `b2817e68…`); neither issuer update has been submitted, and
+    the signing sheet's height-1131 preconditions no longer hold.
+
+    Rollback: the `fastlane-cap-20261014` executable and release directory stay
+    on every host. The per-validator path is `rollback-one.sh` (data in place,
+    verified by that executable first); the signed validator-1 backup at 1131 is
+    the fallback. Rollback was not needed. Not done yet: the per-host FastSwap
+    committee migration (sheet §7). Records:
+    [deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md),
+    [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/observed/rollout-record.json).
 
 !!! success "2026-10-15: fastlane-cap release deployed; bridge committee epoch 2 active"
 
@@ -63,10 +104,10 @@ Status: **canonical operational-state reference**
     [activation record](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/bridge-activation/bridge-activation-record.json),
     [unsigned update](https://github.com/postfiatorg/postfiatl1v2/blob/release/fastlane-cap-20261014/deployments/fastlane-cap-20261014/observed/a666-bridge-policy-update.unsigned.json).
 
-    On 2026-10-21 the next candidate, `store-handle-20261021` (`main` at `86706699`,
+    On 2026-10-21 the next release, `store-handle-20261021` (`main` at `86706699`,
     executable `eea96ba6…`), which carries the STO-07 store-handle fix and the offline
-    `fastswap-committee-migrate`, was cut and qualified locally; it is cut, not deployed
-    ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md)).
+    `fastswap-committee-migrate`, was cut, qualified locally and deployed (2026-10-21
+    entry above; [release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/store-handle-20261021/deployments/store-handle-20261021/README.md)).
 
 !!! success "2026-10-12: FastSwap store converted; FastPay committee epoch 2 installed; bridge committee unchanged"
 
