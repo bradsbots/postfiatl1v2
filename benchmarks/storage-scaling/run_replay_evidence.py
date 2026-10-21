@@ -14,6 +14,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -466,5 +467,228 @@ def main() -> int:
     return 0
 
 
+SIGNED_MANIFEST_FILE = "snapshot.signed-manifest.json"
+SIGNED_ARCHIVE_STEPS = (
+    "snapshot-import-signed-finalized-checkpoint",
+    "status",
+    "verify-finalized-checkpoint",
+    "verify-state",
+)
+
+
+def signed_archive_replay(
+    *,
+    node_bin: Path,
+    archive: Path,
+    trusted_publisher_file: Path,
+    expected_height: int,
+    expected_tip: str,
+    expected_root: str,
+    output: Path,
+    revision: str,
+    harness_revision: str = "",
+) -> dict[str, str]:
+    """Replay a signed post-activation export on a scratch copy.
+
+    Signed import, finalized-checkpoint verification and the full verify-state
+    replay run with ``node_bin``; the archive itself is only read and hashed.
+    """
+    validate_regular_tree(archive, "signed archive")
+    manifest_path = archive / SIGNED_MANIFEST_FILE
+    if not manifest_path.is_file():
+        raise ValueError(f"source is not a signed archive: {SIGNED_MANIFEST_FILE} missing")
+    signed = read_json(manifest_path)
+    inner = signed.get("manifest")
+    if (
+        signed.get("schema") != "postfiat.signed_snapshot_manifest.v1"
+        or not signed.get("signature_hex")
+        or not isinstance(inner, dict)
+    ):
+        raise ValueError("source is not a signed archive: malformed signed manifest")
+    if (
+        inner.get("chain_id") != CONTROLLED_CHAIN_ID
+        or inner.get("genesis_hash") != CONTROLLED_GENESIS_HASH
+    ):
+        raise ValueError("signed archive is not the controlled chain")
+    for label, want, have in (
+        ("height", expected_height, inner.get("block_height")),
+        ("tip", expected_tip, inner.get("block_tip_hash")),
+        ("root", expected_root, inner.get("state_root")),
+    ):
+        if want != have:
+            raise ValueError(f"expected {label} does not match the signed manifest")
+    trusted = read_json(trusted_publisher_file)
+    if trusted.get("publisher") != signed.get("publisher"):
+        raise ValueError("trusted publisher file does not name the manifest publisher")
+    if output.exists():
+        raise ValueError(f"refusing to overwrite output directory: {output}")
+    if output.is_relative_to(archive) or archive.is_relative_to(output):
+        raise ValueError("signed archive and output directory must be disjoint")
+
+    source_tree_digest = tree_sha256(archive)
+    output.mkdir(parents=True)
+    steps_dir = output / "steps"
+    steps: dict[str, dict[str, str]] = {}
+    results: dict[str, dict[str, Any]] = {}
+
+    def step(name: str, *arguments: str) -> dict[str, Any]:
+        value = run_json([str(node_bin), name, *arguments])
+        path = steps_dir / f"{name}.json"
+        write_json(path, value)
+        steps[name] = {"path": path.relative_to(output).as_posix(), "sha256": sha256(path)}
+        results[name] = value
+        return value
+
+    with tempfile.TemporaryDirectory(prefix="postfiat-signed-archive-replay-") as temporary:
+        scratch = Path(temporary)
+        copy = scratch / "archive"
+        data = scratch / "data"
+        shutil.copytree(archive, copy, copy_function=shutil.copy2)
+        step(
+            SIGNED_ARCHIVE_STEPS[0],
+            "--data-dir", str(data),
+            "--snapshot-dir", str(copy),
+            "--trusted-publisher-key-file", str(trusted_publisher_file),
+            "--node-id", str(inner.get("node_id", "")),
+        )
+        status = step("status", "--data-dir", str(data), "--expect-height", str(expected_height))
+        checkpoint = step("verify-finalized-checkpoint", "--data-dir", str(data))
+        state = step("verify-state", "--data-dir", str(data))
+
+    if status.get("build_git_revision") != revision[:8]:
+        raise RuntimeError("replay binary is not built from the requested source")
+    if status.get("build_profile") != "release":
+        raise RuntimeError("replay binary is not a release build")
+    block_log = state.get("block_log")
+    if (
+        checkpoint.get("verified") is not True
+        or state.get("verified") is not True
+        or not isinstance(block_log, dict)
+        or block_log.get("verified") is not True
+    ):
+        raise RuntimeError("signed archive replay is not verified")
+    observed = {
+        "status": (
+            status.get("block_height"),
+            status.get("block_tip_hash"),
+            status.get("state_root"),
+        ),
+        "verify-finalized-checkpoint": (
+            checkpoint.get("checkpoint_height"),
+            checkpoint.get("checkpoint_block_hash"),
+            checkpoint.get("checkpoint_state_root"),
+        ),
+        "verify-state": (
+            block_log.get("block_count"),
+            block_log.get("tip_hash"),
+            block_log.get("state_root"),
+        ),
+    }
+    for name, (height, tip, root) in observed.items():
+        if height != expected_height:
+            raise RuntimeError(f"{name} height {height} differs from the expected height")
+        if tip != expected_tip:
+            raise RuntimeError(f"{name} tip hash differs from the expected tip")
+        if root != expected_root:
+            raise RuntimeError(f"{name} state root differs from the expected root")
+    source_tree_after = tree_sha256(archive)
+    if source_tree_after != source_tree_digest:
+        raise RuntimeError("signed archive changed during replay")
+
+    storage = status.get("storage") if isinstance(status.get("storage"), dict) else {}
+    receipt: dict[str, Any] = {
+        "schema": "postfiat-storage-signed-archive-replay-receipt-v1",
+        "source_height": expected_height,
+        "source_kind": "signed_archive",
+        "block_count": expected_height,
+        "commitment_version": storage.get("commitment_version"),
+        "storage_activation_height": storage.get("scheduled_activation_height"),
+        "exact_replay": True,
+        "full_replay_passed": True,
+        "tip_hash": expected_tip,
+        "state_root": expected_root,
+        "matched": {"height": True, "tip": True, "root": True},
+        "verdict": "PASS",
+        "chain_id": status.get("chain_id"),
+        "genesis_hash": status.get("genesis_hash"),
+        "protocol_version": status.get("protocol_version"),
+        "node_id": inner.get("node_id"),
+        "publisher": signed.get("publisher"),
+        "signed_manifest_sha256": sha256(manifest_path),
+        "trusted_publisher_file_sha256": sha256(trusted_publisher_file),
+        "source_tree_sha256": source_tree_digest,
+        "source_tree_sha256_after": source_tree_after,
+        "steps": steps,
+        "source_revision": revision,
+        "harness_revision": harness_revision,
+        "node_binary_sha256": sha256(node_bin),
+        "node_binary_build": {
+            "git_revision": status["build_git_revision"],
+            "profile": status["build_profile"],
+        },
+        "offline": True,
+        "network_contacted": False,
+    }
+    receipt_path = output / "receipts" / f"height-{expected_height}.json"
+    write_json(receipt_path, receipt)
+    return {
+        "path": receipt_path.relative_to(output).as_posix(),
+        "sha256": sha256(receipt_path),
+    }
+
+
+def signed_archive_main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Replay one signed post-activation archive offline."
+    )
+    parser.add_argument("--node-bin", type=Path, required=True)
+    parser.add_argument("--signed-archive-dir", type=Path, required=True)
+    parser.add_argument("--trusted-publisher-file", type=Path, required=True)
+    parser.add_argument("--expected-height", type=int, required=True)
+    parser.add_argument("--expected-tip", required=True)
+    parser.add_argument("--expected-root", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-revision", required=True)
+    args = parser.parse_args()
+
+    paths = (
+        args.node_bin.expanduser(),
+        args.signed_archive_dir.expanduser(),
+        args.trusted_publisher_file.expanduser(),
+        args.output_dir.expanduser(),
+    )
+    if any(path.is_symlink() for path in paths):
+        raise ValueError("binary, archive, publisher and output paths must not be symlinks")
+    node_bin, archive, trusted, output = (path.resolve() for path in paths)
+    if not node_bin.is_file() or node_bin.parent.name != "release":
+        raise ValueError("--node-bin must identify a regular target/release binary")
+    # A frozen release binary predates this mode: --expected-source-revision
+    # names the binary's source, which must be in this checkout's history.
+    revision = args.expected_source_revision
+    if len(revision) != 40 or subprocess.run(
+        ["git", "merge-base", "--is-ancestor", revision, "HEAD"], cwd=REPO
+    ).returncode != 0:
+        raise ValueError("--expected-source-revision is not an ancestor of HEAD")
+    if not git_clean():
+        raise ValueError("replay evidence requires a clean checkout")
+    reference = signed_archive_replay(
+        node_bin=node_bin,
+        archive=archive,
+        trusted_publisher_file=trusted,
+        expected_height=args.expected_height,
+        expected_tip=args.expected_tip,
+        expected_root=args.expected_root,
+        output=output,
+        revision=revision,
+        harness_revision=git_revision(),
+    )
+    print("storage-signed-archive-replay=PASS")
+    print(f"receipt={output / reference['path']}")
+    print(f"receipt_sha256={reference['sha256']}")
+    return 0
+
+
 if __name__ == "__main__":
+    if "--signed-archive-dir" in sys.argv[1:]:
+        raise SystemExit(signed_archive_main())
     raise SystemExit(main())

@@ -355,6 +355,33 @@ publication. Raw output contains disposable key material; only
 verifier accepts its binary identities, ten phases, restart receipts, clone
 roots, backups, and unchanged Consensus/Cobalt boundaries.
 
+## Exact replay evidence
+
+`run_replay_evidence.py` replays recorded history offline from a clean checkout
+of the binary's source. The default mode takes the legacy pre-activation pair
+(`--quarantine-dir` at 915, `--authenticated-history-dir` at 924). A signed
+post-activation export (for example the height-1123 canary) uses the
+signed-archive mode:
+
+```bash
+python3 benchmarks/storage-scaling/run_replay_evidence.py \
+  --node-bin /FROZEN/release/postfiat-node \
+  --signed-archive-dir /PATH/backup-signed \
+  --trusted-publisher-file /PATH/snapshot-publisher.public.json \
+  --expected-height 1123 --expected-tip FULL_TIP --expected-root FULL_ROOT \
+  --output-dir /explicit/disposable/replay-1123 \
+  --expected-source-revision FULL_BINARY_SOURCE_COMMIT
+```
+
+A frozen release binary predates this mode, so its source commit must only be
+an ancestor of the clean checkout; the receipt records both commits. It refuses an archive without `snapshot.signed-manifest.json`, a publisher
+other than the trusted file's, and expected values that differ from the signed
+manifest. On a scratch copy it runs the signed import,
+`verify-finalized-checkpoint` and the full `verify-state` replay. Height, tip
+and root must match at each step. The archive tree hash (`tree_sha256`) must be
+unchanged afterwards. The receipt `receipts/height-N.json` binds the binary,
+manifest, trusted key and archive hashes and each step's output in `steps/`.
+
 ## Offline rollback and tamper qualification
 
 Build the current source and a distinct compatible ancestor as release
