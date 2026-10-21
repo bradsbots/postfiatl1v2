@@ -238,3 +238,32 @@ I ask the other lane for the following; each shows the date first asked.
 [pr49]: https://github.com/postfiatorg/postfiatl1v2/pull/49
 [pr95]: https://github.com/postfiatorg/postfiatl1v2/pull/95
 [pr103]: https://github.com/postfiatorg/postfiatl1v2/pull/103
+
+## End of session (13:10 UTC)
+
+- **Two new external advisories, fixed on main.**
+  `product-security-ci` was red on every main commit from `a17a1e50` to
+  `7d967180` for these two advisories only: its jobs `rust-supply-chain` and
+  `wallet-and-proxy` failed on all eight, every other job passed (on `f00ea237`
+  and `7d967180` `open-reserve-proof-kit` was still running at 13:06Z).
+  `docs-build` was green on all eight; `rust-ci` was green on the first five and
+  still running on `e4577cef`, `f00ea237` and `7d967180` at 13:06Z. The deployed
+  release is unaffected; both fixes go into the next release.
+  - `79d5f909`, `rust-supply-chain`: RUSTSEC-2026-0382 (rustls-webpki
+    0.103.15 → 0.103.16) and RUSTSEC-2026-0381 (webpki-roots 1.0.9 → 1.0.10)
+    in the root `Cargo.lock`. Version and checksum lines only, no edge changed;
+    both checksums equal the crates.io index and the downloaded crates.
+    `cargo check --workspace --locked` and `cargo fmt --all -- --check` pass.
+    The five `tools/*` locks and the frozen `tools/nav-reserve-proof/fuzz` lock
+    also carry affected versions; they are unchanged and outside this gate.
+  - `56be18af`, `wallet-and-proxy`: launch-editor (GHSA-698v-4r3x-3vcv,
+    GHSA-r825-w8mm-5pxw, GHSA-587h-7wmj-h5pm), bundled by vite 8.1.4.
+    `npm audit fix` (no `--force`) moved vite to 8.3.5 with its build tree,
+    a wider change than the 2026-10-06 one (vite 8.1.6 is the first fixed
+    version). The 36 license lines npm dropped are restored; `package.json` is
+    unchanged. Audit 0 vulnerabilities, `npm test` 260/260, the build passes;
+    the browser test commands were not run (no browser here).
+  - Recorded in the [next release plan][next].
+- **Live state.** Not probed again: this part had no host or RPC contact. Last
+  observed at 12:50:58Z: six at 1137, swap service on committee epoch 2 on all
+  six, both routes still on authority epoch 1.
