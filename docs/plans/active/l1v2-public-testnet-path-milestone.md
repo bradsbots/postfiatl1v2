@@ -28,7 +28,7 @@ operationalizations; the operator may tighten or restate them.
       production rounds. **Decision made 2026-10-20:** demote, per the
       [2026-09-03 direction](../../governance/ai-governance-direction-20260903.md),
       confirmed by the other lane ([answer (i)](../../handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md)).
-      Live still needs:
+      Live still needs ([execution plan](z2-advisory-flag-execution-plan-20261022.md)):
       - [ ] Pin the v2 sub-scorer in the round manifest (content hash and manifest section)
       - [ ] Specify the flag pipeline: typed `identity_flag` (`clear`/`flag`), pinned execution profile, two-owner byte-convergent replay
       - [ ] Build the strict entry profile as a versioned deterministic rule module with a Python mirror and fixtures

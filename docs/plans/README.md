@@ -9,6 +9,7 @@ Only current execution plans and completed plans belong here.
 - [Storage Scaling: Time-Budgeted Qualification and Release Gates](active/storage-scaling-milestone.md)
   - [G4 Regression on the Deployed Release `8bed9b90` (2026-10-19)](active/g4-regression-deployed-release-20261019.md)
 - [L1v2 Public Testnet Path](active/l1v2-public-testnet-path-milestone.md)
+  - [Z2 Advisory Flag Execution Plan (2026-10-22)](active/z2-advisory-flag-execution-plan-20261022.md)
 - [Z3 NAVCoin Round-Trip Execution Plan](active/z3-navcoin-roundtrip-plan.md)
 - [Devnet Transactional Storage: Single-Writer Deployment Plan](active/devnet-storage-single-writer-deployment-plan.md)
 - [Devnet Storage Rollout](active/devnet-storage-rollout-plan.md)
