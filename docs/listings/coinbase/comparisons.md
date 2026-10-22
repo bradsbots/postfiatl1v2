@@ -158,7 +158,7 @@ Four points matter for an exchange:
    ([chain-state-current.md:505](../../status/chain-state-current.md)).
    "Time since last block" is therefore not a liveness signal. Monitoring
    needs a health query instead.
-4. **A whitepaper caveat is out of date** ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140), open, corrects it). The whitepaper lists a
+4. **A whitepaper caveat was out of date** ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140), included in source, corrects it). The whitepaper lists a
    "cross-phase signing fence" as an open consensus obligation
    ([whitepaper.md:13, 197, 317](../../whitepaper.md)). The current code
    enforces one durable round floor across prepare, precommit and timeout
@@ -326,8 +326,8 @@ RedPallas, not ML-DSA ([whitepaper.md:116](../../whitepaper.md)).
 | Key and signature sizes | 33-byte public keys; 64-byte Ed25519 signatures; DER ECDSA signatures of about 70–72 bytes | 1,952-byte public key; 3,309-byte signature; 4,032-byte private key ([fips204 lib.rs:687-691](../../../third_party/fips204/src/lib.rs)) |
 | Address format | Base58 (Ripple alphabet), `r` prefix, 4-byte checksum ([addresses](https://xrpl.org/docs/concepts/accounts/addresses)) | `pf` + 40 lowercase hex characters; no checksum; recipient format not enforced by the protocol ([crypto_provider/src/lib.rs:217-220](../../../crates/crypto_provider/src/lib.rs)). [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (included in source) adds an optional checksum and recipient validation |
 | Key derivation for deposit addresses | Standard secp256k1/Ed25519 tooling | No BIP32/xpub public derivation. A 32-byte master seed is hashed with domain, algorithm, chain ID, account index and role to seed ML-DSA key generation, so one seed gives different addresses on different chain IDs ([wallet_sdk.rs:1078-1107](../../../crates/rpc_sdk/src/wallet_sdk.rs); [custody model:32-45](../../specs/wallet-exchange-custody-model.md)) |
-| Deposit attribution | Destination tag (uint32); `RequireDest` ([tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)) | Unique address per customer (recommended); `payment_v2` memos possible, with no require-memo flag yet ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds one |
-| Fees | Minimum 10 drops, burned; `tec` failures pay | `ceil(bytes/512)` atoms (minimum 1), plus 10 atoms to create an account; burned; rejected transactions pay nothing ([fees_offer_planning.rs](../../../crates/execution/src/fees_offer_planning.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds `tec`-style fee claims |
+| Deposit attribution | Destination tag (uint32); `RequireDest` ([tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)) | Unique address per customer (recommended); `payment_v2` memos possible, with no require-memo flag yet ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (included in source, deployment pending) adds one |
+| Fees | Minimum 10 drops, burned; `tec` failures pay | `ceil(bytes/512)` atoms (minimum 1), plus 10 atoms to create an account; burned; rejected transactions pay nothing ([fees_offer_planning.rs](../../../crates/execution/src/fees_offer_planning.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (included in source, deployment pending) adds `tec`-style fee claims |
 | Reserves | 1 XRP base plus 0.2 XRP per object ([reserves](https://xrpl.org/docs/concepts/accounts/reserves)) | 10 atoms flat ([entrypoints.rs:139](../../../crates/execution/src/entrypoints.rs)) |
 | Replay protection | Account `Sequence`; optional `LastLedgerSequence` expiry ([common fields](https://xrpl.org/docs/references/protocol/transactions/common-fields)) | Strict next-sequence; envelope binds `chain_id`, `genesis_hash` and `protocol_version`; the v1 envelope has no expiry ([envelope spec](../../specs/transparent-transaction-envelope.md)) |
 | Account controls | Regular key, multi-signing | Key bound at first spend; no rotation and no multi-signing ([key rotation boundary](../../specs/account-key-rotation-boundary.md)) |
@@ -343,8 +343,7 @@ RedPallas, not ML-DSA ([whitepaper.md:116](../../whitepaper.md)).
   deterministic finality. PFTL's rule is one verified commit certificate plus
   an accepted receipt.
 - **The address handling does not.** PFTL addresses have no checksum, and the
-  protocol does not reject malformed recipients. [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open, not
-  merged) adds both an optional checksum and recipient validation.
+  protocol does not reject malformed recipients. [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (included in source, deployment pending) adds both an optional checksum and recipient validation.
 - **The tag model does not.** Per-customer addresses are the supported
   pattern. Memo attribution needs the require-memo flag in [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) and the
   memo contents in [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142).
@@ -436,7 +435,7 @@ pool, but the account-history index lists only transparent transaction kinds
 | Is the upstream Orchard pool on fixed versions? | Yes. `orchard` 0.14.0. PFTL calls `VerifyingKey::build()`, which in 0.14.0 builds the fixed (`FixedPostNu6_2`) circuit. | [verify.rs:1883](../../../crates/privacy_orchard/src/verify.rs); `orchard-0.14.0/src/circuit.rs:844-847` in the Cargo registry |
 | Do PFTL's own circuits use the affected gadget? | Yes. Asset-Orchard computes `[ivk] g_d` with the variable-base multiplication. | [asset_orchard_circuit.rs:1855](../../../crates/privacy_orchard/src/asset_orchard_circuit.rs) |
 | Do they select the fixed version? | Yes. All five ECC chip construction sites pass `CircuitVersion::AnchoredBase`, the fixed variant added in `halo2_gadgets` 0.5.0. No use of `InsecureUnanchoredBase` was found. | [asset_orchard_circuit.rs:837, 1473, 1949](../../../crates/privacy_orchard/src/asset_orchard_circuit.rs); [asset_orchard_sinsemilla.rs:674, 719](../../../crates/privacy_orchard/src/asset_orchard_sinsemilla.rs) |
-| Do the pinned verifying keys match the fixed circuit? | Yes, for the current swap and private-egress keys. Rebuilding both keys from source reproduces the pinned hashes. [PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141) (open) publishes their fingerprints and a check script. `cargo test --release -p postfiat-privacy-orchard --lib full_shape_key_metadata_is_pinned_and_consistent -- --ignored` passed 2 of 2 tests in 345 s. | Tests at [asset_orchard_circuit_tests.rs:1944, 2442](../../../crates/privacy_orchard/src/asset_orchard_circuit_tests.rs); pins at `asset_orchard_circuit.rs:116-119, 188-191` |
+| Do the pinned verifying keys match the fixed circuit? | Yes, for the current swap and private-egress keys. Rebuilding both keys from source reproduces the pinned hashes. [PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141) (included in source) publishes their fingerprints and a check script. `cargo test --release -p postfiat-privacy-orchard --lib full_shape_key_metadata_is_pinned_and_consistent -- --ignored` passed 2 of 2 tests in 345 s. | Tests at [asset_orchard_circuit_tests.rs:1944, 2442](../../../crates/privacy_orchard/src/asset_orchard_circuit_tests.rs); pins at `asset_orchard_circuit.rs:116-119, 188-191` |
 
 **What remains to verify.**
 
@@ -714,8 +713,8 @@ The successor is [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)
 ([proposal](../../review/nav-reserve-proof-successor-proposal-20260924.md)).
 It bounds NEAR receipt age (N1), proves Aave debt completeness from the
 account bitmap (A1), and rejects duplicate keys (B1) and duplicate owners
-(M1). L1 consensus code is unchanged. As of 2026-10-22 the PR is **open and
-included in source, not deployed**. Its approval conditions are met, and all its checks pass. G1
+(M1). L1 consensus code is unchanged. As of 2026-10-22 the repair is
+**included in source, not deployed**. Its approval conditions are met, and all its checks pass. G1
 needs a separate migration of A666 off `sp1-groth16`, which the PR does not
 perform.
 

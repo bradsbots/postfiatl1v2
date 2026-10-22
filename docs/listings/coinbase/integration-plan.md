@@ -54,7 +54,7 @@ All repository links in this document point to the public GitHub repository.
      ([PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) fixes both).
    - Shielded withdrawals into transparent accounts are not yet indexed
      ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) fixes this).
-   - These fixes are written and tested but included in source but not deployed.
+   - These fixes are included in source but not deployed.
    - The validator set is Foundation-run.
    - Coinbase custody cannot yet sign ML-DSA-65 transactions.
 
@@ -226,7 +226,7 @@ Two properties matter for an exchange.
 - **Mistyped addresses.** There is no checksum, and transfers do not validate
   the recipient's format. A mistyped address therefore receives funds that
   nobody can spend.
-  - [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143), written and tested but included in source but not deployed, fixes
+  - [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143), included in source but not deployed, fixes
     both. RPC submission and the mempool reject malformed recipients once
     the release is deployed. Execution rejects them after governance
     activates the rule.
@@ -668,8 +668,8 @@ the questions in section 9.
   - regenerated and published Orchard verifying keys ([PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141));
   - resolution of the SLH-DSA recovery-key and signing-fence documentation
     contradictions ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140)).
-- **Status (2026-10-22):** every deliverable above is written and tested in
-  an open pull request. None is merged or deployed yet.
+- **Status (2026-10-22):** every deliverable above is included in this source
+  tree through the integration of #138–#144 and #49. Deployment is pending.
   - The consensus changes in #143 and #144 ship inactive.
   - They take effect only after three things: every validator runs the
     release, an exact replay of the devnet chain with the new binary
