@@ -321,8 +321,10 @@ Both plans are described in
 
 There are two realistic custody routes:
 
-1. **HSM-based ML-DSA signing for PFT.** This is how Fireblocks rotated a live
-   NEAR account to ML-DSA-65. It can work before lattice MPC exists. PFTL will
+1. **HSM-based ML-DSA signing for PFT.** Fireblocks rotated a live NEAR
+   account to ML-DSA-65 this way, through PKCS#11 with kryoptic, an
+   open-source software HSM; a hardware HSM with ML-DSA support would use the
+   same interface. It can work before lattice MPC exists. PFTL will
    provide:
    - a reference signer behind PKCS#11 or a remote-signing interface;
    - deterministic test vectors;
