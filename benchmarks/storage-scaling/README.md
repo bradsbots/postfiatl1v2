@@ -382,6 +382,28 @@ and root must match at each step. The archive tree hash (`tree_sha256`) must be
 unchanged afterwards. The receipt `receipts/height-N.json` binds the binary,
 manifest, trusted key and archive hashes and each step's output in `steps/`.
 
+One legacy pre-activation data directory (for example a height-924 copy) uses
+the legacy-source mode, with the same source-revision rule:
+
+```bash
+python3 benchmarks/storage-scaling/run_replay_evidence.py \
+  --node-bin /FROZEN/release/postfiat-node \
+  --legacy-source-dir /SCRATCH/validator-0 \
+  --recorded-manifest /PATH/storage-migration-manifest.json \
+  --expected-height 924 --expected-tip FULL_TIP --expected-root FULL_ROOT \
+  --output-dir /explicit/disposable/replay-924 \
+  --expected-source-revision FULL_BINARY_SOURCE_COMMIT
+```
+
+It refuses a source with `transactional_generation.json` (past storage
+activation) and expected values that differ from the source `chain_tip.json`
+or the recorded migration manifest. It runs the pair mode's legacy replay
+(`receipts/height-N.json`), then an independent `--verify-only` while hashing
+the scratch clone and rebuilt store before and after. Counts, roots and the
+ordered-history accumulator must equal the recorded manifest; the source tree
+hash must be unchanged. `replay-report.json` binds the receipt and
+`verify-only.json`.
+
 ## Offline rollback and tamper qualification
 
 Build the current source and a distinct compatible ancestor as release

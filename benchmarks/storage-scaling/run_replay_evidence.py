@@ -688,7 +688,219 @@ def signed_archive_main() -> int:
     return 0
 
 
+LEGACY_TIP_FILE = "chain_tip.json"
+TRANSACTIONAL_MARKER = "transactional_generation.json"
+RECORDED_MANIFEST_FIELDS = (
+    "block_count",
+    "receipt_count",
+    "archive_count",
+    "ordered_batch_count",
+    "blocks_root",
+    "receipts_root",
+    "archive_root",
+    "ordered_batches_root",
+    "ordered_history_accumulator",
+    "current_state_root",
+)
+
+
+def legacy_source_replay(
+    *,
+    node_bin: Path,
+    source: Path,
+    expected_height: int,
+    expected_tip: str,
+    expected_root: str,
+    recorded_manifest: Path,
+    output: Path,
+    revision: str,
+    harness_revision: str = "",
+) -> dict[str, str]:
+    """Replay one legacy pre-activation data directory with the pair-mode path.
+
+    ``replay_source`` runs on a scratch copy; an independent ``--verify-only``
+    then re-checks the rebuilt store while both scratch trees are hashed.
+    """
+    validate_regular_tree(source, "legacy source")
+    if (source / TRANSACTIONAL_MARKER).exists():
+        raise ValueError(f"legacy source is past storage activation: {TRANSACTIONAL_MARKER}")
+    tip_path = source / LEGACY_TIP_FILE
+    if not tip_path.is_file():
+        raise ValueError(f"source is not a legacy data directory: {LEGACY_TIP_FILE} missing")
+    # The node appends a MAC line after the JSON object; read the object only.
+    tip, _ = json.JSONDecoder().raw_decode(tip_path.read_text(encoding="utf-8"))
+    if not isinstance(tip, dict):
+        raise ValueError(f"expected a JSON object: {LEGACY_TIP_FILE}")
+    recorded = read_json(recorded_manifest)
+    recorded_tip = recorded.get("source_tip") if isinstance(recorded.get("source_tip"), dict) else {}
+    for record, label in ((tip, "source chain tip"), (recorded, "recorded manifest")):
+        if (
+            record.get("chain_id") != CONTROLLED_CHAIN_ID
+            or record.get("genesis_hash") != CONTROLLED_GENESIS_HASH
+        ):
+            raise ValueError(f"{label} is not the controlled chain")
+    for label, want, have, noted in (
+        ("height", expected_height, tip.get("height"), recorded_tip.get("height")),
+        ("tip", expected_tip, tip.get("block_hash"), recorded_tip.get("block_hash")),
+        ("root", expected_root, tip.get("state_root"), recorded_tip.get("state_root")),
+    ):
+        if want != have:
+            raise ValueError(f"expected {label} does not match the source chain tip")
+        if want != noted:
+            raise ValueError(f"expected {label} does not match the recorded manifest")
+    if output.exists():
+        raise ValueError(f"refusing to overwrite output directory: {output}")
+    if output.is_relative_to(source) or source.is_relative_to(output):
+        raise ValueError("legacy source and output directory must be disjoint")
+
+    source_tree_digest = tree_sha256(source)
+    output.mkdir(parents=True)
+    receipt_path = output / "receipts" / f"height-{expected_height}.json"
+    receipt_path.parent.mkdir()
+    with tempfile.TemporaryDirectory(prefix="postfiat-legacy-replay-") as temporary:
+        scratch = Path(temporary)
+        reference = replay_source(
+            node_bin=node_bin,
+            source=source,
+            height=expected_height,
+            source_kind=REQUIRED_SOURCES[924],
+            scratch=scratch,
+            receipt_path=receipt_path,
+            revision=revision,
+            source_tree_digest=source_tree_digest,
+        )
+        clone = scratch / f"source-{expected_height}"
+        target = scratch / f"transactional-{expected_height}"
+        before = (tree_sha256(clone), tree_sha256(target))
+        verified = run_json(
+            [
+                str(node_bin),
+                "storage-rebuild-transactional",
+                "--data-dir", str(clone),
+                "--output-dir", str(target),
+                "--expected-tip", expected_tip,
+                "--expected-state-root", expected_root,
+                "--verify-only",
+                "--offline-confirmed",
+            ]
+        )
+        after = (tree_sha256(clone), tree_sha256(target))
+    if before != after:
+        raise RuntimeError("scratch trees changed during the independent --verify-only")
+    receipt = read_json(receipt_path)
+    if (
+        verified.get("verify_only") is not True
+        or verified.get("published") is not False
+        or verified.get("migration_packet_root") != receipt["migration_packet_root"]
+    ):
+        raise RuntimeError("independent --verify-only did not verify the rebuilt store")
+    if (receipt["source_height"], receipt["tip_hash"], receipt["state_root"]) != (
+        expected_height,
+        expected_tip,
+        expected_root,
+    ):
+        raise RuntimeError("replay identity differs from the expected values")
+    for field in RECORDED_MANIFEST_FIELDS:
+        if receipt.get(field) != recorded.get(field):
+            raise RuntimeError(f"replay {field} differs from the recorded manifest")
+    source_tree_after = tree_sha256(source)
+    if source_tree_after != source_tree_digest:
+        raise RuntimeError("legacy source changed during replay")
+
+    verify_path = output / "verify-only.json"
+    write_json(verify_path, verified)
+    report = {
+        "schema": "postfiat-storage-legacy-replay-v1",
+        "verdict": "PASS",
+        "source_height": expected_height,
+        "tip_hash": expected_tip,
+        "state_root": expected_root,
+        "chain_id": receipt["chain_id"],
+        "genesis_hash": receipt["genesis_hash"],
+        "commitment_mode": receipt["commitment_mode"],
+        "ordered_history_accumulator": receipt["ordered_history_accumulator"],
+        "matched": {
+            "chain": True,
+            "height": True,
+            "tip": True,
+            "root": True,
+            **{field: True for field in RECORDED_MANIFEST_FIELDS},
+        },
+        "recorded_manifest_sha256": sha256(recorded_manifest),
+        "independent_verify_only": {
+            "output": {"path": "verify-only.json", "sha256": sha256(verify_path)},
+            "clone_tree_sha256_before": before[0],
+            "clone_tree_sha256_after": after[0],
+            "target_tree_sha256_before": before[1],
+            "target_tree_sha256_after": after[1],
+        },
+        "receipts": [reference],
+        "source_tree_sha256": source_tree_digest,
+        "source_tree_sha256_after": source_tree_after,
+        "source_revision": revision,
+        "harness_revision": harness_revision,
+        "node_binary_sha256": receipt["node_binary_sha256"],
+        "node_binary_build": receipt["node_binary_build"],
+        "offline": True,
+        "network_contacted": False,
+    }
+    report_path = output / "replay-report.json"
+    write_json(report_path, report)
+    return {"path": "replay-report.json", "sha256": sha256(report_path)}
+
+
+def legacy_source_main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Replay one legacy pre-activation data directory offline."
+    )
+    parser.add_argument("--node-bin", type=Path, required=True)
+    parser.add_argument("--legacy-source-dir", type=Path, required=True)
+    parser.add_argument("--recorded-manifest", type=Path, required=True)
+    parser.add_argument("--expected-height", type=int, required=True)
+    parser.add_argument("--expected-tip", required=True)
+    parser.add_argument("--expected-root", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-revision", required=True)
+    args = parser.parse_args()
+
+    paths = (
+        args.node_bin.expanduser(),
+        args.legacy_source_dir.expanduser(),
+        args.recorded_manifest.expanduser(),
+        args.output_dir.expanduser(),
+    )
+    if any(path.is_symlink() for path in paths):
+        raise ValueError("binary, source, manifest and output paths must not be symlinks")
+    node_bin, source, recorded, output = (path.resolve() for path in paths)
+    if not node_bin.is_file() or node_bin.parent.name != "release":
+        raise ValueError("--node-bin must identify a regular target/release binary")
+    revision = args.expected_source_revision
+    if len(revision) != 40 or subprocess.run(
+        ["git", "merge-base", "--is-ancestor", revision, "HEAD"], cwd=REPO
+    ).returncode != 0:
+        raise ValueError("--expected-source-revision is not an ancestor of HEAD")
+    if not git_clean():
+        raise ValueError("replay evidence requires a clean checkout")
+    reference = legacy_source_replay(
+        node_bin=node_bin,
+        source=source,
+        expected_height=args.expected_height,
+        expected_tip=args.expected_tip,
+        expected_root=args.expected_root,
+        recorded_manifest=recorded,
+        output=output,
+        revision=revision,
+        harness_revision=git_revision(),
+    )
+    print("storage-legacy-replay=PASS")
+    print(f"report={output / reference['path']}")
+    print(f"report_sha256={reference['sha256']}")
+    return 0
+
+
 if __name__ == "__main__":
     if "--signed-archive-dir" in sys.argv[1:]:
         raise SystemExit(signed_archive_main())
+    if "--legacy-source-dir" in sys.argv[1:]:
+        raise SystemExit(legacy_source_main())
     raise SystemExit(main())

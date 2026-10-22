@@ -241,5 +241,232 @@ class SignedArchiveReplayTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
 
 
+LEGACY_HEIGHT = 924
+LEGACY_TIP = "1" * 96
+LEGACY_ROOT = "2" * 96
+RECORDED_ROOTS = {
+    "blocks_root": "3" * 96,
+    "receipts_root": "4" * 96,
+    "archive_root": "5" * 96,
+    "ordered_batches_root": "6" * 96,
+    "ordered_history_accumulator": "7" * 96,
+    "current_state_root": "8" * 96,
+}
+
+
+def _legacy_manifest(roots: dict[str, str]) -> dict[str, Any]:
+    return {
+        "schema": "postfiat-storage-migration-manifest-v2",
+        "chain_id": HARNESS.CONTROLLED_CHAIN_ID,
+        "genesis_hash": HARNESS.CONTROLLED_GENESIS_HASH,
+        "source_tip": {
+            "height": LEGACY_HEIGHT,
+            "block_hash": LEGACY_TIP,
+            "state_root": LEGACY_ROOT,
+        },
+        "block_count": LEGACY_HEIGHT,
+        "receipt_count": 972,
+        "archive_count": LEGACY_HEIGHT,
+        "ordered_batch_count": LEGACY_HEIGHT,
+        **roots,
+        "logical_store_report": {"finalized_height": LEGACY_HEIGHT},
+        "migration_packet_root": "",
+        "node_state_root": "",
+    }
+
+
+class FakeLegacyNode:
+    """Answers the legacy pair-mode commands for one pre-activation source."""
+
+    def __init__(
+        self,
+        *,
+        commitment: str = "postfiat.replicated_state.v1",
+        roots: dict[str, str] | None = None,
+        verify_only_writes: bool = False,
+    ) -> None:
+        self.commitment = commitment
+        self.roots = roots or RECORDED_ROOTS
+        self.verify_only_writes = verify_only_writes
+        self.commands: list[list[str]] = []
+        self.packet_root = ""
+
+    def _rebuild(self, command: list[str]) -> dict[str, Any]:
+        output = Path(command[command.index("--output-dir") + 1])
+        export = output / "canonical-history.jsonl"
+        receipt = {
+            "schema": "postfiat-transactional-canonical-export-receipt-v1",
+            "finalized_height": LEGACY_HEIGHT,
+            "record_count": 4714,
+            "records_sha3_384": "9" * 96,
+        }
+        verify_only = "--verify-only" in command
+        if not verify_only:
+            output.mkdir(parents=True)
+            export.write_text("{}\n", encoding="utf-8")
+            manifest = _legacy_manifest(self.roots)
+            manifest["migration_packet_root"] = HARNESS.migration_packet_root(manifest)
+            self.packet_root = manifest["migration_packet_root"]
+            path = output / "storage-migration-manifest.json"
+            path.write_text(json.dumps(manifest), encoding="utf-8")
+            digest = hashlib.sha3_384(path.read_bytes()).hexdigest()
+            (output / "storage-migration-manifest.sha3-384").write_text(
+                f"{digest}  storage-migration-manifest.json\n", encoding="utf-8"
+            )
+        elif self.verify_only_writes and len(
+            [c for c in self.commands if "--verify-only" in c]
+        ) > 1:
+            (output / "stray").write_text("x", encoding="utf-8")
+        return {
+            "schema": "postfiat-storage-migration-report-v1",
+            "published": not verify_only,
+            "verify_only": verify_only,
+            "migration_packet_root": self.packet_root,
+            "canonical_export_file": str(export),
+            "canonical_export_receipt": receipt,
+        }
+
+    def __call__(self, command: list[str]) -> dict[str, Any]:
+        self.commands.append(command)
+        name = command[1]
+        if name == "status":
+            return {
+                "chain_id": HARNESS.CONTROLLED_CHAIN_ID,
+                "genesis_hash": HARNESS.CONTROLLED_GENESIS_HASH,
+                "protocol_version": 1,
+                "block_height": LEGACY_HEIGHT,
+                "block_tip_hash": LEGACY_TIP,
+                "state_root": LEGACY_ROOT,
+                "build_git_revision": REVISION[:8],
+                "build_profile": "release",
+                "storage": {"commitment_version": self.commitment},
+            }
+        if name == "storage-rebuild-transactional":
+            return self._rebuild(command)
+        raise AssertionError(f"unexpected node command {name}")
+
+
+class LegacySourceReplayTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self._temporary.name)
+        self.source = self.root / "validator-0"
+        tip = {
+            "schema": "postfiat-chain-tip-v1",
+            "chain_id": HARNESS.CONTROLLED_CHAIN_ID,
+            "genesis_hash": HARNESS.CONTROLLED_GENESIS_HASH,
+            "height": LEGACY_HEIGHT,
+            "block_hash": LEGACY_TIP,
+            "state_root": LEGACY_ROOT,
+        }
+        self.source.mkdir()
+        (self.source / "chain_tip.json").write_text(
+            json.dumps(tip, indent=2) + "\npftmac1:" + "0" * 96 + "\n", encoding="utf-8"
+        )
+        (self.source / "blocks.json").write_text("[]\n", encoding="utf-8")
+        self.recorded = self.root / "recorded" / "storage-migration-manifest.json"
+        _write_json(self.recorded, _legacy_manifest(RECORDED_ROOTS))
+        self.node_bin = self.root / "release" / "postfiat-node"
+        self.node_bin.parent.mkdir()
+        self.node_bin.write_bytes(b"node")
+        self.output = self.root / "out"
+
+    def tearDown(self) -> None:
+        self._temporary.cleanup()
+
+    def _replay(self, node: FakeLegacyNode, **overrides: Any) -> dict[str, str]:
+        arguments: dict[str, Any] = {
+            "node_bin": self.node_bin,
+            "source": self.source,
+            "expected_height": LEGACY_HEIGHT,
+            "expected_tip": LEGACY_TIP,
+            "expected_root": LEGACY_ROOT,
+            "recorded_manifest": self.recorded,
+            "output": self.output,
+            "revision": REVISION,
+            "harness_revision": "f" * 40,
+        }
+        arguments.update(overrides)
+        with mock.patch.object(HARNESS, "run_json", node), mock.patch.object(
+            HARNESS, "run_checked", lambda command: None
+        ):
+            return HARNESS.legacy_source_replay(**arguments)
+
+    def test_legacy_source_replay_matches_recorded_values(self) -> None:
+        before = HARNESS.tree_sha256(self.source)
+        node = FakeLegacyNode()
+        reference = self._replay(node)
+
+        self.assertEqual(
+            [command[1] for command in node.commands],
+            ["status"] + ["storage-rebuild-transactional"] * 3,
+        )
+        self.assertEqual(sum("--verify-only" in c for c in node.commands), 2)
+        data_dir = Path(node.commands[0][node.commands[0].index("--data-dir") + 1])
+        self.assertNotEqual(data_dir.resolve(), self.source.resolve())
+        self.assertEqual(HARNESS.tree_sha256(self.source), before)
+
+        report_path = self.output / reference["path"]
+        self.assertEqual(reference["sha256"], HARNESS.sha256(report_path))
+        report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["schema"], "postfiat-storage-legacy-replay-v1")
+        self.assertEqual(report["verdict"], "PASS")
+        self.assertEqual(
+            (report["source_height"], report["tip_hash"], report["state_root"]),
+            (LEGACY_HEIGHT, LEGACY_TIP, LEGACY_ROOT),
+        )
+        self.assertEqual(report["source_tree_sha256"], before)
+        self.assertEqual(report["source_tree_sha256_after"], before)
+        verify = report["independent_verify_only"]
+        self.assertEqual(verify["target_tree_sha256_before"], verify["target_tree_sha256_after"])
+        self.assertEqual(verify["clone_tree_sha256_before"], verify["clone_tree_sha256_after"])
+        self.assertEqual(
+            verify["output"]["sha256"], HARNESS.sha256(self.output / verify["output"]["path"])
+        )
+        self.assertEqual(report["recorded_manifest_sha256"], HARNESS.sha256(self.recorded))
+        self.assertTrue(all(report["matched"].values()))
+        self.assertIn("blocks_root", report["matched"])
+        receipt_ref = report["receipts"][0]
+        receipt = json.loads((self.output / receipt_ref["path"]).read_text(encoding="utf-8"))
+        self.assertEqual(receipt["schema"], "postfiat-storage-replay-receipt-v1")
+        self.assertEqual(receipt["commitment_mode"], "legacy_below_storage_activation")
+        self.assertEqual(receipt["source_tree_sha256"], before)
+        self.assertEqual(report["harness_revision"], "f" * 40)
+        self.assertFalse(report["network_contacted"])
+
+    def test_legacy_refuses_source_past_storage_activation(self) -> None:
+        _write_json(self.source / "transactional_generation.json", {"generation": 1})
+        node = FakeLegacyNode()
+        with self.assertRaisesRegex(ValueError, "past storage activation"):
+            self._replay(node)
+        self.assertEqual(node.commands, [])
+        self.assertFalse(self.output.exists())
+
+    def test_legacy_refuses_post_activation_commitment(self) -> None:
+        node = FakeLegacyNode(commitment="postfiat.replicated_state.v2")
+        with self.assertRaisesRegex(RuntimeError, "below storage activation"):
+            self._replay(node)
+        self.assertFalse((self.output / "replay-report.json").exists())
+
+    def test_legacy_refuses_expected_values_that_differ_from_the_chain_tip(self) -> None:
+        node = FakeLegacyNode()
+        with self.assertRaisesRegex(ValueError, "expected tip does not match"):
+            self._replay(node, expected_tip="d" * 96)
+        self.assertEqual(node.commands, [])
+        self.assertFalse(self.output.exists())
+
+    def test_legacy_refuses_replay_that_differs_from_the_recorded_manifest(self) -> None:
+        node = FakeLegacyNode(roots={**RECORDED_ROOTS, "blocks_root": "e" * 96})
+        with self.assertRaisesRegex(RuntimeError, "blocks_root differs"):
+            self._replay(node)
+        self.assertFalse((self.output / "replay-report.json").exists())
+
+    def test_legacy_refuses_verify_only_that_changes_the_target(self) -> None:
+        node = FakeLegacyNode(verify_only_writes=True)
+        with self.assertRaisesRegex(RuntimeError, "changed during the independent --verify-only"):
+            self._replay(node)
+        self.assertFalse((self.output / "replay-report.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()
