@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# The expected inventory is in C collation order and diff's English wording;
+# pin the locale so the check gives the same result on every host.
+export LC_ALL=C
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENDOR="$ROOT/third_party/halo2_proofs"

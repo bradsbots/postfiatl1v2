@@ -26,8 +26,9 @@ supply, minting and redemption are tied to machine-checkable reserve packets.
 >   the [security overview](docs/security/index.md).
 > - Validator keys are plaintext software key files; HSM and remote signing are
 >   not implemented. Validators need an explicit `--unsafe-devnet-file-signer`
->   acknowledgement, and long-running validator and RPC services need
->   `--unsafe-devnet-json-storage`.
+>   acknowledgement. Long-running services on JSON/JSONL storage need
+>   `--unsafe-devnet-json-storage`. The controlled devnet has used transactional
+>   `redb` storage since height 930; its storage qualification remains open.
 
 ## Start here
 

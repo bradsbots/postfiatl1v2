@@ -58,16 +58,44 @@ flowchart LR
 
 ## Recovery Path
 
+What exists today (updated 2026-10-22):
+
+- **Validator keys.** A compromised or lost validator key is replaced through a
+  governed validator-registry update. The replacement is another ML-DSA-65 key;
+  after activation, the old key's staging and votes are rejected
+  ([validator emergency key rotation](../runbooks/validator-emergency-key-rotation.md)).
+  On the devnet, Cobalt ratified such a rotation for validator 5 at height 924
+  ([Cobalt adversarial results](../governance/cobalt-adversarial-verification-results.md)).
+- **Account keys.** No account key-rotation transaction exists. An address binds
+  its ML-DSA public key on first spend, and later spends must use that key. If a
+  key may be compromised but still works, sweep the funds to a fresh address. The
+  protocol cannot recover a lost key
+  ([account key rotation boundary](../specs/account-key-rotation-boundary.md)).
+- **SLH-DSA.** No SLH-DSA (FIPS 205) key, genesis commitment, verifier or
+  activation path exists in the code.
+
 ```mermaid
 flowchart TD
-  Monitor[Cryptographic monitoring<br/>ML-DSA break or credible emergency]
-  Emergency[Governed emergency path<br/>freeze affected authorization class<br/>collect evidence packet]
-  Cobalt[Cobalt-ratified activation<br/>old rules authorize recovery]
-  SLH[Activate precommitted SLH-DSA keys<br/>already bound at genesis]
-  Rotate[Rotate validator and account authority<br/>new signatures accepted<br/>old ML-DSA path rejected or constrained]
+  subgraph Today[Implemented today]
+    Lost[Validator key compromised or lost]
+    Update[Governed validator-registry update<br/>current-registry ML-DSA authorizations]
+    NewKey[Replacement ML-DSA-65 key active<br/>old-key votes rejected]
+    Lost --> Update --> NewKey
+  end
 
-  Monitor --> Emergency --> Cobalt --> SLH --> Rotate
+  subgraph Proposed[Proposed, not implemented]
+    Monitor[ML-DSA break or credible emergency]
+    Emergency[Governed emergency path<br/>freeze affected authorization class]
+    SLH[Activate SLH-DSA recovery keys<br/>committed at genesis]
+    Rotate[Rotate validator and account authority<br/>old ML-DSA path rejected or constrained]
+    Monitor -.-> Emergency -.-> SLH -.-> Rotate
+  end
 ```
+
+The proposed SLH-DSA fallback needs a complete FIPS 205 key commitment,
+verification, governance activation, migration and recovery ceremony, with its
+own tests, before it can be described as available
+([cryptography inventory](../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)).
 
 ## Sources
 
