@@ -842,6 +842,14 @@ fn execute_asset_transaction_with_checked_preimage(
         return Receipt::rejected(tx_id, "bad_asset_transaction_envelope", error);
     }
 
+    if compatibility.recipient_format_active(block_height) {
+        if let Some((code, message)) =
+            destination_address_rejection(&asset_transaction_destination_addresses(transaction))
+        {
+            return Receipt::rejected(tx_id, code, message);
+        }
+    }
+
     if transaction.unsigned.chain_id != genesis.chain_id {
         return Receipt::rejected(
             tx_id,

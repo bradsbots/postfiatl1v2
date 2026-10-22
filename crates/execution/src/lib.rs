@@ -8,6 +8,7 @@
 pub use postfiat_types::pftl_uniswap_route_state_hash;
 
 include!("entrypoints.rs");
+include!("recipient_format.rs");
 include!("fees_offer_planning.rs");
 pub mod market_policy {
     include!("market_policy.rs");

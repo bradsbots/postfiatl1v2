@@ -77,6 +77,13 @@ launch config digests.
 | `mempool_submit_fastlane_primary` | Submit a source-signed, sequence-bound FastLane deposit or an ordered FastPay recovery action when the controlled signed-submit surface is enabled. |
 | `mempool_submit_fastlane_primary_finality` | Submit the same FastLane primary transaction through the finality-returning path. |
 
+Signed submit methods reject a destination address that is not a canonical
+`pf` + 40 lowercase hex address before admission. The error `code` is
+`invalid_recipient_address`, `invalid_recipient_checksum` or
+`noncanonical_recipient_address`; see
+[Addresses And Checksums](../wallets/address-format.md). The `account` result
+adds `address_checksummed`, the display form of `address`.
+
 ## FastPay Wallet Methods
 
 | Method | Purpose |

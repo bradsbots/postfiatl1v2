@@ -1,0 +1,212 @@
+{
+  "schema": "postfiat.address_vectors.v1",
+  "description": "PFTL account address vectors: the canonical lowercase form, the optional mixed-case checksum, and rejection cases. Specification: docs/wallets/address-format.md.",
+  "derivation": "address = \"pf\" + lowercase_hex(SHA3-384(derivation_domain || 0x00 || ml_dsa_65_public_key)[0..20])",
+  "derivation_domain": "postfiat.address.v1",
+  "checksum": "h = SHA3-256(checksum_domain || 0x00 || ascii(the 40 lowercase hex characters, without the pf prefix)); hex character i is uppercased when it is a letter a-f and nibble i of h (the high nibble of h[i/2] for even i, the low nibble for odd i) is >= 8",
+  "checksum_domain": "postfiat.address.checksum.v1",
+  "parse_rules": [
+    "the prefix must be exactly lowercase pf (PF, Pf and pF are uppercase_prefix; anything else is missing_prefix)",
+    "any non-ASCII character after the prefix is non_hex, checked before the length",
+    "the address must be exactly 42 characters: pf plus 40 hex characters (wrong_length)",
+    "every character after the prefix must be 0-9, a-f or A-F (non_hex)",
+    "all-lowercase hex is accepted (the legacy and canonical form)",
+    "hex that contains any uppercase letter is accepted only when it equals the checksummed form (bad_checksum otherwise)",
+    "parsers do not trim whitespace",
+    "signed transactions and on-chain state always use the canonical lowercase form"
+  ],
+  "reasons": {
+    "missing_prefix": "malformed",
+    "uppercase_prefix": "malformed",
+    "wrong_length": "malformed",
+    "non_hex": "malformed",
+    "bad_checksum": "checksum"
+  },
+  "valid": [
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0x01; 32])",
+      "ml_dsa_65_seed_hex": "0101010101010101010101010101010101010101010101010101010101010101",
+      "canonical": "pfb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "checksummed": "pfb385030Ad80e5F7a59EC93b71f11055E9cCb9230"
+    },
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0x02; 32])",
+      "ml_dsa_65_seed_hex": "0202020202020202020202020202020202020202020202020202020202020202",
+      "canonical": "pf4aced57ac90f660e33a7295f86e8cfdad5fc99d3",
+      "checksummed": "pf4aced57AC90f660E33a7295f86E8cfdaD5FC99D3"
+    },
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0x03; 32])",
+      "ml_dsa_65_seed_hex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "canonical": "pf67abe63b7fb15e7c4e8ade886d7f2d8c9a2449f8",
+      "checksummed": "pf67Abe63B7fb15E7C4e8AdE886D7F2d8C9A2449f8"
+    },
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0x07; 32])",
+      "ml_dsa_65_seed_hex": "0707070707070707070707070707070707070707070707070707070707070707",
+      "canonical": "pfe7a09de1f61dd8d7b181f7e54bcf7a1e0170a640",
+      "checksummed": "pfE7A09dE1f61DD8d7b181f7e54BCf7A1E0170A640"
+    },
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0x2a; 32])",
+      "ml_dsa_65_seed_hex": "2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a",
+      "canonical": "pf6f06b38adc501cc1c948f8114d9a596c62cac085",
+      "checksummed": "pf6f06b38ADc501cC1C948F8114D9a596c62CaC085"
+    },
+    {
+      "description": "derived from ML-DSA-65 keygen_from_seed([0xc8; 32])",
+      "ml_dsa_65_seed_hex": "c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8c8",
+      "canonical": "pf63e9f3b8b02fd047f155b67b531c1ad85948e640",
+      "checksummed": "pf63e9F3b8B02Fd047f155B67b531C1AD85948e640"
+    },
+    {
+      "description": "all zero digits; no letters, so the checksummed form equals the canonical form",
+      "canonical": "pf0000000000000000000000000000000000000000",
+      "checksummed": "pf0000000000000000000000000000000000000000"
+    },
+    {
+      "description": "digits only; the checksummed form equals the canonical form",
+      "canonical": "pf1234567890123456789012345678901234567890",
+      "checksummed": "pf1234567890123456789012345678901234567890"
+    },
+    {
+      "description": "all letters f",
+      "canonical": "pfffffffffffffffffffffffffffffffffffffffff",
+      "checksummed": "pfFFffFFFffFfffFfFfFfFFfFFfFfFFFfFFfFFFFff"
+    },
+    {
+      "description": "repeating abcdef pattern",
+      "canonical": "pfabcdefabcdefabcdefabcdefabcdefabcdefabcd",
+      "checksummed": "pfabCdEFabCdEfaBcDEFabCdeFabcdefabCDEFabCd"
+    }
+  ],
+  "invalid_checksum": [
+    {
+      "description": "vector 0 checksummed form with its first uppercase letter lowered",
+      "input": "pfb385030ad80e5F7a59EC93b71f11055E9cCb9230",
+      "reason": "bad_checksum"
+    },
+    {
+      "description": "vector 0 checksummed form with its first lowercase letter raised",
+      "input": "pfB385030Ad80e5F7a59EC93b71f11055E9cCb9230",
+      "reason": "bad_checksum"
+    },
+    {
+      "description": "vector 3 checksummed form with its last letter case-flipped",
+      "input": "pfE7A09dE1f61DD8d7b181f7e54BCf7A1E0170a640",
+      "reason": "bad_checksum"
+    },
+    {
+      "description": "all-uppercase hex is not accepted as a checksum",
+      "input": "pf4ACED57AC90F660E33A7295F86E8CFDAD5FC99D3",
+      "reason": "bad_checksum"
+    },
+    {
+      "description": "the case pattern of vector 2 applied to the hex of vector 4",
+      "input": "pf6f06b38Adc501Cc1c948f8114D9A596C62cac085",
+      "reason": "bad_checksum"
+    },
+    {
+      "description": "all-f address with every letter case-flipped",
+      "input": "pfffFFfffFFfFFFfFfFfFffFffFfFfffFffFffffFF",
+      "reason": "bad_checksum"
+    }
+  ],
+  "malformed": [
+    {
+      "description": "wrong length: empty string",
+      "input": "",
+      "reason": "missing_prefix"
+    },
+    {
+      "description": "wrong length: prefix only",
+      "input": "pf",
+      "reason": "wrong_length"
+    },
+    {
+      "description": "wrong length: 39 hex characters",
+      "input": "pfb385030ad80e5f7a59ec93b71f11055e9ccb923",
+      "reason": "wrong_length"
+    },
+    {
+      "description": "wrong length: 41 hex characters",
+      "input": "pfb385030ad80e5f7a59ec93b71f11055e9ccb92300",
+      "reason": "wrong_length"
+    },
+    {
+      "description": "wrong length: short placeholder name",
+      "input": "pfrecipient",
+      "reason": "wrong_length"
+    },
+    {
+      "description": "wrong length: trailing space",
+      "input": "pfb385030ad80e5f7a59ec93b71f11055e9ccb9230 ",
+      "reason": "wrong_length"
+    },
+    {
+      "description": "non-hex: letter g",
+      "input": "pfb385030ad80e5f7a59ec93b71f11055e9ccb923g",
+      "reason": "non_hex"
+    },
+    {
+      "description": "non-hex: placeholder padded to 40 characters",
+      "input": "pfrecipient0000000000000000000000000000001",
+      "reason": "non_hex"
+    },
+    {
+      "description": "non-hex: embedded 0x",
+      "input": "pf0x85030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "non_hex"
+    },
+    {
+      "description": "non-hex: embedded space",
+      "input": "pfb385030ad80e5f7a59 c93b71f11055e9ccb9230",
+      "reason": "non_hex"
+    },
+    {
+      "description": "non-hex: non-ASCII character (rejected as non_hex before the length check)",
+      "input": "pfé385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "non_hex"
+    },
+    {
+      "description": "missing prefix: bare 40 hex characters",
+      "input": "b385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "missing_prefix"
+    },
+    {
+      "description": "missing prefix: 0x prefix",
+      "input": "0xb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "missing_prefix"
+    },
+    {
+      "description": "missing prefix: wrong prefix letters",
+      "input": "ptb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "missing_prefix"
+    },
+    {
+      "description": "missing prefix: leading space",
+      "input": " pfb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "missing_prefix"
+    },
+    {
+      "description": "uppercase prefix: PF",
+      "input": "PFb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "uppercase_prefix"
+    },
+    {
+      "description": "uppercase prefix: Pf",
+      "input": "Pfb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "uppercase_prefix"
+    },
+    {
+      "description": "uppercase prefix: pF",
+      "input": "pFb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+      "reason": "uppercase_prefix"
+    },
+    {
+      "description": "uppercase prefix with checksummed body",
+      "input": "PFb385030Ad80e5F7a59EC93b71f11055E9cCb9230",
+      "reason": "uppercase_prefix"
+    }
+  ]
+}

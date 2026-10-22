@@ -275,6 +275,7 @@ nav:
       - Recovery Phrase Design: wallets/recovery-phrase-design.md
       - Shielded Wallet: wallets/shielded-wallet.md
       - Custody And Exchange: wallets/custody-and-exchange.md
+      - Addresses And Checksums: wallets/address-format.md
   - Validators:
       - Overview: validators/overview.md
       - Launch: validators/launch.md

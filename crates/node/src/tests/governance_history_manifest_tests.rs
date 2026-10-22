@@ -2031,7 +2031,7 @@
         submit_transfer_to_mempool(TransferOptions {
             data_dir: data_dir.clone(),
             key_file: None,
-            to: "pfmempoolsnapshot000000000000000000000".to_string(),
+            to: "pfb000000000000000000000000000000000000003".to_string(),
             amount: ACCOUNT_RESERVE,
         })
         .expect("submit mempool transfer");

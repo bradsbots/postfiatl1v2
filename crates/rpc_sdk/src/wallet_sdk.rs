@@ -27,6 +27,8 @@ pub fn wallet_identity_from_backup(
 ) -> Result<WalletIdentity, WalletSdkError> {
     validate_wallet_backup_file(backup)?;
     let key_pair = derive_wallet_key_pair(backup)?;
+    let address = address_from_public_key(&key_pair.public_key);
+    let address_checksummed = postfiat_crypto_provider::display_address(&address);
     Ok(WalletIdentity {
         algorithm_id: backup.algorithm_id.clone(),
         kdf: backup.kdf.clone(),
@@ -34,10 +36,25 @@ pub fn wallet_identity_from_backup(
         chain_id: backup.chain_id.clone(),
         account_index: backup.account_index,
         key_role: backup.key_role.clone(),
-        address: address_from_public_key(&key_pair.public_key),
+        address,
+        address_checksummed,
         public_key_hex: crypto_bytes_to_hex(&key_pair.public_key),
         private_key_material_redacted: true,
     })
+}
+
+/// The wallet signs only canonical lowercase destination addresses. Callers
+/// that accept human input normalize it first with
+/// `postfiat_crypto_provider::parse_address`.
+fn wallet_require_canonical_destinations(
+    fields: &[(&'static str, &str)],
+) -> Result<(), WalletSdkError> {
+    match postfiat_execution::destination_address_rejection(fields) {
+        Some((code, message)) => Err(WalletSdkError::new(format!(
+            "wallet refuses to sign: {code}: {message}"
+        ))),
+        None => Ok(()),
+    }
 }
 
 pub fn validate_transfer_quote_for_request(
@@ -148,6 +165,7 @@ pub fn wallet_sign_transfer_from_fields(
             "wallet transfer sequence must be nonzero",
         ));
     }
+    wallet_require_canonical_destinations(&[("transfer.to", fields.to.as_str())])?;
 
     let key_pair = derive_wallet_key_pair(backup)?;
     let from = address_from_public_key(&key_pair.public_key);
@@ -206,6 +224,7 @@ pub fn wallet_sign_payment_v2_from_fields(
             "wallet payment sequence must be nonzero",
         ));
     }
+    wallet_require_canonical_destinations(&[("payment.to", fields.to.as_str())])?;
 
     let key_pair = derive_wallet_key_pair(backup)?;
     let from = address_from_public_key(&key_pair.public_key);
@@ -342,6 +361,9 @@ pub fn wallet_sign_asset_transaction_from_fields(
         signature_hex: crypto_bytes_to_hex(&signature),
     };
     signed.validate().map_err(WalletSdkError::new)?;
+    wallet_require_canonical_destinations(
+        &postfiat_execution::asset_transaction_destination_addresses(&signed),
+    )?;
     Ok(signed)
 }
 
@@ -444,6 +466,9 @@ pub fn wallet_sign_escrow_transaction_from_fields(
         signature_hex: crypto_bytes_to_hex(&signature),
     };
     signed.validate().map_err(WalletSdkError::new)?;
+    wallet_require_canonical_destinations(
+        &postfiat_execution::escrow_transaction_destination_addresses(&signed),
+    )?;
     Ok(signed)
 }
 
@@ -546,6 +571,9 @@ pub fn wallet_sign_nft_transaction_from_fields(
         signature_hex: crypto_bytes_to_hex(&signature),
     };
     signed.validate().map_err(WalletSdkError::new)?;
+    wallet_require_canonical_destinations(
+        &postfiat_execution::nft_transaction_destination_addresses(&signed),
+    )?;
     Ok(signed)
 }
 

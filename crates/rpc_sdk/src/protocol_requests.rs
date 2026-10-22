@@ -2333,6 +2333,9 @@ pub struct WalletIdentity {
     pub account_index: u32,
     pub key_role: String,
     pub address: String,
+    /// Checksummed display form of `address`; `address` stays canonical.
+    #[serde(default)]
+    pub address_checksummed: String,
     pub public_key_hex: String,
     pub private_key_material_redacted: bool,
 }

@@ -289,6 +289,7 @@ use postfiat_types::{
     GOVERNANCE_KIND_CRYPTO_POLICY, GOVERNANCE_KIND_ORCHARD_POOL_PAUSE,
     GOVERNANCE_KIND_ORCHARD_AWARE_BRIDGE_CLAIM_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_PFUSDC_SOURCE_SERIES_ACTIVATION_HEIGHT,
+    GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_VAULT_BRIDGE_ROUTE_AUTHORITY_ACTIVATION_HEIGHT,
@@ -479,6 +480,7 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "ratify-replicated-state-v2-activation-height"
         | "ratify-bridge-exit-root-activation-height"
         | "ratify-shielded-atomic-batch-activation-height"
+        | "ratify-recipient-format-activation-height"
         | "governance-authorization-sign"
         | "governance-amendment-assemble"
         | "ethereum-checkpoint-observe"

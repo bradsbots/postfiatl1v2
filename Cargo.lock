@@ -3091,6 +3091,7 @@ version = "0.1.0"
 dependencies = [
  "fips204 0.4.6",
  "fips204 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "serde_json",
  "sha3 0.11.0",
  "sp1-zkvm",
  "zeroize",

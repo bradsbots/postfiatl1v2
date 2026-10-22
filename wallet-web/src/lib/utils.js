@@ -1,11 +1,13 @@
 // Utility functions for address validation, formatting, etc.
 
+// Only the canonical lowercase form is accepted: callers use the value as-is
+// in signed transactions, and a mixed-case key is a different ledger account.
 export function isValidAddress(addr) {
   if (typeof addr !== 'string') return false;
   if (!addr.startsWith('pf')) return false;
   const hex = addr.slice(2);
   if (hex.length !== 40) return false;
-  return /^[0-9a-fA-F]+$/.test(hex);
+  return /^[0-9a-f]+$/.test(hex);
 }
 
 // 1 PFT = 1,000,000 atoms (PFTL_PRECISION)

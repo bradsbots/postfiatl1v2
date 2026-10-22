@@ -9,6 +9,9 @@ use std::{
     sync::{Mutex, OnceLock},
 };
 
+mod address;
+pub use address::*;
+
 pub const CRATE_PURPOSE: &str = "versioned post-quantum crypto provider interfaces";
 pub const ML_DSA_65_ALGORITHM: &str = "ML-DSA-65";
 pub const ML_DSA_65_PUBLIC_KEY_BYTES: usize = ml_dsa_65::PK_LEN;
@@ -215,8 +218,8 @@ pub fn ml_dsa_65_validate_public_key(public_key: &[u8]) -> Result<(), CryptoErro
 }
 
 pub fn address_from_public_key(public_key: &[u8]) -> String {
-    let digest = hash_bytes("postfiat.address.v1", public_key);
-    format!("pf{}", bytes_to_hex(&digest[..20]))
+    let digest = hash_bytes(ADDRESS_DERIVATION_DOMAIN, public_key);
+    format!("{ADDRESS_PREFIX}{}", bytes_to_hex(&digest[..20]))
 }
 
 pub fn hash_hex(domain: &str, bytes: &[u8]) -> String {
