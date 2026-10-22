@@ -1,7 +1,7 @@
 # RPC Method Inventory
 
 Status: code-derived inventory
-Date: 2026-10-15
+Date: 2026-10-22
 Report: `docs/runbooks/rpc-method-inventory.json`
 
 This inventory is generated from Rust SDK method constants, node RPC dispatch,
@@ -35,13 +35,13 @@ method lacks an explicit posture.
 | validators | covered | validators, manifests | Active registry and operator manifests are public reads. |
 | transaction lookup | covered | tx, receipts | Finality lookup and receipt reads exist. |
 | account info | covered | account | Transparent account read exists. |
-| account_tx | covered | account_tx, account_tx_index_status, python account_tx, python account_tx_index_status | Server-side bounded account_tx exists for transparent history and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data. |
+| account_tx | covered | account_tx, account_tx_index_status, python account_tx, python account_tx_index_status | Server-side bounded account_tx exists for transparent history, payment_v2 memo contents, and shielded-withdrawal credits, and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data. |
 
 ## Gaps
 
 | Gap | Severity | Description |
 | --- | --- | --- |
-| account_tx_index_incremental_store | scale_follow_up | account_tx index refreshes automatically after ordered commits using the rebuilt JSON cache; incremental append/update and a disk-backed store remain scale follow-ups. |
+| account_tx_index_incremental_store | scale_follow_up | account_tx index is an operator cache with incremental append and disk-backed shards, built by account-tx-index-build; ordered commit does not refresh it, so serving nodes must run the build (and once after an index schema upgrade). |
 | public_write_edge_not_default | intentional_gate | All signed-mempool, Orchard batch-create, and owned-lane methods are disabled unless their exact operator flag enables them. |
 | fastswap_public_protocol_mutations | authenticated_protocol_surface | FastSwap lock/vote/apply and FastLane control methods are remotely enabled protocol mutations, not reads; request signatures and quorum certificates are their authorization boundary. |
 
@@ -55,7 +55,7 @@ method lacks an explicit posture.
 | account_lines | read_only_public | yes | no | yes | yes | yes |  |
 | account_nfts | read_only_public | yes | no | yes | yes | yes |  |
 | account_offers | read_only_public | yes | no | yes | yes | yes |  |
-| account_tx | read_only_public | yes | no | yes | yes | yes | XRP-like bounded transparent account transaction history read; uses rebuilt index when current |
+| account_tx | read_only_public | yes | no | yes | yes | yes | XRP-like bounded account transaction history read (transparent rows with payment_v2 memo contents, shielded-withdrawal credits); uses rebuilt index when current |
 | account_tx_index_status | read_only_public | yes | no | yes | yes | yes | read-only account_tx index freshness/status report |
 | apply_batch | operator_or_local_only | no | no | yes | yes | no | operator/state-apply path; not public RPC |
 | apply_bridge_batch | operator_or_local_only | no | no | yes | yes | no | operator/state-apply path; not public RPC |
@@ -193,7 +193,7 @@ method lacks an explicit posture.
 | status | read_only_public | yes | no | yes | yes | yes | public chain/node health read |
 | transfer | operator_or_local_only | no | no | yes | no | no |  |
 | transfer_fee_quote | read_only_public | yes | no | yes | yes | yes | transparent wallet quote read |
-| tx | read_only_public | yes | no | yes | yes | yes | transaction finality lookup |
+| tx | read_only_public | yes | no | yes | yes | yes | transaction finality lookup with the transaction's account_tx rows, including payment_v2 memo contents |
 | validate_local_keys | operator_or_local_only | no | no | yes | yes | no | operator-only local key validation |
 | validators | read_only_public | yes | no | yes | yes | yes | active validator registry read |
 | vault_bridge_route | read_only_public | yes | no | yes | yes | yes |  |

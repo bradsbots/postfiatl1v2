@@ -19,7 +19,7 @@ authorization inventory is
 | `manifests` | Validator/operator manifest information where available. |
 | `blocks` | Block lookup. |
 | `receipts` | Receipt lookup. |
-| `tx` | Transaction finality lookup. |
+| `tx` | Transaction finality lookup, with the transaction's `account_tx` rows (`transaction_rows`), including `payment_v2` memo contents. |
 | `mempool_status` | Mempool status. |
 | `bridge_status` | Bridge-simulation status. |
 | `navcoin_bridge_routes` | PFTL-to-Uniswap NAVCoin bridge route status. |
@@ -30,7 +30,7 @@ authorization inventory is
 | `shield_turnstile` | Shielded turnstile accounting. |
 | `orchard_pool_report` | Public Orchard pool counters. |
 | `account` | Account state. |
-| `account_tx` | Bounded account transaction history. |
+| `account_tx` | Bounded account transaction history: transparent rows with `payment_v2` memo contents, plus shielded-withdrawal credits. |
 | `account_tx_index_status` | Account-history index readiness. |
 
 ## Ledger Object Reads
@@ -49,6 +49,10 @@ authorization inventory is
 | `offer_info` | DEX offer lookup. |
 | `account_offers` | Offers by owner. |
 | `book_offers` | Offers in a deterministic book pair. |
+
+`account_tx` and `tx` row fields, memo decoding, shielded-withdrawal rows and
+the index rebuild that backfills them are documented in
+[Account History](account-history.md).
 
 `navcoin_bridge_routes` route rows expose the bridge `handoff_controller` and
 the `settlement_adapter` separately. Wallets must not treat either as the
