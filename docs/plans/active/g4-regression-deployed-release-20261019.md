@@ -349,3 +349,24 @@ on disk to compare against. The legacy lane is unchanged (970.5 ms p95, 0.34 GB 
 - [x] No node, runner, or gate script changed. The binary stayed fixed from G1 to the end of G4.
 - [x] Page bounds re-derived down after the run
   ([Bound re-derivation](#bound-re-derivation-2026-10-19)).
+
+## Attempt 4 (2026-10-22, deployed binary)
+
+Operator decision (2026-10-22): the storage packet qualifies the running code. The packet needs G1,
+G2, G4, the exact replays and the migration rehearsal on one source and one binary
+([G5](storage-scaling-milestone.md#g5-offline-qualification-packet)), and the replays ran on the
+deployed executable. G1 tests, G2 and G4 are therefore re-run with attempt 3's procedure, with the
+node binary replaced.
+
+| Item | Value |
+| --- | --- |
+| Candidate `C4` | `86706699f646405743385beabf609c6771a518a3` (tree `03e927ad04b65b110829d78135db9e3e5f15a331`), release `store-handle-20261021`, on all six validators since 2026-10-21; `Cargo.lock` `45bb2ca0…4fce` (same as attempt 3) |
+| Node | **the deployed executable**, SHA-256 `eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`, from the release stage `~/.postfiat/deployments/store-handle-20261021/stage/rootfs/opt/postfiat/releases/store-handle-20261021/postfiat-node`. Not rebuilt. It embeds `86706699`/`release`, the pipeline's acceptance check. The release build is `cargo build --release --locked -p postfiat-node --bin postfiat-node` with default features, Rust 1.95.0, 0 warnings (`~/.cache/release-store-handle-20261021/node-builds.json`). |
+| Runner `R` / helper | `51a19272` (`g4-runner-bounds-20261019`), helper `fb83d467fddc0ef1c414df082c71f5f42b7bda8011cee6df9324620310725f13`, unchanged. Main carries 96 / 80 / 32 in `run_campaign.py`, but main's runner lacks the work, coverage and derivation gates of `R`, and no pushed `R`-line commit carries 96 / 80 / 32. G4 therefore runs with `R`'s 176 / 160 / 32 and is checked against 96 / 80 / 32 at closure. G2 runs `C4`'s own scripts, which already carry 96 / 80 / 32 (`0293e00d` is in `86706699`). |
+| Rollback binary | `signer-rotation-20261007` (`0fa55d0b`), SHA-256 `decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f` |
+| Inputs | the 18 inputs of manifest `ec5a4715…98c3`, all present at the manifest paths under `~/repos/postfiat-storage-g4-428fe7c9-ae658441-v4`; the copy gate hash-checks them in place |
+| Output | `~/repos/postfiat-storage-g4-regression-20261022` (work server, private) |
+| Pipeline glue | `~/.cache/storage-g4-20261019/refreeze-attempt-4.sh`: moves the source checkout to `C4`, freezes the deployed executable, moves attempt 3's records to `attempt-3/`. `pipeline.sh`: only `OUT` changed (backup `pipeline.sh.attempt4.bak`) |
+
+Unchanged: the gates, the G4 criteria, the stop conditions and the one-run rule above. There is no
+validator-host contact and no transaction.
