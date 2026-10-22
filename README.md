@@ -5,10 +5,11 @@
 > **Maturity:** controlled pre-testnet research software. This repository is
 > not a production/mainnet release. Validator operation currently requires an
 > explicit `--unsafe-devnet-file-signer` acknowledgement because HSM/remote
-> signing is not implemented, and long-running validator/RPC services require
-> `--unsafe-devnet-json-storage` because the bounded JSON/JSONL store is not a
-> transactional indexed production engine. Do not place real-value keys or
-> value on this controlled-devnet configuration.
+> signing is not implemented. Long-running validator/RPC services on the bounded
+> JSON/JSONL store, such as a fresh local node, require
+> `--unsafe-devnet-json-storage`; the controlled devnet has run on transactional
+> `redb` storage since height 930, which is not yet offline qualified. Do not
+> place real-value keys or value on this controlled-devnet configuration.
 
 PostFiat is a Rust Layer 1 settlement system for post-quantum, privacy-aware institutional value transfer: transparent accounts use ML-DSA authorization from genesis, shielded settlement is built around Orchard/Halo2-style proofs, and quorum certificates provide deterministic finality. The final authenticated Cobalt drill observation ran from `2026-08-26T06:34:55Z` through `06:35:50Z` with all six `postfiat-wan-devnet-2` validators converged at height 924 and all validator, RPC, and shadow services active. Cobalt remains the bounded validator-trust authority; Consensus v2 remains block finality. The adversarial campaign closed `KEEP_ACTIVE`. Current Git HEAD is not itself proof of the running validator release.
 
@@ -67,7 +68,7 @@ flowchart LR
 | FastSwap | Implemented for prefunded dual-owner objects with durable reservation, Confirm-or-Cancel certificates, conserved effects, catch-up, and restart recovery. Shared-network activation is a separate deployment decision. |
 | Asset-Orchard | Implemented private ingress, transfer/swap, recovery, and egress path; legacy cleartext note actions are historical-replay-only. |
 | Governance | The final E5 audit found Cobalt active for validator-trust evolution with all six nodes converged at height 924 after the signed rollback/return drills and legitimate validator-5 rotation. Consensus v2 remains the sole block-finality protocol. The deployed node binary SHA-256 was `d5e5ef63…c2696caf`; current source HEAD is a separate evidence plane. See [Current State](docs/status/chain-state-current.md), the [adversarial results](docs/governance/cobalt-adversarial-verification-results.md), and the [E5 packet](benchmarks/cobalt-adversarial-verification/e5/README.md). |
-| Storage scaling | No candidate is deployment-eligible. `d0ae79f3` failed exact height-924 continuation. Successor `10dd9f20` fixed that defect and passed the old clone runner, but its live canary exposed an omitted concurrent transport/RPC topology and incomplete exact rollback proof. Validator-1 was rolled back; both candidates must not deploy. Public testnet is blocked. See the [active milestone](docs/plans/active/storage-scaling-milestone.md). |
+| Storage scaling | Transactional `redb` storage is deployed: release `storage-lease-af9b83c3` activated it on all six devnet validators at height 930 on 2026-08-31, and later releases descend from it. It is not yet offline qualified. The August `d0ae79f3` and `10dd9f20` canary history is in the [active milestone](docs/plans/active/storage-scaling-milestone.md); see [Current State](docs/status/chain-state-current.md) for the deployed release. |
 
 See [Settlement Lanes](docs/architecture/settlement-lanes.md) for the protocol
 boundaries and [Public Launch Boundary](docs/security/public-launch-boundary.md)

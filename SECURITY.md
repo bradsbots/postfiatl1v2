@@ -50,10 +50,15 @@ not be treated as externally audited production infrastructure.
 
 - Validator keys are plaintext software-key files protected by host filesystem
   permissions. Production HSM/remote-signer custody is not implemented.
-- Consensus state uses a size-bounded JSON/JSONL store with a synced ordered
-  commit journal and cross-process mutation locks. It is not a transactional
-  indexed production engine; long-running validator and RPC services fail
-  closed without the explicit `--unsafe-devnet-json-storage` acknowledgement.
+- Consensus state on the controlled devnet uses transactional `redb` storage,
+  activated at height 930 on 2026-08-31
+  ([current state](docs/status/chain-state-current.md)); bounded JSON/JSONL
+  heads remain for legacy import and audit. The storage milestone is not yet
+  offline qualified. Long-running validator and RPC services refuse to start on
+  JSON/JSONL or not-yet-activated storage unless given the explicit
+  `--unsafe-devnet-json-storage` acknowledgement. The generated devnet units
+  still pass that flag; it skips the startup check and does not select JSON
+  storage.
 - The FastPay owned-object lane exposes only signed, state-validated mutation
   methods under normal RPC startup. Operators may disable it during an incident
   with `--disable-owned-lane`; unsafe unsigned wrap/unwrap methods remain absent.
