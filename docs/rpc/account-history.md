@@ -16,7 +16,7 @@ Wallets, explorers, custodians, and operators need a way to ask:
 ## Current Capabilities
 
 - bounded account transaction reads;
-- `payment_v2` memo contents in `account_tx` and `tx`;
+- `payment_v2` and `issued_payment_v2` memo contents in `account_tx` and `tx`;
 - transparent credits from shielded withdrawals;
 - disk-backed per-account shards;
 - index status reporting;
@@ -35,13 +35,14 @@ Rows come from two block kinds:
   account (see below).
 
 Every row carries `accepted` and `receipt_code` from the receipt. A row with
-`accepted: false` moved no funds. Credit a deposit only from a row with
+`accepted: false` did not transfer its `amount`; a `tec_` receipt may still
+have charged its fee (see below). Credit a deposit only from a row with
 `accepted: true`.
 
 ## Memo Contents
 
-`payment_v2` carries up to 4 signed memos, 512 bytes in total. Each
-`payment_v2` row keeps `memo_hash`, `memo_count` and `memo_bytes` and adds
+`payment_v2` and `issued_payment_v2` carry up to 4 signed memos, 512 bytes in
+total. Each row keeps `memo_hash`, `memo_count` and `memo_bytes` and adds
 `memos`, one entry per memo in signed order (an empty list when the payment has
 no memos):
 
@@ -53,7 +54,7 @@ no memos):
 Match deposit tags on the hex fields: the `*_text` fields are a convenience.
 `memos` is absent on every other transaction kind. The contents are read from
 the archived block payload, so they are available for every finalized
-`payment_v2`, not only for mempool entries.
+`payment_v2` and `issued_payment_v2`, not only for mempool entries.
 
 ## Shielded Withdrawals
 
@@ -82,7 +83,7 @@ withdrawal credit (hashes shortened):
 ```json
 {
   "schema": "postfiat-account-tx-v1",
-  "address": "pfexchangedeposit000000000000000000000001",
+  "address": "pf2222222222222222222222222222222222222222",
   "index_used": true,
   "row_count": 2,
   "rows": [
@@ -93,8 +94,8 @@ withdrawal credit (hashes shortened):
       "batch_id": "5d0a…91f2",
       "transaction_index": 0,
       "transaction_kind": "payment_v2",
-      "from": "pfcustomer00000000000000000000000000000a",
-      "to": "pfexchangedeposit000000000000000000000001",
+      "from": "pf1111111111111111111111111111111111111111",
+      "to": "pf2222222222222222222222222222222222222222",
       "amount": 25000000,
       "fee": 1200,
       "sequence": 14,
@@ -122,7 +123,7 @@ withdrawal credit (hashes shortened):
       "transaction_index": 0,
       "transaction_kind": "orchard_withdraw_v1",
       "from": "orchard-v1",
-      "to": "pfexchangedeposit000000000000000000000001",
+      "to": "pf2222222222222222222222222222222222222222",
       "amount": 2500000,
       "fee": 7,
       "sequence": 0,
@@ -138,9 +139,9 @@ withdrawal credit (hashes shortened):
 
 `tx` adds `transaction_rows`: the `account_tx` rows of that transaction, built
 by the same code from the archived batch of the block that finalized it. A
-`payment_v2` therefore returns its memo contents from `tx` too, and a shielded
-withdrawal returns its credit row. `transaction_rows` is omitted when the
-transaction affects no transparent account or when its archived batch is not
+`payment_v2` or `issued_payment_v2` therefore returns its memo contents from
+`tx` too, and a shielded withdrawal returns its credit row. `transaction_rows`
+is omitted when the transaction affects no transparent account or when its archived batch is not
 retained. It is not part of `proof_id`.
 
 ## Result Window and `truncated`
@@ -169,8 +170,8 @@ numbers rows after a block's swaps and FastLane primary transactions so
 Every row keeps its receipt's `accepted` flag and `receipt_code`. A row whose
 `receipt_code` starts with `tec_` was rejected but fee-claimed: `fee` left
 `from` and `sequence` was consumed, while `amount` did not move.
-`issued_payment_v2` rows carry `memo_count`, `memo_bytes` and the same
-`memo_hash` digest as `payment_v2`.
+`issued_payment_v2` rows carry `memo_count`, `memo_bytes`, the same
+`memo_hash` digest and the same decoded `memos` structure as `payment_v2`.
 
 `truncated` is `true` when a matching row was omitted. The archive scan (used
 when no index is usable; `index_used: false`) and the Python fallback read at

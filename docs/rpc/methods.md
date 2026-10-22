@@ -19,7 +19,7 @@ authorization inventory is
 | `manifests` | Validator/operator manifest information where available. |
 | `blocks` | Block lookup. |
 | `receipts` | Receipt lookup. |
-| `tx` | Transaction finality lookup, with the transaction's `account_tx` rows (`transaction_rows`), including `payment_v2` memo contents. |
+| `tx` | Transaction finality lookup, with the transaction's `account_tx` rows (`transaction_rows`), including native and issued payment memo contents. |
 | `mempool_status` | Mempool status. |
 | `bridge_status` | Bridge-simulation status. |
 | `navcoin_bridge_routes` | PFTL-to-Uniswap NAVCoin bridge route status. |
@@ -30,7 +30,7 @@ authorization inventory is
 | `shield_turnstile` | Shielded turnstile accounting. |
 | `orchard_pool_report` | Public Orchard pool counters. |
 | `account` | Account state. |
-| `account_tx` | Bounded account transaction history: transparent rows with `payment_v2` memo contents, plus shielded-withdrawal credits. |
+| `account_tx` | Bounded account transaction history: transparent rows with native and issued payment memo contents, plus shielded-withdrawal credits. |
 | `account_tx_index_status` | Account-history index readiness. |
 
 ## Ledger Object Reads

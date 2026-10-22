@@ -24,7 +24,7 @@ comparisons, see the
 | Account model | Account-based, XRP-style: balance plus strict sequence | [below](#withdrawals) |
 | Signatures | ML-DSA-65 only; 1,952-byte keys, 3,309-byte signatures | [Addresses, Keys And Signatures](addresses-keys-signatures.md) |
 | Address | `pf` + 40 lowercase hex characters; optional display checksum in source | [Addresses, Keys And Signatures](addresses-keys-signatures.md#address-format) |
-| Recipient check | None on chain; validate yourself | [Addresses, Keys And Signatures](addresses-keys-signatures.md#transfers-do-not-validate-the-recipient) |
+| Recipient check | Canonical address checks at admission in the new binary; execution checks require governance activation | [Addresses, Keys And Signatures](addresses-keys-signatures.md#recipient-validation) |
 | Unit | 1 PFT = 1,000,000 atoms; amounts are integer atoms | [Fees](#fees) |
 | Fee | At least 1 atom per started 512 bytes of transaction weight, plus 10 atoms when the transfer creates the recipient account; the whole fee burns | [Fees](#fees) |
 | Reserve | 10 atoms must remain in every account | [Fees](#fees) |
