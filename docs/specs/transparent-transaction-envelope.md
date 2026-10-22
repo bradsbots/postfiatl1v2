@@ -16,20 +16,20 @@ References name the file and symbol, so they survive line moves.
 
 - Unsigned transfer fields and signing bytes: `UnsignedTransfer` and
   `UnsignedTransfer::signing_bytes` in
-  [`crates/types/src/transactions_mempool_receipts.rs`](../../crates/types/src/transactions_mempool_receipts.rs).
+  [`crates/types/src/transactions_mempool_receipts.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/types/src/transactions_mempool_receipts.rs).
 - Signed transfer envelope: `SignedTransfer` in the same file.
 - Transfer execution and replay/domain rejection: `execute_transfer` in
-  [`crates/execution/src/entrypoints.rs`](../../crates/execution/src/entrypoints.rs).
+  [`crates/execution/src/entrypoints.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/entrypoints.rs).
 - Transfer transaction id: `transfer_tx_id` in
-  [`crates/execution/src/tx_hashing.rs`](../../crates/execution/src/tx_hashing.rs).
+  [`crates/execution/src/tx_hashing.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/tx_hashing.rs).
 - Wallet deterministic test vector: `wallet_test_vector` in
-  [`crates/node/src/block_replay_wallet.rs`](../../crates/node/src/block_replay_wallet.rs).
+  [`crates/node/src/block_replay_wallet.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/block_replay_wallet.rs).
 - Test-vector drift lock: the test `wallet_test_vector_is_deterministic_and_redacted` in
-  [`crates/node/src/tests/helpers_orchard_transfer_escrow.rs`](../../crates/node/src/tests/helpers_orchard_transfer_escrow.rs).
+  [`crates/node/src/tests/helpers_orchard_transfer_escrow.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/tests/helpers_orchard_transfer_escrow.rs).
 - Mempool admission for externally signed transfers:
   `submit_signed_transfer_to_mempool`, `submit_signed_transfer_json_to_mempool`
   and `admit_signed_transfer_to_mempool` in
-  [`crates/node/src/mempool_proposals.rs`](../../crates/node/src/mempool_proposals.rs).
+  [`crates/node/src/mempool_proposals.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/mempool_proposals.rs).
 
 ## Unsigned Envelope Fields
 

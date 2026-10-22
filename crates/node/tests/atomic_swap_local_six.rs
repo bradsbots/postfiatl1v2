@@ -1442,13 +1442,13 @@ fn a666_public_successor_profile_operation(
                 .to_string(),
         vault_bridge_route_policy_hash: String::new(),
         sp1_program_vkey:
-            "0x00f3857f96ef97e00bd15b4030acd8d6b0a72740b28c6160d154bc2c9bb141bf"
+            "0x00d28f47f2bd541eb5dba2336d735a6c8132eed9c4c07ce5d13339b3344339bf"
                 .to_string(),
         sp1_proof_encoding: "groth16".to_string(),
         max_proof_bytes: 4_096,
         max_public_values_bytes: NAV_RESERVE_PUBLIC_VALUES_V1_BYTES as u64,
         public_values_schema: NAV_RESERVE_PUBLIC_VALUES_SCHEMA_V1.to_string(),
-        source_manifest_hash: "8abe3e59198b72945d4778a7fa91e5af157a6c65032d8940cca486850ffe59fcb567268ca5942669ff6977ef32dd3a41".to_string(),
+        source_manifest_hash: "122a4327e049bfe3e4361e73efc9b11ea724fe6191fc2d2a0f25518ebc253a63a5edfa27ebad25d13455c3d45179382d".to_string(),
         valuation_unit_id: "c67872c31caa85cbe6dd287a1e060f0f5cfc0e9f3c5bd85a7569897fd0cefb031583b7afc001e7d1afa492e9abf77d60".to_string(),
         max_observation_span_blocks: 8,
         allow_controlled_sources: false,
@@ -2957,7 +2957,7 @@ const A666_CHAIN_ID: &str = "postfiat-wan-devnet-2";
 const A666_ASSET_ID: &str = "521c6c630bb48d4a37ab4a7bd4900dd2caa2d9e99499e452da3c7ce75b3d74b62d20e18555642bec32174498cbee5e2c";
 const A666_ISSUER: &str = "pffcb93d9f87a843a8aa34e1adf241f5d58143e81b";
 const A666_RESERVE_OPERATOR: &str = "pfd0c86d9084915e1fefd22eab891806397d5a5937";
-const A666_SUCCESSOR_PROFILE: &str = "f8784629ff7338002d836c1988b8e2c0f19caf448429e0eb7fdc39fa2b08f7d9a44171fc1e7239bc25e06ad833c14e91";
+const A666_SUCCESSOR_PROFILE: &str = "bfb599f2bf7b9fa7541c1205df3e80dc8249f296dd930a8a932e7e1d15f37b5fc6030c2f9c4097dd458afc8690a4be92";
 const A666_CIRCULATING_SUPPLY: u64 = 31_597_197_455;
 const A666_VALUATION_UNIT: &str = "USD_1E8";
 const PFUSDC_VALUATION_UNIT: &str = "USDC";

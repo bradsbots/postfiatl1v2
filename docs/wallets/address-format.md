@@ -110,8 +110,12 @@ The check runs in two places:
    Source: `crates/execution/src/recipient_format.rs`.
 
 From the activation height, a block that contains such a transaction records a
-rejected receipt with the code above. As with every other rejected receipt, the
-sender pays no fee, its sequence is not consumed, and no balance changes.
+rejected receipt with the code above. Before the separately governed
+`rejected_tx_fee_activation_height`, it charges no fee and consumes no sequence.
+After that gate, an authenticated, correctly sequenced transaction that can pay
+its fee is charged and receives `tec_invalid_recipient_address`,
+`tec_invalid_recipient_checksum` or `tec_noncanonical_recipient_address`. The
+recipient receives nothing. RPC and mempool refusals always remain uncharged.
 
 ## Activation
 

@@ -455,3 +455,94 @@ fn new_activation_kinds_must_be_scheduled_after_the_amendment_block() {
         assert_eq!(governance_amendment_current_value(&governance, kind), 2);
     }
 }
+
+#[test]
+fn recipient_failures_claim_fees_with_both_gates_and_replay_identically() {
+    let fixture = batch_fixture();
+    let address = postfiat_crypto_provider::checksum_address(&fixture.exchange).unwrap();
+    let mut bad_checksum = address.as_bytes().to_vec();
+    let index = bad_checksum.iter().enumerate().skip(2)
+        .find(|(_, byte)| byte.is_ascii_alphabetic()).unwrap().0;
+    bad_checksum[index] ^= 0x20;
+    let bad_checksum = String::from_utf8(bad_checksum).unwrap();
+    let governance = governed(&[
+        GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+        GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT,
+        GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT,
+    ]);
+    for (destination, code) in [
+        ("pf-malformed", "invalid_recipient_address"),
+        (address.as_str(), "noncanonical_recipient_address"),
+        (bad_checksum.as_str(), "invalid_recipient_checksum"),
+    ] {
+        let transfer = signed_transfer_for(
+            &fixture.genesis, &fixture.sender_key, destination, 25, 40, 1,
+        );
+        let batch = TransactionBatch::new("recipient-fee-integration", vec![transfer]);
+        let (receipts, ledger) = live_and_replayed(
+            &fixture, &fixture.ledger, &batch, &governance, u64::from(ACTIVATION_HEIGHT),
+        );
+        assert_eq!(receipts[0].code, format!("tec_{code}"));
+        assert_eq!(receipts[0].fee_burned, 40);
+        assert_eq!(ledger.account(&fixture.sender).unwrap().sequence, 1);
+        assert_eq!(ledger.account(&fixture.sender).unwrap().balance, 960);
+        assert!(ledger.account(destination).is_none());
+    }
+}
+
+#[test]
+fn issued_payment_v2_uses_recipient_validation_and_exposes_memos() {
+    let fixture = batch_fixture();
+    let unsigned = postfiat_types::UnsignedAssetTransaction {
+        chain_id: fixture.genesis.chain_id.clone(),
+        genesis_hash: genesis_hash(&fixture.genesis),
+        protocol_version: fixture.genesis.protocol_version,
+        address_namespace: ADDRESS_NAMESPACE.to_string(),
+        transaction_kind: postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND.to_string(),
+        signature_algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+        source: fixture.sender.clone(),
+        fee: 40,
+        sequence: 1,
+        operation: AssetTransactionOperation::IssuedPaymentV2(postfiat_types::IssuedPaymentV2Operation {
+            from: fixture.sender.clone(), to: "pf-malformed".to_string(),
+            issuer: fixture.sender.clone(), asset_id: "ab".repeat(48), amount: 25,
+            memos: vec![deposit_memo()],
+        }),
+    };
+    let signature = ml_dsa_65_sign(&fixture.sender_key.private_key, &unsigned.signing_bytes()).unwrap();
+    let transaction = SignedAssetTransaction {
+        unsigned, algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+        public_key_hex: bytes_to_hex(&fixture.sender_key.public_key), signature_hex: bytes_to_hex(&signature),
+    };
+    assert_eq!(
+        destination_address_rejection(&asset_transaction_destination_addresses(&transaction)).unwrap().0,
+        "invalid_recipient_address",
+    );
+    let mut batch = TransactionBatch::new("issued-memo-integration", Vec::new());
+    batch.asset_transactions.push(transaction);
+    let governance = governed(&[
+        GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+        GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT,
+        GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT,
+    ]);
+    let (receipts, ledger) = live_and_replayed(
+        &fixture, &fixture.ledger, &batch, &governance, u64::from(ACTIVATION_HEIGHT),
+    );
+    assert_eq!(receipts[0].code, "tec_invalid_recipient_address");
+    assert_eq!(ledger.account(&fixture.sender).unwrap().balance, 960);
+    assert!(ledger.trustlines.is_empty());
+
+    let mut block = dummy_block_record(u64::from(ACTIVATION_HEIGHT));
+    block.header.batch_kind = BATCH_KIND_TRANSPARENT.to_string();
+    block.receipt_ids = receipts.iter().map(|receipt| receipt.tx_id.clone()).collect();
+    let archive = BatchArchiveEntry {
+        batch_kind: BATCH_KIND_TRANSPARENT.to_string(), batch_id: block.header.batch_id.clone(),
+        payload_hash: "00".repeat(48),
+        payload_json: serde_json::to_string(&batch).unwrap(),
+    };
+    let by_tx = receipts.iter().map(|receipt| (receipt.tx_id.as_str(), receipt)).collect();
+    let rows = account_tx_rows_for_archived_block(&block, &archive, &by_tx).unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].memo_count, Some(1));
+    assert_eq!(rows[0].memos.as_ref().unwrap()[0].memo_data_text.as_deref(), Some("cust-42"));
+}

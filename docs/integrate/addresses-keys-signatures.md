@@ -35,34 +35,25 @@ address = "pf" + lowercase_hex( SHA3-384( "postfiat.address.v1" || 0x00 || publi
 - The result is always `pf` followed by 40 lowercase hex characters, for
   example `pf857c81edb95af1d64262ed6c0fdcf3ef7aff56fe` (the public test vector in
   [Transparent Transaction Envelope](../specs/transparent-transaction-envelope.md)).
-- The address has **no checksum** and no network byte. The same public key
-  gives the same address on every chain. Transactions are bound to one network
-  by the `chain_id` and `genesis_hash` fields they sign, not by the address.
-- Uppercase hex is not the canonical form. Treat addresses as case-sensitive
-  lowercase strings.
+- There is no network byte. The same public key gives the same address on every
+  chain; signed `chain_id` and `genesis_hash` fields bind transactions to a network.
+- An optional mixed-case checksum is available for display and input. Parsers
+  accept the legacy lowercase form or the exact checksummed form, and normalize
+  to lowercase before signing. On-chain addresses remain lowercase.
 
-### Transfers do not validate the recipient
+### Recipient validation
 
-The `to` field of a native transfer (`postfiat.transfer.v1`) and of a
-`payment_v2` is checked only as text: non-empty, no leading or trailing
-whitespace, no control characters, at most 256 bytes (`validate_text_field` in
-`crates/types/src/transactions_validation_helpers.rs`, called from
-`UnsignedTransfer::validate` and `UnsignedPaymentV2::validate` in
-`crates/types/src/transactions_mempool_receipts.rs`). Execution then credits
-whatever string was given (`ledger.ensure_account(&transfer.unsigned.to)` in
-`crates/execution/src/entrypoints.rs`).
+RPC submission, mempool admission and the wallet SDK reject noncanonical
+recipient fields. Execution enforces the same rule only after governance
+activates `recipient_format_activation_height`; historical execution stays
+unchanged before that height. These source changes still require deployment.
 
-So a mistyped or malformed recipient is accepted, a new account is created
-under that string, and nobody holds a key for it. The repository's own fixtures
-send to strings such as `pfvectortestrecipient000000000000000001`, which is not
-a derivable address.
-
-**Integrators must validate recipients themselves.** At minimum, require
-`^pf[0-9a-f]{40}$`; this is the same rule the chain applies to some other
-fields (`validate_postfiat_address` in
-`crates/types/src/transactions_validation_helpers.rs`). Because there is no
-checksum, a well-formed typo cannot be detected; use address books, test
-transfers or out-of-band confirmation for withdrawals.
+Use the published parser and checksum rather than lowercasing arbitrary input:
+normalizing before checking the checksum would hide a mistyped mixed-case address.
+The format, error codes, language implementations and shared test vectors are in
+[Addresses And Checksums](../wallets/address-format.md). Lowercase legacy inputs
+remain accepted without a checksum, so a well-formed lowercase typo can still
+pass; integrators should use their normal withdrawal confirmation controls.
 
 ## Keys and derivation
 

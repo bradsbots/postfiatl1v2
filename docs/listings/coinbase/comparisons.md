@@ -1,5 +1,13 @@
 # Post Fiat L1 compared with chains Coinbase already supports
 
+> **Source integration update, 2026-10-22:** this source tree incorporates
+> PRs #138–#144 and #49, including the recipient/memo integration fixes.
+> The network descriptions below retain the deployed October 21 baseline.
+> Deployment, history-index backfill, exact archived-chain replay and governance
+> activation are separate pending steps. The successor reserve identity remains
+> a candidate, not a registered or live profile.
+
+
 Prepared for Coinbase listing and integration reviewers, 2026-10-22.
 Companion documents: the [integration plan](integration-plan.md) and the
 [reviewer guide for AI agents](reviewer-agent-guide.md).
@@ -142,7 +150,7 @@ Four points matter for an exchange:
    and a rejected payment does not advance the sender's sequence. On XRPL a
    transaction that fails with a `tec` code in a validated ledger still pays
    its cost ([transaction cost](https://xrpl.org/docs/concepts/transactions/transaction-cost)).
-   [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open, not merged) adds that rule behind a governance activation
+   [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (included in source, deployment pending) adds that rule behind a governance activation
    height: a validly signed transaction that fails on its effect pays its fee
    and consumes its sequence.
 3. **Blocks are produced on demand.** The devnet height stayed at 1020 from
@@ -259,12 +267,12 @@ That pattern admits 10-digit values above the uint32 maximum of 4,294,967,295.
   The field names follow XRPL's `Memos` field
   ([XRPL common fields](https://xrpl.org/docs/references/protocol/transactions/common-fields)).
 - There is no `RequireDest` equivalent on the deployed chain. A sender who
-  omits the memo creates an unattributed deposit. [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open, not merged)
+  omits the memo creates an unattributed deposit. [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (included in source, deployment pending)
   adds a require-memo account flag behind a governance activation height.
 - `account_tx` rows carry a `memo_hash` and `memo_count`, not the memo bytes
   ([block_finality.rs:1009-1010, 1989](../../../crates/node/src/block_finality.rs)).
   A deposit watcher therefore cannot read a memo from account history alone.
-  [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (open, not merged; RPC only) returns memo contents from `tx` and
+  [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (included in source; RPC only, deployment pending) returns memo contents from `tx` and
   `account_tx`.
 - The custody model recommends a unique address per customer or deposit
   intent ([wallet-exchange-custody-model.md:47-49](../../specs/wallet-exchange-custody-model.md)).
@@ -316,7 +324,7 @@ RedPallas, not ML-DSA ([whitepaper.md:116](../../whitepaper.md)).
 | Coinbase confirmations | 0 ([API](https://api.exchange.coinbase.com/currencies/XRP)) | Not set. One commit certificate with an accepted receipt is the protocol's definition of final |
 | Signature scheme | secp256k1 ECDSA or Ed25519 ([keys](https://xrpl.org/docs/concepts/accounts/cryptographic-keys)) | ML-DSA-65 only, with FIPS 204 context strings such as `postfiat-l1-v2/tx/v1` ([crypto_provider/src/lib.rs:16-19](../../../crates/crypto_provider/src/lib.rs)) |
 | Key and signature sizes | 33-byte public keys; 64-byte Ed25519 signatures; DER ECDSA signatures of about 70–72 bytes | 1,952-byte public key; 3,309-byte signature; 4,032-byte private key ([fips204 lib.rs:687-691](../../../third_party/fips204/src/lib.rs)) |
-| Address format | Base58 (Ripple alphabet), `r` prefix, 4-byte checksum ([addresses](https://xrpl.org/docs/concepts/accounts/addresses)) | `pf` + 40 lowercase hex characters; no checksum; recipient format not enforced by the protocol ([crypto_provider/src/lib.rs:217-220](../../../crates/crypto_provider/src/lib.rs)). [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open) adds an optional checksum and recipient validation |
+| Address format | Base58 (Ripple alphabet), `r` prefix, 4-byte checksum ([addresses](https://xrpl.org/docs/concepts/accounts/addresses)) | `pf` + 40 lowercase hex characters; no checksum; recipient format not enforced by the protocol ([crypto_provider/src/lib.rs:217-220](../../../crates/crypto_provider/src/lib.rs)). [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (included in source) adds an optional checksum and recipient validation |
 | Key derivation for deposit addresses | Standard secp256k1/Ed25519 tooling | No BIP32/xpub public derivation. A 32-byte master seed is hashed with domain, algorithm, chain ID, account index and role to seed ML-DSA key generation, so one seed gives different addresses on different chain IDs ([wallet_sdk.rs:1078-1107](../../../crates/rpc_sdk/src/wallet_sdk.rs); [custody model:32-45](../../specs/wallet-exchange-custody-model.md)) |
 | Deposit attribution | Destination tag (uint32); `RequireDest` ([tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)) | Unique address per customer (recommended); `payment_v2` memos possible, with no require-memo flag yet ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds one |
 | Fees | Minimum 10 drops, burned; `tec` failures pay | `ceil(bytes/512)` atoms (minimum 1), plus 10 atoms to create an account; burned; rejected transactions pay nothing ([fees_offer_planning.rs](../../../crates/execution/src/fees_offer_planning.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds `tec`-style fee claims |
@@ -707,7 +715,7 @@ The successor is [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)
 It bounds NEAR receipt age (N1), proves Aave debt completeness from the
 account bitmap (A1), and rejects duplicate keys (B1) and duplicate owners
 (M1). L1 consensus code is unchanged. As of 2026-10-22 the PR is **open and
-not merged**. Its approval conditions are met, and all its checks pass. G1
+included in source, not deployed**. Its approval conditions are met, and all its checks pass. G1
 needs a separate migration of A666 off `sp1-groth16`, which the PR does not
 perform.
 

@@ -129,6 +129,29 @@ class PaymentV2MemoRowTests(unittest.TestCase):
         self.assertIsNone(rows[0].memos)
         self.assertIsNone(rows[0].to_dict()["memos"])
 
+    def test_issued_payment_v2_fallback_returns_deposit_tag(self) -> None:
+        payload = {
+            "asset_transactions": [{"unsigned": {
+                "transaction_kind": "issued_payment_v2",
+                "source": OTHER,
+                "fee": 40,
+                "sequence": 1,
+                "operation": {
+                    "operation": "issued_payment_v2",
+                    "from": OTHER,
+                    "to": ADDRESS,
+                    "issuer": OTHER,
+                    "asset_id": ASSET_ID,
+                    "amount": 10,
+                    "memos": [{"memo_type": "", "memo_format": "", "memo_data": DEPOSIT_TAG_HEX}],
+                },
+            }}],
+        }
+        rows = _fallback_rows(_block("transparent", 1), payload)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0].memo_count, 1)
+        self.assertEqual(rows[0].memos[0]["memo_data_text"], "customer-4242")
+
 
 class ShieldedWithdrawalRowTests(unittest.TestCase):
     def test_fallback_lists_shielded_withdrawal_credits(self) -> None:

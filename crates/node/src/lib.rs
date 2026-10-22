@@ -81,7 +81,7 @@ use postfiat_execution::{
     execute_asset_transaction_with_replay_preimage_and_compatibility,
     execute_atomic_swap_transaction_with_compatibility, execute_escrow_transaction,
     execute_escrow_transaction_with_compatibility, execute_nft_transaction,
-    execute_nft_transaction_with_compatibility, execute_offer_transaction, execute_payment_v2,
+    execute_nft_transaction_with_compatibility, execute_offer_transaction,
     execute_payment_v2_with_compatibility, execute_transfer, execute_transfer_with_compatibility,
     genesis_hash, issued_asset_supply, issued_asset_supply_legacy_non_nav_spread_omitted,
     minimum_asset_transaction_fee, minimum_atomic_swap_fee, minimum_escrow_transaction_fee,

@@ -33,12 +33,12 @@ PostFiat transparent accounts are address-key accounts:
 Code references:
 
 - account public key field: `Account::public_key_hex` in
-  [`crates/types/src/account_owned_asset_types.rs`](../../crates/types/src/account_owned_asset_types.rs);
+  [`crates/types/src/account_owned_asset_types.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/types/src/account_owned_asset_types.rs);
 - first-spend key binding and later key mismatch rejection: `execute_transfer`
-  in [`crates/execution/src/entrypoints.rs`](../../crates/execution/src/entrypoints.rs);
+  in [`crates/execution/src/entrypoints.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/entrypoints.rs);
 - SDK identity and quote-bound signing: `wallet_identity_from_backup` and
   `wallet_sign_transfer_from_quote` in
-  [`crates/rpc_sdk/src/wallet_sdk.rs`](../../crates/rpc_sdk/src/wallet_sdk.rs).
+  [`crates/rpc_sdk/src/wallet_sdk.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/rpc_sdk/src/wallet_sdk.rs).
 
 ## What Does Not Carry Over From BIP32
 
@@ -58,12 +58,12 @@ account, and then watched by address.
 ## Deposit Address Model
 
 Use unique transparent addresses per customer, subaccount, or deposit intent.
-`transparent_transfer` has no memo field. A shared omnibus address is safe only
-after the governed `require_memo_activation_height`: set the account's
+`transparent_transfer` has no memo field. To require memos on covered payments
+after the governed `require_memo_activation_height`, set the account's
 require-memo flag with `account_set`, and the ledger then rejects incoming
 `transparent_transfer`, `issued_payment`, and memo-less `payment_v2` or
-`issued_payment_v2` with `destination_memo_required`, so every deposit that
-lands carries a memo for attribution. Escrow, atomic swap, offer, NFT, bridge
+`issued_payment_v2` with `destination_memo_required`, so covered deposits
+carry a memo that the exchange must validate for attribution. Escrow, atomic swap, offer, NFT, bridge
 and FastPay credits are not covered. See
 [Custody And Exchange](../wallets/custody-and-exchange.md#deposit-attribution-with-required-memos).
 
@@ -106,20 +106,17 @@ Minimum viable attribution flow:
 6. For controlled testnet, require conservative confirmation policy: credit
    only after finality RPC validation succeeds against an allowed endpoint.
 
-Known gaps in account history:
-
-- `account_tx` indexes only transparent batches. A shielded withdrawal that
-  credits a transparent address is applied in a shielded batch, so it raises the
-  balance but has no row in that address's history. A balance increase without
-  a matching row can be such a withdrawal.
-- `payment_v2` rows carry `memo_hash`, `memo_count` and `memo_bytes`, not the
-  memo contents.
+Account history in source now includes transparent transactions and shielded
+withdrawals that credit transparent accounts. Native and issued `payment_v2`
+rows expose signed `memos`, their hash, count and byte length; `tx` exposes the
+same rows. After deployment, serving nodes must run `account-tx-index-build`
+to replace the old index and backfill retained history.
 
 Code: `append_account_tx_index_block`, `build_account_tx_index` and
-`account_tx_rows_for_transparent_block` in
-[`crates/node/src/block_finality.rs`](../../crates/node/src/block_finality.rs).
-The controlled-testnet model is acceptable for assigned-address pilots, but
-exchange-grade production needs history that covers these cases.
+`account_tx_rows_for_archived_block` in
+[`crates/node/src/block_finality.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/block_finality.rs).
+Transparent shielded-pool deposits, FastLane primary effects and FastPay
+certificates still need separate reconciliation. See [account history](../rpc/account-history.md).
 
 ## Withdrawal Model
 
@@ -193,8 +190,8 @@ For the first controlled testnet, the exchange/custody model is credible when:
 
 ## Remaining Production Work
 
-- Account history that covers shielded withdrawals into transparent accounts
-  and exposes memo contents for attribution.
+- Deploy the expanded account history and backfill its v2 index; reconcile
+  balance-changing lanes that remain outside `account_tx`.
 - Hardware-wallet or external signer interface for ML-DSA.
 - Formal backup encryption and recovery standard.
 - BIP39 mnemonic create/import implementation and custody recovery policy.

@@ -1,5 +1,13 @@
 # Post Fiat L1: Coinbase Integration Plan
 
+> **Source integration update, 2026-10-22:** this source tree incorporates
+> PRs #138–#144 and #49, including the recipient/memo integration fixes.
+> The network descriptions below retain the deployed October 21 baseline.
+> Deployment, history-index backfill, exact archived-chain replay and governance
+> activation are separate pending steps. The successor reserve identity remains
+> a candidate, not a registered or live profile.
+
+
 Prepared for the Coinbase Digital Asset Listings team, 2026-10-22.
 
 - **Start here:** the [Post Fiat whitepaper](https://postfiat.org/whitepaper/) ([source](../../whitepaper.md)).
@@ -46,7 +54,7 @@ All repository links in this document point to the public GitHub repository.
      ([PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) fixes both).
    - Shielded withdrawals into transparent accounts are not yet indexed
      ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) fixes this).
-   - These fixes are written and tested but not yet merged or deployed.
+   - These fixes are written and tested but included in source but not deployed.
    - The validator set is Foundation-run.
    - Coinbase custody cannot yet sign ML-DSA-65 transactions.
 
@@ -218,7 +226,7 @@ Two properties matter for an exchange.
 - **Mistyped addresses.** There is no checksum, and transfers do not validate
   the recipient's format. A mistyped address therefore receives funds that
   nobody can spend.
-  - [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143), written and tested but not yet merged or deployed, fixes
+  - [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143), written and tested but included in source but not deployed, fixes
     both. RPC submission and the mempool reject malformed recipients once
     the release is deployed. Execution rejects them after governance
     activates the rule.

@@ -4375,6 +4375,19 @@
     }
 
     #[test]
+    fn issued_payment_v2_history_accepts_signed_memo_contents() {
+        let hex96 = "ab".repeat(48);
+        let address = "pf-exchange";
+        let mut row = exchange_account_tx_rows(address, &hex96).remove(0);
+        row["transaction_kind"] = json!(postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND);
+        row["asset_id"] = json!("10".repeat(48));
+        validate_response_kind(
+            &exchange_account_tx_response(address, &hex96, vec![row]),
+            RpcResponseKind::AccountTx,
+        ).expect("issued-asset deposit memos validate");
+    }
+
+    #[test]
     fn tx_transaction_rows_must_belong_to_the_finality_transaction() {
         let hex96 = "ab".repeat(48);
         let tx_id = hex96.clone();

@@ -23,7 +23,7 @@ comparisons, see the
 | --- | --- | --- |
 | Account model | Account-based, XRP-style: balance plus strict sequence | [below](#withdrawals) |
 | Signatures | ML-DSA-65 only; 1,952-byte keys, 3,309-byte signatures | [Addresses, Keys And Signatures](addresses-keys-signatures.md) |
-| Address | `pf` + 40 lowercase hex characters; no checksum | [Addresses, Keys And Signatures](addresses-keys-signatures.md#address-format) |
+| Address | `pf` + 40 lowercase hex characters; optional display checksum in source | [Addresses, Keys And Signatures](addresses-keys-signatures.md#address-format) |
 | Recipient check | None on chain; validate yourself | [Addresses, Keys And Signatures](addresses-keys-signatures.md#transfers-do-not-validate-the-recipient) |
 | Unit | 1 PFT = 1,000,000 atoms; amounts are integer atoms | [Fees](#fees) |
 | Fee | At least 1 atom per started 512 bytes of transaction weight, plus 10 atoms when the transfer creates the recipient account; the whole fee burns | [Fees](#fees) |
@@ -146,18 +146,18 @@ deposit addresses. Then:
 3. Reconcile every balance change against the transactions you have credited
    (see [Reconciliation](#reconciliation)).
 
-**2. Shared address with memos (not ready).** A `payment_v2` can carry up to
-four memos (512 bytes total), which could act as a destination tag. Today:
+**2. Shared address with memos (requires deployment and activation).**
+`payment_v2` and `issued_payment_v2` can carry up to four memos (512 bytes total).
+The source implementation returns signed memo contents through `tx` and
+`account_tx`, alongside their hash, count and byte length. After deployment,
+operators must rebuild the account history index to backfill v2 rows.
 
-- a sender using a v1 transfer cannot attach a memo at all;
-- `account_tx` rows for `payment_v2` carry only `memo_hash`, `memo_count` and
-  `memo_bytes`, not the memo contents (`AccountTxRow` in
-  `crates/node/src/node_types.rs`); and
-- the custody model, written before `payment_v2`, still says to avoid shared
-  omnibus deposit addresses because transfers have no tag.
-
-A memo-based design therefore needs a documented way to read memo contents and
-a policy for deposits that arrive without a memo.
+After governance enables `require_memo_activation_height`, an exchange can set
+its account's require-memo flag with `account_set`. Covered payments without a
+memo then fail. The flag does not cover shielded withdrawals, escrow, atomic
+swap, offer, NFT, bridge or FastPay credits: an exchange must handle those
+separately and validate that a supplied memo identifies a customer. See
+[Custody And Exchange](../wallets/custody-and-exchange.md).
 
 **Sweeping.** To consolidate, send ordinary transfers from deposit addresses to
 a hot wallet. Each sweep pays its own fee, and each deposit address keeps its
@@ -257,18 +257,19 @@ before real customer funds are involved.
 4. **No published release artifacts.** No signed download, checksum, SBOM or
    second-builder reproduction exists for outsiders to verify (release gate
    rows 6 and 7).
-5. **No recipient validation and no address checksum** on chain.
+5. **Address-safety deployment and activation remain pending.** Source includes
+   recipient validation and an optional checksum; the execution rule is governed.
 6. **No account key rotation**, no hardware-wallet or external-signer
    interface for ML-DSA, and no formal backup-encryption standard
    ([Wallet Exchange Custody Model](../specs/wallet-exchange-custody-model.md),
    "Remaining Production Work").
 7. **No watch-only address derivation**; every deposit address needs custody-side
    secret material.
-8. **Incomplete account history**: transparent blocks only, no production
-   indexer, and shielded withdrawals into an account are invisible to
-   `account_tx`.
-9. **Memo-based attribution is not specified**: v1 transfers have no memo, and
-   `account_tx` exposes only a memo hash for `payment_v2`.
+8. **History deployment and backfill remain pending.** Source indexes transparent
+   transactions and shielded withdrawals; other balance-changing lanes still
+   need separate reconciliation.
+9. **Required-memo activation remains pending.** Source exposes signed memo
+   contents and provides a governed account flag for covered payments.
 10. **No transaction expiry** in the v1 envelope.
 11. **Controlled write path**: transaction submission is off by default, and a
     persistent public write edge needs explicit abuse controls and operator

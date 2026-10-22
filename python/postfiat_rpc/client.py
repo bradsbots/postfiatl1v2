@@ -2447,6 +2447,11 @@ class PostFiatRpcClient:
                     memo_hash=None,
                     memo_count=asset_memo_count,
                     memo_bytes=asset_memo_bytes,
+                    memos=(
+                        tuple(_payment_memo_view(memo) for memo in asset_memos if isinstance(memo, dict))
+                        if op_kind == "issued_payment_v2" and isinstance(asset_memos, list)
+                        else None
+                    ),
                     asset_id=asset_id if isinstance(asset_id, str) else None,
                     issuer=issuer if isinstance(issuer, str) else None,
                     trustline_authorized=trustline_authorized,

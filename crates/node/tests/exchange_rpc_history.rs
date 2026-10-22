@@ -29,8 +29,8 @@ use postfiat_types::{
     ShieldedActionBatch, SignedPaymentV2, UnsignedPaymentV2, PAYMENT_V2_TRANSACTION_KIND,
 };
 
-const PAYMENT_RECIPIENT: &str = "pfexchangerpcdeposit00000000000000000001";
-const WITHDRAW_RECIPIENT: &str = "pfexchangerpcdeposit00000000000000000002";
+const PAYMENT_RECIPIENT: &str = "pf0000000000000000000000000000000000000001";
+const WITHDRAW_RECIPIENT: &str = "pf0000000000000000000000000000000000000002";
 const DEPOSIT_TAG: &str = "customer-7781";
 const WITHDRAW_AMOUNT: u64 = 3_000_000;
 

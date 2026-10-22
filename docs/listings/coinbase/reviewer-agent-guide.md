@@ -1,5 +1,13 @@
 # Reviewing Post Fiat L1 for an exchange integration: a guide for AI agents
 
+> **Source integration update, 2026-10-22:** this source tree incorporates
+> PRs #138–#144 and #49, including the recipient/memo integration fixes.
+> The network descriptions below retain the deployed October 21 baseline.
+> Deployment, history-index backfill, exact archived-chain replay and governance
+> activation are separate pending steps. The successor reserve identity remains
+> a candidate, not a registered or live profile.
+
+
 Prepared for Coinbase listing and integration reviewers, 2026-10-22.
 Companion documents: the [integration plan](integration-plan.md) and the
 [comparisons with XRP, Zcash and post-quantum chains](comparisons.md).
@@ -229,7 +237,7 @@ NFTs and atomic swaps have one.
 | The SP1 Groth16 verifier accepts a real proof and rejects a tampered proof, a wrong vkey, a policy mismatch and a net-assets mismatch | `cargo test --locked -p postfiat-execution --lib nav_sp1` | 7 passed (about 27 s) | [nav_sp1_verifier.rs:547-670](../../../crates/execution/src/nav_sp1_verifier.rs) |
 | `sp1-nav-reserve-v1` binds genesis, asset, profile, epoch, time, roots and totals, and rejects substitution and replay | `cargo test --locked -p postfiat-execution --lib nav_reserve` | 4 passed | [nav_sp1_verifier.rs:216, 801-1030](../../../crates/execution/src/nav_sp1_verifier.rs) |
 | The legacy `sp1-groth16` path reads only totals and the policy hash (finding G1) | Read `verify_sp1_groth16_with_options` and `decode_aggregate_v2_totals` | Confirmed by reading | [nav_sp1_verifier.rs:344-432](../../../crates/execution/src/nav_sp1_verifier.rs) |
-| Status of the successor fixes | `gh pr view 49 -R postfiatorg/postfiatl1v2 --json state,mergedAt` | `OPEN`, not merged | [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49) |
+| Status of the successor fixes | `gh pr view 49 -R postfiatorg/postfiatl1v2 --json state,mergedAt` | included in source; verify live PR state with this command | [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49) |
 
 ### 5.7 Whole-workspace and deployment checks
 
@@ -308,8 +316,8 @@ A critical risk fails a review on its own. Coinbase's worked example is a
 |---|---|---|
 | Signing | ML-DSA-65 with FIPS 204 context `postfiat-l1-v2/tx/v1` ([crypto_provider/src/lib.rs:16](../../../crates/crypto_provider/src/lib.rs)); Mesh has an `ml_dsa_65` curve type ([PR #129](https://github.com/coinbase/mesh-specifications/pull/129)) | Coinbase custody's post-quantum signing pipeline is planned "within the next year" ([Coinbase blog](https://www.coinbase.com/blog/what-coinbase-is-doing-to-prepare-for-post-quantum-cryptography)). No HSM or external-signer interface in PFTL ([custody model](../../specs/wallet-exchange-custody-model.md)). |
 | Integration API | JSON RPC and Rust/Python SDKs ([rpc_sdk](../../../crates/rpc_sdk/src/lib.rs); [python/postfiat_rpc](../../../python/postfiat_rpc/client.py)) | No Mesh implementation in the repository. |
-| Address safety | Wallets check `^pf[0-9a-f]{40}$` ([popup.js:277](../../../wallet-extension/popup/popup.js)) | No checksum; protocol does not validate recipient format (section 5.1). Fix in [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open, not merged). |
-| Deposit attribution | Per-customer addresses; `payment_v2` memos | No require-memo flag. `account_tx` rows carry only `memo_hash` and `memo_count` ([block_finality.rs:1009-1010](../../../crates/node/src/block_finality.rs)) and list only transparent kinds ([account-history.md](../../rpc/account-history.md)); shielded withdrawals and owned-object lanes need separate checks. Fixes in [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (memo contents, shielded withdrawals) and [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (require-memo flag), open, not merged. |
+| Address safety | Wallets check `^pf[0-9a-f]{40}$` ([popup.js:277](../../../wallet-extension/popup/popup.js)) | No checksum; protocol does not validate recipient format (section 5.1). Fix in [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (included in source, deployment pending). |
+| Deposit attribution | Per-customer addresses; `payment_v2` memos | No require-memo flag. `account_tx` rows carry only `memo_hash` and `memo_count` ([block_finality.rs:1009-1010](../../../crates/node/src/block_finality.rs)) and list only transparent kinds ([account-history.md](../../rpc/account-history.md)); shielded withdrawals and owned-object lanes need separate checks. Fixes in [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (memo contents, shielded withdrawals) and [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (require-memo flag), included in source, deployment pending. |
 | Key management | Deterministic seed derivation including chain ID ([wallet_sdk.rs:1078-1107](../../../crates/rpc_sdk/src/wallet_sdk.rs)) | No BIP32 or xpub; no account key rotation; no multi-signing. |
 | Transaction lifecycle | Strict next-sequence; duplicate pending sequence rejected at admission ([envelope spec](../../specs/transparent-transaction-envelope.md)) | v1 envelope has no expiry. Ask how a stuck or unwanted pending transaction is cleared. |
 | Units | 1 PFT = 1,000,000 atoms in wallets ([utils.js:11-12](../../../wallet-web/src/lib/utils.js)) | Not a protocol constant. |
@@ -327,7 +335,7 @@ A critical risk fails a review on its own. Coinbase's worked example is a
 ## 7. Contradictions already found
 
 Report these, and re-check them at your commit. As of 2026-10-22, [PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140)
-(open, not merged) corrects C1–C6 and C8–C10. C7 waits for the production
+(included in source, deployment pending) corrects C1–C6 and C8–C10. C7 waits for the production
 genesis specification.
 
 | ID | Document says | Code or other source says | Assessment |
@@ -380,7 +388,7 @@ genesis specification.
     active? When will the whitepaper's §1.9 be updated?
 12. **NAVCoins.** When will A666 move off `sp1-groth16` (G1)? Will PR #49 be
     adopted? (As of 2026-10-22 its approval conditions are met and its checks
-    pass; it is not merged.)
+    pass; it is included in source, not deployed.)
 13. **Legal.** Will counsel's opinion on MiCA Article 76(3) and AMLR Article
     79 be shared ([comparisons §2.5](comparisons.md#25-eu-rules-questions-for-counsel))?
 

@@ -5,9 +5,9 @@
 // `recipient_format_activation_height`; before that height execution is
 // unchanged so historical blocks replay byte-for-byte.
 //
-// A rejected receipt follows the existing rejected-transaction semantics:
-// the transaction is recorded with `accepted: false`, the sender is not
-// charged a fee, its sequence is not consumed, and no balance changes.
+// Address rejection itself changes no balances. In a certified transparent
+// block, the separately governed rejected-fee rule can claim the signed fee
+// and consume the sequence after rechecking authentication and affordability.
 
 /// Destination address fields of a transparent transfer.
 pub fn transfer_destination_addresses(transfer: &SignedTransfer) -> Vec<(&'static str, &str)> {

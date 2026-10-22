@@ -934,7 +934,7 @@ fn validate_account_tx_row(
     Ok(())
 }
 
-/// `memos` is present only on `payment_v2` rows: the signed lowercase-hex
+/// `memos` is present on native and issued `payment_v2` rows: signed lowercase-hex
 /// memo fields plus optional UTF-8 `*_text` readings, one entry per memo.
 fn validate_account_tx_row_memos(
     row: &Value,

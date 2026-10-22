@@ -90,7 +90,8 @@ active, and honest mempools refuse it at admission without charging.
 
 Put the customer tag in `memo_data` (lowercase hex) and attribute a deposit by
 the memo in the finalized transaction; `account_tx` rows carry `memo_count`
-and the same `memo_hash` for native and issued-asset payments.
+and the same `memo_hash` for native and issued-asset payments, plus signed
+`memos` with optional UTF-8 text in both `account_tx` and `tx`.
 
 ## Activation
 
