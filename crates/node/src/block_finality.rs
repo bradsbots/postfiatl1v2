@@ -1097,6 +1097,24 @@ fn account_tx_rows_for_transparent_block(
                 None,
                 None,
             ),
+            AssetTransactionOperation::IssuedPaymentV2(operation) => (
+                operation.from.clone(),
+                operation.to.clone(),
+                operation.amount,
+                Some(operation.asset_id.clone()),
+                Some(operation.issuer.clone()),
+                None,
+                None,
+            ),
+            AssetTransactionOperation::AccountSet(operation) => (
+                unsigned.source.clone(),
+                operation.account.clone(),
+                0,
+                None,
+                None,
+                None,
+                None,
+            ),
             AssetTransactionOperation::AssetBurn(operation) => (
                 operation.owner.clone(),
                 operation.issuer.clone(),
@@ -1527,6 +1545,14 @@ fn account_tx_rows_for_transparent_block(
                 None,
             ),
         };
+        let (memo_hash, memo_count, memo_bytes) = match &unsigned.operation {
+            AssetTransactionOperation::IssuedPaymentV2(operation) => (
+                payment_memos_hash(&operation.memos),
+                Some(operation.memos.len() as u64),
+                Some(operation.memo_bytes() as u64),
+            ),
+            _ => (None, None, None),
+        };
         let receipt = receipt_by_tx.get(tx_id.as_str()).copied();
         rows.push(AccountTxRow {
             tx_id: tx_id.clone(),
@@ -1540,9 +1566,9 @@ fn account_tx_rows_for_transparent_block(
             amount,
             fee: unsigned.fee,
             sequence: unsigned.sequence,
-            memo_hash: None,
-            memo_count: None,
-            memo_bytes: None,
+            memo_hash,
+            memo_count,
+            memo_bytes,
             asset_id,
             issuer,
             trustline_authorized,
@@ -1987,11 +2013,17 @@ fn account_tx_rows_for_transparent_block(
 }
 
 fn payment_v2_memo_hash(payment: &SignedPaymentV2) -> Option<String> {
-    if payment.unsigned.memos.is_empty() {
+    payment_memos_hash(&payment.unsigned.memos)
+}
+
+/// Memo digest shared by `payment_v2` and `issued_payment_v2` account_tx rows,
+/// so the same memos yield the same `memo_hash` for native and issued assets.
+fn payment_memos_hash(memos: &[postfiat_types::PaymentMemo]) -> Option<String> {
+    if memos.is_empty() {
         return None;
     }
-    let mut bytes = format!("memo_count={}\n", payment.unsigned.memos.len()).into_bytes();
-    for (index, memo) in payment.unsigned.memos.iter().enumerate() {
+    let mut bytes = format!("memo_count={}\n", memos.len()).into_bytes();
+    for (index, memo) in memos.iter().enumerate() {
         bytes.extend_from_slice(
             format!(
                 "memo[{index}].type_bytes={}\nmemo[{index}].type={}\nmemo[{index}].format_bytes={}\nmemo[{index}].format={}\nmemo[{index}].data_bytes={}\nmemo[{index}].data={}\n",

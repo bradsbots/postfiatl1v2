@@ -1075,6 +1075,7 @@ fn fuzz_owned_object_asset_invariants(
                 balance: 1_000,
                 sequence: 0,
                 public_key_hex: None,
+                flags: 0,
             }])
         };
 
@@ -1174,6 +1175,7 @@ fn fuzz_owned_object_asset_invariants(
             balance: u64::MAX,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         }]);
         credit_overflow_ledger
             .owned_objects

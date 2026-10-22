@@ -44,6 +44,12 @@ receives, `tx_role` `leg_0` or `leg_1`), and numbers escrow, NFT and offer rows
 after the block's swaps so `transaction_index` and `tx_id` match the index and
 the archive scan (`python/tests/test_account_tx_fallback.py`).
 
+Every row keeps its receipt's `accepted` flag and `receipt_code`. A row whose
+`receipt_code` starts with `tec_` was rejected but fee-claimed: `fee` left
+`from` and `sequence` was consumed, while `amount` did not move.
+`issued_payment_v2` rows carry `memo_count`, `memo_bytes` and the same
+`memo_hash` digest as `payment_v2`.
+
 `truncated` is `true` when a matching row was omitted. The archive scan (used
 when no index is usable; `index_used: false`) and the Python fallback read at
 most `limit` blocks. If the height range holds more blocks than that, the

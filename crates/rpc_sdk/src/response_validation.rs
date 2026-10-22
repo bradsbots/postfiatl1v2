@@ -430,6 +430,16 @@ fn validate_account_result(result: &Value) -> Result<(), RpcResponseValidationEr
     if result.get("public_key_hex").is_some() {
         optional_lower_hex_string_field_value(result, "public_key_hex")?;
     }
+    // Present only when nonzero (`account_set`), e.g. 1 = require memo.
+    if result.get("flags").is_some() {
+        let flags = u64_field(result, "flags")?;
+        if flags == 0 || flags & !u64::from(postfiat_types::ACCOUNT_ALLOWED_FLAGS) != 0 {
+            return Err(invalid_result(
+                "flags",
+                "expected nonzero flags within the supported account flag mask",
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -3573,6 +3583,16 @@ fn validate_asset_operation_fields(
             lower_hex_field(value, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
             nonzero_u64_field(value, "amount")?;
         }
+        postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND => {
+            clean_string_field(value, "from")?;
+            clean_string_field(value, "to")?;
+            clean_string_field(value, "issuer")?;
+            lower_hex_field(value, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+            nonzero_u64_field(value, "amount")?;
+        }
+        postfiat_types::ACCOUNT_SET_TRANSACTION_KIND => {
+            clean_string_field(value, "account")?;
+        }
         ASSET_BURN_TRANSACTION_KIND => {
             clean_string_field(value, "owner")?;
             clean_string_field(value, "issuer")?;
@@ -3912,6 +3932,8 @@ fn is_supported_asset_transaction_kind(kind: &str) -> bool {
         ASSET_CREATE_TRANSACTION_KIND
             | TRUST_SET_TRANSACTION_KIND
             | ISSUED_PAYMENT_TRANSACTION_KIND
+            | postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND
+            | postfiat_types::ACCOUNT_SET_TRANSACTION_KIND
             | ASSET_BURN_TRANSACTION_KIND
             | ASSET_CLAWBACK_TRANSACTION_KIND
             | NAV_ASSET_REGISTER_TRANSACTION_KIND

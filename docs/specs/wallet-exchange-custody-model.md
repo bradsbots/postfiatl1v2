@@ -45,8 +45,14 @@ account, and then watched by address.
 ## Deposit Address Model
 
 Use unique transparent addresses per customer, subaccount, or deposit intent.
-Do not use a shared omnibus address for customer deposits in v0 because the
-transparent transfer envelope has no memo/tag field.
+`transparent_transfer` has no memo field. A shared omnibus address is safe only
+after the governed `require_memo_activation_height`: set the account's
+require-memo flag with `account_set`, and the ledger then rejects incoming
+`transparent_transfer`, `issued_payment`, and memo-less `payment_v2` or
+`issued_payment_v2` with `destination_memo_required`, so every deposit that
+lands carries a memo for attribution. Escrow, atomic swap, offer, NFT, bridge
+and FastPay credits are not covered. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#deposit-attribution-with-required-memos).
 
 A deposit registry entry should include at minimum:
 
@@ -106,6 +112,12 @@ Withdrawals are signed from the custody address using the SDK quote-bound flow:
 
 The SDK rejects quote sender, recipient, amount, and explicit-sequence mismatches
 against the request, plus chain-id mismatches with the wallet backup.
+
+After the governed `rejected_tx_fee_activation_height`, a withdrawal included in
+a block but rejected for an effect-level reason returns a `tec_<reason>`
+receipt: the fee was burned and the sequence consumed, no amount moved. Re-sign
+with the next sequence instead of resubmitting the same transaction. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#rejected-transactions-pay-their-fee).
 
 ## Watch-Only Constraints
 

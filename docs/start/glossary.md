@@ -36,6 +36,13 @@ agreement mechanics accept valid candidates.
 A Cobalt trust-graph component with threshold parameters `t_S` and `q_S`.
 PostFiat checks these before activating a graph.
 
+## Fee-Claimed Receipt
+
+A rejected receipt with code `tec_<reason>`: the transaction was validly
+signed, correctly sequenced and could pay, so its fee was burned and its
+sequence consumed although its effect failed. Governed by
+`rejected_tx_fee_activation_height`.
+
 ## ML-DSA
 
 Module-Lattice Digital Signature Algorithm. PostFiat uses ML-DSA-style
@@ -51,6 +58,12 @@ path.
 Reliable broadcast, asynchronous binary Byzantine agreement, and multi-valued
 Byzantine agreement. PostFiat uses these mechanics in the Cobalt governance
 implementation.
+
+## Require-Memo Flag
+
+Account flag `1`, set by the owner with `account_set`. Incoming covered
+payments without a memo are rejected with `destination_memo_required`, the
+PostFiat equivalent of XRPL `RequireDest`.
 
 ## Turnstile
 

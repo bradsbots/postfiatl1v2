@@ -333,6 +333,8 @@ fn certified_asset_op_source(
         postfiat_types::AssetTransactionOperation::AssetCreate(operation) => Ok(&operation.issuer),
         postfiat_types::AssetTransactionOperation::TrustSet(operation) => Ok(&operation.account),
         postfiat_types::AssetTransactionOperation::IssuedPayment(operation) => Ok(&operation.from),
+        postfiat_types::AssetTransactionOperation::IssuedPaymentV2(operation) => Ok(&operation.from),
+        postfiat_types::AssetTransactionOperation::AccountSet(operation) => Ok(&operation.account),
         postfiat_types::AssetTransactionOperation::AssetBurn(operation) => Ok(&operation.owner),
         postfiat_types::AssetTransactionOperation::AssetClawback(operation) => Ok(&operation.issuer),
         postfiat_types::AssetTransactionOperation::NavAssetRegister(operation) => Ok(&operation.issuer),

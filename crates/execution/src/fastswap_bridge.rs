@@ -824,6 +824,7 @@ mod tests {
                 balance: 100,
                 sequence: 0,
                 public_key_hex: Some(bytes_to_hex(&owner.public_key)),
+                flags: 0,
             }],
             vec![definition],
             vec![line],
@@ -925,6 +926,7 @@ mod tests {
             balance: 5,
             sequence: 0,
             public_key_hex: Some(bytes_to_hex(&owner.public_key)),
+            flags: 0,
         }]);
         let before = ledger.clone();
         let deposit = postfiat_types::FastLaneDepositV1 {
@@ -996,6 +998,7 @@ mod tests {
             balance: 5,
             sequence: 0,
             public_key_hex: Some(bytes_to_hex(&owner.public_key)),
+            flags: 0,
         }]);
         ledger.fast_lane_reserves.push(FastLaneReserveBalanceV1 {
             asset_id: native,
