@@ -42,8 +42,11 @@ All repository links in this document point to the public GitHub repository.
    Zcash withdrawals.
 3. **What blocks integration today.**
    - There is no mainnet and no external audit.
-   - Addresses have no checksum.
-   - Shielded withdrawals into transparent accounts are not yet indexed.
+   - Addresses have no checksum and recipients are not validated
+     ([PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) fixes both).
+   - Shielded withdrawals into transparent accounts are not yet indexed
+     ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) fixes this).
+   - These fixes are written and tested but not yet merged or deployed.
    - The validator set is Foundation-run.
    - Coinbase custody cannot yet sign ML-DSA-65 transactions.
 
@@ -205,7 +208,7 @@ quorum. That is safe, but availability depends on validator independence
 |---|---|---|
 | Account and validator signatures | ML-DSA-65 (FIPS 204) only: 1,952-byte public keys, 3,309-byte signatures | [crypto_provider](../../../crates/crypto_provider/src/lib.rs), [FIPS 204](https://csrc.nist.gov/pubs/fips/204/final) |
 | Address | `pf` + hex of the first 20 bytes of SHA3-384(`"postfiat.address.v1"` ‖ 0x00 ‖ public key) | [crypto_provider](../../../crates/crypto_provider/src/lib.rs) |
-| Checksum | None | same |
+| Checksum | None on the deployed chain; an optional mixed-case checksum is in [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) | same |
 | Key binding | An account's public key is bound at its first spend; no rotation yet | [key rotation boundary](../../specs/account-key-rotation-boundary.md) |
 | Wallet derivation | SHA3-384 over domain, algorithm, chain id, account index, role and seed, so the same seed gives different addresses on different chains | [wallet_sdk.rs](../../../crates/rpc_sdk/src/wallet_sdk.rs) |
 | Transaction envelope | `postfiat.transfer.v1`, with chain, genesis and version domain checks | [envelope spec](../../specs/transparent-transaction-envelope.md) |
@@ -215,9 +218,13 @@ Two properties matter for an exchange.
 - **Mistyped addresses.** There is no checksum, and transfers do not validate
   the recipient's format. A mistyped address therefore receives funds that
   nobody can spend.
-  - Before integration, PFTL will add a checksummed address encoding and
-    reject malformed recipients at admission and execution.
-  - It will publish test vectors for both in section 8, phase 1.
+  - [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143), written and tested but not yet merged or deployed, fixes
+    both. RPC submission and the mempool reject malformed recipients once
+    the release is deployed. Execution rejects them after governance
+    activates the rule.
+  - Its optional mixed-case checksum keeps today's lowercase addresses
+    valid. The PR publishes test vectors that the Rust, JavaScript and
+    Python tests all check.
 - **Watch-only addresses.** ML-DSA has no BIP32-style public derivation, so
   Coinbase cannot generate deposit addresses from a watch-only root.
   - Each deposit address comes from a key the custodian generates.
@@ -237,12 +244,14 @@ Two patterns are possible:
    - **The RPC does not return memo text yet.** Account history returns only
      a hash of a payment's memos
      ([block_finality.rs](../../../crates/node/src/block_finality.rs)), so
-     Coinbase could not read a tag from the RPC.
+     Coinbase could not read a tag from the RPC. [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) returns memo
+     contents from both queries.
    - **Nothing rejects untagged payments.** XRPL's `RequireDest` flag makes
      the ledger reject them
      ([XRPL tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)).
-     PFTL has no equivalent yet, so an omitted memo would create an
-     unattributed deposit.
+     The deployed chain has no equivalent, so an omitted memo would create
+     an unattributed deposit. [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) adds a require-memo account flag,
+     active once governance turns it on.
 
 Phase 1 makes the second pattern workable. It adds memo contents to `tx` and
 `account_tx`, plus an account flag that rejects payments without a well-formed
@@ -256,8 +265,9 @@ tag.
   ([block_finality.rs](../../../crates/node/src/block_finality.rs)). A
   shielded-pool withdrawal that credits a Coinbase address would not appear
   in that address's history.
-- Until the index is fixed, Coinbase would need to reconcile balances with
-  the `account` query. Phase 1 fixes the index.
+- [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) adds these withdrawals to account history and backfills them
+  when the index is rebuilt. Until it is deployed, Coinbase would need to
+  reconcile balances with the `account` query.
 
 ### 4.5 Withdrawals, fees and sequence numbers
 
@@ -272,6 +282,11 @@ tag.
 
 Fees are deterministic and depend on signed transaction size. ML-DSA
 signatures make transfers a few kilobytes.
+
+Today a transaction that a block includes but execution rejects pays no fee.
+[PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) changes this behind a governance activation height. A validly
+signed transaction that fails on its effect then pays its fee and consumes
+its sequence, as XRPL's `tec` results do.
 
 ### 4.6 RPC and the Mesh API
 
@@ -342,11 +357,12 @@ today's custody. Section 5.3 states the exact limits of the post-quantum
 coverage.
 
 Sources: [quantum authorization](../../quantum/authorization.md),
-[signature sizes](../../quantum/signature-size-and-certificates.md). The
-repository currently contradicts itself about SLH-DSA recovery keys:
-[quantum/authorization.md](../../quantum/authorization.md) describes them,
-and [SECURITY.md](../../../SECURITY.md) says the path is not implemented.
-Treat that path as not implemented until it is fixed in phase 1.
+[signature sizes](../../quantum/signature-size-and-certificates.md). No
+SLH-DSA recovery-key path is implemented
+([SECURITY.md](../../../SECURITY.md)).
+[quantum/authorization.md](../../quantum/authorization.md) described one;
+[PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140) corrects it to
+mark that path as proposed.
 
 ### 4.8 The shielded pool
 
@@ -379,7 +395,8 @@ creation is off by default on public RPC.
 1. **The 2026 Zcash Orchard soundness bug** (GHSA-ww9q-8r59-xv46).
    - PFTL builds on `orchard` 0.14.0 and `halo2_gadgets` 0.5.0, the patched
      versions (`Cargo.lock`).
-   - Phase 1 includes regenerating and publishing the pinned verifying keys.
+   - The pinned verifying keys regenerate byte for byte from source. Their
+     fingerprints and the check are published in [PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141).
    - PFTL's own Asset-Orchard circuits still need a specialist review.
 2. **The shielded-withdrawal indexing gap** in section 4.4.
 3. **EU rules on assets with privacy features.**
@@ -451,17 +468,12 @@ this shows protocol capability, not operator decentralization.
 - **An external audit** of Consensus v2 and Cobalt: ordering rules, view
   changes, signing-round safety and the registry-change protocol (section 6).
 
-**Signing-round fence.** One fix needs a single clear answer:
-
-- The architecture document says the cross-phase signing fence is implemented
-  as `require_consensus_v2_monotone_round`
-  ([signing rounds](../../architecture/consensus-signing-rounds.md)).
-- The whitepaper calls it a proposed rule.
-- The [defect inventory](../../review/defect-inventory-20260910.md) has rows
-  pointing both ways.
-
-Phase 1 settles the issue against the deployed code and corrects the
-documents.
+**Signing-round fence.** The cross-phase signing fence is enforced in code
+as `require_consensus_v2_monotone_round` since 2026-09-09, with regression
+tests ([signing rounds](../../architecture/consensus-signing-rounds.md)). The
+whitepaper still called it a proposed rule; [PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140) corrects the whitepaper.
+It also dates the [defect inventory](../../review/defect-inventory-20260910.md)
+notes that called these repairs undeployed.
 
 ### 5.2 NAVCoins at the zero-knowledge-proof level
 
@@ -526,10 +538,15 @@ The successor guest fixes N1 and A1
 [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)). G1 closes only
 when A666 migrates off `sp1-groth16`, which is separate work that PR #49 does
 not perform. The successor was approved on 2026-10-20 on three conditions:
+a re-pin past the freshness fix, passing continuous integration and a
+re-review. All three are met, its checks pass, and it awaits merge.
 
-- its build is re-pinned past the freshness fix;
-- its continuous-integration failures are fixed;
-- it is re-reviewed.
+Migrating A666 to the successor then takes four steps:
+
+1. fresh 5-of-6 validator checkpoint votes and reserve-owner signatures;
+2. a rehearsal on a controlled six-validator environment;
+3. issuer-signed profile and route updates;
+4. small issue and redeem checks.
 
 NAVCoins appear on Ethereum as ERC-20 wrappers, such as wA666. The verifier
 contract checks a governed BFT checkpoint or an SP1 receipt proof of PFTL
@@ -632,14 +649,23 @@ the questions in section 9.
 - **Depends on:** Phase 0
 - **Deliverables:**
   - a checksummed address encoding, with malformed recipients rejected at
-    admission and execution, and published test vectors;
-  - memo contents returned by `tx` and `account_tx`;
+    admission and execution, and published test vectors ([PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143));
+  - memo contents returned by `tx` and `account_tx` ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142));
   - an account flag that makes the ledger reject untagged payments, like
-    XRPL's `RequireDest`;
-  - indexing of shielded withdrawals that credit a transparent account;
-  - regenerated and published Orchard verifying keys;
+    XRPL's `RequireDest` ([PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144));
+  - fees charged on validly signed transactions that fail at execution
+    ([PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144));
+  - indexing of shielded withdrawals that credit a transparent account
+    ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142));
+  - regenerated and published Orchard verifying keys ([PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141));
   - resolution of the SLH-DSA recovery-key and signing-fence documentation
-    contradictions.
+    contradictions ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140)).
+- **Status (2026-10-22):** every deliverable above is written and tested in
+  an open pull request. None is merged or deployed yet.
+  - The consensus changes in #143 and #144 ship inactive.
+  - They take effect only after three things: every validator runs the
+    release, an exact replay of the devnet chain with the new binary
+    matches, and governance activates them.
 - **Exit test:** The tests and vectors are merged, deployed in a release and
   visible in the deployment record.
 

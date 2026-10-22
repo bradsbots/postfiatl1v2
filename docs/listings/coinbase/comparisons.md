@@ -142,12 +142,15 @@ Four points matter for an exchange:
    and a rejected payment does not advance the sender's sequence. On XRPL a
    transaction that fails with a `tec` code in a validated ledger still pays
    its cost ([transaction cost](https://xrpl.org/docs/concepts/transactions/transaction-cost)).
+   [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open, not merged) adds that rule behind a governance activation
+   height: a validly signed transaction that fails on its effect pays its fee
+   and consumes its sequence.
 3. **Blocks are produced on demand.** The devnet height stayed at 1020 from
    2026-09-11 to 2026-09-14 while mempools were empty
    ([chain-state-current.md:505](../../status/chain-state-current.md)).
    "Time since last block" is therefore not a liveness signal. Monitoring
    needs a health query instead.
-4. **A whitepaper caveat is out of date.** The whitepaper lists a
+4. **A whitepaper caveat is out of date** ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140), open, corrects it). The whitepaper lists a
    "cross-phase signing fence" as an open consensus obligation
    ([whitepaper.md:13, 197, 317](../../whitepaper.md)). The current code
    enforces one durable round floor across prepare, precommit and timeout
@@ -255,11 +258,14 @@ That pattern admits 10-digit values above the uint32 maximum of 4,294,967,295.
   signed bytes ([transactions_mempool_receipts.rs:183-216](../../../crates/types/src/transactions_mempool_receipts.rs)).
   The field names follow XRPL's `Memos` field
   ([XRPL common fields](https://xrpl.org/docs/references/protocol/transactions/common-fields)).
-- There is no `RequireDest` equivalent. A sender who omits the memo creates an
-  unattributed deposit.
+- There is no `RequireDest` equivalent on the deployed chain. A sender who
+  omits the memo creates an unattributed deposit. [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open, not merged)
+  adds a require-memo account flag behind a governance activation height.
 - `account_tx` rows carry a `memo_hash` and `memo_count`, not the memo bytes
   ([block_finality.rs:1009-1010, 1989](../../../crates/node/src/block_finality.rs)).
   A deposit watcher therefore cannot read a memo from account history alone.
+  [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (open, not merged; RPC only) returns memo contents from `tx` and
+  `account_tx`.
 - The custody model recommends a unique address per customer or deposit
   intent ([wallet-exchange-custody-model.md:47-49](../../specs/wallet-exchange-custody-model.md)).
   Its stated reason, that "the transparent transfer envelope has no memo/tag
@@ -310,10 +316,10 @@ RedPallas, not ML-DSA ([whitepaper.md:116](../../whitepaper.md)).
 | Coinbase confirmations | 0 ([API](https://api.exchange.coinbase.com/currencies/XRP)) | Not set. One commit certificate with an accepted receipt is the protocol's definition of final |
 | Signature scheme | secp256k1 ECDSA or Ed25519 ([keys](https://xrpl.org/docs/concepts/accounts/cryptographic-keys)) | ML-DSA-65 only, with FIPS 204 context strings such as `postfiat-l1-v2/tx/v1` ([crypto_provider/src/lib.rs:16-19](../../../crates/crypto_provider/src/lib.rs)) |
 | Key and signature sizes | 33-byte public keys; 64-byte Ed25519 signatures; DER ECDSA signatures of about 70–72 bytes | 1,952-byte public key; 3,309-byte signature; 4,032-byte private key ([fips204 lib.rs:687-691](../../../third_party/fips204/src/lib.rs)) |
-| Address format | Base58 (Ripple alphabet), `r` prefix, 4-byte checksum ([addresses](https://xrpl.org/docs/concepts/accounts/addresses)) | `pf` + 40 lowercase hex characters; no checksum; recipient format not enforced by the protocol ([crypto_provider/src/lib.rs:217-220](../../../crates/crypto_provider/src/lib.rs)) |
+| Address format | Base58 (Ripple alphabet), `r` prefix, 4-byte checksum ([addresses](https://xrpl.org/docs/concepts/accounts/addresses)) | `pf` + 40 lowercase hex characters; no checksum; recipient format not enforced by the protocol ([crypto_provider/src/lib.rs:217-220](../../../crates/crypto_provider/src/lib.rs)). [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open) adds an optional checksum and recipient validation |
 | Key derivation for deposit addresses | Standard secp256k1/Ed25519 tooling | No BIP32/xpub public derivation. A 32-byte master seed is hashed with domain, algorithm, chain ID, account index and role to seed ML-DSA key generation, so one seed gives different addresses on different chain IDs ([wallet_sdk.rs:1078-1107](../../../crates/rpc_sdk/src/wallet_sdk.rs); [custody model:32-45](../../specs/wallet-exchange-custody-model.md)) |
-| Deposit attribution | Destination tag (uint32); `RequireDest` ([tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)) | Unique address per customer (recommended); `payment_v2` memos possible, with no require-memo flag ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)) |
-| Fees | Minimum 10 drops, burned; `tec` failures pay | `ceil(bytes/512)` atoms (minimum 1), plus 10 atoms to create an account; burned; rejected transactions pay nothing ([fees_offer_planning.rs](../../../crates/execution/src/fees_offer_planning.rs)) |
+| Deposit attribution | Destination tag (uint32); `RequireDest` ([tags](https://xrpl.org/docs/concepts/transactions/source-and-destination-tags)) | Unique address per customer (recommended); `payment_v2` memos possible, with no require-memo flag yet ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds one |
+| Fees | Minimum 10 drops, burned; `tec` failures pay | `ceil(bytes/512)` atoms (minimum 1), plus 10 atoms to create an account; burned; rejected transactions pay nothing ([fees_offer_planning.rs](../../../crates/execution/src/fees_offer_planning.rs)); [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (open) adds `tec`-style fee claims |
 | Reserves | 1 XRP base plus 0.2 XRP per object ([reserves](https://xrpl.org/docs/concepts/accounts/reserves)) | 10 atoms flat ([entrypoints.rs:139](../../../crates/execution/src/entrypoints.rs)) |
 | Replay protection | Account `Sequence`; optional `LastLedgerSequence` expiry ([common fields](https://xrpl.org/docs/references/protocol/transactions/common-fields)) | Strict next-sequence; envelope binds `chain_id`, `genesis_hash` and `protocol_version`; the v1 envelope has no expiry ([envelope spec](../../specs/transparent-transaction-envelope.md)) |
 | Account controls | Regular key, multi-signing | Key bound at first spend; no rotation and no multi-signing ([key rotation boundary](../../specs/account-key-rotation-boundary.md)) |
@@ -329,10 +335,11 @@ RedPallas, not ML-DSA ([whitepaper.md:116](../../whitepaper.md)).
   deterministic finality. PFTL's rule is one verified commit certificate plus
   an accepted receipt.
 - **The address handling does not.** PFTL addresses have no checksum, and the
-  protocol does not reject malformed recipients. The integration plan
-  commits to a checksummed encoding before integration.
+  protocol does not reject malformed recipients. [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open, not
+  merged) adds both an optional checksum and recipient validation.
 - **The tag model does not.** Per-customer addresses are the supported
-  pattern. If memo attribution is wanted, PFTL needs a require-memo flag.
+  pattern. Memo attribution needs the require-memo flag in [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) and the
+  memo contents in [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142).
 - **The signer does not.** Coinbase custody would need an ML-DSA-65 signer
   that accepts the FIPS 204 context parameter (section 3.4).
 
@@ -421,7 +428,7 @@ pool, but the account-history index lists only transparent transaction kinds
 | Is the upstream Orchard pool on fixed versions? | Yes. `orchard` 0.14.0. PFTL calls `VerifyingKey::build()`, which in 0.14.0 builds the fixed (`FixedPostNu6_2`) circuit. | [verify.rs:1883](../../../crates/privacy_orchard/src/verify.rs); `orchard-0.14.0/src/circuit.rs:844-847` in the Cargo registry |
 | Do PFTL's own circuits use the affected gadget? | Yes. Asset-Orchard computes `[ivk] g_d` with the variable-base multiplication. | [asset_orchard_circuit.rs:1855](../../../crates/privacy_orchard/src/asset_orchard_circuit.rs) |
 | Do they select the fixed version? | Yes. All five ECC chip construction sites pass `CircuitVersion::AnchoredBase`, the fixed variant added in `halo2_gadgets` 0.5.0. No use of `InsecureUnanchoredBase` was found. | [asset_orchard_circuit.rs:837, 1473, 1949](../../../crates/privacy_orchard/src/asset_orchard_circuit.rs); [asset_orchard_sinsemilla.rs:674, 719](../../../crates/privacy_orchard/src/asset_orchard_sinsemilla.rs) |
-| Do the pinned verifying keys match the fixed circuit? | Yes, for the current swap and private-egress keys. Rebuilding both keys from source reproduces the pinned hashes. `cargo test --release -p postfiat-privacy-orchard --lib full_shape_key_metadata_is_pinned_and_consistent -- --ignored` passed 2 of 2 tests in 345 s. | Tests at [asset_orchard_circuit_tests.rs:1944, 2442](../../../crates/privacy_orchard/src/asset_orchard_circuit_tests.rs); pins at `asset_orchard_circuit.rs:116-119, 188-191` |
+| Do the pinned verifying keys match the fixed circuit? | Yes, for the current swap and private-egress keys. Rebuilding both keys from source reproduces the pinned hashes. [PR #141](https://github.com/postfiatorg/postfiatl1v2/pull/141) (open) publishes their fingerprints and a check script. `cargo test --release -p postfiat-privacy-orchard --lib full_shape_key_metadata_is_pinned_and_consistent -- --ignored` passed 2 of 2 tests in 345 s. | Tests at [asset_orchard_circuit_tests.rs:1944, 2442](../../../crates/privacy_orchard/src/asset_orchard_circuit_tests.rs); pins at `asset_orchard_circuit.rs:116-119, 188-191` |
 
 **What remains to verify.**
 
@@ -581,7 +588,7 @@ The cryptography inventory still describes the dependency as the crates.io
 crate ([inventory:16](../../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)),
 because it predates the vendoring commit `c179968a1` of 2026-07-19.
 
-### 3.3 Recovery keys: a repository contradiction
+### 3.3 Recovery keys: a repository contradiction ([PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140) corrects it)
 
 - [quantum/authorization.md:59-70](../../quantum/authorization.md) draws a
   recovery path that ends with "Activate precommitted SLH-DSA keys already
@@ -700,8 +707,9 @@ The successor is [PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)
 It bounds NEAR receipt age (N1), proves Aave debt completeness from the
 account bitmap (A1), and rejects duplicate keys (B1) and duplicate owners
 (M1). L1 consensus code is unchanged. As of 2026-10-22 the PR is **open and
-not merged**. G1 needs a separate migration of A666 off `sp1-groth16`, which
-the PR does not perform.
+not merged**. Its approval conditions are met, and all its checks pass. G1
+needs a separate migration of A666 off `sp1-groth16`, which the PR does not
+perform.
 
 ---
 

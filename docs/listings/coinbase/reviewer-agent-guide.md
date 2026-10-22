@@ -308,8 +308,8 @@ A critical risk fails a review on its own. Coinbase's worked example is a
 |---|---|---|
 | Signing | ML-DSA-65 with FIPS 204 context `postfiat-l1-v2/tx/v1` ([crypto_provider/src/lib.rs:16](../../../crates/crypto_provider/src/lib.rs)); Mesh has an `ml_dsa_65` curve type ([PR #129](https://github.com/coinbase/mesh-specifications/pull/129)) | Coinbase custody's post-quantum signing pipeline is planned "within the next year" ([Coinbase blog](https://www.coinbase.com/blog/what-coinbase-is-doing-to-prepare-for-post-quantum-cryptography)). No HSM or external-signer interface in PFTL ([custody model](../../specs/wallet-exchange-custody-model.md)). |
 | Integration API | JSON RPC and Rust/Python SDKs ([rpc_sdk](../../../crates/rpc_sdk/src/lib.rs); [python/postfiat_rpc](../../../python/postfiat_rpc/client.py)) | No Mesh implementation in the repository. |
-| Address safety | Wallets check `^pf[0-9a-f]{40}$` ([popup.js:277](../../../wallet-extension/popup/popup.js)) | No checksum; protocol does not validate recipient format (section 5.1). |
-| Deposit attribution | Per-customer addresses; `payment_v2` memos | No require-memo flag. `account_tx` rows carry only `memo_hash` and `memo_count` ([block_finality.rs:1009-1010](../../../crates/node/src/block_finality.rs)) and list only transparent kinds ([account-history.md](../../rpc/account-history.md)); shielded withdrawals and owned-object lanes need separate checks. |
+| Address safety | Wallets check `^pf[0-9a-f]{40}$` ([popup.js:277](../../../wallet-extension/popup/popup.js)) | No checksum; protocol does not validate recipient format (section 5.1). Fix in [PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) (open, not merged). |
+| Deposit attribution | Per-customer addresses; `payment_v2` memos | No require-memo flag. `account_tx` rows carry only `memo_hash` and `memo_count` ([block_finality.rs:1009-1010](../../../crates/node/src/block_finality.rs)) and list only transparent kinds ([account-history.md](../../rpc/account-history.md)); shielded withdrawals and owned-object lanes need separate checks. Fixes in [PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) (memo contents, shielded withdrawals) and [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) (require-memo flag), open, not merged. |
 | Key management | Deterministic seed derivation including chain ID ([wallet_sdk.rs:1078-1107](../../../crates/rpc_sdk/src/wallet_sdk.rs)) | No BIP32 or xpub; no account key rotation; no multi-signing. |
 | Transaction lifecycle | Strict next-sequence; duplicate pending sequence rejected at admission ([envelope spec](../../specs/transparent-transaction-envelope.md)) | v1 envelope has no expiry. Ask how a stuck or unwanted pending transaction is cleared. |
 | Units | 1 PFT = 1,000,000 atoms in wallets ([utils.js:11-12](../../../wallet-web/src/lib/utils.js)) | Not a protocol constant. |
@@ -326,21 +326,22 @@ A critical risk fails a review on its own. Coinbase's worked example is a
 
 ## 7. Contradictions already found
 
-Report these, and re-check them at your commit.
+Report these, and re-check them at your commit. As of 2026-10-22, [PR #140](https://github.com/postfiatorg/postfiatl1v2/pull/140)
+(open, not merged) corrects C1–C6 and C8–C10. C7 waits for the production
+genesis specification.
 
 | ID | Document says | Code or other source says | Assessment |
 |---|---|---|---|
-| C1 | The cross-phase signing fence is an open obligation with no regression ([whitepaper.md:13, 197, 317](../../whitepaper.md)) | Enforced at [consensus_v2.rs:1105](../../../crates/ordering_fast/src/consensus_v2.rs) since `bbb291ce7` (2026-09-09), with regressions; [finality.md:54-58](../../architecture/finality.md) agrees | Whitepaper stale (pinned to `aa8b365f`, 2026-09-07). |
-| C2 | Recovery activates "precommitted SLH-DSA keys already bound at genesis" ([quantum/authorization.md:59-70](../../quantum/authorization.md)) | "No SLH-DSA recovery-key path is currently implemented" ([SECURITY.md:39](../../../SECURITY.md)); none found in code ([crypto inventory:31](../../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)) | Diagram stale. |
-| C3 | No memo or tag field; no account-history indexer ([custody model:47-49, 76](../../specs/wallet-exchange-custody-model.md)) | `payment_v2` memos ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); disk-backed `account_tx` ([account-history.md](../../rpc/account-history.md)) | Custody model predates both. |
-| C4 | Turnstile "violation freezes shielded action class" ([deposit-spend-withdraw.md:62](../../privacy/deposit-spend-withdraw.md)) | "An underflow rejection pauses nothing" ([whitepaper.md:110](../../whitepaper.md)) | Ask the team; trace the code path from [shielded_batch_actions.rs:2216](../../../crates/node/src/shielded_batch_actions.rs). |
-| C5 | Code references `crates/types/src/lib.rs:852`, `crates/node/src/lib.rs:8066` and `:12308` ([envelope spec:13-26](../../specs/transparent-transaction-envelope.md)) | Types moved to [transactions_mempool_receipts.rs](../../../crates/types/src/transactions_mempool_receipts.rs); vector test at [helpers_orchard_transfer_escrow.rs:5073](../../../crates/node/src/tests/helpers_orchard_transfer_escrow.rs) | Line references stale; the bytes still match (test passes). |
-| C6 | ML-DSA uses `fips204 = 0.4.6` ([crypto inventory:16](../../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)) | Vendored copy at `third_party/fips204`, changed in 10 source files (about 200 non-whitespace lines) for SP1-guest acceleration, mostly behind features ([Cargo.toml:50](../../../Cargo.toml); commit `c179968a1`, 2026-07-19) | Inventory predates vendoring; the diff needs review. |
+| C1 | The cross-phase signing fence is an open obligation with no regression ([whitepaper.md:13, 197, 317](../../whitepaper.md)) | Enforced at [consensus_v2.rs:1105](../../../crates/ordering_fast/src/consensus_v2.rs) since `bbb291ce7` (2026-09-09), with regressions; [finality.md:54-58](../../architecture/finality.md) agrees | Whitepaper stale (pinned to `aa8b365f`, 2026-09-07). Fixed in #140 (open). |
+| C2 | Recovery activates "precommitted SLH-DSA keys already bound at genesis" ([quantum/authorization.md:59-70](../../quantum/authorization.md)) | "No SLH-DSA recovery-key path is currently implemented" ([SECURITY.md:39](../../../SECURITY.md)); none found in code ([crypto inventory:31](../../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)) | Diagram stale. Fixed in #140 (open). |
+| C3 | No memo or tag field; no account-history indexer ([custody model:47-49, 76](../../specs/wallet-exchange-custody-model.md)) | `payment_v2` memos ([core_chain.rs:265-269](../../../crates/types/src/core_chain.rs)); disk-backed `account_tx` ([account-history.md](../../rpc/account-history.md)) | Custody model predates both. Fixed in #140 (open). |
+| C4 | Turnstile "violation freezes shielded action class" ([deposit-spend-withdraw.md:62](../../privacy/deposit-spend-withdraw.md)) | "An underflow rejection pauses nothing" ([whitepaper.md:110](../../whitepaper.md)) | Ask the team; trace the code path from [shielded_batch_actions.rs:2216](../../../crates/node/src/shielded_batch_actions.rs). Fixed in #140 (open). |
+| C5 | Code references `crates/types/src/lib.rs:852`, `crates/node/src/lib.rs:8066` and `:12308` ([envelope spec:13-26](../../specs/transparent-transaction-envelope.md)) | Types moved to [transactions_mempool_receipts.rs](../../../crates/types/src/transactions_mempool_receipts.rs); vector test at [helpers_orchard_transfer_escrow.rs:5073](../../../crates/node/src/tests/helpers_orchard_transfer_escrow.rs) | Line references stale; the bytes still match (test passes). Fixed in #140 (open). |
+| C6 | ML-DSA uses `fips204 = 0.4.6` ([crypto inventory:16](../../status/OPEN-SOURCE-CRYPTOGRAPHY-INVENTORY-20260716.md)) | Vendored copy at `third_party/fips204`, changed in 10 source files (about 200 non-whitespace lines) for SP1-guest acceleration, mostly behind features ([Cargo.toml:50](../../../Cargo.toml); commit `c179968a1`, 2026-07-19) | Inventory predates vendoring; the diff needs review. Fixed in #140 (open). |
 | C7 | Production supply 100 billion PFT ([postfiat.org/llms.txt](https://postfiat.org/llms.txt)) | `GENESIS_NATIVE_SUPPLY_ATOMS = 1_000_000_000`, about 1,000 PFT at wallet precision ([core_chain.rs:10](../../../crates/types/src/core_chain.rs)) | Must be reconciled for production genesis. |
-| C8 | "Consensus-affecting repairs remain source-only and were not activated or deployed" ([defect inventory:45, 83, 110](../../review/defect-inventory-20260910.md)) | The fix commits checked (EXE-01..03 `e95efbdf`, COB-01..02 `c9a61fcd` and others) are ancestors of the deployed source `86706699` | Deployment notes stale; activation status needs confirmation. |
-| C9 | Orchard 0.15 migration "by 2026-08-31" ([deny.toml:14](../../../deny.toml)) | Still on 0.14.0 ([Cargo.toml:54](../../../Cargo.toml)) | Deadline passed; ask for the plan. |
-| C10 | `scripts/verify-vendored-halo2` is described as a fail-closed provenance check ([halo2-dependency.md](../../security/halo2-dependency.md)) | Fails under `en_US.UTF-8` because of locale-dependent `sort`; passes with `LC_ALL=C` | Script bug; provenance itself verified. |
-
+| C8 | "Consensus-affecting repairs remain source-only and were not activated or deployed" ([defect inventory:45, 83, 110](../../review/defect-inventory-20260910.md)) | The fix commits checked (EXE-01..03 `e95efbdf`, COB-01..02 `c9a61fcd` and others) are ancestors of the deployed source `86706699` | Deployment notes stale; activation status needs confirmation. Fixed in #140 (open). |
+| C9 | Orchard 0.15 migration "by 2026-08-31" ([deny.toml:14](../../../deny.toml)) | Still on 0.14.0 ([Cargo.toml:54](../../../Cargo.toml)) | Deadline passed; ask for the plan. Fixed in #140 (open). |
+| C10 | `scripts/verify-vendored-halo2` is described as a fail-closed provenance check ([halo2-dependency.md](../../security/halo2-dependency.md)) | Fails under `en_US.UTF-8` because of locale-dependent `sort`; passes with `LC_ALL=C` | Script bug; provenance itself verified. Fixed in #140 (open). |
 ## 8. Open questions for the Post Fiat team
 
 1. **Production genesis.** What are the total supply, decimals, chain ID and
@@ -351,11 +352,13 @@ Report these, and re-check them at your commit.
    PFT held by a third party?
 3. **Addresses.** What is the design and timeline for a checksummed address
    and for rejecting malformed recipients at admission and in execution?
+   ([PR #143](https://github.com/postfiatorg/postfiatl1v2/pull/143) is the team's proposed answer; check its activation plan.)
 4. **Attribution.** Will there be a require-memo (`RequireDest`-style) flag?
    Is memo-based attribution intended for exchanges? `account_tx` returns only
    `memo_hash` and `memo_count`
    ([block_finality.rs:1009-1010](../../../crates/node/src/block_finality.rs));
-   which read method returns the memo bytes?
+   which read method returns the memo bytes? ([PR #142](https://github.com/postfiatorg/postfiatl1v2/pull/142) and [PR #144](https://github.com/postfiatorg/postfiatl1v2/pull/144) are
+   the proposed answers.)
 5. **History completeness.** Which lanes can credit a transparent address
    (Orchard withdrawal, FastPay unwrap, FastLane exit, atomic swap legs, NAV
    redemption settlement)? Which of them appear in `account_tx`?
@@ -376,7 +379,8 @@ Report these, and re-check them at your commit.
 11. **Consensus.** Are the consensus-affecting fixes in the deployed release
     active? When will the whitepaper's §1.9 be updated?
 12. **NAVCoins.** When will A666 move off `sp1-groth16` (G1)? Will PR #49 be
-    adopted?
+    adopted? (As of 2026-10-22 its approval conditions are met and its checks
+    pass; it is not merged.)
 13. **Legal.** Will counsel's opinion on MiCA Article 76(3) and AMLR Article
     79 be shared ([comparisons §2.5](comparisons.md#25-eu-rules-questions-for-counsel))?
 
