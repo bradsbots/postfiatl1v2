@@ -20,6 +20,7 @@ Ready on this lane's side:
 - Dry run: the [second run](../../status/z3-dry-run-20260921.md#second-run) of 2026-09-21 printed and resolved all 39 commands.
 - Arc test wallet `0xC75Bf05Ce82d6f4b6139dd9446D6De5F5994a4CB`, funded with 20 testnet USDC on 2026-09-17 (re-read 2026-09-28).
 - [Cycle-1 inputs](../../status/z3-cycle1-inputs-20260922.md) read back on 2026-09-22 and re-read on 2026-09-28: 9 fields resolved, 8 need the other lane.
+- Host prover: rebuilt 2026-10-22 from main `4bd15ec0` with a build receipt (`ee1387c9…`, [prover provenance](../../status/z3-cycle1-inputs-20260922.md#prover-provenance)); the retained Arc egress ELF is missing from this server and must be restored before cycle 1.
 - Still open here, at cycle time: the Arc allowance approval (allowance 0) and the decision on an active governed Arc ingress route (inputs, blocker 5).
 
 Waiting on the other lane (date first asked):

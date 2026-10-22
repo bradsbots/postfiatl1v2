@@ -157,11 +157,14 @@ Names-only search of existing local deployment archives found **holder-key.json,
 | Build environment | Image `ghcr.io/succinctlabs/sp1@sha256:0942a27dbe8e38f4b14f3732e779df4027b17bde93e9fbc9e8c773c15eb63400`; guest source root `/root/program`, Cargo home `/root/.cargo`; CI installs Rust **1.95.0** and SP1 **6.3.1**. | R:`.github/workflows/arc-proof-identities.yml`; historical workflow source `5b1093faad8c78fa7a394b51863e454970815a36`, run [35044347138](https://github.com/postfiatorg/postfiatl1v2/actions/runs/35044347138) recorded in proof identities; not rerun. |
 | Ingress | ELF SHA-256 `7660fcc58677cfec433a5f2337b9fe46fa96374a1e3c4bd6fba625b982d881bc`; vkey `0x0050a8b0daed2fa75f44d4102b42204c34668a03d311cb727cc6ca3f8df5cf16`. | R ingress ELF hash matches; the borrowed host binary contains this exact ELF once, byte offset **42696743**. |
 | Arc egress | ELF SHA-256 `8b0f266a035a432ef3c0e4233672d8a15b913cefd4c85ff07f91f008601bb744`; vkey `0x0036cbe7d36bbfe1118a3c544eeba74f3791d2a19bf5ec59b972f72d36416852`. Retained file `~/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program`. | **Retained file matches**. Its vkey matches E's selected verifier. Must pass `--egress-release arc-v2 --elf <retained file>`. |
-| Borrowed host prover | `/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover`; SHA-256 `1372ad0c0cd5c4364247c7891e17949a6855c08c33757ffddad3219db10334e1`. | **Matches September 21 reference hash; qualified host-build match cannot be established.** The packet supplies no host hash/build receipt. Enclosing checkout HEAD is not binary provenance. |
+| Borrowed host prover (history; checkout deleted 2026-10-20) | `/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover`; SHA-256 `1372ad0c0cd5c4364247c7891e17949a6855c08c33757ffddad3219db10334e1`. | **Matches September 21 reference hash; qualified host-build match cannot be established.** The packet supplies no host hash/build receipt. Enclosing checkout HEAD is not binary provenance. |
+| Host prover, rebuilt 2026-10-22 | `/home/postfiatchad/.cache/pfusdc-prover-build-20261022/bin/pfusdc-tier4-prover`; SHA-256 `ee1387c9202f273a1e4b665c209bf9d3f95c9406b2dcdb7fdee801763a7e95a9`. Built from main `4bd15ec0` with the PR #125 wrapper (`scripts/pfusdc-tier4-prover-build`, its three recovered Go-module files matched their SHA-256), release profile, `--locked`; Rust 1.95.0, Go 1.24.6 (go.dev tarball SHA-256 verified), libclang 18.1.1 (PyPI wheel SHA-256 verified). Receipt `/home/postfiatchad/.cache/pfusdc-prover-build-20261022/receipt.json`, SHA-256 `02ab85e129237ca4689ceb4250d621fb83c96582ca6d4ba4d78850bd7f146ab9`. Embeds the Arc ingress ELF `7660fcc5…` once; its only embedded egress is the pfETH default `0ea4dbab…` (once). | **Build receipt exists. Hash differs from `1372ad0c…`, as expected:** the link embeds the build path and a random temporary directory (SQ-01), and the tool's lock changed on 2026-10-15 (`501e2b6a`, `df618a03`). The receipt is the provenance, not a hash match. Wrapper host tests 14/14, offline tests 5/5. Compilation is not route qualification; the prover CLI was not run. |
 | Default embedded egress | SHA-256 `0ea4dbabc8a36b44824c861cf2e1ae90454df2a6e4bb8a357f9d3a8672696d83`, pfETH vkey `0x00140f09ca6f1b917e3999a806df5ef4ac4468bd65b85e8580cbc16f832dfe47`. | R default ELF and borrowed binary's embedded ELF match **pfETH**, not Arc (one occurrence, offset **43858759**; Arc ELF absent). This does not invalidate the explicit retained-ELF route; it prevents using the default. |
 | NAV prover | Existing legacy key in rows 3/9 versus provider-neutral successor bindings above | Needs the other lane's compatible governed profile, exact prover/guest build and fresh opening/post-subscription proof provenance. Arc guest qualification does not qualify NAV proofs. |
 
 Hash/embedded-byte comparisons completed at **2026-09-22T09:50:48.724549Z**, using file reads, SHA-256 and exact byte comparison only. No prover process or guest execution was started. A matching embedded guest does not attest host build flags, source, proving backend or the future proof. Qualified host provenance and proving capacity remain required.
+
+**Re-check, 2026-10-22.** The retained Arc egress file in the row above and in `EGRESS_ELF` (`~/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program`) is no longer on this server: the directory is gone, and none of the 185 egress-named files under `~/.cache` and `~/repos` has SHA-256 `8b0f266a…`. Cycle 1 needs it restored, or the `arc-v2-20260902` guest rebuilt with the SP1 Docker build (no Docker on this server).
 
 ## Fresh fleet observations
 
@@ -266,7 +269,7 @@ Use E's same getter/method list with a **new pinned Arc block**, including code/
 
 **Rebind, 2026-10-20.** The fleet has run `fastlane-cap-20261014` since 2026-10-15 (source `8bed9b90`, executable `b1b3dbb150d3596577df3bb3fe145103d90988cf71558c4d34a035fe4bb44405`). `NODE`, every `--remote-binary` and every `--remote-topology` now name it. `~/repos/postfiatl1v2-arcusdc-current` was deleted on the morning of 2026-10-20 with the other lane's approval (answer (l)), so the `PROVER` path below no longer exists.
 
-- [ ] Rebuild the prover from the pinned source into a path of ours before cycle 1
+- [x] Rebuild the prover from the pinned source into a path of ours before cycle 1: done 2026-10-22 from main `4bd15ec0`, with a build receipt ([prover provenance](#prover-provenance)). The retained Arc egress ELF is now missing (same section).
 
 This is a review copy of the already-retained 39 commands, with recovered values filled, fresh output-directory names and the unresolved placeholders listed below. It does not rerun the dry-run harness, qualify a build, create INPUTS or authorize execution.
 
@@ -277,7 +280,9 @@ Command aliases (fixed reference paths remain subject to the qualification block
 ~~~bash
 TOOLING=/home/postfiatchad/repos/postfiatl1v2
 NODE=/home/postfiatchad/.cache/release-fastlane-cap-20261014/binaries/candidate-1
-PROVER=/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover
+# until 2026-10-20 (deleted): PROVER=/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover
+PROVER=/home/postfiatchad/.cache/pfusdc-prover-build-20261022/bin/pfusdc-tier4-prover
+# EGRESS_ELF is missing on this server since before 2026-10-22; see Prover provenance
 EGRESS_ELF=/home/postfiatchad/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program
 WORK=/home/postfiatchad/.cache/z3-cycle1-20260922/work
 PACKET=/home/postfiatchad/.cache/z3-cycle1-20260922/packet
