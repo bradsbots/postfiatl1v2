@@ -41,6 +41,7 @@ The governing identity is
 
 The profile registration is frozen beside this README as
 `profile-registration.json`, and the source manifest as `manifest.json`.
+`replay-host.json` pins the host CLI commit that reproduces the witnesses.
 `../../manifests/a666` now carries the inputs of the freshness-and-debt
 candidate (`../freshness-and-debt-20260924/candidate-identity.json`). The
 legacy profile is immutable and is not changed in place.
@@ -66,27 +67,27 @@ All amounts below are USD e8 atoms.
 ## Reproduce the observations and witness
 
 Install `protoc` (the Debian/Ubuntu package is `protobuf-compiler`) and build
-the host CLI with SP1 support from the pinned source commit. Later sources
-carry the freshness-and-debt types, which reject these inputs by design. The
-default feature set can reproduce observations and witnesses, but it
-intentionally cannot execute or verify an SP1 proof. From the repository root:
+the host CLI with SP1 support from the commit pinned in `replay-host.json`.
+Later sources carry the freshness-and-debt types, which reject these inputs by
+design. The default feature set can reproduce observations and witnesses, but
+it intentionally cannot execute or verify an SP1 proof. From the repository
+root:
 
 ```bash
 ROOT=$(git rev-parse --show-toplevel)
-SOURCE=$(jq -r .source_commit \
-  $ROOT/tools/nav-reserve-proof/a666-successor-program-identity.json)
-WORKSPACE=$(mktemp -d)
-git -C $ROOT archive $SOURCE | tar -x -C $WORKSPACE
+QUAL=$ROOT/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802
+HOST_SOURCE=$(jq -r .source_commit $QUAL/replay-host.json)
+HOST_WORKSPACE=$(mktemp -d)
+git -C $ROOT archive $HOST_SOURCE | tar -x -C $HOST_WORKSPACE
 cargo build --locked --release \
-  --manifest-path $WORKSPACE/tools/nav-reserve-proof/Cargo.toml \
+  --manifest-path $HOST_WORKSPACE/tools/nav-reserve-proof/Cargo.toml \
   -p postfiat-reserve-proof --features sp1
-HOST=$WORKSPACE/tools/nav-reserve-proof/target/release/postfiat-reserve-proof
+HOST=$HOST_WORKSPACE/tools/nav-reserve-proof/target/release/postfiat-reserve-proof
 ```
 
 Then:
 
 ```bash
-QUAL=$ROOT/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802
 RUN=$(mktemp -d)
 
 $HOST manifest validate $QUAL/manifest.json
@@ -115,7 +116,12 @@ Production identity is defined by a Docker build of the pinned source commit,
 not by a mutable ELF copied from an operator machine:
 
 ```bash
+SOURCE=$(jq -r .source_commit \
+  $ROOT/tools/nav-reserve-proof/a666-successor-program-identity.json)
+WORKSPACE=$(mktemp -d)
 BUILD=$(mktemp -d)
+
+git -C $ROOT archive $SOURCE | tar -x -C $WORKSPACE
 cd $WORKSPACE/tools/nav-reserve-proof/programs/reserve-proof-guest
 cargo prove build --docker --tag v6.3.1 --locked \
   --features a666-public-adapters-v2 \

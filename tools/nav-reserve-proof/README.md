@@ -71,7 +71,7 @@ the legacy registration must match both values. The distinct
 `a666-successor-program-identity.json` pins the completed public-adapter guest.
 Its exact manifest and profile registration are frozen in
 `qualifications/a666-public-successor-20260802`, and CI replays that
-qualification with a host built from the same pinned source commit.
+qualification with the host commit pinned there in `replay-host.json`.
 `qualifications/freshness-and-debt-20260924/candidate-identity.json` pins the
 unregistered successor candidate with the N1, A1, B1 and M1 repairs. Its inputs
 are the tracked `manifests/a666` policies;

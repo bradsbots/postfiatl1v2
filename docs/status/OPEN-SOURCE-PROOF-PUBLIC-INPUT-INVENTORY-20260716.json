@@ -90,6 +90,7 @@
     "tools/nav-reserve-proof/a666-successor-program-identity.json": "b53e851de88f1f6483f20c64b9258a218c3e57206e6c47bb2731c2a0dec07365",
     "tools/nav-reserve-proof/manifests/a666/profile-registration-public-successor.json": "b8d3d7709a4732d89ae4f84590e8b6affe239ffeb362effb37176e9b429fcc40",
     "tools/nav-reserve-proof/qualifications/a666-public-successor-20260802/profile-registration.json": "a818911a5b477c4abb37405e2d510c4cd334b2e7313793afe74d9dc2f22914b7",
+    "tools/nav-reserve-proof/qualifications/a666-public-successor-20260802/replay-host.json": "1c57fa4a0ef78a1b168c7faa70c62827304bac94f9e361f1da7acbe12209cbd2",
     "tools/nav-reserve-proof/qualifications/freshness-and-debt-20260924/candidate-identity.json": "fda85cb1f9f4462882dbfd90b2278e6f8280437b8bff2b032dd810816b70a28c",
     "programs/pfusdc-eth-mainnet-ingress/src/lib.rs": "7d1baeb587f0d96c14596718fe2560bfc4c790c19f1a89c9acff5474b3157b91",
     "programs/pfeth-eth-mainnet-ingress/src/main.rs": "67782df70bad2a243115c401088d274874cda3e5fa8a96b85a9577546df71469",

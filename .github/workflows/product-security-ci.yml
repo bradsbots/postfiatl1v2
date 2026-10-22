@@ -233,10 +233,12 @@ jobs:
           qualification="$GITHUB_WORKSPACE/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802"
           # This identity's manifest and registration are frozen in its
           # qualification. Later sources carry the freshness-and-debt types,
-          # which reject its inputs by design, so its host is built from its
-          # own pinned source commit.
+          # which reject its inputs by design, so the host is built from the
+          # replay-host commit pinned beside them. The witness and public
+          # values below are checked byte for byte.
           manifest="$qualification/manifest.json"
           registration="$qualification/profile-registration.json"
+          host_source="$(jq -r .source_commit "$qualification/replay-host.json")"
           expected_sha="$(jq -r .elf_sha256 "$identity")"
           expected_vkey="$(jq -r .program_vkey "$identity")"
           expected_source="$(jq -r .source_commit "$identity")"
@@ -245,14 +247,18 @@ jobs:
           expected_profile="$(jq -r .profile_id "$identity")"
 
           test "$(git cat-file -t "$expected_source")" = commit
+          test "$(git cat-file -t "$host_source")" = commit
           successor_workspace="$(mktemp -d)"
           git -C "$GITHUB_WORKSPACE" archive "$expected_source" | \
             tar -x -C "$successor_workspace"
+          host_workspace="$(mktemp -d)"
+          git -C "$GITHUB_WORKSPACE" archive "$host_source" | \
+            tar -x -C "$host_workspace"
           # Share the kit's target directory so identical dependencies are
           # reused, then copy the pinned host out before any later build.
           CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/tools/nav-reserve-proof/target}" \
             cargo build --locked --release \
-            --manifest-path "$successor_workspace/tools/nav-reserve-proof/Cargo.toml" \
+            --manifest-path "$host_workspace/tools/nav-reserve-proof/Cargo.toml" \
             -p postfiat-reserve-proof --features sp1
           host="$(mktemp -d)/postfiat-reserve-proof"
           cp "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/tools/nav-reserve-proof/target}/release/postfiat-reserve-proof" \
