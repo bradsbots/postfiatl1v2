@@ -560,6 +560,8 @@ Nothing in this section proves deployment. See the
 [active milestone](../plans/active/storage-scaling-milestone.md) and
 [development evidence](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling).
 
+**2026-10-22, storage qualification packet:** not assembled, so storage is not offline qualified (state SELECTED). Both exact replays passed with the deployed `store-handle-20261021` binary (`eea96ba6…`, source `86706699`): height 1123 from the signed canary archive, and height 924 from the custody copy. The 2026-10-20 G1, G2 and G4 evidence, however, is on `8644f0af` (binary `d1799edb…`). The packet verifier accepts one source and binary for all of it, still requires the lost height-915 archive, and needs a six-clone migration report for that candidate, which does not exist. The gap list is in [storage G5](../plans/active/storage-scaling-milestone.md#g5-offline-qualification-packet).
+
 ## Last observed devnet values
 
 ### Fresh all-six fleet observation — 2026-09-14

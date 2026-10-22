@@ -2,6 +2,8 @@
 
 **Status (2026-10-20):** Active. G4 **PASSED** on 2026-08-30 for build `d0ae79f3` (seventh one-shot run; consensus ratio 1.0581, wallet 1.0623; see the [model-floor G4 plan](model-floor-g4-campaign-plan.md)). A later build of that line has run on all six validators since 2026-08-31 (`storage-lease-af9b83c3`, [deploy receipt](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/storage-lease-20260831/deploy-receipt.json)); the deployed release `fastlane-cap-20261014` (source `8bed9b90`, deployed 2026-10-15) descends from it. Remaining: G3/G5 (`OFFLINE QUALIFIED`). The height-915 archive is lost, and I propose the signed height-1123 canary archive as its replacement. I am the height-924 custodian and one read-only copy is approved; that replay passed on 2026-10-22 with the STO-07 release ([G3](#g3-exact-replay)). G6 needs fresh copies and a separate decision. G4 regression on `8644f0af` (2026-10-20): **PASS** — STO-07 fixed on main; the fix ships with the next release; G3 (height-924 replay with our custody copy, the 915 replacement) can start after that release ([result](g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix); attempt 2 on `29824ed7` was blocked by the regression since `f0013c29`). Sections below record the qualification history through 2026-08-30; their "next step" text (`ff2b3532`/`48a94425`, no deployment-eligible candidate) is superseded by this header.
 
+**Status (2026-10-22):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. A4 did not assemble a packet: no single source and binary covers G2–G4 and the G3 replays, and the verifier still requires the lost height-915 archive. The missing inputs and their owners are listed under [G5](#g5-offline-qualification-packet).
+
 **Decision date:** 2026-08-27
 
 **Decision owner:** Post Fiat
@@ -583,7 +585,7 @@ compared by SHA-256 outside it, because its per-validator check reads host
 - [x] Run independent `--verify-only` against the result and prove both source
       and target directory hashes remain unchanged (2026-10-22, PASS).
 - [ ] Bind the redaction-safe replay report and verifier output into the packet
-      checksum manifest (A4).
+      checksum manifest (A4). 2026-10-22: not bound; see [G5](#g5-offline-qualification-packet).
 
 **924 replay (2026-10-22): PASS with the harness.** Copy: `storage-rollout-10dd9f20`,
 `g6-rehearsal-20260830-v3/backups/validator-0`. Its own record names the tip
@@ -1174,6 +1176,61 @@ does and does not authorize.
       runbooks with the exact source/binary/packet identities and remaining
       boundaries.
 - [ ] Record `OFFLINE QUALIFIED` only after every G0–G5 item passes.
+
+**Packet attempt (2026-10-22, A4): not assembled; no box above passes.**
+`package_packet.py` could not be run to completion, so nothing under
+`~/.cache/storage-packet-20261022/` (work server, not in git) is a packet.
+That directory holds the input inventory `input-inventory.json` (SHA-256
+`456090cc681b924da6938a98afdf33adebc0b701eb0ca2e748438c76f63078c0`).
+`python -m postfiat_rpc.storage_scaling verify` fails closed on it
+(`packet entry is not a regular file: SHA256SUMS.txt`), and `serve` refuses
+it with the same error. The 53 packager and verifier tests pass.
+
+| Input on this server | Source / node binary | SHA-256 |
+| --- | --- | --- |
+| G4 August pass, small records (`~/.cache/g4-passing-run-records-20261020/…-v1.tar.zst`) | `d0ae79f3` / `9e82d928…` | `55a3acf3…` (its `campaign-report.json` `e2cff9cd…`) |
+| G4 regression PASS (`~/repos/postfiat-storage-g4-regression-20261020/campaign-report.json`) | `8644f0af` / `d1799edb…` | `d1e9b39c…` |
+| Same pipeline (`~/.cache/storage-g4-20261019/`): G1 tests, G2 tamper, G2 rollback, logs | `8644f0af` / `d1799edb…` | `f9dea2d3…`, `410e8478…`, `83340ab9…` |
+| 924 replay report, receipt, `verify-only.json` (`~/.cache/g3-924-replay-20261022/`) | `86706699` / `eea96ba6…` | `9e5e8f0f…`, `fa643375…`, `196394c9…` |
+| 1123 replay receipt (`~/.cache/g3-1123-replay-20261021/`) | `86706699` / `eea96ba6…` | `c172d31e…` |
+| G2 of the August line (`~/repos/postfiat-storage-sweep-cap-g2-d0ae79f3/`): tamper, rollback, safety manifest | `d0ae79f3` | tamper `a7d016d2…` |
+| Six-clone migration report: only `storage-rollout-10dd9f20` (G6 rehearsal) | `10dd9f20` / `0cc664a3…` | `2a65034e…` |
+
+Which G4 to bind: the packet binds exactly one performance report. It must
+have the packet's source and node binary, so it cannot bind both runs. The
+2026-10-20 regression run is the only one whose G1, G2 and G4 come from a
+single pipeline on one binary. The August pass has its G2 here, but its full
+38 GB run was deleted and only its small records remain. Neither candidate has
+a migration report or replays on its binary.
+
+What the packet still lacks:
+
+- [ ] One candidate for G2–G4 and G3. This is the G1 exit rule above, and the
+      verifier (`storage_scaling.py:506-508`) and the packager
+      (`package_packet.py:612,623`) enforce it. The replays ran on
+      `86706699`/`eea96ba6…`; G1, G2 and G4 ran on `8644f0af`/`d1799edb…`.
+      **Post Fiat decides** among three options: re-run the two replays and a
+      migration rehearsal on `d1799edb…`; re-run G1, G2, G4 and the migration
+      rehearsal on `eea96ba6…`; or allow a lineage packet, which needs a
+      verifier change. This lane runs the chosen option.
+- [ ] Accept the 1123 replacement. The verifier still requires heights 915 and
+      924 in the pair schema, with legacy commitments
+      (`storage_scaling.py:510,553,584`; `package_packet.py:123`). Needed: a
+      packager and verifier change, with tests, that accepts the signed-archive
+      receipt (`signed-archive-replay-receipt-v1`) and the 924
+      `legacy-replay-v1` report. Owner: this lane, after the decision above.
+- [ ] A six-clone migration report and its incompatible binary for the chosen
+      candidate (`run_migration_rehearsal.py`). None exists for `8644f0af`,
+      `86706699` or `d0ae79f3`. The incompatible binary of the `10dd9f20`
+      report (`b5e408bb…`) is not on disk. Owner: this lane; the rehearsal
+      needs authorization.
+- [ ] Redaction: `verify-only.json` contains four host-local paths, which the
+      packet scan rejects. Bind its hashes through the 924 report's
+      `independent_verify_only` block or a redacted copy. Owner: this lane, at
+      packaging.
+- [ ] Other open boxes count against `OFFLINE QUALIFIED`: G2's last box, and
+      G4D's three, which are pre-pass history. Owner: this lane, to close them
+      or record them as superseded.
 
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
 deployment and public testnet remain blocked.
