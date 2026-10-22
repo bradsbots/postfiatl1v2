@@ -28,8 +28,9 @@ All repository links in this document point to the public GitHub repository.
    native asset (PFT) and burned fees, plus three things XRPL does not have:
    - post-quantum ML-DSA-65 account and validator signatures;
    - an Orchard/Halo2 shielded pool;
-   - NAVCoins, assets that can only be issued against zero-knowledge proofs
-     of reserves.
+   - NAVCoins, assets issued against reserve records finalized on chain,
+     verified by zero-knowledge proofs or other methods the asset's profile
+     sets (section 5.2).
 2. **How Coinbase would integrate it.** Through the transparent ledger only:
    - run Coinbase-operated nodes;
    - treat one commit certificate with an accepted receipt as final;
@@ -57,9 +58,9 @@ All repository links in this document point to the public GitHub repository.
 
    Section 5 states the trust assumptions for both.
 5. **Interim path.** Until native PFT can be held in Coinbase custody, an
-   ERC-20 representation of PFT on Ethereum or Base is possible with the
-   bridge machinery already deployed for the A666 NAVCoin. Its trust model is
-   stated in section 8.
+   ERC-20 representation of PFT on Ethereum or Base could reuse bridge
+   components already deployed for the A666 NAVCoin. The wrapped-PFT contract
+   does not exist yet; its trust model is stated in section 8.
 
 ## 2. What Post Fiat L1 is
 
@@ -86,8 +87,10 @@ about supply:
 
 The devnet genesis supply is fixed in code at 1,000,000,000 atoms. The
 published target for the production network is 100 billion PFT
-([postfiat.org/llms.txt](https://postfiat.org/llms.txt)). The production
-genesis specification must reconcile the two numbers before any listing
+([postfiat.org/llms.txt](https://postfiat.org/llms.txt)). That figure is a
+target, not a protocol artifact: no production genesis, allocation table or
+vesting schedule has been published. The production genesis specification
+must reconcile the two numbers and publish allocations before any listing
 review.
 
 PFTL is a new codebase. It is not a fork of `rippled`. The older Post Fiat
@@ -107,7 +110,7 @@ what it changes.
 | Validators | 6, all Foundation-administered; commit quorum 5 of 6 | [chain-state-current.md](../../status/chain-state-current.md), [finality.md](../../architecture/finality.md) |
 | Release | `store-handle-20261021`, deployed 2026-10-21 one validator at a time, height 1137 | [chain-state-current.md](../../status/chain-state-current.md) |
 | Blocks | Produced on demand, so height grows with use, not wall-clock time | [chain-state-current.md](../../status/chain-state-current.md) |
-| Real value on the network | Ethereum-mainnet routes for pfUSDC and the A666 NAVCoin, in limited availability | [NAVCoins](../../navcoins/index.md) |
+| Ethereum-mainnet routes | Routes for pfUSDC and the A666 NAVCoin, in limited availability | [NAVCoins](../../navcoins/index.md) |
 | Public testnet gates | Gate Zero conditions Z1–Z3 open | [testnet-path.md](../../status/testnet-path.md) |
 
 **How releases are shipped.**
@@ -177,8 +180,10 @@ Section 8 schedules all three.
 - A certified block can contain rejected transactions. Coinbase should credit
   a deposit only when the `tx` query shows a final block **and** an accepted
   receipt ([RPC overview](../../rpc/overview.md)).
-- The recommended confirmation count is therefore one certificate. This is
-  comparable to Coinbase's XRP setting of zero confirmations
+- The protocol's finality rule is therefore one certificate. Coinbase would
+  set its own confirmation count after testing catch-up and certificate
+  checks on its own nodes. One certificate is comparable to Coinbase's XRP
+  setting of zero confirmations
   ([Coinbase currencies API](https://api.exchange.coinbase.com/currencies/XRP)).
 
 **Liveness history.** Coinbase should read these before treating the network
@@ -369,7 +374,7 @@ and sends only to transparent addresses
 ([Coinbase ZEC](https://www.coinbase.com/price/zcash)). Shielded transaction
 creation is off by default on public RPC.
 
-**Three points Coinbase's compliance review will raise:**
+**Four points Coinbase's compliance review will raise:**
 
 1. **The 2026 Zcash Orchard soundness bug** (GHSA-ww9q-8r59-xv46).
    - PFTL builds on `orchard` 0.14.0 and `halo2_gadgets` 0.5.0, the patched
@@ -385,6 +390,12 @@ creation is off by default on public RPC.
    - Whether an optional, disclosable shielded pool falls under these rules
      is a legal question. Post Fiat will obtain counsel's opinion before a
      listing application.
+4. **Deposits that come out of the pool.** A customer can deposit PFT
+   straight from a shielded withdrawal. The withdrawal's amount, asset,
+   receiving account and timing are public; its source inside the pool is
+   not. This is the case Coinbase already handles for ZEC deposits from
+   shielded addresses. The customer can supply a per-output disclosure or a
+   viewing key as source-of-funds evidence.
 
 **Maturity.** The pool is described as a “shielded privacy alpha.” Its
 external circuit audit is an open release gate
@@ -490,6 +501,12 @@ Its proof flow is:
 7. Holders mint and redeem near NAV. For A666, minting is 1.005 × NAV and
    redemption is 0.9995 × NAV.
 
+Not every NAVCoin uses a zero-knowledge proof. An asset's profile chooses
+its verifier: the SP1 kinds above, `ledger-transparent` (reserve balances held
+in PFTL accounts), `multi-fetch-quorum` (attested external accounts) or
+`placeholder`
+([market_nav_asset_types.rs](../../../crates/types/src/market_nav_asset_types.rs)).
+
 Each quantity proof is cryptographic *relative to a disclosed checkpoint
 committee*: the six PFTL validators with a five-vote threshold. It is not
 trustless Ethereum finality. The kit says so itself.
@@ -503,10 +520,11 @@ trustless Ethereum finality. The kit says so itself.
 | N1 | NEAR snapshots of any age are accepted |
 | A1 | Aave debt completeness is not proven |
 
-The successor guest fixes all three
+The successor guest fixes N1 and A1
 ([proposal](../../review/nav-reserve-proof-successor-proposal-20260924.md),
-[PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)). It was approved
-on 2026-10-20 on three conditions:
+[PR #49](https://github.com/postfiatorg/postfiatl1v2/pull/49)). G1 closes only
+when A666 migrates off `sp1-groth16`, which is separate work that PR #49 does
+not perform. The successor was approved on 2026-10-20 on three conditions:
 
 - its build is re-pinned past the freshness fix;
 - its continuous-integration failures are fixed;
@@ -654,7 +672,8 @@ the questions in section 9.
   Coinbase post-quantum signing pipeline described in section 4.7 unless
   HSM-based signing is accepted
 - **Deliverables:**
-  - a production genesis with the published PFT supply;
+  - a production genesis and token document: total and circulating supply,
+    allocations and any vesting;
   - independent validator operators under a published charter;
   - HSM validator-key custody and signed public binaries;
   - a notice and communication process for Coinbase.
@@ -665,14 +684,15 @@ the questions in section 9.
 ### Interim path: PFT as an ERC-20
 
 Coinbase lists Ethereum and Base tokens with less custom work than a native
-chain. PFTL already runs the machinery a wrapped PFT would need:
+chain. PFTL already runs components a wrapped PFT could reuse:
 
 - the route contracts used for the A666 NAVCoin;
 - the governed bridge-signing committee verifier
   ([PFTLUniswapHandoffController](../../../crates/ethereum-contracts/src/PFTLUniswapHandoffController.sol));
 - the SP1 receipt-finality verifier.
 
-A wrapped PFT route would lock PFT on PFTL and mint an equal amount of an
+No wrapped-PFT contract, proof profile or threat model exists yet. A
+wrapped PFT route would lock PFT on PFTL and mint an equal amount of an
 ERC-20 on Ethereum or Base against a verified PFTL finality proof.
 
 The trust model would match wA666's: the ERC-20 is only as strong as the PFTL

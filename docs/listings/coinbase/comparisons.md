@@ -21,7 +21,7 @@ Companion documents: the [integration plan](integration-plan.md) and the
 > operators join.
 
 **Conventions.** PFTL facts link to the repository file that supports them.
-`file:line` references are to commit `ac7a49822` (branch `main`, 2026-10-22).
+`file:line` references are to commit `ac7a49822`, the head of `main` when this was written on 2026-10-22.
 Paths that start with `../../../` are outside `docs/`. External facts link to
 their source and were checked on 2026-10-22; the
 [verification log](#verification-log) lists each one and says how it was
