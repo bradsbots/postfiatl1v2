@@ -5,7 +5,7 @@
     {
       "source_id": "aave-arbitrum",
       "policy": "tools/nav-reserve-proof/manifests/a666/aave-arbitrum-policy.json",
-      "quantity_and_valuation_verifier_commitment": "5d5f28f1ffd4b0d8804848873f0caabdb0ada8c57b8485a3048cd70fc7754eafed6b58c06b8356cde1d09f532a147007",
+      "quantity_and_valuation_verifier_commitment": "92acd1db1b9e1b8478c20b73aae8aa5b3f9b3fe8d27dd3eff51e9001ae369ce1a0915e6bb7105618283e3f7248bc8b09",
       "historical_source": "tools/nav-reserve-proof/fixtures/a666-historical/aave-arbitrum-state-proof-20260728.json",
       "status": "candidate_not_qualified"
     },
@@ -39,7 +39,7 @@
     {
       "source_id": "near-stake",
       "policy": "tools/nav-reserve-proof/manifests/a666/near-receipt-policy.json",
-      "quantity_verifier_commitment": "75b18cc9af90f1a7eb9efa86419d844b28018f4b4fac6bd7a1045864b312ed4db29104399bdb3edcbfa53712a69d7c67",
+      "quantity_verifier_commitment": "50d5cde915919c7a34b403cb0250ddecb2a08a0688371d1beb8c0e0b44f3937b02801f4d6d2f61c548fd16d9b9c70802",
       "valuation_policy": "tools/nav-reserve-proof/manifests/a666/near-chainlink-valuation-policy.json",
       "valuation_verifier_commitment": "260ce714ab04e1f1d48676a0067b9a58894d4dc5673bd0f5356491ab90f6c2703071348906f362e17eb8f735dcb63015",
       "deployment_identity": "tools/nav-reserve-proof/manifests/a666/public-reader-deployments-20260802.json",

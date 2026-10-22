@@ -39,9 +39,11 @@ The governing identity is
 - valuation policy hash:
   `350eaee0a1ca12ba51637781ba52661b8685f868657a7c5e7d07c31b2899869c`.
 
-The profile registration is published at
-`../../manifests/a666/profile-registration-public-successor.json`. The legacy
-profile is immutable and is not changed in place.
+The profile registration is frozen beside this README as
+`profile-registration.json`, and the source manifest as `manifest.json`.
+`../../manifests/a666` now carries the inputs of the freshness-and-debt
+candidate (`../freshness-and-debt-20260924/candidate-identity.json`). The
+legacy profile is immutable and is not changed in place.
 
 ## Results
 
@@ -64,34 +66,39 @@ All amounts below are USD e8 atoms.
 ## Reproduce the observations and witness
 
 Install `protoc` (the Debian/Ubuntu package is `protobuf-compiler`) and build
-the public host CLI with SP1 support. The default feature set can reproduce
-observations and witnesses, but it intentionally cannot execute or verify an
-SP1 proof:
+the host CLI with SP1 support from the pinned source commit. Later sources
+carry the freshness-and-debt types, which reject these inputs by design. The
+default feature set can reproduce observations and witnesses, but it
+intentionally cannot execute or verify an SP1 proof. From the repository root:
 
 ```bash
-cd tools/nav-reserve-proof
-cargo build --locked --release -p postfiat-reserve-proof --features sp1
-cd ../..
+ROOT=$(git rev-parse --show-toplevel)
+SOURCE=$(jq -r .source_commit \
+  $ROOT/tools/nav-reserve-proof/a666-successor-program-identity.json)
+WORKSPACE=$(mktemp -d)
+git -C $ROOT archive $SOURCE | tar -x -C $WORKSPACE
+cargo build --locked --release \
+  --manifest-path $WORKSPACE/tools/nav-reserve-proof/Cargo.toml \
+  -p postfiat-reserve-proof --features sp1
+HOST=$WORKSPACE/tools/nav-reserve-proof/target/release/postfiat-reserve-proof
 ```
 
-Then, from the repository root:
+Then:
 
 ```bash
-KIT=tools/nav-reserve-proof
-QUAL=$KIT/qualifications/a666-public-successor-20260802
+QUAL=$ROOT/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802
 RUN=$(mktemp -d)
 
-$KIT/target/release/postfiat-reserve-proof manifest validate \
-  $QUAL/manifest.json
+$HOST manifest validate $QUAL/manifest.json
 
 for EPOCH in 7 8; do
   mkdir -p $RUN/epoch-$EPOCH
-  $KIT/target/release/postfiat-reserve-proof observe \
+  $HOST observe \
     --manifest $QUAL/manifest.json \
     --context $QUAL/epoch-$EPOCH/context.json \
     --input-dir $QUAL/epoch-$EPOCH/inputs \
     --output $RUN/epoch-$EPOCH/observations.json
-  $KIT/target/release/postfiat-reserve-proof witness build \
+  $HOST witness build \
     --input $RUN/epoch-$EPOCH/observations.json \
     --output $RUN/epoch-$EPOCH/witness.cbor
   sha256sum $RUN/epoch-$EPOCH/witness.cbor
@@ -108,13 +115,7 @@ Production identity is defined by a Docker build of the pinned source commit,
 not by a mutable ELF copied from an operator machine:
 
 ```bash
-ROOT=$(git rev-parse --show-toplevel)
-SOURCE=$(jq -r .source_commit \
-  $ROOT/tools/nav-reserve-proof/a666-successor-program-identity.json)
-WORKSPACE=$(mktemp -d)
 BUILD=$(mktemp -d)
-
-git -C $ROOT archive $SOURCE | tar -x -C $WORKSPACE
 cd $WORKSPACE/tools/nav-reserve-proof/programs/reserve-proof-guest
 cargo prove build --docker --tag v6.3.1 --locked \
   --features a666-public-adapters-v2 \
@@ -128,11 +129,11 @@ The ELF hash must match the pinned identity. Use it with the witnesses above:
 ```bash
 cd $ROOT
 for EPOCH in 7 8; do
-  $KIT/target/release/postfiat-reserve-proof execute \
+  $HOST execute \
     --witness $RUN/epoch-$EPOCH/witness.cbor \
     --elf $BUILD/postfiat-reserve-proof-guest \
     --output $RUN/epoch-$EPOCH/public-values.bin
-  $KIT/target/release/postfiat-reserve-proof verify \
+  $HOST verify \
     --public-values $RUN/epoch-$EPOCH/public-values.bin
   sha256sum $RUN/epoch-$EPOCH/public-values.bin
 done

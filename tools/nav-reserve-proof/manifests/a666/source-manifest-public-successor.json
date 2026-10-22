@@ -7,15 +7,15 @@
       "source_domain": "eip155:42161",
       "asset_or_position_id": "aave-v3:aggregate-collateral-and-debt",
       "reserve_owner_commitment": "c6b03826e2d4369f388c724b9fd8e9cf909eb76dab7a5747c497497327972392d8295555a32f7059794514cb3e97e6d3",
-      "quantity_verifier_commitment": "5d5f28f1ffd4b0d8804848873f0caabdb0ada8c57b8485a3048cd70fc7754eafed6b58c06b8356cde1d09f532a147007",
-      "valuation_verifier_commitment": "5d5f28f1ffd4b0d8804848873f0caabdb0ada8c57b8485a3048cd70fc7754eafed6b58c06b8356cde1d09f532a147007",
+      "quantity_verifier_commitment": "92acd1db1b9e1b8478c20b73aae8aa5b3f9b3fe8d27dd3eff51e9001ae369ce1a0915e6bb7105618283e3f7248bc8b09",
+      "valuation_verifier_commitment": "92acd1db1b9e1b8478c20b73aae8aa5b3f9b3fe8d27dd3eff51e9001ae369ce1a0915e6bb7105618283e3f7248bc8b09",
       "quantity_evidence_class": "cryptographic",
       "valuation_evidence_class": "cryptographic",
       "freshness_policy": {
         "max_age_blocks": 20,
         "max_observation_span_blocks": 8
       },
-      "haircut_policy_hash": "5d5f28f1ffd4b0d8804848873f0caabdb0ada8c57b8485a3048cd70fc7754eafed6b58c06b8356cde1d09f532a147007",
+      "haircut_policy_hash": "92acd1db1b9e1b8478c20b73aae8aa5b3f9b3fe8d27dd3eff51e9001ae369ce1a0915e6bb7105618283e3f7248bc8b09",
       "liability_treatment": "asset",
       "adapter_schema_version": 1
     },
@@ -61,7 +61,7 @@
       "source_domain": "near:mainnet",
       "asset_or_position_id": "near-staked-balance",
       "reserve_owner_commitment": "e146ecb6edab9291260bc69e407707bcf6274ae3c45cabf4fe8d6815dcacc021bb6de27af30b17460f47ab8f814f62eb",
-      "quantity_verifier_commitment": "75b18cc9af90f1a7eb9efa86419d844b28018f4b4fac6bd7a1045864b312ed4db29104399bdb3edcbfa53712a69d7c67",
+      "quantity_verifier_commitment": "50d5cde915919c7a34b403cb0250ddecb2a08a0688371d1beb8c0e0b44f3937b02801f4d6d2f61c548fd16d9b9c70802",
       "valuation_verifier_commitment": "260ce714ab04e1f1d48676a0067b9a58894d4dc5673bd0f5356491ab90f6c2703071348906f362e17eb8f735dcb63015",
       "quantity_evidence_class": "cryptographic",
       "valuation_evidence_class": "cryptographic",
