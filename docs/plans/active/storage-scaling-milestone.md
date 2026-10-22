@@ -1212,7 +1212,8 @@ What the packet still lacks:
       **Post Fiat decides** among three options: re-run the two replays and a
       migration rehearsal on `d1799edb…`; re-run G1, G2, G4 and the migration
       rehearsal on `eea96ba6…`; or allow a lineage packet, which needs a
-      verifier change. This lane runs the chosen option.
+      verifier change. This lane runs the chosen option. **Decided
+      2026-10-22:** the second option; see the decision below.
 - [ ] Accept the 1123 replacement. The verifier still requires heights 915 and
       924 in the pair schema, with legacy commitments
       (`storage_scaling.py:510,553,584`; `package_packet.py:123`). Needed: a
@@ -1231,6 +1232,21 @@ What the packet still lacks:
 - [ ] Other open boxes count against `OFFLINE QUALIFIED`: G2's last box, and
       G4D's three, which are pre-pass history. Owner: this lane, to close them
       or record them as superseded.
+
+**Decision (2026-10-22): one build for everything.** G1, G2 and G4 are re-run
+on the deployed binary `eea96ba6…` (source `86706699`, the running release
+`store-handle-20261021`) as attempt 4 of the
+[regression campaign](g4-regression-deployed-release-20261019.md), started
+today on the work server. The 924 and 1123 replays already stand on that
+binary. The remaining gaps follow in order:
+
+| Order | Step | Owner | Estimate |
+| ---: | --- | --- | --- |
+| 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | running |
+| 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
+| 3 | Six-clone migration rehearsal on the same binary | ours | 0.5–1 d |
+| 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | 0.25 d |
+| 5 | Assemble the packet and run the offline verifier | ours | 0.25 d |
 
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
 deployment and public testnet remain blocked.
