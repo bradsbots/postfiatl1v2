@@ -3,7 +3,8 @@
   "status": "candidate_not_registered",
   "identity_role": "a666_public_reserve_successor_candidate",
   "sp1_version": "6.3.1",
-  "source_commit": "303d2c147e5227383d8850a4aa74e143b8b0120b",
+  "source_commit": "16d41b5ddd9a3a19921c8304dd1e658ba1f0a721",
+  "source_commit_pinned_on": "2026-10-22",
   "guest_features": [
     "a666-public-adapters-v2"
   ],
@@ -17,11 +18,11 @@
   "program_vkey": "not built here",
   "not_built_reason": "Docker and cargo-prove (SP1 6.3.1) are not installed for the preparing user; docker info failed and cargo prove is not a cargo subcommand.",
   "build_commands": [
-    "git -C \"$repo_root\" archive 303d2c147e5227383d8850a4aa74e143b8b0120b | tar -x -C \"$workspace\"",
+    "git -C \"$repo_root\" archive 16d41b5ddd9a3a19921c8304dd1e658ba1f0a721 | tar -x -C \"$workspace\"",
     "cd \"$workspace/tools/nav-reserve-proof/programs/reserve-proof-guest\"",
     "cargo prove build --docker --tag v6.3.1 --locked --features a666-public-adapters-v2 --workspace-directory \"$workspace\" --output-directory \"$out\"",
     "sha256sum \"$out/postfiat-reserve-proof-guest\"",
     "cargo run --locked --release --manifest-path \"$workspace/tools/nav-reserve-proof/Cargo.toml\" -p postfiat-reserve-proof --features sp1 -- program-info --elf \"$out/postfiat-reserve-proof-guest\""
   ],
-  "note": "Do not write this build into elf/ or edit program-identity.json or a666-successor-program-identity.json. Record two byte-identical reproductions here, then register through governance as a new proof profile."
+  "note": "The pin follows the NEAR header-time fix (340d5de1, d14c703e, merged as f12b8d57) and the formatting commit 16d41b5d; it replaces 303d2c14. Do not write this build into elf/ or edit program-identity.json or a666-successor-program-identity.json. Record two byte-identical reproductions here, then register through governance as a new proof profile."
 }
