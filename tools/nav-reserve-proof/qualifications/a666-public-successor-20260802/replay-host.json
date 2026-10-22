@@ -1,0 +1,8 @@
+{
+  "schema": "postfiat.reserve_replay_host.v1",
+  "source_commit": "a2516a1b8e7da088bd27136cc9c7df218e821d41",
+  "features": [
+    "sp1"
+  ],
+  "reason": "The host CLI that observes this qualification's inputs and builds its witnesses. It is the last main commit before the freshness-and-debt types, which reject these inputs by design; main CI verified this qualification with it. The host is not part of the identity: CI checks its witness and public-values bytes against expected-results.json. The identity's own source commit predates the compact observe output, so its host cannot build these witnesses inside the witness bound."
+}

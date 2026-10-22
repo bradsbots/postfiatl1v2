@@ -2,6 +2,7 @@
 
 Status: canonical v1 transparent-transfer envelope
 Date: 2026-05-13
+Updated: 2026-10-22 (code references and fixture outputs)
 Scope: controlled-testnet transparent PQ settlement path
 
 This document freezes the current transparent transfer signing surface. Any
@@ -11,20 +12,24 @@ external review agree on exactly what is signed and replay-protected.
 
 ## Implemented Code References
 
-- Unsigned transfer fields and signing bytes:
-  `crates/types/src/lib.rs:852`.
-- Signed transfer envelope:
-  `crates/types/src/lib.rs:904`.
-- Transfer execution and replay/domain rejection:
-  `crates/execution/src/lib.rs:13`.
-- Transfer transaction id:
-  `crates/execution/src/lib.rs:321`.
-- Wallet deterministic test vector:
-  `crates/node/src/lib.rs:8066`.
-- Test-vector drift lock:
-  `crates/node/src/lib.rs:12308`.
+References name the file and symbol, so they survive line moves.
+
+- Unsigned transfer fields and signing bytes: `UnsignedTransfer` and
+  `UnsignedTransfer::signing_bytes` in
+  [`crates/types/src/transactions_mempool_receipts.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/types/src/transactions_mempool_receipts.rs).
+- Signed transfer envelope: `SignedTransfer` in the same file.
+- Transfer execution and replay/domain rejection: `execute_transfer` in
+  [`crates/execution/src/entrypoints.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/entrypoints.rs).
+- Transfer transaction id: `transfer_tx_id` in
+  [`crates/execution/src/tx_hashing.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/tx_hashing.rs).
+- Wallet deterministic test vector: `wallet_test_vector` in
+  [`crates/node/src/block_replay_wallet.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/block_replay_wallet.rs).
+- Test-vector drift lock: the test `wallet_test_vector_is_deterministic_and_redacted` in
+  [`crates/node/src/tests/helpers_orchard_transfer_escrow.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/tests/helpers_orchard_transfer_escrow.rs).
 - Mempool admission for externally signed transfers:
-  `crates/node/src/lib.rs:2570`.
+  `submit_signed_transfer_to_mempool`, `submit_signed_transfer_json_to_mempool`
+  and `admit_signed_transfer_to_mempool` in
+  [`crates/node/src/mempool_proposals.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/mempool_proposals.rs).
 
 ## Unsigned Envelope Fields
 
@@ -119,6 +124,13 @@ Replay controls currently implemented:
 - duplicate pending sender sequences are rejected at mempool admission;
 - ledger sequence rules reject non-next sender sequences at execution.
 
+None of these rejections is charged. After the governed
+`rejected_tx_fee_activation_height`, a transfer that passes every check above
+and can pay its fee while keeping the account reserve, but whose effect fails
+(for example `insufficient_funds` for the amount), pays its fee (burned),
+consumes its sequence, and returns `tec_<reason>`; see
+[Custody And Exchange](../wallets/custody-and-exchange.md#rejected-transactions-pay-their-fee).
+
 The v1 transparent envelope does not include an expiry field. Adding expiry,
 memo, multi-operation payloads, batching fields, or alternative fee semantics
 must create a versioned envelope change instead of silently extending
@@ -141,18 +153,18 @@ Inputs:
 
 Expected public outputs:
 
-- `genesis_hash = aeb7f3f558e61dfd91a21889ef5fb61ca33725bdcc2669735f115ce62c54e4496c8882a384c10c13d5f0f928ca1847d7`
+- `genesis_hash = aa450fa2d12a9d10e290266df634b9319d8805450a85bedcbd4d72ec9dbbc7c4d4cca350a3202bf1e58ee01b4dbca732`
 - `from = pf857c81edb95af1d64262ed6c0fdcf3ef7aff56fe`
 - `fee = 32`
-- `transfer_signing_hash = ac3945f0b667d58df9ef6c938a16a199c9e66a64d86b6403e48383a0e369f8dd514b5b32490c7e3aef98e401eb1dc1a1`
-- `tx_id = 43bb98835f4219afe5cfa5f3aab57692d973fdaa6a5f4b6bfc09113d99b4a8b0b6831bda035605ed6cef26561a53d89a`
+- `transfer_signing_hash = b7ded680cf9ee025253aa8dcedde3b1e090f5853ea681fb240cf8579b5e4de8cf665df97e231d0d565ff91c37dc84189`
+- `tx_id = 99991ac80058445af49c45ace67bdc837fcd0dff85f4a15aae3ec05640fc9db1a2ae2270ec4653ec5aa59b262e59c764`
 
 Expected signing bytes:
 
 ```text
 postfiat.transfer.v1
 chain_id=postfiat-vector-test
-genesis_hash=aeb7f3f558e61dfd91a21889ef5fb61ca33725bdcc2669735f115ce62c54e4496c8882a384c10c13d5f0f928ca1847d7
+genesis_hash=aa450fa2d12a9d10e290266df634b9319d8805450a85bedcbd4d72ec9dbbc7c4d4cca350a3202bf1e58ee01b4dbca732
 protocol_version=1
 address_namespace=postfiat.address.v1
 transaction_kind=transparent_transfer
@@ -165,4 +177,8 @@ sequence=1
 ```
 
 The drift lock in `wallet_test_vector_is_deterministic_and_redacted` asserts
-these bytes, the signing hash, and the transaction id.
+these bytes, the signing hash, and the transaction id. The outputs above were
+copied from that test on 2026-10-22, when it passed. Earlier revisions of this
+page listed a different fixture genesis hash, signing hash and transaction id;
+the test has asserted the values above since the first public commit
+(`11839c14f`). The signing-byte format is unchanged.

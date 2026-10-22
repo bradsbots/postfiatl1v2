@@ -11,6 +11,7 @@ from decimal import Decimal, DecimalException, localcontext
 from pathlib import Path
 from typing import Any, Sequence
 
+from .address import AddressError, checksum_address, parse_address
 from .client import PostFiatRpcClient
 from .wallet import (
     FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT,
@@ -153,6 +154,29 @@ def warn_if_finality_not_observed(report: dict[str, Any]) -> None:
         pass
 
 
+def recipient_arg(value: str) -> str:
+    """Accept a lowercase or checksummed ``--to`` and return the canonical form.
+
+    The canonical lowercase form is what the wallet quotes and signs.
+    """
+
+    try:
+        return parse_address(value.strip())
+    except AddressError as error:
+        raise ValueError(f"--to is not a valid PFTL address ({error.reason}): {error}") from None
+
+
+def run_address(args: argparse.Namespace) -> dict[str, Any]:
+    canonical = recipient_arg(args.address)
+    return {
+        "schema": "postfiat-pftl-address-cli-v1",
+        "ok": True,
+        "action": "address",
+        "canonical": canonical,
+        "checksummed": checksum_address(canonical),
+    }
+
+
 def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
     if not args.allow_faucet_apply:
         raise ValueError("faucet requires --allow-faucet-apply before changing validator state")
@@ -160,6 +184,7 @@ def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
     amount_atoms = args.amount_atoms if args.amount_atoms is not None else pft_to_atoms(args.amount)
     if amount_atoms < 1:
         raise ValueError("amount-atoms must be positive")
+    to_address = recipient_arg(args.to)
     topology = optional_path_arg(args.topology, "PFTL_TOPOLOGY")
     key_file = optional_path_arg(args.key_file, "PFTL_KEY_FILE")
     proposal_key_file = optional_path_arg(args.proposal_key_file, "PFTL_PROPOSAL_KEY_FILE")
@@ -167,7 +192,7 @@ def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
     validator_dirs = split_paths(args.validator_data_dirs) or default_validator_data_dirs(data_dir)
     result = request_faucet_pft(
         data_dir=data_dir,
-        to_address=args.to,
+        to_address=to_address,
         amount=amount_atoms,
         validator_data_dirs=validator_dirs,
         work_dir=path_arg(args.work_dir),
@@ -193,6 +218,7 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
     amount_atoms = args.amount_atoms if args.amount_atoms is not None else pft_to_atoms(args.amount)
     if amount_atoms < 1:
         raise ValueError("amount-atoms must be positive")
+    to_address = recipient_arg(args.to)
     data_dir = path_arg(args.finalize_data_dir)
     validator_dirs: Sequence[Path] | None = None
     if data_dir is not None:
@@ -207,7 +233,7 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
         result = send_pft(
             client,
             wallet=wallet,
-            to_address=args.to,
+            to_address=to_address,
             amount=amount_atoms,
             work_dir=path_arg(args.work_dir),
             sequence=args.sequence,
@@ -221,7 +247,7 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
         result = send_pft_and_poll_finality(
             client,
             wallet=wallet,
-            to_address=args.to,
+            to_address=to_address,
             amount=amount_atoms,
             work_dir=path_arg(args.work_dir),
             sequence=args.sequence,
@@ -238,7 +264,7 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
         result = send_pft(
             client,
             wallet=wallet,
-            to_address=args.to,
+            to_address=to_address,
             amount=amount_atoms,
             work_dir=path_arg(args.work_dir),
             sequence=args.sequence,
@@ -282,7 +308,11 @@ def run_unwrap_fastpay(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def add_common_amount_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--to", required=True, help="Recipient PFTL address")
+    parser.add_argument(
+        "--to",
+        required=True,
+        help="Recipient PFTL address, lowercase or checksummed; signed in lowercase",
+    )
     parser.add_argument("--amount", default="1", help="Human PFTL amount, converted at 6dp")
     parser.add_argument("--amount-atoms", type=int, help="Raw PFTL atom amount")
     parser.add_argument("--work-dir", help="Directory for generated quote/batch artifacts")
@@ -330,6 +360,13 @@ def build_parser() -> argparse.ArgumentParser:
     send.add_argument("--poll-interval-seconds", type=float, default=2.0, help="Finality poll interval in seconds")
     send.add_argument("--timeout-seconds", type=float, default=8.0)
     send.set_defaults(func=run_send)
+
+    address = sub.add_parser(
+        "address",
+        help="Validate a PFTL address and print its canonical and checksummed forms",
+    )
+    address.add_argument("address", help="Lowercase or checksummed PFTL address")
+    address.set_defaults(func=run_address)
 
     unwrap = sub.add_parser("unwrap-fastpay", help="Signed FastPay unwrap from owned lane to account lane")
     unwrap.add_argument("--amount", default="1", help="Human PFTL amount to unwrap, converted at 6dp")

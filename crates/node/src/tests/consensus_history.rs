@@ -3118,8 +3118,11 @@ fn every_live_governance_amendment_kind_uses_the_signed_authorization_boundary()
             1004,
         ),
         (GOVERNANCE_KIND_ATOMIC_SWAP_ACTIVATION_HEIGHT, 1001),
+        (GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT, 1005),
+        (GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT, 1006),
         (GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT, 1002),
         (GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT, 1003),
+        (GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT, 1005),
         (GOVERNANCE_KIND_CRYPTO_POLICY, 3),
         (GOVERNANCE_KIND_CRYPTO_POLICY, 2),
     ];
@@ -3208,7 +3211,10 @@ fn every_live_governance_amendment_kind_uses_the_signed_authorization_boundary()
         Some(1004)
     );
     assert_eq!(governance.atomic_swap_activation_height(), Some(1001));
+    assert_eq!(governance.rejected_tx_fee_activation_height(), Some(1005));
+    assert_eq!(governance.require_memo_activation_height(), Some(1006));
     assert_eq!(governance.replicated_state_v2_activation_height(), Some(1002));
+    assert_eq!(governance.recipient_format_activation_height(), Some(1005));
     assert_eq!(governance.amendment_rollback_records.len(), 1);
     assert_eq!(governance.amendment_rollback_records[0].previous_value, 3);
     assert_eq!(governance.amendment_rollback_records[0].restored_value, 2);

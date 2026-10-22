@@ -115,6 +115,7 @@ pub fn tx_finality(options: TxFinalityQueryOptions) -> io::Result<TxFinalityRepo
         };
 
     let proof_id = tx_finality_proof_id(&genesis, &receipt, receipt_index, &block)?;
+    let transaction_rows = tx_finality_transaction_rows(&store, &block, &receipt_log, &tx_id);
     Ok(TxFinalityReport {
         schema: "postfiat-tx-finality-v1".to_string(),
         proof_id,
@@ -132,7 +133,55 @@ pub fn tx_finality(options: TxFinalityQueryOptions) -> io::Result<TxFinalityRepo
         block_count,
         tip_hash,
         tip_state_root,
+        transaction_rows,
     })
+}
+
+/// The `account_tx` rows of `tx_id`, decoded from the archived batch of the
+/// block that finalized it. This is a read-only decoration of the finality
+/// report: any failure to read or decode the archived batch (for example a
+/// pruned payload) leaves the list empty instead of failing the lookup.
+fn tx_finality_transaction_rows(
+    store: &NodeStore,
+    block: &BlockRecord,
+    receipts: &[Receipt],
+    tx_id: &str,
+) -> Vec<AccountTxRow> {
+    if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
+        return Vec::new();
+    }
+    let Ok(Some(archive_entry)) = read_archived_batch_for_block(store, block) else {
+        return Vec::new();
+    };
+    let block_receipt_ids = block
+        .receipt_ids
+        .iter()
+        .map(String::as_str)
+        .collect::<HashSet<_>>();
+    let receipt_by_tx = receipts
+        .iter()
+        .filter(|receipt| block_receipt_ids.contains(receipt.tx_id.as_str()))
+        .map(|receipt| (receipt.tx_id.as_str(), receipt))
+        .collect::<HashMap<_, _>>();
+    account_tx_rows_for_archived_block(block, &archive_entry, &receipt_by_tx)
+        .map(|rows| rows.into_iter().filter(|row| row.tx_id == tx_id).collect())
+        .unwrap_or_default()
+}
+
+fn read_archived_batch_for_block(
+    store: &NodeStore,
+    block: &BlockRecord,
+) -> io::Result<Option<BatchArchiveEntry>> {
+    if store.transactional_storage_active()? {
+        return store
+            .transactional_store()?
+            .archived_batch(&block.header.batch_kind, &block.header.batch_id)
+            .map_err(io::Error::from);
+    }
+    Ok(store
+        .read_batch_archive()?
+        .find(&block.header.batch_kind, &block.header.batch_id)
+        .cloned())
 }
 
 pub fn blocks(options: BlockQueryOptions) -> io::Result<Vec<BlockRecord>> {
@@ -169,6 +218,20 @@ pub fn account_tx(options: AccountTxQueryOptions) -> io::Result<AccountTxReport>
 
 const ACCOUNT_TX_DISK_INDEX_FILE: &str = "account_tx_index_meta.json";
 const ACCOUNT_TX_ACCOUNT_SHARDS_DIR: &str = "account_tx_accounts";
+// v2 rows carry `payment_v2` memo contents and shielded-withdrawal credits.
+// An index written with an older schema is unusable for reads (the archive
+// scan answers instead) and is never extended: the next
+// `account-tx-index-build` rebuilds it from the retained blocks, which is the
+// backfill for history indexed before v2.
+const ACCOUNT_TX_INDEX_SCHEMA: &str = "postfiat-account-tx-index-v2";
+const ACCOUNT_TX_DISK_INDEX_SCHEMA: &str = "postfiat-account-tx-disk-index-v2";
+const ACCOUNT_TX_ACCOUNT_SHARD_SCHEMA: &str = "postfiat-account-tx-account-shard-v2";
+/// `tx_role` of an `account_tx` row that credits a transparent account from a
+/// shielded pool.
+pub const ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL: &str = "shielded_withdrawal";
+const ORCHARD_WITHDRAW_ACTION_KIND: &str = "orchard_withdraw_v1";
+const ASSET_ORCHARD_EGRESS_ACTION_KIND: &str = "asset_orchard_egress_v1";
+const ASSET_ORCHARD_PRIVATE_EGRESS_ACTION_KIND: &str = "asset_orchard_private_egress_v1";
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 struct AccountTxDiskIndex {
@@ -304,13 +367,13 @@ fn append_account_tx_index_block(
     receipt_by_tx: &HashMap<&str, &Receipt>,
     touched_accounts: &mut BTreeSet<String>,
 ) -> io::Result<()> {
-    if block.header.batch_kind != "transparent" {
+    if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
         return Ok(());
     }
     index.indexed_from_height.get_or_insert(block.header.height);
     index.indexed_to_height = Some(block.header.height);
     index.indexed_block_count = index.indexed_block_count.saturating_add(1);
-    for row in account_tx_rows_for_transparent_block(block, archive, receipt_by_tx)? {
+    for row in account_tx_rows_for_block(block, archive, receipt_by_tx)? {
         index.indexed_row_count = index.indexed_row_count.saturating_add(1);
         touched_accounts.insert(row.from_address.clone());
         touched_accounts.insert(row.to_address.clone());
@@ -332,19 +395,19 @@ fn build_account_tx_index(
     let mut indexed_from_height = None;
     let mut indexed_to_height = None;
     for block in &block_log.blocks {
-        if block.header.batch_kind != "transparent" {
+        if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
             continue;
         }
         indexed_from_height.get_or_insert(block.header.height);
         indexed_to_height = Some(block.header.height);
         indexed_block_count = indexed_block_count.saturating_add(1);
-        for row in account_tx_rows_for_transparent_block(block, archive, &receipt_by_tx)? {
+        for row in account_tx_rows_for_block(block, archive, &receipt_by_tx)? {
             indexed_row_count = indexed_row_count.saturating_add(1);
             accounts_for_account_tx_index_map(&mut accounts, row);
         }
     }
     let index = AccountTxIndex {
-        schema: "postfiat-account-tx-index-v1".to_string(),
+        schema: ACCOUNT_TX_INDEX_SCHEMA.to_string(),
         chain_id: genesis.chain_id.clone(),
         genesis_hash: genesis_hash(genesis),
         protocol_version: genesis.protocol_version,
@@ -596,11 +659,11 @@ fn account_tx_scan(
     }
     for block_index in scan_order {
         let block = &block_log.blocks[block_index];
-        if block.header.batch_kind != "transparent" {
+        if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
             continue;
         }
         archive_lookup_count = archive_lookup_count.saturating_add(1);
-        let matching = account_tx_rows_for_transparent_block(block, &archive, &receipt_by_tx)?
+        let matching = account_tx_rows_for_block(block, &archive, &receipt_by_tx)?
             .into_iter()
             .filter(|row| row.from_address == options.address || row.to_address == options.address)
             .collect::<Vec<_>>();
@@ -707,7 +770,7 @@ fn write_account_tx_disk_index(store: &NodeStore, index: &AccountTxIndex) -> io:
     for (address, rows) in &index.accounts {
         let shard_file = account_tx_account_shard_file(address);
         let shard = AccountTxDiskAccountShard {
-            schema: "postfiat-account-tx-account-shard-v1".to_string(),
+            schema: ACCOUNT_TX_ACCOUNT_SHARD_SCHEMA.to_string(),
             chain_id: index.chain_id.clone(),
             genesis_hash: index.genesis_hash.clone(),
             protocol_version: index.protocol_version,
@@ -727,7 +790,7 @@ fn write_account_tx_disk_index(store: &NodeStore, index: &AccountTxIndex) -> io:
         );
     }
     let disk_index = AccountTxDiskIndex {
-        schema: "postfiat-account-tx-disk-index-v1".to_string(),
+        schema: ACCOUNT_TX_DISK_INDEX_SCHEMA.to_string(),
         chain_id: index.chain_id.clone(),
         genesis_hash: index.genesis_hash.clone(),
         protocol_version: index.protocol_version,
@@ -784,7 +847,7 @@ fn write_account_tx_disk_index_incremental(
         };
         let shard_file = account_tx_account_shard_file(address);
         let shard = AccountTxDiskAccountShard {
-            schema: "postfiat-account-tx-account-shard-v1".to_string(),
+            schema: ACCOUNT_TX_ACCOUNT_SHARD_SCHEMA.to_string(),
             chain_id: index.chain_id.clone(),
             genesis_hash: index.genesis_hash.clone(),
             protocol_version: index.protocol_version,
@@ -811,7 +874,7 @@ fn write_account_tx_disk_index_incremental(
         return write_account_tx_disk_index(store, index);
     }
     let disk_index = AccountTxDiskIndex {
-        schema: "postfiat-account-tx-disk-index-v1".to_string(),
+        schema: ACCOUNT_TX_DISK_INDEX_SCHEMA.to_string(),
         chain_id: index.chain_id.clone(),
         genesis_hash: index.genesis_hash.clone(),
         protocol_version: index.protocol_version,
@@ -854,7 +917,7 @@ fn account_tx_account_shard_matches(
     address: &str,
     account: &AccountTxDiskAccountEntry,
 ) -> Result<(), String> {
-    if shard.schema != "postfiat-account-tx-account-shard-v1" {
+    if shard.schema != ACCOUNT_TX_ACCOUNT_SHARD_SCHEMA {
         return Err(format!(
             "unsupported account_tx account shard schema `{}`",
             shard.schema
@@ -899,22 +962,234 @@ fn receipt_by_tx_id(receipts: &[Receipt]) -> io::Result<HashMap<&str, &Receipt>>
     Ok(receipt_by_tx)
 }
 
-fn account_tx_rows_for_transparent_block(
+/// Block kinds whose archived batches contribute `account_tx` rows: every
+/// transparent transaction, and the transparent credits of shielded
+/// withdrawals.
+fn account_tx_indexes_batch_kind(batch_kind: &str) -> bool {
+    matches!(batch_kind, BATCH_KIND_TRANSPARENT | BATCH_KIND_SHIELDED)
+}
+
+/// The `account_tx` rows of one block. The disk index, the index rebuild, the
+/// archive scan and `tx` all build rows through this function.
+fn account_tx_rows_for_block(
     block: &BlockRecord,
     archive: &BatchArchive,
     receipt_by_tx: &HashMap<&str, &Receipt>,
 ) -> io::Result<Vec<AccountTxRow>> {
+    if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
+        return Ok(Vec::new());
+    }
     let archive_entry = archive
         .find(&block.header.batch_kind, &block.header.batch_id)
         .ok_or_else(|| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
                 format!(
-                    "block {} references missing transparent archive batch `{}`",
-                    block.header.height, block.header.batch_id
+                    "block {} references missing {} archive batch `{}`",
+                    block.header.height, block.header.batch_kind, block.header.batch_id
                 ),
             )
         })?;
+    account_tx_rows_for_archived_block(block, archive_entry, receipt_by_tx)
+}
+
+fn account_tx_rows_for_archived_block(
+    block: &BlockRecord,
+    archive_entry: &BatchArchiveEntry,
+    receipt_by_tx: &HashMap<&str, &Receipt>,
+) -> io::Result<Vec<AccountTxRow>> {
+    match block.header.batch_kind.as_str() {
+        BATCH_KIND_TRANSPARENT => {
+            account_tx_rows_for_transparent_batch(block, archive_entry, receipt_by_tx)
+        }
+        BATCH_KIND_SHIELDED => {
+            account_tx_rows_for_shielded_batch(block, archive_entry, receipt_by_tx)
+        }
+        _ => Ok(Vec::new()),
+    }
+}
+
+/// Minimal view of an archived shielded batch: only the action list, so the
+/// index never depends on decoding action kinds it does not index.
+#[derive(Deserialize)]
+struct ShieldedBatchActionsView {
+    #[serde(default)]
+    actions: Vec<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+struct OrchardActionPoolIdView {
+    pool_id: String,
+}
+
+struct ShieldedWithdrawalCredit {
+    transaction_kind: &'static str,
+    pool_id: String,
+    to: String,
+    amount: u64,
+    fee: u64,
+    asset_id: Option<String>,
+}
+
+/// Rows for shielded-pool exits that credit a transparent account: native PFT
+/// `orchard_withdraw_v1`, and issued-asset `asset_orchard_egress_v1` /
+/// `asset_orchard_private_egress_v1`. `transaction_index` is the action index,
+/// which is also the action's receipt index in the block.
+fn account_tx_rows_for_shielded_batch(
+    block: &BlockRecord,
+    archive_entry: &BatchArchiveEntry,
+    receipt_by_tx: &HashMap<&str, &Receipt>,
+) -> io::Result<Vec<AccountTxRow>> {
+    let batch: ShieldedBatchActionsView = parse_archived_payload(block, archive_entry)?;
+    let mut rows = Vec::new();
+    for (action_index, action) in batch.actions.iter().enumerate() {
+        let Some(credit) = shielded_withdrawal_credit(block, action_index, action)? else {
+            continue;
+        };
+        let tx_id = block.receipt_ids.get(action_index).ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "block {} has no receipt id for shielded action {}",
+                    block.header.height, action_index
+                ),
+            )
+        })?;
+        let receipt = receipt_by_tx.get(tx_id.as_str()).copied();
+        rows.push(AccountTxRow {
+            tx_id: tx_id.clone(),
+            block_height: block.header.height,
+            batch_kind: block.header.batch_kind.clone(),
+            batch_id: block.header.batch_id.clone(),
+            transaction_index: action_index as u64,
+            transaction_kind: credit.transaction_kind.to_string(),
+            from_address: credit.pool_id,
+            to_address: credit.to,
+            amount: credit.amount,
+            fee: credit.fee,
+            sequence: 0,
+            memo_hash: None,
+            memo_count: None,
+            memo_bytes: None,
+            memos: None,
+            asset_id: credit.asset_id,
+            issuer: None,
+            trustline_authorized: None,
+            trustline_frozen: None,
+            nft_id: None,
+            nft_issuer_transfer_fee: None,
+            nft_collection_flags: None,
+            escrow_id: None,
+            offer_id: None,
+            tx_role: Some(ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL.to_string()),
+            counterparty_offer_id: None,
+            fill_index: None,
+            condition_hash: None,
+            accepted: receipt.map(|receipt| receipt.accepted),
+            receipt_code: receipt.map(|receipt| receipt.code.clone()),
+        });
+    }
+    Ok(rows)
+}
+
+fn shielded_withdrawal_credit(
+    block: &BlockRecord,
+    action_index: usize,
+    action: &serde_json::Value,
+) -> io::Result<Option<ShieldedWithdrawalCredit>> {
+    fn decode<T: serde::de::DeserializeOwned>(
+        block: &BlockRecord,
+        action_index: usize,
+        action: &serde_json::Value,
+    ) -> io::Result<T> {
+        T::deserialize(action).map_err(|error| {
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "block {} shielded action {action_index} payload parse failed: {error}",
+                    block.header.height
+                ),
+            )
+        })
+    }
+    let kind = action
+        .get("kind")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    let credit = match kind {
+        ORCHARD_WITHDRAW_ACTION_KIND => {
+            let payload: OrchardWithdrawActionPayload = decode(block, action_index, action)?;
+            // Execution rejects an action whose JSON does not parse, so the
+            // default pool id only ever labels a rejected row.
+            let pool_id = serde_json::from_str::<OrchardActionPoolIdView>(&payload.action_json)
+                .map(|view| view.pool_id)
+                .unwrap_or_else(|_| ORCHARD_DEFAULT_POOL_ID.to_string());
+            ShieldedWithdrawalCredit {
+                transaction_kind: ORCHARD_WITHDRAW_ACTION_KIND,
+                pool_id,
+                to: payload.to,
+                amount: payload.amount,
+                fee: payload.fee,
+                asset_id: None,
+            }
+        }
+        ASSET_ORCHARD_EGRESS_ACTION_KIND => {
+            let payload: AssetOrchardEgressActionPayload = decode(block, action_index, action)?;
+            ShieldedWithdrawalCredit {
+                transaction_kind: ASSET_ORCHARD_EGRESS_ACTION_KIND,
+                pool_id: payload.pool_id,
+                to: payload.to,
+                amount: payload.amount,
+                fee: 0,
+                asset_id: Some(payload.asset_id),
+            }
+        }
+        ASSET_ORCHARD_PRIVATE_EGRESS_ACTION_KIND => {
+            let payload: AssetOrchardPrivateEgressActionPayload =
+                decode(block, action_index, action)?;
+            ShieldedWithdrawalCredit {
+                transaction_kind: ASSET_ORCHARD_PRIVATE_EGRESS_ACTION_KIND,
+                pool_id: payload.pool_id,
+                to: payload.to,
+                amount: payload.amount,
+                fee: payload.fee,
+                asset_id: Some(payload.asset_id),
+            }
+        }
+        _ => return Ok(None),
+    };
+    // A malformed recipient, pool or asset id can only come from an action
+    // that execution rejected with no balance effect; such a row could not be
+    // queried or validated, so it is not indexed.
+    let asset_id_ok = credit
+        .asset_id
+        .as_deref()
+        .is_none_or(|asset_id| is_lower_hex_of_len(asset_id, ISSUED_ASSET_ID_HEX_LEN));
+    if !asset_id_ok
+        || !account_tx_key_is_clean(&credit.to)
+        || !account_tx_key_is_clean(&credit.pool_id)
+    {
+        return Ok(None);
+    }
+    Ok(Some(credit))
+}
+
+fn account_tx_key_is_clean(value: &str) -> bool {
+    !value.is_empty()
+        && value == value.trim()
+        && !value.chars().any(char::is_control)
+        && value.len() <= MAX_TEXT_FIELD_BYTES
+}
+
+fn is_lower_hex_of_len(value: &str, len: usize) -> bool {
+    value.len() == len && value.bytes().all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+fn account_tx_rows_for_transparent_batch(
+    block: &BlockRecord,
+    archive_entry: &BatchArchiveEntry,
+    receipt_by_tx: &HashMap<&str, &Receipt>,
+) -> io::Result<Vec<AccountTxRow>> {
     let batch: TransactionBatch = parse_archived_payload(block, archive_entry)?;
     let mut rows = Vec::new();
     for (transaction_index, transfer) in batch.transactions.iter().enumerate() {
@@ -954,6 +1229,7 @@ fn account_tx_rows_for_transparent_block(
             memo_hash: None,
             memo_count: None,
             memo_bytes: None,
+            memos: None,
             asset_id: None,
             issuer: None,
             trustline_authorized: None,
@@ -1009,6 +1285,7 @@ fn account_tx_rows_for_transparent_block(
             memo_hash: payment_v2_memo_hash(payment),
             memo_count: Some(unsigned.memos.len() as u64),
             memo_bytes: Some(unsigned.memo_bytes() as u64),
+            memos: Some(payment_v2_memo_views(payment)),
             asset_id: None,
             issuer: None,
             trustline_authorized: None,
@@ -1094,6 +1371,24 @@ fn account_tx_rows_for_transparent_block(
                 operation.amount,
                 Some(operation.asset_id.clone()),
                 Some(operation.issuer.clone()),
+                None,
+                None,
+            ),
+            AssetTransactionOperation::IssuedPaymentV2(operation) => (
+                operation.from.clone(),
+                operation.to.clone(),
+                operation.amount,
+                Some(operation.asset_id.clone()),
+                Some(operation.issuer.clone()),
+                None,
+                None,
+            ),
+            AssetTransactionOperation::AccountSet(operation) => (
+                unsigned.source.clone(),
+                operation.account.clone(),
+                0,
+                None,
+                None,
                 None,
                 None,
             ),
@@ -1527,6 +1822,14 @@ fn account_tx_rows_for_transparent_block(
                 None,
             ),
         };
+        let (memo_hash, memo_count, memo_bytes) = match &unsigned.operation {
+            AssetTransactionOperation::IssuedPaymentV2(operation) => (
+                payment_memos_hash(&operation.memos),
+                Some(operation.memos.len() as u64),
+                Some(operation.memo_bytes() as u64),
+            ),
+            _ => (None, None, None),
+        };
         let receipt = receipt_by_tx.get(tx_id.as_str()).copied();
         rows.push(AccountTxRow {
             tx_id: tx_id.clone(),
@@ -1540,9 +1843,13 @@ fn account_tx_rows_for_transparent_block(
             amount,
             fee: unsigned.fee,
             sequence: unsigned.sequence,
-            memo_hash: None,
-            memo_count: None,
-            memo_bytes: None,
+            memo_hash,
+            memo_count,
+            memo_bytes,
+            memos: match &unsigned.operation {
+                AssetTransactionOperation::IssuedPaymentV2(operation) => Some(payment_memo_views(&operation.memos)),
+                _ => None,
+            },
             asset_id,
             issuer,
             trustline_authorized,
@@ -1606,6 +1913,7 @@ fn account_tx_rows_for_transparent_block(
                 memo_hash: None,
                 memo_count: None,
                 memo_bytes: None,
+                memos: None,
                 asset_id: Some(leg.asset_id.clone()),
                 issuer: Some(leg.issuer.clone()),
                 trustline_authorized: None,
@@ -1631,6 +1939,7 @@ fn account_tx_rows_for_transparent_block(
             .saturating_add(batch.payments_v2.len())
             .saturating_add(batch.asset_transactions.len())
             .saturating_add(batch.atomic_swap_transactions.len())
+            .saturating_add(batch.fastlane_primary_transactions.len())
             .saturating_add(escrow_index);
         let unsigned = &transaction.unsigned;
         let expected_tx_id = escrow_transaction_tx_id(transaction);
@@ -1716,6 +2025,7 @@ fn account_tx_rows_for_transparent_block(
             memo_hash: None,
             memo_count: None,
             memo_bytes: None,
+            memos: None,
             asset_id,
             issuer: None,
             trustline_authorized: None,
@@ -1740,6 +2050,7 @@ fn account_tx_rows_for_transparent_block(
             .saturating_add(batch.payments_v2.len())
             .saturating_add(batch.asset_transactions.len())
             .saturating_add(batch.atomic_swap_transactions.len())
+            .saturating_add(batch.fastlane_primary_transactions.len())
             .saturating_add(batch.escrow_transactions.len())
             .saturating_add(nft_index);
         let unsigned = &transaction.unsigned;
@@ -1825,6 +2136,7 @@ fn account_tx_rows_for_transparent_block(
             memo_hash: None,
             memo_count: None,
             memo_bytes: None,
+            memos: None,
             asset_id: None,
             issuer,
             trustline_authorized: None,
@@ -1849,6 +2161,7 @@ fn account_tx_rows_for_transparent_block(
             .saturating_add(batch.payments_v2.len())
             .saturating_add(batch.asset_transactions.len())
             .saturating_add(batch.atomic_swap_transactions.len())
+            .saturating_add(batch.fastlane_primary_transactions.len())
             .saturating_add(batch.escrow_transactions.len())
             .saturating_add(batch.nft_transactions.len())
             .saturating_add(offer_index);
@@ -1923,6 +2236,7 @@ fn account_tx_rows_for_transparent_block(
             memo_hash: None,
             memo_count: None,
             memo_bytes: None,
+            memos: None,
             asset_id,
             issuer: None,
             trustline_authorized: None,
@@ -1958,6 +2272,7 @@ fn account_tx_rows_for_transparent_block(
                     memo_hash: None,
                     memo_count: None,
                     memo_bytes: None,
+                    memos: None,
                     asset_id: if fill.maker_sends_asset_id
                         == postfiat_execution::NATIVE_PFT_ESCROW_ASSET_ID
                     {
@@ -1987,11 +2302,17 @@ fn account_tx_rows_for_transparent_block(
 }
 
 fn payment_v2_memo_hash(payment: &SignedPaymentV2) -> Option<String> {
-    if payment.unsigned.memos.is_empty() {
+    payment_memos_hash(&payment.unsigned.memos)
+}
+
+/// Memo digest shared by `payment_v2` and `issued_payment_v2` account_tx rows,
+/// so the same memos yield the same `memo_hash` for native and issued assets.
+fn payment_memos_hash(memos: &[postfiat_types::PaymentMemo]) -> Option<String> {
+    if memos.is_empty() {
         return None;
     }
-    let mut bytes = format!("memo_count={}\n", payment.unsigned.memos.len()).into_bytes();
-    for (index, memo) in payment.unsigned.memos.iter().enumerate() {
+    let mut bytes = format!("memo_count={}\n", memos.len()).into_bytes();
+    for (index, memo) in memos.iter().enumerate() {
         bytes.extend_from_slice(
             format!(
                 "memo[{index}].type_bytes={}\nmemo[{index}].type={}\nmemo[{index}].format_bytes={}\nmemo[{index}].format={}\nmemo[{index}].data_bytes={}\nmemo[{index}].data={}\n",
@@ -2006,6 +2327,31 @@ fn payment_v2_memo_hash(payment: &SignedPaymentV2) -> Option<String> {
         );
     }
     Some(hash_hex("postfiat.payment_v2.memo.v1", &bytes))
+}
+
+fn payment_v2_memo_views(payment: &SignedPaymentV2) -> Vec<PaymentMemoView> {
+    payment_memo_views(&payment.unsigned.memos)
+}
+
+fn payment_memo_views(memos: &[postfiat_types::PaymentMemo]) -> Vec<PaymentMemoView> {
+    memos.iter()
+        .map(|memo| PaymentMemoView {
+            memo_type: memo.memo_type.clone(),
+            memo_format: memo.memo_format.clone(),
+            memo_data: memo.memo_data.clone(),
+            memo_type_text: memo_hex_utf8_text(&memo.memo_type),
+            memo_format_text: memo_hex_utf8_text(&memo.memo_format),
+            memo_data_text: memo_hex_utf8_text(&memo.memo_data),
+        })
+        .collect()
+}
+
+/// The UTF-8 reading of a hex memo field, when it is nonempty and valid UTF-8.
+fn memo_hex_utf8_text(hex: &str) -> Option<String> {
+    if hex.is_empty() {
+        return None;
+    }
+    String::from_utf8(hex_to_bytes(hex).ok()?).ok()
 }
 
 fn read_usable_account_tx_index(
@@ -2034,7 +2380,7 @@ fn account_tx_index_matches_chain(
 }
 
 fn account_tx_index_matches_domain(index: &AccountTxIndex, genesis: &Genesis) -> Result<(), String> {
-    if index.schema != "postfiat-account-tx-index-v1" {
+    if index.schema != ACCOUNT_TX_INDEX_SCHEMA {
         return Err(format!(
             "unsupported account_tx index schema `{}`",
             index.schema
@@ -2068,7 +2414,7 @@ fn account_tx_disk_index_matches_genesis_and_tip(
     genesis: &Genesis,
     current_tip_hash: &str,
 ) -> Result<(), String> {
-    if index.schema != "postfiat-account-tx-disk-index-v1" {
+    if index.schema != ACCOUNT_TX_DISK_INDEX_SCHEMA {
         return Err(format!(
             "unsupported account_tx disk index schema `{}`",
             index.schema
@@ -2108,7 +2454,7 @@ fn account_tx_disk_index_matches_domain(
     disk_index: &AccountTxDiskIndex,
     index: &AccountTxIndex,
 ) -> Result<(), String> {
-    if disk_index.schema != "postfiat-account-tx-disk-index-v1" {
+    if disk_index.schema != ACCOUNT_TX_DISK_INDEX_SCHEMA {
         return Err(format!(
             "unsupported account_tx disk index schema `{}`",
             disk_index.schema

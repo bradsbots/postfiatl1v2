@@ -430,6 +430,16 @@ fn validate_account_result(result: &Value) -> Result<(), RpcResponseValidationEr
     if result.get("public_key_hex").is_some() {
         optional_lower_hex_string_field_value(result, "public_key_hex")?;
     }
+    // Present only when nonzero (`account_set`), e.g. 1 = require memo.
+    if result.get("flags").is_some() {
+        let flags = u64_field(result, "flags")?;
+        if flags == 0 || flags & !u64::from(postfiat_types::ACCOUNT_ALLOWED_FLAGS) != 0 {
+            return Err(invalid_result(
+                "flags",
+                "expected nonzero flags within the supported account flag mask",
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -611,243 +621,362 @@ fn validate_account_tx_result(result: &Value) -> Result<(), RpcResponseValidatio
         ));
     }
     for row in rows {
-        lower_hex_field(row, "tx_id", 96)?;
-        nonzero_u64_field(row, "block_height")?;
-        expect_string_eq(row, "batch_kind", "transparent")?;
-        lower_hex_field(row, "batch_id", 96)?;
-        u64_field(row, "transaction_index")?;
-        if let Some(transaction_kind) = row.get("transaction_kind") {
-            let transaction_kind = transaction_kind
-                .as_str()
-                .ok_or_else(|| invalid_result("transaction_kind", "expected string value"))?;
-            if !matches!(
-                transaction_kind,
-                TRANSPARENT_TRANSFER_KIND | PAYMENT_V2_TRANSACTION_KIND
-            ) && !is_supported_asset_transaction_kind(transaction_kind)
-                && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
-                && !is_supported_escrow_transaction_kind(transaction_kind)
-                && !is_supported_nft_transaction_kind(transaction_kind)
-                && !is_supported_offer_transaction_kind(transaction_kind)
-            {
+        validate_account_tx_row(row, Some(address))?;
+    }
+    Ok(())
+}
+
+/// `transaction_kind` values of `account_tx` rows built from shielded blocks:
+/// shielded-pool exits that credit the row's transparent `to` account.
+const ACCOUNT_TX_SHIELDED_WITHDRAWAL_KINDS: [&str; 3] = [
+    "orchard_withdraw_v1",
+    "asset_orchard_egress_v1",
+    "asset_orchard_private_egress_v1",
+];
+const ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL: &str = "shielded_withdrawal";
+
+fn is_account_tx_shielded_withdrawal_kind(kind: &str) -> bool {
+    ACCOUNT_TX_SHIELDED_WITHDRAWAL_KINDS.contains(&kind)
+}
+
+/// One `account_tx` row, as returned by `account_tx` and in `tx`
+/// `transaction_rows`. With `address`, the row must involve that account.
+fn validate_account_tx_row(
+    row: &Value,
+    address: Option<&str>,
+) -> Result<(), RpcResponseValidationError> {
+    lower_hex_field(row, "tx_id", 96)?;
+    nonzero_u64_field(row, "block_height")?;
+    let batch_kind = clean_string_field(row, "batch_kind")?;
+    lower_hex_field(row, "batch_id", 96)?;
+    u64_field(row, "transaction_index")?;
+    let row_kind = row
+        .get("transaction_kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    match batch_kind {
+        "transparent" => {
+            if is_account_tx_shielded_withdrawal_kind(row_kind) {
                 return Err(invalid_result(
                     "transaction_kind",
-                    "expected transparent_transfer, payment_v2, supported asset transaction kind, supported escrow transaction kind, supported nft transaction kind, or supported offer transaction kind",
+                    "unexpected shielded withdrawal on a transparent account_tx row",
                 ));
             }
         }
-        let from = clean_string_field(row, "from")?;
-        let to = clean_string_field(row, "to")?;
+        "shielded" => {
+            if !is_account_tx_shielded_withdrawal_kind(row_kind) {
+                return Err(invalid_result(
+                    "transaction_kind",
+                    "expected a shielded withdrawal kind on a shielded account_tx row",
+                ));
+            }
+            if row.get("tx_role").and_then(Value::as_str)
+                != Some(ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL)
+            {
+                return Err(invalid_result(
+                    "tx_role",
+                    "expected shielded_withdrawal tx_role on a shielded account_tx row",
+                ));
+            }
+        }
+        _ => {
+            return Err(invalid_result(
+                "batch_kind",
+                "expected transparent or shielded account_tx row",
+            ));
+        }
+    }
+    if let Some(transaction_kind) = row.get("transaction_kind") {
+        let transaction_kind = transaction_kind
+            .as_str()
+            .ok_or_else(|| invalid_result("transaction_kind", "expected string value"))?;
+        if !matches!(
+            transaction_kind,
+            TRANSPARENT_TRANSFER_KIND | PAYMENT_V2_TRANSACTION_KIND
+        ) && !is_supported_asset_transaction_kind(transaction_kind)
+            && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
+            && !is_supported_escrow_transaction_kind(transaction_kind)
+            && !is_supported_nft_transaction_kind(transaction_kind)
+            && !is_supported_offer_transaction_kind(transaction_kind)
+            && !is_account_tx_shielded_withdrawal_kind(transaction_kind)
+        {
+            return Err(invalid_result(
+                "transaction_kind",
+                "expected transparent_transfer, payment_v2, supported asset transaction kind, supported escrow transaction kind, supported nft transaction kind, supported offer transaction kind, or shielded withdrawal kind",
+            ));
+        }
+    }
+    let from = clean_string_field(row, "from")?;
+    let to = clean_string_field(row, "to")?;
+    if let Some(address) = address {
         if from != address && to != address {
             return Err(invalid_result(
                 "rows",
                 "expected every account_tx row to involve the requested address",
             ));
         }
-        u64_field(row, "amount")?;
-        u64_field(row, "fee")?;
-        u64_field(row, "sequence")?;
-        optional_lower_hex_string_field_value(row, "memo_hash")?;
-        if row.get("memo_count").is_some() {
-            optional_u64_result_field(row, "memo_count")?;
-        }
-        if row.get("memo_bytes").is_some() {
-            optional_u64_result_field(row, "memo_bytes")?;
-        }
-        if let Some(asset_id) =
-            optional_lower_hex_len_field_value(row, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?
+    }
+    u64_field(row, "amount")?;
+    u64_field(row, "fee")?;
+    u64_field(row, "sequence")?;
+    optional_lower_hex_string_field_value(row, "memo_hash")?;
+    if row.get("memo_count").is_some() {
+        optional_u64_result_field(row, "memo_count")?;
+    }
+    if row.get("memo_bytes").is_some() {
+        optional_u64_result_field(row, "memo_bytes")?;
+    }
+    validate_account_tx_row_memos(row, row_kind)?;
+    if let Some(asset_id) =
+        optional_lower_hex_len_field_value(row, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?
+    {
+        let transaction_kind = row
+            .get("transaction_kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if !is_supported_asset_transaction_kind(transaction_kind)
+            && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
+            && !is_supported_escrow_transaction_kind(transaction_kind)
+            && !is_supported_offer_transaction_kind(transaction_kind)
+            && transaction_kind != "asset_orchard_egress_v1"
+            && transaction_kind != "asset_orchard_private_egress_v1"
         {
-            let transaction_kind = row
-                .get("transaction_kind")
+            return Err(invalid_result(
+                "asset_id",
+                format!("unexpected asset_id `{asset_id}` on account_tx row"),
+            ));
+        }
+    }
+    if row.get("issuer").is_some() {
+        optional_clean_string_result_field(row, "issuer")?;
+        let transaction_kind = row
+            .get("transaction_kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if !is_supported_asset_transaction_kind(transaction_kind)
+            && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
+            && transaction_kind != NFT_MINT_TRANSACTION_KIND
+            && transaction_kind != NFT_TRANSFER_TRANSACTION_KIND
+        {
+            return Err(invalid_result(
+                "issuer",
+                "unexpected issuer on non-asset or non-nft account_tx row",
+            ));
+        }
+    }
+    if row.get("trustline_authorized").is_some() {
+        optional_bool_result_field(row, "trustline_authorized")?;
+        if row.get("transaction_kind").and_then(Value::as_str)
+            != Some(TRUST_SET_TRANSACTION_KIND)
+        {
+            return Err(invalid_result(
+                "trustline_authorized",
+                "unexpected trustline_authorized on non-trust_set account_tx row",
+            ));
+        }
+    }
+    if row.get("trustline_frozen").is_some() {
+        optional_bool_result_field(row, "trustline_frozen")?;
+        if row.get("transaction_kind").and_then(Value::as_str)
+            != Some(TRUST_SET_TRANSACTION_KIND)
+        {
+            return Err(invalid_result(
+                "trustline_frozen",
+                "unexpected trustline_frozen on non-trust_set account_tx row",
+            ));
+        }
+    }
+    if row.get("nft_id").is_some() {
+        optional_lower_hex_len_field_value(row, "nft_id", NFT_ID_HEX_LEN)?;
+        if !is_supported_nft_transaction_kind(
+            row.get("transaction_kind")
                 .and_then(Value::as_str)
-                .unwrap_or_default();
-            if !is_supported_asset_transaction_kind(transaction_kind)
-                && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
-                && !is_supported_escrow_transaction_kind(transaction_kind)
-                && !is_supported_offer_transaction_kind(transaction_kind)
-            {
-                return Err(invalid_result(
-                    "asset_id",
-                    format!("unexpected asset_id `{asset_id}` on account_tx row"),
-                ));
-            }
+                .unwrap_or_default(),
+        ) {
+            return Err(invalid_result(
+                "nft_id",
+                "unexpected nft_id on non-nft account_tx row",
+            ));
         }
-        if row.get("issuer").is_some() {
-            optional_clean_string_result_field(row, "issuer")?;
-            let transaction_kind = row
-                .get("transaction_kind")
+    }
+    if row.get("nft_issuer_transfer_fee").is_some() {
+        optional_u64_result_field(row, "nft_issuer_transfer_fee")?;
+        if row.get("transaction_kind").and_then(Value::as_str)
+            != Some(NFT_TRANSFER_TRANSACTION_KIND)
+        {
+            return Err(invalid_result(
+                "nft_issuer_transfer_fee",
+                "unexpected nft_issuer_transfer_fee on non-nft-transfer account_tx row",
+            ));
+        }
+    }
+    if row.get("nft_collection_flags").is_some() {
+        let Some(collection_flags) = optional_u64_field_value(row, "nft_collection_flags")?
+        else {
+            return Err(invalid_result(
+                "nft_collection_flags",
+                "expected non-null collection flags when present",
+            ));
+        };
+        if collection_flags > u32::MAX as u64 {
+            return Err(invalid_result(
+                "nft_collection_flags",
+                "expected u32-compatible collection flags",
+            ));
+        }
+        if row.get("transaction_kind").and_then(Value::as_str)
+            != Some(NFT_MINT_TRANSACTION_KIND)
+        {
+            return Err(invalid_result(
+                "nft_collection_flags",
+                "unexpected nft_collection_flags on non-nft-mint account_tx row",
+            ));
+        }
+    }
+    if row.get("escrow_id").is_some() {
+        optional_lower_hex_len_field_value(row, "escrow_id", ESCROW_ID_HEX_LEN)?;
+        if !is_supported_escrow_transaction_kind(
+            row.get("transaction_kind")
                 .and_then(Value::as_str)
-                .unwrap_or_default();
-            if !is_supported_asset_transaction_kind(transaction_kind)
-                && transaction_kind != ATOMIC_SWAP_TRANSACTION_KIND
-                && transaction_kind != NFT_MINT_TRANSACTION_KIND
-                && transaction_kind != NFT_TRANSFER_TRANSACTION_KIND
-            {
-                return Err(invalid_result(
-                    "issuer",
-                    "unexpected issuer on non-asset or non-nft account_tx row",
-                ));
-            }
+                .unwrap_or_default(),
+        ) {
+            return Err(invalid_result(
+                "escrow_id",
+                "unexpected escrow_id on non-escrow account_tx row",
+            ));
         }
-        if row.get("trustline_authorized").is_some() {
-            optional_bool_result_field(row, "trustline_authorized")?;
-            if row.get("transaction_kind").and_then(Value::as_str)
-                != Some(TRUST_SET_TRANSACTION_KIND)
-            {
-                return Err(invalid_result(
-                    "trustline_authorized",
-                    "unexpected trustline_authorized on non-trust_set account_tx row",
-                ));
-            }
-        }
-        if row.get("trustline_frozen").is_some() {
-            optional_bool_result_field(row, "trustline_frozen")?;
-            if row.get("transaction_kind").and_then(Value::as_str)
-                != Some(TRUST_SET_TRANSACTION_KIND)
-            {
-                return Err(invalid_result(
-                    "trustline_frozen",
-                    "unexpected trustline_frozen on non-trust_set account_tx row",
-                ));
-            }
-        }
-        if row.get("nft_id").is_some() {
-            optional_lower_hex_len_field_value(row, "nft_id", NFT_ID_HEX_LEN)?;
-            if !is_supported_nft_transaction_kind(
-                row.get("transaction_kind")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            ) {
-                return Err(invalid_result(
-                    "nft_id",
-                    "unexpected nft_id on non-nft account_tx row",
-                ));
-            }
-        }
-        if row.get("nft_issuer_transfer_fee").is_some() {
-            optional_u64_result_field(row, "nft_issuer_transfer_fee")?;
-            if row.get("transaction_kind").and_then(Value::as_str)
-                != Some(NFT_TRANSFER_TRANSACTION_KIND)
-            {
-                return Err(invalid_result(
-                    "nft_issuer_transfer_fee",
-                    "unexpected nft_issuer_transfer_fee on non-nft-transfer account_tx row",
-                ));
-            }
-        }
-        if row.get("nft_collection_flags").is_some() {
-            let Some(collection_flags) = optional_u64_field_value(row, "nft_collection_flags")?
-            else {
-                return Err(invalid_result(
-                    "nft_collection_flags",
-                    "expected non-null collection flags when present",
-                ));
-            };
-            if collection_flags > u32::MAX as u64 {
-                return Err(invalid_result(
-                    "nft_collection_flags",
-                    "expected u32-compatible collection flags",
-                ));
-            }
-            if row.get("transaction_kind").and_then(Value::as_str)
-                != Some(NFT_MINT_TRANSACTION_KIND)
-            {
-                return Err(invalid_result(
-                    "nft_collection_flags",
-                    "unexpected nft_collection_flags on non-nft-mint account_tx row",
-                ));
-            }
-        }
-        if row.get("escrow_id").is_some() {
-            optional_lower_hex_len_field_value(row, "escrow_id", ESCROW_ID_HEX_LEN)?;
-            if !is_supported_escrow_transaction_kind(
-                row.get("transaction_kind")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            ) {
-                return Err(invalid_result(
-                    "escrow_id",
-                    "unexpected escrow_id on non-escrow account_tx row",
-                ));
-            }
-        }
-        if row.get("offer_id").is_some() {
-            optional_lower_hex_len_field_value(row, "offer_id", OFFER_ID_HEX_LEN)?;
-            if !is_supported_offer_transaction_kind(
-                row.get("transaction_kind")
-                    .and_then(Value::as_str)
-                    .unwrap_or_default(),
-            ) {
-                return Err(invalid_result(
-                    "offer_id",
-                    "unexpected offer_id on non-offer account_tx row",
-                ));
-            }
-        }
-        if let Some(tx_role) = row.get("tx_role") {
-            let tx_role = tx_role
-                .as_str()
-                .ok_or_else(|| invalid_result("tx_role", "expected string value"))?;
-            let transaction_kind = row
-                .get("transaction_kind")
+    }
+    if row.get("offer_id").is_some() {
+        optional_lower_hex_len_field_value(row, "offer_id", OFFER_ID_HEX_LEN)?;
+        if !is_supported_offer_transaction_kind(
+            row.get("transaction_kind")
                 .and_then(Value::as_str)
-                .unwrap_or_default();
-            if transaction_kind == ATOMIC_SWAP_TRANSACTION_KIND {
-                if !matches!(tx_role, "leg_0" | "leg_1") {
-                    return Err(invalid_result(
-                        "tx_role",
-                        "expected atomic swap tx_role leg_0 or leg_1",
-                    ));
-                }
-            } else if !is_supported_offer_transaction_kind(transaction_kind) {
+                .unwrap_or_default(),
+        ) {
+            return Err(invalid_result(
+                "offer_id",
+                "unexpected offer_id on non-offer account_tx row",
+            ));
+        }
+    }
+    if let Some(tx_role) = row.get("tx_role") {
+        let tx_role = tx_role
+            .as_str()
+            .ok_or_else(|| invalid_result("tx_role", "expected string value"))?;
+        let transaction_kind = row
+            .get("transaction_kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if transaction_kind == ATOMIC_SWAP_TRANSACTION_KIND {
+            if !matches!(tx_role, "leg_0" | "leg_1") {
                 return Err(invalid_result(
                     "tx_role",
-                    "unexpected tx_role on non-offer/non-atomic account_tx row",
+                    "expected atomic swap tx_role leg_0 or leg_1",
                 ));
-            } else if !matches!(
-                tx_role,
-                OFFER_TX_ROLE_TAKER | OFFER_TX_ROLE_MAKER | OFFER_TX_ROLE_CANCEL
-            ) {
+            }
+        } else if is_account_tx_shielded_withdrawal_kind(transaction_kind) {
+            if tx_role != ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL {
                 return Err(invalid_result(
                     "tx_role",
-                    "expected supported offer tx role",
+                    "expected shielded_withdrawal tx_role on a shielded withdrawal row",
                 ));
             }
+        } else if !is_supported_offer_transaction_kind(transaction_kind) {
+            return Err(invalid_result(
+                "tx_role",
+                "unexpected tx_role on non-offer/non-atomic account_tx row",
+            ));
+        } else if !matches!(
+            tx_role,
+            OFFER_TX_ROLE_TAKER | OFFER_TX_ROLE_MAKER | OFFER_TX_ROLE_CANCEL
+        ) {
+            return Err(invalid_result(
+                "tx_role",
+                "expected supported offer tx role",
+            ));
         }
-        if row.get("counterparty_offer_id").is_some() {
-            optional_lower_hex_len_field_value(row, "counterparty_offer_id", OFFER_ID_HEX_LEN)?;
-            if row.get("tx_role").and_then(Value::as_str) != Some(OFFER_TX_ROLE_MAKER) {
-                return Err(invalid_result(
-                    "counterparty_offer_id",
-                    "expected counterparty_offer_id only on maker offer rows",
-                ));
-            }
+    }
+    if row.get("counterparty_offer_id").is_some() {
+        optional_lower_hex_len_field_value(row, "counterparty_offer_id", OFFER_ID_HEX_LEN)?;
+        if row.get("tx_role").and_then(Value::as_str) != Some(OFFER_TX_ROLE_MAKER) {
+            return Err(invalid_result(
+                "counterparty_offer_id",
+                "expected counterparty_offer_id only on maker offer rows",
+            ));
         }
-        if row.get("fill_index").is_some() {
-            optional_u64_result_field(row, "fill_index")?;
-            if row.get("tx_role").and_then(Value::as_str) != Some(OFFER_TX_ROLE_MAKER) {
-                return Err(invalid_result(
-                    "fill_index",
-                    "expected fill_index only on maker offer rows",
-                ));
-            }
+    }
+    if row.get("fill_index").is_some() {
+        optional_u64_result_field(row, "fill_index")?;
+        if row.get("tx_role").and_then(Value::as_str) != Some(OFFER_TX_ROLE_MAKER) {
+            return Err(invalid_result(
+                "fill_index",
+                "expected fill_index only on maker offer rows",
+            ));
         }
-        if row.get("condition_hash").is_some() {
-            optional_lower_hex_len_field_value(
-                row,
+    }
+    if row.get("condition_hash").is_some() {
+        optional_lower_hex_len_field_value(
+            row,
+            "condition_hash",
+            ESCROW_CONDITION_HASH_HEX_LEN,
+        )?;
+        if row.get("transaction_kind").and_then(Value::as_str)
+            != Some(ESCROW_CREATE_TRANSACTION_KIND)
+        {
+            return Err(invalid_result(
                 "condition_hash",
-                ESCROW_CONDITION_HASH_HEX_LEN,
-            )?;
-            if row.get("transaction_kind").and_then(Value::as_str)
-                != Some(ESCROW_CREATE_TRANSACTION_KIND)
-            {
+                "unexpected condition_hash on non-escrow-create account_tx row",
+            ));
+        }
+    }
+    optional_bool_result_field(row, "accepted")?;
+    optional_clean_string_result_field(row, "receipt_code")?;
+    Ok(())
+}
+
+/// `memos` is present on native and issued `payment_v2` rows: signed lowercase-hex
+/// memo fields plus optional UTF-8 `*_text` readings, one entry per memo.
+fn validate_account_tx_row_memos(
+    row: &Value,
+    transaction_kind: &str,
+) -> Result<(), RpcResponseValidationError> {
+    let Some(memos) = row.get("memos") else {
+        return Ok(());
+    };
+    if !matches!(transaction_kind, PAYMENT_V2_TRANSACTION_KIND | postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND) {
+        return Err(invalid_result(
+            "memos",
+            "unexpected memos on a payment without memo support",
+        ));
+    }
+    let memos = memos
+        .as_array()
+        .ok_or_else(|| invalid_result("memos", "expected array value"))?;
+    if let Some(memo_count) = row.get("memo_count").and_then(Value::as_u64) {
+        if memo_count != memos.len() as u64 {
+            return Err(invalid_result(
+                "memos",
+                "expected memos length to match memo_count",
+            ));
+        }
+    }
+    for memo in memos {
+        for key in ["memo_type", "memo_format", "memo_data"] {
+            let value = string_field(memo, key)?;
+            if !value.is_empty() && !is_lower_hex_string(value) {
                 return Err(invalid_result(
-                    "condition_hash",
-                    "unexpected condition_hash on non-escrow-create account_tx row",
+                    key,
+                    "expected empty or lowercase hex memo field",
                 ));
             }
         }
-        optional_bool_result_field(row, "accepted")?;
-        optional_clean_string_result_field(row, "receipt_code")?;
+        for key in ["memo_type_text", "memo_format_text", "memo_data_text"] {
+            if let Some(text) = memo.get(key) {
+                if !text.is_string() {
+                    return Err(invalid_result(key, "expected string value"));
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -2535,6 +2664,22 @@ fn validate_tx_finality_result_with_schema(
             "expected indexed block receipt_id to match finality tx_id",
         ));
     }
+    if let Some(rows) = result.get("transaction_rows") {
+        let rows = rows
+            .as_array()
+            .ok_or_else(|| invalid_result("transaction_rows", "expected array value"))?;
+        for row in rows {
+            validate_account_tx_row(row, None)?;
+            if string_field(row, "tx_id")? != tx_id
+                || nonzero_u64_field(row, "block_height")? != block_height
+            {
+                return Err(invalid_result(
+                    "transaction_rows",
+                    "expected every transaction row to belong to the finality tx_id and block",
+                ));
+            }
+        }
+    }
     Ok(())
 }
 
@@ -3573,6 +3718,16 @@ fn validate_asset_operation_fields(
             lower_hex_field(value, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
             nonzero_u64_field(value, "amount")?;
         }
+        postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND => {
+            clean_string_field(value, "from")?;
+            clean_string_field(value, "to")?;
+            clean_string_field(value, "issuer")?;
+            lower_hex_field(value, "asset_id", ISSUED_ASSET_ID_HEX_LEN)?;
+            nonzero_u64_field(value, "amount")?;
+        }
+        postfiat_types::ACCOUNT_SET_TRANSACTION_KIND => {
+            clean_string_field(value, "account")?;
+        }
         ASSET_BURN_TRANSACTION_KIND => {
             clean_string_field(value, "owner")?;
             clean_string_field(value, "issuer")?;
@@ -3912,6 +4067,8 @@ fn is_supported_asset_transaction_kind(kind: &str) -> bool {
         ASSET_CREATE_TRANSACTION_KIND
             | TRUST_SET_TRANSACTION_KIND
             | ISSUED_PAYMENT_TRANSACTION_KIND
+            | postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND
+            | postfiat_types::ACCOUNT_SET_TRANSACTION_KIND
             | ASSET_BURN_TRANSACTION_KIND
             | ASSET_CLAWBACK_TRANSACTION_KIND
             | NAV_ASSET_REGISTER_TRANSACTION_KIND

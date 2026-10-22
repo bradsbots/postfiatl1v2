@@ -1,5 +1,8 @@
 # Plans
 
+> **Internal engineering record.** Execution plans and journals for the project's own work, not current operating truth.
+> For the network as it is now, read [Network Status](../status/network-status.md).
+
 Only current execution plans and completed plans belong here.
 
 ## Active

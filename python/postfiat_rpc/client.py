@@ -11,7 +11,7 @@ import hashlib
 import json
 import socket
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -105,6 +105,10 @@ class AccountTxRow:
     condition_hash: str | None
     accepted: bool | None
     receipt_code: str | None
+    # payment_v2 memo contents: one dict per memo with the signed hex
+    # memo_type/memo_format/memo_data and, when valid UTF-8, *_text readings.
+    # None on every other transaction kind.
+    memos: tuple[dict[str, str], ...] | None = field(default=None, hash=False)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -122,6 +126,7 @@ class AccountTxRow:
             "memo_hash": self.memo_hash,
             "memo_count": self.memo_count,
             "memo_bytes": self.memo_bytes,
+            "memos": None if self.memos is None else [dict(memo) for memo in self.memos],
             "asset_id": self.asset_id,
             "issuer": self.issuer,
             "trustline_authorized": self.trustline_authorized,
@@ -1984,7 +1989,7 @@ class PostFiatRpcClient:
             height = self._block_height(block)
             if height is None or not batch_kind or not batch_id:
                 continue
-            if batch_kind != "transparent":
+            if batch_kind not in ("transparent", "shielded"):
                 continue
             archive_lookup_count += 1
             rows_in_block: list[AccountTxRow] = []
@@ -2162,6 +2167,7 @@ class PostFiatRpcClient:
                         if isinstance(row.get("receipt_code"), str)
                         else None
                     ),
+                    memos=_account_tx_memos_from_server_row(row),
                 )
             )
         return AccountTxScan(
@@ -2205,6 +2211,15 @@ class PostFiatRpcClient:
         entry: dict[str, Any],
     ) -> list[AccountTxRow]:
         payload = self._archive_payload(entry)
+        if batch_kind == "shielded":
+            return self._account_tx_rows_from_shielded_payload(
+                address=address,
+                block=block,
+                batch_kind=batch_kind,
+                batch_id=batch_id,
+                height=height,
+                payload=payload,
+            )
         transactions = payload.get("transactions", [])
         if not isinstance(transactions, list):
             return []
@@ -2226,6 +2241,9 @@ class PostFiatRpcClient:
         atomic_swap_transactions = payload.get("atomic_swap_transactions", [])
         if not isinstance(atomic_swap_transactions, list):
             atomic_swap_transactions = []
+        fastlane_primary_transactions = payload.get("fastlane_primary_transactions", [])
+        if not isinstance(fastlane_primary_transactions, list):
+            fastlane_primary_transactions = []
         receipt_ids = block.get("receipt_ids", [])
         if not isinstance(receipt_ids, list):
             receipt_ids = []
@@ -2298,6 +2316,7 @@ class PostFiatRpcClient:
             memos = unsigned.get("memos", [])
             memo_count = len(memos) if isinstance(memos, list) else 0
             memo_bytes = 0
+            memo_views: list[dict[str, str]] = []
             if isinstance(memos, list):
                 for memo in memos:
                     if not isinstance(memo, dict):
@@ -2306,6 +2325,7 @@ class PostFiatRpcClient:
                         value = memo.get(key)
                         if isinstance(value, str):
                             memo_bytes += len(value) // 2
+                    memo_views.append(_payment_memo_view(memo))
             rows.append(
                 AccountTxRow(
                     tx_id=tx_id,
@@ -2326,6 +2346,7 @@ class PostFiatRpcClient:
                     memo_hash=None,
                     memo_count=memo_count,
                     memo_bytes=memo_bytes,
+                    memos=tuple(memo_views),
                     asset_id=None,
                     issuer=None,
                     trustline_authorized=None,
@@ -2377,14 +2398,28 @@ class PostFiatRpcClient:
                 trustline_frozen = (
                     operation.get("frozen") if isinstance(operation.get("frozen"), bool) else None
                 )
-            elif op_kind == "issued_payment":
+            elif op_kind in ("issued_payment", "issued_payment_v2"):
                 sender = operation.get("from")
                 recipient = operation.get("to")
                 amount = operation.get("amount")
+            elif op_kind == "account_set":
+                recipient = operation.get("account")
             elif op_kind == "asset_burn":
                 sender = operation.get("owner")
                 recipient = operation.get("issuer")
                 amount = operation.get("amount")
+            asset_memo_count: int | None = None
+            asset_memo_bytes: int | None = None
+            asset_memos = operation.get("memos")
+            if op_kind == "issued_payment_v2" and isinstance(asset_memos, list):
+                asset_memo_count = len(asset_memos)
+                asset_memo_bytes = sum(
+                    len(memo.get(key)) // 2
+                    for memo in asset_memos
+                    if isinstance(memo, dict)
+                    for key in ("memo_type", "memo_format", "memo_data")
+                    if isinstance(memo.get(key), str)
+                )
             if sender != address and recipient != address:
                 continue
             index = offset + asset_index
@@ -2410,8 +2445,13 @@ class PostFiatRpcClient:
                         else None
                     ),
                     memo_hash=None,
-                    memo_count=None,
-                    memo_bytes=None,
+                    memo_count=asset_memo_count,
+                    memo_bytes=asset_memo_bytes,
+                    memos=(
+                        tuple(_payment_memo_view(memo) for memo in asset_memos if isinstance(memo, dict))
+                        if op_kind == "issued_payment_v2" and isinstance(asset_memos, list)
+                        else None
+                    ),
                     asset_id=asset_id if isinstance(asset_id, str) else None,
                     issuer=issuer if isinstance(issuer, str) else None,
                     trustline_authorized=trustline_authorized,
@@ -2499,6 +2539,9 @@ class PostFiatRpcClient:
                     )
                 )
         offset += len(atomic_swap_transactions)
+        # FastLane primary transactions have no account_tx rows but take the
+        # receipt ids between atomic swaps and escrows.
+        offset += len(fastlane_primary_transactions)
         for escrow_index, transaction in enumerate(escrow_transactions):
             if not isinstance(transaction, dict):
                 continue
@@ -2842,6 +2885,77 @@ class PostFiatRpcClient:
                     )
         return rows
 
+    def _account_tx_rows_from_shielded_payload(
+        self,
+        *,
+        address: str,
+        block: dict[str, Any],
+        batch_kind: str,
+        batch_id: str,
+        height: int,
+        payload: dict[str, Any],
+    ) -> list[AccountTxRow]:
+        """Shielded-withdrawal credits, as the server archive scan lists them:
+        one row per orchard_withdraw_v1 / asset_orchard_*egress_v1 action, from
+        the shielded pool to the transparent recipient, with the action index
+        as transaction_index and tx_role "shielded_withdrawal"."""
+        actions = payload.get("actions", [])
+        if not isinstance(actions, list):
+            return []
+        receipt_ids = block.get("receipt_ids", [])
+        if not isinstance(receipt_ids, list):
+            receipt_ids = []
+        rows: list[AccountTxRow] = []
+        for index, action in enumerate(actions):
+            credit = _shielded_withdrawal_credit(action)
+            if credit is None:
+                continue
+            kind, pool_id, recipient, amount, fee, asset_id = credit
+            if pool_id != address and recipient != address:
+                continue
+            tx_id = receipt_ids[index] if index < len(receipt_ids) else None
+            receipt = self._receipt_for_tx_id(tx_id)
+            rows.append(
+                AccountTxRow(
+                    tx_id=tx_id,
+                    block_height=height,
+                    batch_kind=batch_kind,
+                    batch_id=batch_id,
+                    transaction_index=index,
+                    transaction_kind=kind,
+                    sender=pool_id,
+                    recipient=recipient,
+                    amount=amount,
+                    fee=fee,
+                    sequence=0,
+                    memo_hash=None,
+                    memo_count=None,
+                    memo_bytes=None,
+                    asset_id=asset_id,
+                    issuer=None,
+                    trustline_authorized=None,
+                    trustline_frozen=None,
+                    nft_id=None,
+                    nft_issuer_transfer_fee=None,
+                    nft_collection_flags=None,
+                    escrow_id=None,
+                    offer_id=None,
+                    tx_role=SHIELDED_WITHDRAWAL_TX_ROLE,
+                    counterparty_offer_id=None,
+                    fill_index=None,
+                    condition_hash=None,
+                    accepted=(
+                        receipt.get("accepted")
+                        if isinstance(receipt.get("accepted"), bool)
+                        else None
+                    ),
+                    receipt_code=(
+                        receipt.get("code") if isinstance(receipt.get("code"), str) else None
+                    ),
+                )
+            )
+        return rows
+
     def _receipt_for_tx_id(self, tx_id: str | None) -> dict[str, Any]:
         if not tx_id:
             return {}
@@ -3165,6 +3279,106 @@ def _hash_hex_domain(domain: str, payload: bytes) -> str:
 def _escrow_id(chain_id: str, owner: str, owner_sequence: int) -> str:
     preimage = f"chain_id={chain_id}\nowner={owner}\nowner_sequence={owner_sequence}\n"
     return _hash_hex_domain(ESCROW_ID_DOMAIN, preimage.encode("utf-8"))
+
+
+SHIELDED_WITHDRAWAL_TX_ROLE = "shielded_withdrawal"
+_ORCHARD_DEFAULT_POOL_ID = "orchard-v1"
+_MEMO_HEX_FIELDS = ("memo_type", "memo_format", "memo_data")
+
+
+def _memo_hex_text(value: str) -> str | None:
+    """The UTF-8 reading of a nonempty hex memo field, or None."""
+    if not value:
+        return None
+    try:
+        return bytes.fromhex(value).decode("utf-8")
+    except ValueError:
+        return None
+
+
+def _payment_memo_view(memo: dict[str, Any]) -> dict[str, str]:
+    """A signed payment_v2 memo in the account_tx `memos` shape."""
+    view: dict[str, str] = {}
+    for key in _MEMO_HEX_FIELDS:
+        value = memo.get(key)
+        view[key] = value if isinstance(value, str) else ""
+    for key in _MEMO_HEX_FIELDS:
+        text = _memo_hex_text(view[key])
+        if text is not None:
+            view[f"{key}_text"] = text
+    return view
+
+
+def _account_tx_memos_from_server_row(row: dict[str, Any]) -> tuple[dict[str, str], ...] | None:
+    memos = row.get("memos")
+    if not isinstance(memos, list):
+        return None
+    views = []
+    for memo in memos:
+        if not isinstance(memo, dict):
+            continue
+        views.append(
+            {
+                key: value
+                for key, value in memo.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
+        )
+    return tuple(views)
+
+
+def _account_tx_clean_key(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and value == value.strip()
+        and not any(ord(char) < 0x20 or 0x7F <= ord(char) < 0xA0 for char in value)
+        and len(value.encode("utf-8")) <= 256
+    )
+
+
+def _shielded_withdrawal_credit(
+    action: Any,
+) -> tuple[str, str, str, int, int, str | None] | None:
+    """(kind, pool_id, recipient, amount, fee, asset_id) for a shielded action
+    that credits a transparent account, else None."""
+    if not isinstance(action, dict):
+        return None
+    kind = action.get("kind")
+    if kind == "orchard_withdraw_v1":
+        pool_id: Any = _ORCHARD_DEFAULT_POOL_ID
+        action_json = action.get("action_json")
+        if isinstance(action_json, str):
+            try:
+                parsed = json.loads(action_json)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, dict) and isinstance(parsed.get("pool_id"), str):
+                pool_id = parsed["pool_id"]
+        fee = action.get("fee")
+        asset_id = None
+    elif kind in ("asset_orchard_egress_v1", "asset_orchard_private_egress_v1"):
+        pool_id = action.get("pool_id")
+        fee = action.get("fee", 0) if kind == "asset_orchard_private_egress_v1" else 0
+        asset_id = action.get("asset_id")
+        if not (
+            isinstance(asset_id, str)
+            and len(asset_id) == 96
+            and all(char in "0123456789abcdef" for char in asset_id)
+        ):
+            return None
+    else:
+        return None
+    recipient = action.get("to")
+    amount = action.get("amount")
+    if not (
+        _account_tx_clean_key(pool_id)
+        and _account_tx_clean_key(recipient)
+        and isinstance(amount, int)
+        and isinstance(fee, int)
+    ):
+        return None
+    return kind, pool_id, recipient, amount, fee, asset_id
 
 
 def _escrow_condition_hash(condition: str) -> str:

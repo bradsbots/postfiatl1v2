@@ -1,18 +1,57 @@
-# PostFiat L1
+# Post Fiat L1 (PFTL)
 
-[September 7 NAVCoin/Cobalt machine handoff](docs/handoffs/2026-09-07___codex__navcoin_cobalt_machine_handoff.md)
+**Whitepaper: [postfiat.org/whitepaper](https://postfiat.org/whitepaper/)**
+(source in this repository: [docs/whitepaper.md](docs/whitepaper.md))
 
-> **Maturity:** controlled pre-testnet research software. This repository is
-> not a production/mainnet release. Validator operation currently requires an
-> explicit `--unsafe-devnet-file-signer` acknowledgement because HSM/remote
-> signing is not implemented, and long-running validator/RPC services require
-> `--unsafe-devnet-json-storage` because the bounded JSON/JSONL store is not a
-> transactional indexed production engine. Do not place real-value keys or
-> value on this controlled-devnet configuration.
+Post Fiat L1, also called PFTL, is a layer-1 settlement ledger written in Rust.
+It follows the XRP Ledger model: a known validator set, deterministic finality
+from quorum certificates, a fixed-supply native token (PFT) whose fees are
+burned, and no validator rewards. It changes three things. Accounts and
+validators sign with the post-quantum ML-DSA-65 scheme from genesis. Changes to
+the validator set and trust graph are ratified on chain by a governance lane
+called Cobalt. Private settlement runs through Asset-Orchard, a typed-asset
+extension of Zcash Orchard with Halo2 proofs; that shielded stack itself is not
+post-quantum. The main application is NAVCoins: floating-value assets whose
+supply, minting and redemption are tied to machine-checkable reserve packets.
 
-PostFiat is a Rust Layer 1 settlement system for post-quantum, privacy-aware institutional value transfer: transparent accounts use ML-DSA authorization from genesis, shielded settlement is built around Orchard/Halo2-style proofs, and quorum certificates provide deterministic finality. The final authenticated Cobalt drill observation ran from `2026-08-26T06:34:55Z` through `06:35:50Z` with all six `postfiat-wan-devnet-2` validators converged at height 924 and all validator, RPC, and shadow services active. Cobalt remains the bounded validator-trust authority; Consensus v2 remains block finality. The adversarial campaign closed `KEEP_ACTIVE`. Current Git HEAD is not itself proof of the running validator release.
+> **Status as of 2026-10-22: devnet only. See
+> [Network Status](docs/status/network-status.md).**
+>
+> - One network runs today: the devnet `postfiat-wan-devnet-2`, run by six
+>   Foundation-administered validators. Outside validators cannot join, and no
+>   public RPC endpoint is published.
+> - This is **not a production mainnet**, and no public testnet is open. Do not
+>   put real value or real-value keys on it.
+> - The code is **not externally audited**. See [SECURITY.md](SECURITY.md) and
+>   the [security overview](docs/security/index.md).
+> - Validator keys are plaintext software key files; HSM and remote signing are
+>   not implemented. Validators need an explicit `--unsafe-devnet-file-signer`
+>   acknowledgement. Long-running services on JSON/JSONL storage need
+>   `--unsafe-devnet-json-storage`. The controlled devnet has used transactional
+>   `redb` storage since height 930; its storage qualification remains open.
 
-See [Current State](docs/status/chain-state-current.md) for the exact live observation, deployed release lineage, repository HEAD, adversarial campaign status, and freshness boundary.
+## Start here
+
+| You want to | Read |
+| --- | --- |
+| Understand the design | [Whitepaper](docs/whitepaper.md), then [Architecture Overview](docs/architecture/overview.md) and [Settlement Lanes](docs/architecture/settlement-lanes.md) |
+| Know what is running now | [Network Status](docs/status/network-status.md); the full dated log is [Current State](docs/status/chain-state-current.md) |
+| Integrate an exchange or custodian | [Exchange Integration Guide](docs/integrate/exchange-guide.md) and [Addresses, Keys And Signatures](docs/integrate/addresses-keys-signatures.md) |
+| Call the RPC | [RPC Overview](docs/rpc/overview.md), [RPC Methods](docs/rpc/methods.md), [Python Client](docs/python/quickstart.md) |
+| Assess security | [Security](docs/security/index.md), [SECURITY.md](SECURITY.md), [Release Gate Inventory](docs/status/release-gate-inventory.md) |
+| Decode a codename (A666, Z3, G4, Cobalt…) | [Glossary](docs/start/glossary.md) |
+| Contribute | [First Day](docs/start/first-day.md), [Repo Map](docs/start/repo-map.md), [CONTRIBUTING.md](CONTRIBUTING.md) |
+| Run a validator | [Validators](docs/validators/overview.md), [Public Operator Runbook](docs/runbooks/public-operator-runbook.md) |
+
+The documentation home page is [docs/index.md](docs/index.md). Dated handoffs,
+plans, reviews and status logs are internal engineering records, listed under
+[Engineering Records](docs/index.md#engineering-records).
+
+**For AI agents:** [AGENTS.md](AGENTS.md) is the internal workflow mandate for
+the project's own contributor agents. To understand the system, start with the
+pages above.
+
+## How it fits together
 
 ```mermaid
 flowchart LR
@@ -35,94 +74,84 @@ flowchart LR
   Execution --> Pool[Shielded pool roots and nullifiers]
 ```
 
-## Key Features
+- **Block finality** is Consensus v2, a prepare/precommit protocol. A block is
+  final once it has a commit quorum certificate. With six validators the quorum
+  is five ([Finality](docs/architecture/finality.md)).
+- **Cobalt** ratifies validator-registry and trust-graph changes only. It does
+  not order blocks ([Cobalt](docs/governance/cobalt.md)).
+- **Settlement lanes**: consensus transactions, W6 two-party atomic swaps,
+  FastPay single-owner payments, FastSwap two-owner delivery-versus-payment,
+  and Asset-Orchard private settlement. Each has its own finality and recovery
+  rules ([Settlement Lanes](docs/architecture/settlement-lanes.md)).
+- **Halo2** is not reimplemented. The verifier uses Zcash's upstream
+  `halo2_proofs` at a pinned commit, kept in-tree with a small patch for loading
+  the pinned verifying key
+  ([Halo2 Dependency](docs/security/halo2-dependency.md)).
 
-- Post-quantum from genesis: ML-DSA account and validator authorization.
-- Shielded settlement: Orchard/Halo2 proof verification with public nullifier and root checks.
-- Halo2 dependency boundary: PostFiat does not reimplement Halo2. The privacy
-  verifier uses Zcash's upstream `halo2_proofs 0.3.2` at an immutable commit,
-  retained in-tree with a reproducibly verified compatibility patch for pinned
-  verifying-key assembly loading. The patch does not intentionally change the
-  proof algorithm, verifier equations, transcript, fields, curves, or proof
-  encoding. See [Halo2 Dependency And Local Patch Boundary](docs/security/halo2-dependency.md).
-- Versioned governance admission: Cobalt-authorized validator-trust updates require
-  a key-bound RBC → ABBA → MVBA → DABC decision certificate. The controlled testnet
-  activated this authority at height 916, committed its first validator-key
-  rotation at height 917, and committed the adversarial drill rotation at height
-  924 after the signed rollback/return pair. Mixed authority and new-set
-  self-authorization are rejected.
-- Versioned quorum-certified finality: legacy genesis retains the single-view fail-closed rule; networks with an explicit consensus-v2 activation height use durable prepare/precommit locks, signed timeout certificates, and deterministic proposer rotation.
-- Multiple settlement lanes: consensus-ordered account and issued-asset
-  transactions, W6 dual-authorized atomic swaps, FastPay single-owner payments,
-  FastSwap dual-owner DvP, and Asset-Orchard private settlement.
-- Fixed supply plus fee burn: transparent fees burn during deterministic execution.
+## Build from source
 
-## Implementation Status
-
-| Capability | Current source status |
-| --- | --- |
-| Consensus v2 | Implemented with durable prepare/precommit state, timeout certificates, and view rotation when activated by network configuration/governance. |
-| W6 atomic swap | Implemented as one consensus transaction with two owner authorizations and both-or-neither execution. |
-| FastPay | Implemented for prefunded single-owner PFT objects with signed admission, distinct-validator certificates, durable apply, and ordered consume-or-cancel recovery. |
-| FastSwap | Implemented for prefunded dual-owner objects with durable reservation, Confirm-or-Cancel certificates, conserved effects, catch-up, and restart recovery. Shared-network activation is a separate deployment decision. |
-| Asset-Orchard | Implemented private ingress, transfer/swap, recovery, and egress path; legacy cleartext note actions are historical-replay-only. |
-| Governance | The final E5 audit found Cobalt active for validator-trust evolution with all six nodes converged at height 924 after the signed rollback/return drills and legitimate validator-5 rotation. Consensus v2 remains the sole block-finality protocol. The deployed node binary SHA-256 was `d5e5ef63…c2696caf`; current source HEAD is a separate evidence plane. See [Current State](docs/status/chain-state-current.md), the [adversarial results](docs/governance/cobalt-adversarial-verification-results.md), and the [E5 packet](benchmarks/cobalt-adversarial-verification/e5/README.md). |
-| Storage scaling | No candidate is deployment-eligible. `d0ae79f3` failed exact height-924 continuation. Successor `10dd9f20` fixed that defect and passed the old clone runner, but its live canary exposed an omitted concurrent transport/RPC topology and incomplete exact rollback proof. Validator-1 was rolled back; both candidates must not deploy. Public testnet is blocked. See the [active milestone](docs/plans/active/storage-scaling-milestone.md). |
-
-See [Settlement Lanes](docs/architecture/settlement-lanes.md) for the protocol
-boundaries and [Public Launch Boundary](docs/security/public-launch-boundary.md)
-for what remains before real-value operation.
-
-## Build From Source
-
-Prerequisites:
-
-- Rust toolchain, including `cargo`, `rustfmt`, and `clippy`
-- `tmux` for local/devnet operations
+Prerequisites: the Rust toolchain pinned in
+[rust-toolchain.toml](rust-toolchain.toml) (with `rustfmt` and `clippy`), and
+Python 3 for the tooling and docs.
 
 ```bash
-scripts/check
+scripts/check    # cargo fmt --check, cargo check, cargo clippy -D warnings, script syntax checks
+```
+
+Single local node (data in `.postfiat/node0`, chain ID `postfiat-local`):
+
+```bash
 scripts/node-init
 scripts/node-run
-```
-
-Useful single-node commands:
-
-```bash
 scripts/node-status
 scripts/node-faucet
-scripts/node-transfer
-scripts/node-account
+scripts/node-transfer     # set TO=<address> AMOUNT=<atoms>
+scripts/node-account      # set ADDRESS=<address>
 ```
 
-## Run A Local Devnet
+Local multi-validator devnet (four validators by default; set `VALIDATORS=N`):
 
 ```bash
 scripts/devnet-up
 scripts/devnet-submit-transfer
 scripts/devnet-status
-scripts/devnet-down
+scripts/devnet-down       # deletes devnet/local
 ```
 
-## Documentation
+The full test and gate commands (Rust, Python, wallet, contracts, docs) are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
-- Whitepaper: [docs/whitepaper.md](docs/whitepaper.md)
-- MkDocs site: [http://127.0.0.1:8088/](http://127.0.0.1:8088/) by default when served locally
-- Engineering docs source: [docs/](docs/)
-- MkDocs config: [mkdocs.yml](mkdocs.yml)
-
-Run the docs site locally:
+## Build the docs site
 
 ```bash
-.venv-docs/bin/mkdocs serve
+python3 -m pip install --require-hashes -r requirements-docs.txt
+scripts/docs-site-build
+scripts/docs-site-serve --host 127.0.0.1 --port 8088
 ```
 
-If you do not have the repo-local docs venv, install the docs requirements and run `mkdocs serve`.
+Then open `http://127.0.0.1:8088/`. The site is configured in
+[mkdocs.yml](mkdocs.yml) and built from [docs/](docs/).
 
-## Contributing
+## Repository map
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for build, test, evidence, and PR expectations.
+| Path | Contents |
+| --- | --- |
+| [crates/](crates/) | Rust workspace: types, crypto provider, execution, ordering, consensus and Cobalt, storage, network, privacy/Orchard, node, RPC SDK, bridge and proof crates |
+| [python/](python/) | Python RPC client and wallet helpers (`postfiat_rpc`), operational safety tools (`postfiat_ops`), tests |
+| [scripts/](scripts/) | Build checks, local node and devnet, release, evidence and docs scripts |
+| [docs/](docs/) | Documentation source for the MkDocs site |
+| [wallet-web/](wallet-web/), [wallet-extension/](wallet-extension/), [wallet-proxy/](wallet-proxy/) | Browser wallet, Chrome extension wallet, wallet RPC proxy |
+| [programs/](programs/) | SP1 guest programs for bridge ingress, egress and receipt proofs |
+| [third_party/](third_party/) | Vendored `fips204` (ML-DSA) and `halo2_proofs` sources |
+| [systemd/](systemd/) | Example service units |
+| [deployments/](deployments/), [benchmarks/](benchmarks/) | Internal engineering records: per-release deployment records and benchmark or campaign packets |
 
-## License
+More detail: [Repo Map](docs/start/repo-map.md).
 
-Licensed under either MIT or Apache-2.0, at your option.
+## Security, contributing and license
+
+- Report vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
+  Do not open public issues for them.
+- Contributions: [CONTRIBUTING.md](CONTRIBUTING.md) and
+  [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+- License: MIT or Apache-2.0, at your option ([LICENSE](LICENSE)).

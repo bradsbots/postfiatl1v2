@@ -25,6 +25,7 @@ fn main() {
         balance: 100,
         sequence: 0,
         public_key_hex: None,
+        flags: 0,
     }]);
     let obj_id =
         crypto::bytes_to_hex(&crypto::hash_bytes("postfiat.owned-mint.v1", b"seed-1")[..32]);

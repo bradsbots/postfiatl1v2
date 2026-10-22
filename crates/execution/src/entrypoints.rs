@@ -176,6 +176,36 @@ pub fn execute_transfer(
     ledger: &mut LedgerState,
     transfer: &SignedTransfer,
 ) -> Receipt {
+    execute_transfer_checked(genesis, ledger, transfer, None)
+}
+
+/// Executes a `transparent_transfer` with the governed destination-memo rule.
+/// A transfer has no memo field, so once `require_memo_activation_height` is
+/// reached it is rejected (`destination_memo_required`) when the recipient
+/// requires a memo. Before activation this is exactly `execute_transfer`.
+pub fn execute_transfer_with_compatibility(
+    genesis: &Genesis,
+    ledger: &mut LedgerState,
+    transfer: &SignedTransfer,
+    block_height: u64,
+    compatibility: AssetExecutionCompatibility,
+) -> Receipt {
+    if compatibility.recipient_format_active(block_height) && transfer.validate().is_ok() {
+        if let Some((code, message)) =
+            destination_address_rejection(&transfer_destination_addresses(transfer))
+        {
+            return Receipt::rejected(transfer_tx_id(transfer), code, message);
+        }
+    }
+    execute_transfer_checked(genesis, ledger, transfer, Some((block_height, compatibility)))
+}
+
+fn execute_transfer_checked(
+    genesis: &Genesis,
+    ledger: &mut LedgerState,
+    transfer: &SignedTransfer,
+    destination_memo_rule: Option<(u64, AssetExecutionCompatibility)>,
+) -> Receipt {
     let tx_id = transfer_tx_id(transfer);
 
     if let Err(error) = transfer.validate() {
@@ -336,6 +366,24 @@ pub fn execute_transfer(
         );
     }
 
+    if let Some((block_height, compatibility)) = destination_memo_rule {
+        if let Err((code, message)) = require_destination_memo(
+            ledger,
+            &transfer.unsigned.to,
+            0,
+            compatibility,
+            block_height,
+        ) {
+            return Receipt::rejected(tx_id, code, message).with_fee_policy_and_state_expansion(
+                0,
+                0,
+                minimum_fee,
+                ACCOUNT_RESERVE,
+                state_expansion_fee,
+            );
+        }
+    }
+
     let total_debit = match transfer.unsigned.amount.checked_add(transfer.unsigned.fee) {
         Some(total) => total,
         None => return Receipt::rejected(tx_id, "amount_overflow", "amount plus fee overflowed"),
@@ -434,6 +482,36 @@ pub fn execute_payment_v2(
     genesis: &Genesis,
     ledger: &mut LedgerState,
     payment: &SignedPaymentV2,
+) -> Receipt {
+    execute_payment_v2_checked(genesis, ledger, payment, None)
+}
+
+/// Executes a `payment_v2` with the governed destination-memo rule: once
+/// `require_memo_activation_height` is reached, a payment without memos to an
+/// account that requires one is rejected (`destination_memo_required`).
+/// Before activation this is exactly `execute_payment_v2`.
+pub fn execute_payment_v2_with_compatibility(
+    genesis: &Genesis,
+    ledger: &mut LedgerState,
+    payment: &SignedPaymentV2,
+    block_height: u64,
+    compatibility: AssetExecutionCompatibility,
+) -> Receipt {
+    if compatibility.recipient_format_active(block_height) && payment.validate().is_ok() {
+        if let Some((code, message)) =
+            destination_address_rejection(&payment_v2_destination_addresses(payment))
+        {
+            return Receipt::rejected(payment_v2_tx_id(payment), code, message);
+        }
+    }
+    execute_payment_v2_checked(genesis, ledger, payment, Some((block_height, compatibility)))
+}
+
+fn execute_payment_v2_checked(
+    genesis: &Genesis,
+    ledger: &mut LedgerState,
+    payment: &SignedPaymentV2,
+    destination_memo_rule: Option<(u64, AssetExecutionCompatibility)>,
 ) -> Receipt {
     let tx_id = payment_v2_tx_id(payment);
 
@@ -589,6 +667,24 @@ pub fn execute_payment_v2(
                 payment.unsigned.sequence
             ),
         );
+    }
+
+    if let Some((block_height, compatibility)) = destination_memo_rule {
+        if let Err((code, message)) = require_destination_memo(
+            ledger,
+            &payment.unsigned.to,
+            payment.unsigned.memos.len(),
+            compatibility,
+            block_height,
+        ) {
+            return Receipt::rejected(tx_id, code, message).with_fee_policy_and_state_expansion(
+                0,
+                0,
+                minimum_fee,
+                ACCOUNT_RESERVE,
+                state_expansion_fee,
+            );
+        }
     }
 
     let total_debit = match payment.unsigned.amount.checked_add(payment.unsigned.fee) {
@@ -840,6 +936,14 @@ fn execute_asset_transaction_with_checked_preimage(
         )
     {
         return Receipt::rejected(tx_id, "bad_asset_transaction_envelope", error);
+    }
+
+    if compatibility.recipient_format_active(block_height) {
+        if let Some((code, message)) =
+            destination_address_rejection(&asset_transaction_destination_addresses(transaction))
+        {
+            return Receipt::rejected(tx_id, code, message);
+        }
     }
 
     if transaction.unsigned.chain_id != genesis.chain_id {

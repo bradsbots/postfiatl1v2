@@ -18,8 +18,8 @@ ASSET_ID = (
     "2d20e18555642bec32174498cbee5e2c"
 )
 PROFILE_ID = (
-    "f8784629ff7338002d836c1988b8e2c0f19caf448429e0eb7fdc39fa2b08f7d9a"
-    "44171fc1e7239bc25e06ad833c14e91"
+    "bfb599f2bf7b9fa7541c1205df3e80dc8249f296dd930a8a932e7e1d15f37b5f"
+    "c6030c2f9c4097dd458afc8690a4be92"
 )
 
 
@@ -38,8 +38,8 @@ def derived_profile(*, allow_controlled_sources: bool = False) -> dict[str, obje
         "public_values_schema": "postfiat.nav_reserve_public_values.v1",
         "allow_controlled_sources": allow_controlled_sources,
         "source_manifest_hash": (
-            "8abe3e59198b72945d4778a7fa91e5af157a6c65032d8940cca486850ffe59fcb"
-            "567268ca5942669ff6977ef32dd3a41"
+            "122a4327e049bfe3e4361e73efc9b11ea724fe6191fc2d2a0f25518ebc253a6"
+            "3a5edfa27ebad25d13455c3d45179382d"
         ),
         "valuation_policy_hash": (
             "350eaee0a1ca12ba51637781ba52661b8685f868657a7c5e7d07c31b2899869c"
@@ -49,7 +49,7 @@ def derived_profile(*, allow_controlled_sources: bool = False) -> dict[str, obje
             "1583b7afc001e7d1afa492e9abf77d60"
         ),
         "sp1_program_vkey": (
-            "0x00f3857f96ef97e00bd15b4030acd8d6b0a72740b28c6160d154bc2c9bb141bf"
+            "0x00d28f47f2bd541eb5dba2336d735a6c8132eed9c4c07ce5d13339b3344339bf"
         ),
         "sp1_proof_encoding": "groth16",
         "max_proof_bytes": 4096,

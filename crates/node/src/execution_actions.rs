@@ -73,15 +73,45 @@ pub(super) fn execute_transparent_batch_with_orchard(
     asset_execution_compatibility: AssetExecutionCompatibility,
     orchard_balances: &[postfiat_types::AssetOrchardAssetBalance],
 ) -> Vec<Receipt> {
+    let compatibility =
+        transparent_block_fee_claim_compatibility(asset_execution_compatibility, governance);
     let mut receipts = Vec::with_capacity(batch.transaction_count());
     for transfer in &batch.transactions {
-        receipts.push(execute_transfer(genesis, ledger, transfer));
+        let receipt = execute_transfer_with_compatibility(
+            genesis,
+            ledger,
+            transfer,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_transfer_fee(
+            genesis,
+            ledger,
+            transfer,
+            receipt,
+            block_height,
+            compatibility,
+        ));
     }
     for payment in &batch.payments_v2 {
-        receipts.push(execute_payment_v2(genesis, ledger, payment));
+        let receipt = execute_payment_v2_with_compatibility(
+            genesis,
+            ledger,
+            payment,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_payment_v2_fee(
+            genesis,
+            ledger,
+            payment,
+            receipt,
+            block_height,
+            compatibility,
+        ));
     }
     for transaction in &batch.asset_transactions {
-        receipts.push(
+        let receipt =
             governed_vault_bridge_route_rejection(transaction, governance, ledger, block_height)
                 .unwrap_or_else(|| {
                     execute_asset_transaction_with_compatibility_and_orchard(
@@ -89,19 +119,34 @@ pub(super) fn execute_transparent_batch_with_orchard(
                         ledger,
                         transaction,
                         block_height,
-                        asset_execution_compatibility,
+                        compatibility,
                         orchard_balances,
                     )
-                }),
-        );
+                });
+        receipts.push(claim_rejected_asset_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
+        ));
     }
     for transaction in &batch.atomic_swap_transactions {
-        receipts.push(execute_atomic_swap_transaction_with_compatibility(
+        let receipt = execute_atomic_swap_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
             block_height,
-            asset_execution_compatibility,
+            compatibility,
+        );
+        receipts.push(claim_rejected_atomic_swap_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
         ));
     }
     for transaction in &batch.fastlane_primary_transactions {
@@ -113,22 +158,48 @@ pub(super) fn execute_transparent_batch_with_orchard(
         ));
     }
     for transaction in &batch.escrow_transactions {
-        receipts.push(execute_escrow_transaction(
+        let receipt = execute_escrow_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
             block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_escrow_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
         ));
     }
     for transaction in &batch.nft_transactions {
-        receipts.push(execute_nft_transaction(genesis, ledger, transaction));
-    }
-    for transaction in &batch.offer_transactions {
-        receipts.push(execute_offer_transaction(
+        let receipt = execute_nft_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
             block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_nft_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
+        ));
+    }
+    for transaction in &batch.offer_transactions {
+        let receipt = execute_offer_transaction(genesis, ledger, transaction, block_height);
+        receipts.push(claim_rejected_offer_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
         ));
     }
     receipts
@@ -387,6 +458,19 @@ pub(super) fn atomic_swap_activation_height_for_chain(
         .or(genesis.atomic_swap_activation_height)
 }
 
+/// The rejected-transaction fee claim applies only to transactions executed as
+/// part of a certified transparent block (live commit, proposal and archive
+/// replay). The shared compatibility builders above leave it unset, so mempool
+/// admission, RPC simulation and shielded or bridge workflows keep their
+/// side-effect-free rejection semantics.
+pub(super) fn transparent_block_fee_claim_compatibility(
+    compatibility: AssetExecutionCompatibility,
+    governance: &GovernanceState,
+) -> AssetExecutionCompatibility {
+    compatibility
+        .with_rejected_tx_fee_activation_height(governance.rejected_tx_fee_activation_height())
+}
+
 pub(super) fn bridge_exit_root_activation_height_for_chain(
     governance: &GovernanceState,
 ) -> Option<u64> {
@@ -412,6 +496,8 @@ pub(super) fn asset_execution_compatibility_for_genesis_and_governance(
         ))
         .with_yolo_target_activation_height(governance.yolo_target_activation_height())
         .with_atomic_swap_paused(governance.atomic_swap_paused)
+        .with_recipient_format_activation_height(governance.recipient_format_activation_height())
+        .with_require_memo_activation_height(governance.require_memo_activation_height())
 }
 
 pub(super) fn asset_execution_compatibility_with_chain_activation(
@@ -434,6 +520,8 @@ pub(super) fn asset_execution_compatibility_with_chain_activation(
         ))
         .with_yolo_target_activation_height(governance.yolo_target_activation_height())
         .with_atomic_swap_paused(governance.atomic_swap_paused)
+        .with_recipient_format_activation_height(governance.recipient_format_activation_height())
+        .with_require_memo_activation_height(governance.require_memo_activation_height())
 }
 
 pub(super) fn ensure_atomic_swap_batch_allowed(
@@ -484,17 +572,48 @@ pub(super) fn execute_transparent_batch_for_archive_replay(
     let compatibility =
         asset_execution_compatibility_for_genesis_and_governance(genesis, governance);
     ensure_atomic_swap_batch_allowed(batch, block.header.height, compatibility)?;
+    // Same fee-claim and memo rules as live execution of the certified block.
+    let compatibility = transparent_block_fee_claim_compatibility(compatibility, governance);
+    let block_height = block.header.height;
 
     let mut receipts = Vec::with_capacity(batch.transaction_count());
     for transfer in &batch.transactions {
-        receipts.push(execute_transfer(genesis, ledger, transfer));
+        let receipt = execute_transfer_with_compatibility(
+            genesis,
+            ledger,
+            transfer,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_transfer_fee(
+            genesis,
+            ledger,
+            transfer,
+            receipt,
+            block_height,
+            compatibility,
+        ));
     }
     for payment in &batch.payments_v2 {
-        receipts.push(execute_payment_v2(genesis, ledger, payment));
+        let receipt = execute_payment_v2_with_compatibility(
+            genesis,
+            ledger,
+            payment,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_payment_v2_fee(
+            genesis,
+            ledger,
+            payment,
+            receipt,
+            block_height,
+            compatibility,
+        ));
     }
     for transaction in &batch.asset_transactions {
         let receipt_index = receipts.len();
-        receipts.push(execute_asset_transaction_for_archive_replay(
+        let receipt = execute_asset_transaction_for_archive_replay(
             genesis,
             ledger,
             transaction,
@@ -502,14 +621,30 @@ pub(super) fn execute_transparent_batch_for_archive_replay(
             receipt_index,
             governance,
             orchard_balances,
-        )?);
-    }
-    for transaction in &batch.atomic_swap_transactions {
-        receipts.push(execute_atomic_swap_transaction_with_compatibility(
+        )?;
+        receipts.push(claim_rejected_asset_transaction_fee(
             genesis,
             ledger,
             transaction,
-            block.header.height,
+            receipt,
+            block_height,
+            compatibility,
+        ));
+    }
+    for transaction in &batch.atomic_swap_transactions {
+        let receipt = execute_atomic_swap_transaction_with_compatibility(
+            genesis,
+            ledger,
+            transaction,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_atomic_swap_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
             compatibility,
         ));
     }
@@ -518,26 +653,52 @@ pub(super) fn execute_transparent_batch_for_archive_replay(
             genesis,
             ledger,
             transaction,
-            block.header.height,
+            block_height,
         ));
     }
     for transaction in &batch.escrow_transactions {
-        receipts.push(execute_escrow_transaction(
+        let receipt = execute_escrow_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
-            block.header.height,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_escrow_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
         ));
     }
     for transaction in &batch.nft_transactions {
-        receipts.push(execute_nft_transaction(genesis, ledger, transaction));
-    }
-    for transaction in &batch.offer_transactions {
-        receipts.push(execute_offer_transaction(
+        let receipt = execute_nft_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
-            block.header.height,
+            block_height,
+            compatibility,
+        );
+        receipts.push(claim_rejected_nft_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
+        ));
+    }
+    for transaction in &batch.offer_transactions {
+        let receipt = execute_offer_transaction(genesis, ledger, transaction, block_height);
+        receipts.push(claim_rejected_offer_transaction_fee(
+            genesis,
+            ledger,
+            transaction,
+            receipt,
+            block_height,
+            compatibility,
         ));
     }
     Ok(receipts)
@@ -1790,12 +1951,39 @@ pub(super) fn governance_amendment_lifecycle_rejection(
                 .to_string(),
         ));
     }
+    if amendment.kind == GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT
+        && u64::from(amendment.value) <= block_height
+    {
+        return Some((
+            "invalid_recipient_format_activation_height",
+            "recipient-format activation must be scheduled strictly after the amendment block"
+                .to_string(),
+        ));
+    }
     if amendment.kind == GOVERNANCE_KIND_ORCHARD_AWARE_BRIDGE_CLAIM_ACTIVATION_HEIGHT
         && u64::from(amendment.value) <= block_height
     {
         return Some((
             "invalid_orchard_aware_bridge_claim_activation_height",
             "Orchard-aware bridge-claim activation must be scheduled strictly after the amendment block"
+                .to_string(),
+        ));
+    }
+    if amendment.kind == GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT
+        && u64::from(amendment.value) <= block_height
+    {
+        return Some((
+            "invalid_rejected_tx_fee_activation_height",
+            "rejected-transaction fee activation must be scheduled strictly after the amendment block"
+                .to_string(),
+        ));
+    }
+    if amendment.kind == GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT
+        && u64::from(amendment.value) <= block_height
+    {
+        return Some((
+            "invalid_require_memo_activation_height",
+            "require-memo activation must be scheduled strictly after the amendment block"
                 .to_string(),
         ));
     }
@@ -1939,6 +2127,14 @@ pub(super) fn governance_amendment_current_value(governance: &GovernanceState, k
             .atomic_swap_activation_height()
             .and_then(|height| u32::try_from(height).ok())
             .unwrap_or(0),
+        GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT => governance
+            .rejected_tx_fee_activation_height()
+            .and_then(|height| u32::try_from(height).ok())
+            .unwrap_or(0),
+        GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT => governance
+            .require_memo_activation_height()
+            .and_then(|height| u32::try_from(height).ok())
+            .unwrap_or(0),
         GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT => governance
             .replicated_state_v2_activation_height()
             .and_then(|height| u32::try_from(height).ok())
@@ -1949,6 +2145,10 @@ pub(super) fn governance_amendment_current_value(governance: &GovernanceState, k
             .unwrap_or(0),
         GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT => governance
             .shielded_atomic_batch_activation_height()
+            .and_then(|height| u32::try_from(height).ok())
+            .unwrap_or(0),
+        GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT => governance
+            .recipient_format_activation_height()
             .and_then(|height| u32::try_from(height).ok())
             .unwrap_or(0),
         _ => 0,
@@ -1969,9 +2169,12 @@ fn governance_amendment_has_materialized_current_value(kind: &str) -> bool {
             | GOVERNANCE_KIND_PFUSDC_SOURCE_SERIES_ACTIVATION_HEIGHT
             | postfiat_types::GOVERNANCE_KIND_YOLO_TARGET_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_ATOMIC_SWAP_ACTIVATION_HEIGHT
+            | GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT
+            | GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_BRIDGE_EXIT_ROOT_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT
+            | GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT
     )
 }
 

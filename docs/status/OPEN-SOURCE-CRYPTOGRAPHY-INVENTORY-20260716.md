@@ -13,7 +13,7 @@ replay behavior, and downgrade handling are part of the cryptographic boundary.
 
 | Primitive/system | Implementation | Current purposes | Public-release finding |
 |---|---|---|---|
-| ML-DSA-65 | `fips204 = 0.4.6`; wrapper in `crates/crypto_provider/src/lib.rs` | Account transactions, block proposal/vote/timeout certificates, bridge witnesses, admission receipts, owned transfer/unwrap, FastLane/FastSwap, snapshots/deployment/operator manifests | Core implementation parses fixed-size keys/signatures fail-closed. The canonical transcript inventory and blocking call-site policy now cover enabled use: any new default-context or deterministic-seed call fails CI pending explicit cryptographic review. Plaintext validator/publisher custody remains feature-contained P1; unsigned governance is rejected live. |
+| ML-DSA-65 | `fips204 = 0.4.6` at this baseline; since 2026-07-19 a vendored, modified copy at `third_party/fips204` (see [§8](#8-2026-10-22-update-vendored-fips204)); wrapper in `crates/crypto_provider/src/lib.rs` | Account transactions, block proposal/vote/timeout certificates, bridge witnesses, admission receipts, owned transfer/unwrap, FastLane/FastSwap, snapshots/deployment/operator manifests | Core implementation parses fixed-size keys/signatures fail-closed. The canonical transcript inventory and blocking call-site policy now cover enabled use: any new default-context or deterministic-seed call fails CI pending explicit cryptographic review. Plaintext validator/publisher custody remains feature-contained P1; unsigned governance is rejected live. |
 | SHA3-384 | `sha3 = 0.11`; `crypto_provider::hash_bytes` | General domain-separated IDs/hashes, addresses (truncated), wallet derivation, signing transcripts and state artifacts | The helper uses `domain || 0x00 || bytes`, which is unambiguous for a fixed domain. Callers still need a complete canonical-encoding audit; many hand-built text/JSON transcripts coexist. |
 | SHA3-256 | `sha3`; privacy and selected type helpers | Asset-Orchard encryption KDF and other 32-byte commitments | Domain and length encoding must be audited per caller; this is not interchangeable with SHA3-384. |
 | Keccak-256 | `sha3::Keccak256` | Ethereum addresses, ABI/event/route commitments, EVM-facing SP1 and bridge values | Classical Ethereum compatibility primitive. It does not verify Ethereum consensus, headers, receipts, logs, or finality; asserted external transitions are therefore disabled live. |
@@ -228,3 +228,45 @@ activation and rollback, and reproducibility from the actual guest source.
 Until every checked gate is backed by candidate-revision evidence, this
 inventory is a STEP 1 remediation specification, not a cryptographic assurance
 statement.
+
+## 8. 2026-10-22 update: vendored `fips204`
+
+The 2026-07-16 baseline used the crates.io `fips204 = 0.4.6` crate. Since commit
+`c179968a1` (2026-07-19), the workspace builds ML-DSA from a vendored, modified copy:
+
+- **Location:** `third_party/fips204`, wired in by the workspace dependency
+  `fips204 = { path = "third_party/fips204", version = "=0.4.6" }` in the root
+  `Cargo.toml`. Every crate that uses `fips204`, including `crates/crypto_provider`,
+  gets this copy.
+- **Base:** crates.io `fips204` 0.4.6. The unmodified crate is still a dev-dependency
+  of `crates/crypto_provider` (`fips204-reference`), used as the test oracle.
+- **Size of the change:** compared with the crates.io 0.4.6 source, 11 files under
+  `src/` differ, one of them new (`src/cycle_tracking.rs`). Ignoring whitespace and
+  blank lines, 8 of them change, with 214 lines added and 32 removed. The rest is
+  formatting. `Cargo.toml`, `tests/nist_vectors/mod.rs` and `benches/benchmark.rs`
+  also change.
+- **What changed and why:** faster ML-DSA-65 verification inside the SP1 RISC-V
+  guest programs, through three new crate features:
+  - `precompute-verify-matrix` stores the expanded matrix Â in the public key, so
+    verification skips ExpandA;
+  - `riscv32-verify-arithmetic` reduces each matrix-vector dot product once, and
+    converts to Montgomery form with one Montgomery multiplication;
+  - `sp1-cycle-tracking` emits SP1 cycle-tracker markers, with an optional
+    `sp1-zkvm =6.3.1` dependency.
+
+  The `mldsa-guest-acceleration` feature of `crates/crypto_provider` enables the
+  first two. The guest programs `programs/pfusdc-egress` and
+  `programs/pftl-uniswap-receipt` turn it on by default.
+- **Default build:** the validator node (`postfiat-node`) enables none of the three
+  features (`cargo tree -p postfiat-node -e features -i fips204`). Without them, the
+  code paths match upstream apart from these changes: cycle-tracking hooks that compile to empty functions,
+  verification steps wrapped in those hooks, ExpandA moved out of a block in key
+  generation, a `..` in one pattern, `i32::try_from` in place of `try_into` in a
+  debug assertion, a `dead_code` allowance and an empty `[workspace]` table.
+- **Evidence so far:** project-authored only. Equivalence tests for the new
+  arithmetic in `third_party/fips204/src/helpers.rs`, the vendored NIST vector
+  suite, and accelerated-versus-reference tests in `crates/crypto_provider/src/lib.rs`.
+  The design and measurements are in `docs/specs/mldsa-ntt-precompile-spec.md`.
+- **Review status:** the modified copy has had no independent cryptographic review.
+  It needs one, covering the feature-gated arithmetic and the default-build changes,
+  before it is relied on for real value.

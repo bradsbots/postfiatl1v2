@@ -7,7 +7,7 @@ the burn 3 gate is in the [2026-09-11 campaign log](qa-campaign-20260911.md);
 the burn 4 gate is in the [2026-09-15 campaign log](qa-campaign-20260915.md);
 the burn 5 gate is in the [2026-09-16 campaign log](qa-campaign-20260916.md);
 the burn 6 gate is recorded in the [2026-09-21 campaign log](qa-campaign-20260921.md#scores).
-That gate predates the four A5/NOD- additions; this extension was not rescored.
+That gate predates the four A5/NOD- additions and the 2026-10-22 deployment status note; neither extension was rescored.
 
 This inventory separates demonstrated failures from missing evidence, operating
 assumptions, and capabilities that have not been built or activated. A
@@ -18,6 +18,41 @@ An **evidence gap** means the
 available record cannot establish the claim. An **economic assumption** is a
 load or incentive premise rather than a code result. A **proposed capability**
 must not be described as shipped or authoritative.
+
+## Deployment status — 2026-10-22 { #deployment-status-20261022 }
+
+This note updates the deployment wording below; the September findings are unchanged.
+Rows and summaries that say a repair is "source-only" and "not activated or deployed"
+were true when written. They no longer describe deployment.
+
+Release `store-handle-20261021` runs on all six `postfiat-wan-devnet-2` validators from
+source `86706699`, deployed 2026-10-21 ([current state](../status/chain-state-current.md)).
+`git merge-base --is-ancestor <commit> 86706699` succeeds for every repair commit in the
+table, so each is included in the deployed source. All except `8644f0af` were already in
+`f60e9639`, the source of `combined-fastpay-20260925`, deployed 2026-09-25, and in
+`c93b2137`, the source of `combined-fastpay-20260928`, whose qualification passed the full
+workspace suite (84 groups, 1,487 passed, 0 failed).
+
+| Findings | Repair commit | In deployed source `86706699` |
+| --- | --- | --- |
+| EXE-01, EXE-02, EXE-03 | `e95efbdf` | Yes |
+| COB-01, COB-02 | `c9a61fcd` | Yes |
+| FIN-01, FIN-02 | `6ec35092` | Yes |
+| TYP-01, TYP-02 | `0a1216c3` | Yes |
+| SHD-01, SHD-02 | `33c8ce34` | Yes |
+| COB-03, NET-04, TYP-03, SHD-03 (P3 sweep) | `7095b393` | Yes |
+| VLK-01, VLK-02 | `090bd17e` | Yes |
+| CHO-01, CHO-02 | `21cf30f8` | Yes |
+| SWP-01 | `d679f8e8` | Yes |
+| NAV-03 | `e9ccdeda` | Yes |
+| SWX-01 | `043b9d69` | Yes |
+| RPC-01 | `15af691d` | Yes |
+| Consensus signing fix (SQ rows) | `bbb291ce` | Yes |
+| STO-07 | `8644f0af` | Yes; first deployed in this release |
+
+This note establishes inclusion in the deployed source only. Activation is not
+independently confirmed: no record here shows each repaired path running on the live
+network or any activation it depends on.
 
 ## Campaign findings
 
@@ -44,6 +79,7 @@ must not be described as shipped or authoritative.
 These 28 findings are from the [burn 3 campaign](qa-campaign-20260911.md).
 Consensus-affecting repairs remain source-only and were not activated or deployed.
 STO-07 was added later, from the 2026-10-19 G4 regression campaign.
+**2026-10-22:** these repairs are now in the deployed source; activation is not independently confirmed ([deployment status](#deployment-status-20261022)).
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -81,6 +117,7 @@ STO-07 was added later, from the 2026-10-19 G4 regression campaign.
 
 These 15 findings are from the [burn 4 campaign](qa-campaign-20260915.md).
 Consensus-affecting repairs remain source-only and were not activated or deployed.
+**2026-10-22:** these repairs are now in the deployed source; activation is not independently confirmed ([deployment status](#deployment-status-20261022)).
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -108,6 +145,7 @@ recorded without repair, and SMG-07 was blocked by an out-of-scope dependency
 (repaired 2026-10-14; see its row).
 All five repair commits still have a full Rust suite verdict pending.
 Consensus-affecting repairs remain source-only and were not activated or deployed.
+**2026-10-22:** these repairs are now in the deployed source; activation is not independently confirmed ([deployment status](#deployment-status-20261022)).
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -142,6 +180,7 @@ by the release candidate. All four repair commits retain a full Rust suite
 verdict pending. NAV-03 and SWX-01 are consensus-affecting: release-tip
 re-qualification is required before deployment; neither was deployed.
 The focused A5 review contributes four rows; its unreviewed ranges remain explicit.
+**2026-10-22:** NAV-03 and SWX-01 are now in the deployed source; activation is not independently confirmed ([deployment status](#deployment-status-20261022)).
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -272,6 +311,8 @@ Free space on `/` (GB), from the preflight and the dated
 | validator-5 | 28.03 | 27.86 | 27.76 | −0.10 |
 
 ## Final disposition
+
+**2026-10-22:** the deployment statements in this section predate release `store-handle-20261021`. Every consensus-affecting repair named here, the RPC supervisor repair and the signing fix are now in the deployed source; activation is not independently confirmed ([deployment status](#deployment-status-20261022)).
 
 The inventory contains 142 unique rows, including 28 burn 3 findings (6 P1,
 14 P2, 8 P3), 15 burn 4 findings (0 P1, 10 P2, 5 P3), 22 burn 5 findings

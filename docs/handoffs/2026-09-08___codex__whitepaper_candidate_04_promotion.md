@@ -50,4 +50,4 @@ Dravlic: use the promoted paper as the repository reference and keep its TIH res
 - [Legacy whitepaper](../whitepaper_legacy.md)
 - [Earlier whitepaper handoff](2026-09-08___codex__whitepaper_to_dravlic.md)
 - [Current chain state](../status/chain-state-current.md)
-- [Handoff standard](README.md)
+- [Handoff standard](https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/handoffs/README.md)

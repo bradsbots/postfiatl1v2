@@ -2,6 +2,7 @@
 
 Status: controlled-testnet model v0
 Date: 2026-05-21
+Updated: 2026-10-22 (payment memos, account history and code references)
 
 This document specifies the minimum exchange/custody model for transparent
 ML-DSA accounts in controlled testnet. It is a product and operations boundary,
@@ -12,7 +13,16 @@ history indexing is complete.
 
 PostFiat transparent accounts are address-key accounts:
 
-- an address is derived from an ML-DSA public key;
+- an address is derived from an ML-DSA public key and is canonically
+  `pf` + 40 lowercase hex characters;
+- every destination address in a signed transaction must be canonical: nodes
+  reject other values at RPC submission and mempool admission
+  (`invalid_recipient_address`, `invalid_recipient_checksum`,
+  `noncanonical_recipient_address`), and at execution from the governed
+  `recipient_format_activation_height`;
+- wallets may display and parse an optional mixed-case checksum, specified in
+  `docs/wallets/address-format.md` with vectors in
+  `docs/fixtures/addresses/pftl-address-vectors-v1.json`;
 - a funded recipient account may exist before its public key is bound on-chain;
 - the first spend from that account must carry the ML-DSA public key and a
   valid signature from that key;
@@ -22,10 +32,13 @@ PostFiat transparent accounts are address-key accounts:
 
 Code references:
 
-- account public key field: `crates/types/src/lib.rs`;
-- first-spend key binding and later key mismatch rejection:
-  `crates/execution/src/lib.rs`;
-- SDK identity and quote-bound signing: `crates/rpc_sdk/src/lib.rs`.
+- account public key field: `Account::public_key_hex` in
+  [`crates/types/src/account_owned_asset_types.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/types/src/account_owned_asset_types.rs);
+- first-spend key binding and later key mismatch rejection: `execute_transfer`
+  in [`crates/execution/src/entrypoints.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/execution/src/entrypoints.rs);
+- SDK identity and quote-bound signing: `wallet_identity_from_backup` and
+  `wallet_sign_transfer_from_quote` in
+  [`crates/rpc_sdk/src/wallet_sdk.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/rpc_sdk/src/wallet_sdk.rs).
 
 ## What Does Not Carry Over From BIP32
 
@@ -45,8 +58,14 @@ account, and then watched by address.
 ## Deposit Address Model
 
 Use unique transparent addresses per customer, subaccount, or deposit intent.
-Do not use a shared omnibus address for customer deposits in v0 because the
-transparent transfer envelope has no memo/tag field.
+`transparent_transfer` has no memo field. To require memos on covered payments
+after the governed `require_memo_activation_height`, set the account's
+require-memo flag with `account_set`, and the ledger then rejects incoming
+`transparent_transfer`, `issued_payment`, and memo-less `payment_v2` or
+`issued_payment_v2` with `destination_memo_required`, so covered deposits
+carry a memo that the exchange must validate for attribution. Escrow, atomic swap, offer, NFT, bridge
+and FastPay credits are not covered. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#deposit-attribution-with-required-memos).
 
 A deposit registry entry should include at minimum:
 
@@ -72,8 +91,9 @@ private key material.
 
 ## Deposit Detection
 
-Controlled-testnet v0 supports address balance polling and tx/finality
-verification. It does not yet provide a production account-history indexer.
+Controlled-testnet v0 supports address balance polling, tx/finality
+verification and account history: `account_tx` reads a disk-backed per-account
+index ([account history](../rpc/account-history.md)).
 
 Minimum viable attribution flow:
 
@@ -81,15 +101,22 @@ Minimum viable attribution flow:
 2. Persist the address-to-customer mapping before showing the address.
 3. Poll `account` for the assigned address.
 4. When balance increases, reconcile the delta against the customer mapping.
-5. If the inbound transaction id is known from the sender or an indexer, query
+5. Find the inbound transaction id with `account_tx` (or from the sender), query
    `tx` and require a confirmed finality summary before crediting.
 6. For controlled testnet, require conservative confirmation policy: credit
    only after finality RPC validation succeeds against an allowed endpoint.
 
-Known gap: without account-history indexing, a watcher that only sees a balance
-delta cannot independently list every inbound transaction by address. The
-controlled-testnet model is acceptable for assigned-address pilots, but
-exchange-grade production needs account history or an indexer role.
+Account history in source now includes transparent transactions and shielded
+withdrawals that credit transparent accounts. Native and issued `payment_v2`
+rows expose signed `memos`, their hash, count and byte length; `tx` exposes the
+same rows. After deployment, serving nodes must run `account-tx-index-build`
+to replace the old index and backfill retained history.
+
+Code: `append_account_tx_index_block`, `build_account_tx_index` and
+`account_tx_rows_for_archived_block` in
+[`crates/node/src/block_finality.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/node/src/block_finality.rs).
+Transparent shielded-pool deposits, FastLane primary effects and FastPay
+certificates still need separate reconciliation. See [account history](../rpc/account-history.md).
 
 ## Withdrawal Model
 
@@ -106,6 +133,12 @@ Withdrawals are signed from the custody address using the SDK quote-bound flow:
 
 The SDK rejects quote sender, recipient, amount, and explicit-sequence mismatches
 against the request, plus chain-id mismatches with the wallet backup.
+
+After the governed `rejected_tx_fee_activation_height`, a withdrawal included in
+a block but rejected for an effect-level reason returns a `tec_<reason>`
+receipt: the fee was burned and the sequence consumed, no amount moved. Re-sign
+with the next sequence instead of resubmitting the same transaction. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#rejected-transactions-pay-their-fee).
 
 ## Watch-Only Constraints
 
@@ -157,7 +190,8 @@ For the first controlled testnet, the exchange/custody model is credible when:
 
 ## Remaining Production Work
 
-- Account-history indexer or archive-backed deposit scanner.
+- Deploy the expanded account history and backfill its v2 index; reconcile
+  balance-changing lanes that remain outside `account_tx`.
 - Hardware-wallet or external signer interface for ML-DSA.
 - Formal backup encryption and recovery standard.
 - BIP39 mnemonic create/import implementation and custody recovery policy.

@@ -703,6 +703,14 @@ mod tests {
 
     use super::*;
 
+    // The tracked A666 policies are the freshness-and-debt candidate's inputs
+    // (qualifications/freshness-and-debt-20260924/candidate-identity.json), with
+    // the values adopted from docs/review/nav-reserve-proof-successor-proposal-20260924.md.
+    // The immutable public successor's inputs stay frozen in its qualification.
+    const SUCCESSOR_AAVE_USER_CONFIG_SLOT_INDEX: u64 = 53;
+    const SUCCESSOR_NEAR_MAX_RECEIPT_AGE_NS: u64 = 1_800_000_000_000;
+    const SUCCESSOR_NEAR_MAX_RECEIPT_AGE_BLOCKS: u64 = 3_000;
+
     fn committee() -> BftCheckpointCommitteeV1 {
         let key = ml_dsa_65_keygen_from_seed(&[7; 32]);
         BftCheckpointCommitteeV1 {
@@ -863,6 +871,10 @@ mod tests {
             &std::fs::read(manifest_dir.join("aave-arbitrum-policy.json")).unwrap(),
         )
         .unwrap();
+        assert_eq!(
+            aave.user_config_mapping_slot_index,
+            SUCCESSOR_AAVE_USER_CONFIG_SLOT_INDEX
+        );
         let spot: EvmSpotPolicyV1 = serde_json::from_slice(
             &std::fs::read(manifest_dir.join("evm-spot-policy.json")).unwrap(),
         )
@@ -1177,6 +1189,11 @@ mod tests {
             &std::fs::read(manifest_dir.join("near-receipt-policy.json")).unwrap(),
         )
         .unwrap();
+        assert_eq!(near.max_receipt_age_ns, SUCCESSOR_NEAR_MAX_RECEIPT_AGE_NS);
+        assert_eq!(
+            near.max_receipt_age_blocks,
+            SUCCESSOR_NEAR_MAX_RECEIPT_AGE_BLOCKS
+        );
         let solana: SolanaStakeReaderPolicyV1 = serde_json::from_slice(
             &std::fs::read(manifest_dir.join("solana-stake-reader-policy.json")).unwrap(),
         )

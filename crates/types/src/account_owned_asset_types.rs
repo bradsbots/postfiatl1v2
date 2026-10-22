@@ -1,9 +1,20 @@
+/// Account flag: incoming covered payments must carry at least one memo.
+/// Set and cleared by the owner with an `account_set` transaction once the
+/// `require_memo_activation_height` governance gate is active.
+pub const ACCOUNT_FLAG_REQUIRE_MEMO: u32 = 0x0000_0001;
+pub const ACCOUNT_ALLOWED_FLAGS: u32 = ACCOUNT_FLAG_REQUIRE_MEMO;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Account {
     pub address: String,
     pub balance: u64,
     pub sequence: u64,
     pub public_key_hex: Option<String>,
+    /// Owner-set account flags. Zero is omitted from JSON and from the
+    /// canonical state commitment, so every pre-existing account encodes
+    /// byte-for-byte as before.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub flags: u32,
 }
 
 /// A FastPay-style owned-value object (UTXO): single owner, single-consumption
@@ -394,7 +405,12 @@ impl Account {
             balance,
             sequence: 0,
             public_key_hex,
+            flags: 0,
         }
+    }
+
+    pub fn requires_memo(&self) -> bool {
+        self.flags & ACCOUNT_FLAG_REQUIRE_MEMO != 0
     }
 }
 

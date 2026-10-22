@@ -19,7 +19,7 @@ authorization inventory is
 | `manifests` | Validator/operator manifest information where available. |
 | `blocks` | Block lookup. |
 | `receipts` | Receipt lookup. |
-| `tx` | Transaction finality lookup. |
+| `tx` | Transaction finality lookup, with the transaction's `account_tx` rows (`transaction_rows`), including native and issued payment memo contents. |
 | `mempool_status` | Mempool status. |
 | `bridge_status` | Bridge-simulation status. |
 | `navcoin_bridge_routes` | PFTL-to-Uniswap NAVCoin bridge route status. |
@@ -30,7 +30,7 @@ authorization inventory is
 | `shield_turnstile` | Shielded turnstile accounting. |
 | `orchard_pool_report` | Public Orchard pool counters. |
 | `account` | Account state. |
-| `account_tx` | Bounded account transaction history. |
+| `account_tx` | Bounded account transaction history: transparent rows with native and issued payment memo contents, plus shielded-withdrawal credits. |
 | `account_tx_index_status` | Account-history index readiness. |
 
 ## Ledger Object Reads
@@ -50,6 +50,10 @@ authorization inventory is
 | `account_offers` | Offers by owner. |
 | `book_offers` | Offers in a deterministic book pair. |
 
+`account_tx` and `tx` row fields, memo decoding, shielded-withdrawal rows and
+the index rebuild that backfills them are documented in
+[Account History](account-history.md).
+
 `navcoin_bridge_routes` route rows expose the bridge `handoff_controller` and
 the `settlement_adapter` separately. Wallets must not treat either as the
 Uniswap router/path; those execution fields are bound by the route config and
@@ -63,7 +67,7 @@ launch config digests.
 | `mempool_submit_signed_transfer` | Submit signed native PFT transfer. |
 | `mempool_submit_signed_payment_v2` | Submit signed native PFT payment with memos. |
 | `asset_fee_quote` | Quote issued-asset and TrustSet-style transactions. |
-| `mempool_submit_signed_asset_transaction` | Submit signed asset create, TrustSet, issued payment, or clawback. |
+| `mempool_submit_signed_asset_transaction` | Submit signed asset create, TrustSet, issued payment (`issued_payment`, or `issued_payment_v2` with memos), clawback, or `account_set` (owner account flags). |
 | `escrow_fee_quote` | Quote escrow create, finish, or cancel. |
 | `mempool_submit_signed_escrow_transaction` | Submit signed escrow transaction. |
 | `nft_fee_quote` | Quote NFT mint, transfer, or burn. |
@@ -76,6 +80,20 @@ launch config digests.
 | `mempool_submit_signed_atomic_swap_transaction_finality` | Submit and return certificate/receipt finality for a signed W6 atomic swap. Success still requires an accepted receipt code. |
 | `mempool_submit_fastlane_primary` | Submit a source-signed, sequence-bound FastLane deposit or an ordered FastPay recovery action when the controlled signed-submit surface is enabled. |
 | `mempool_submit_fastlane_primary_finality` | Submit the same FastLane primary transaction through the finality-returning path. |
+
+Signed submit methods reject a destination address that is not a canonical
+`pf` + 40 lowercase hex address before admission. The error `code` is
+`invalid_recipient_address`, `invalid_recipient_checksum` or
+`noncanonical_recipient_address`; see
+[Addresses And Checksums](../wallets/address-format.md). The `account` result
+adds `address_checksummed`, the display form of `address`.
+
+Receipts from these submissions use `accepted: true` with code `accepted` (or
+an offer fill code) when applied. A rejected receipt whose code starts with
+`tec_` was fee-claimed: its fee was burned and its sequence consumed, nothing
+else changed. `account` returns `flags` (`1` = require memo) only when set.
+Both behaviours are governed; see
+[Custody And Exchange](../wallets/custody-and-exchange.md#fees).
 
 ## FastPay Wallet Methods
 

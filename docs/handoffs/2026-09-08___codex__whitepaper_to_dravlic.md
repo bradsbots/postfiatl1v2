@@ -54,4 +54,4 @@ Dravlic: review the whitepaper replacement and use the current paper as the refe
 - [Current whitepaper](../whitepaper.md)
 - [Legacy whitepaper](../whitepaper_legacy.md)
 - [Copyable Markdown](../assets/raw/whitepaper.md.txt)
-- [Handoff standard](README.md)
+- [Handoff standard](https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/handoffs/README.md)

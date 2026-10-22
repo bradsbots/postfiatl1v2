@@ -3242,6 +3242,30 @@
     }
 
     #[test]
+    fn ratifies_recipient_fee_and_memo_activation_heights() {
+        let domain = test_domain();
+        let config = EssentialSubsetConfig::all_of(vec![
+            "validator-0".to_string(),
+            "validator-1".to_string(),
+        ]);
+        let support = vec!["validator-0".to_string(), "validator-1".to_string()];
+        for kind in [
+            GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+            GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT,
+            GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT,
+        ] {
+            let activation =
+                ratify_governance_amendment(&domain, &config, kind, 4096, support.clone())
+                    .expect("ratify activation height");
+            verify_governance_amendment(&domain, &activation).expect("verify activation");
+            assert!(
+                ratify_governance_amendment(&domain, &config, kind, 0, support.clone()).is_err(),
+                "{kind} must reject a zero activation height"
+            );
+        }
+    }
+
+    #[test]
     fn governance_amendment_lifecycle_metadata_is_bound() {
         let domain = test_domain();
         let config = EssentialSubsetConfig::all_of(vec![

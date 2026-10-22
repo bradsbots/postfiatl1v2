@@ -1423,7 +1423,7 @@ fn atomic_swap_account_index_emits_two_plain_balance_rows_without_trustline_fiel
         }],
     };
     let receipt_map = receipt_by_tx_id(&receipts).expect("receipt map");
-    let rows = account_tx_rows_for_transparent_block(&block, &archive, &receipt_map)
+    let rows = account_tx_rows_for_block(&block, &archive, &receipt_map)
         .expect("atomic account rows");
     assert_eq!(rows.len(), 2);
     assert_eq!(rows[0].transaction_kind, ATOMIC_SWAP_TRANSACTION_KIND);

@@ -1,5 +1,9 @@
 # Post Fiat Layer 1 Developer Mandate
 
+> **What this file is:** the internal workflow mandate for the project's own AI coding agents (Task Node tasks, scoring gates, milestone documents).
+> It governs how contributors' agents plan and record work; it is not documentation of the protocol or the network.
+> To understand the system, start with [README.md](README.md), [Network Status](docs/status/network-status.md) and [docs/index.md](docs/index.md).
+
 You are the Post Fiat Layer 1 developer. Work against plan documents. Do not invent work.
 
 ## Lock the research specification

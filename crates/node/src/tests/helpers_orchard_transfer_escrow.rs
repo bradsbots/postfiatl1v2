@@ -3829,6 +3829,42 @@
             .expect("withdraw recipient exists after withdraw")
             .balance;
         assert_eq!(withdraw_balance_after, withdraw_balance_before + 1);
+        // The transparent credit is listed in the recipient's account history
+        // and in the withdraw's `tx` rows.
+        let withdraw_history = account_tx(AccountTxQueryOptions {
+            data_dir: data_dir.clone(),
+            address: withdraw_to.clone(),
+            from_height: None,
+            to_height: None,
+            limit: Some(200),
+        })
+        .expect("withdraw recipient account_tx");
+        let withdraw_credit = withdraw_history
+            .rows
+            .iter()
+            .find(|row| row.tx_id == withdraw_receipts[0].tx_id)
+            .expect("shielded withdrawal credit row")
+            .clone();
+        assert_eq!(withdraw_credit.batch_kind, BATCH_KIND_SHIELDED);
+        assert_eq!(withdraw_credit.transaction_kind, "orchard_withdraw_v1");
+        assert_eq!(
+            withdraw_credit.tx_role.as_deref(),
+            Some(ACCOUNT_TX_ROLE_SHIELDED_WITHDRAWAL)
+        );
+        assert_eq!(withdraw_credit.from_address, ORCHARD_DEFAULT_POOL_ID);
+        assert_eq!(withdraw_credit.to_address, withdraw_to);
+        assert_eq!(withdraw_credit.amount, 1);
+        assert_eq!(withdraw_credit.fee, 2);
+        assert_eq!(withdraw_credit.transaction_index, 0);
+        assert_eq!(withdraw_credit.asset_id, None);
+        assert_eq!(withdraw_credit.accepted, Some(true));
+        let withdraw_finality = tx_finality(TxFinalityQueryOptions {
+            data_dir: data_dir.clone(),
+            tx_id: withdraw_receipts[0].tx_id.clone(),
+            audit_block_log: false,
+        })
+        .expect("Orchard withdraw tx finality");
+        assert_eq!(withdraw_finality.transaction_rows, vec![withdraw_credit]);
         let private_markers = [
             spend_input.rho.as_str(),
             spend_input.rseed.as_str(),
@@ -5320,7 +5356,7 @@
             &ledger,
             &data_dir,
             None,
-            "pfexternalsigned0000000000000000000".to_string(),
+            "pfe000000000000000000000000000000000000001".to_string(),
             ACCOUNT_RESERVE,
         )
         .expect("build signed transfer");
@@ -5398,7 +5434,7 @@
         let quote = transfer_fee_quote(TransferFeeQuoteOptions {
             data_dir: data_dir.clone(),
             from: key_file.address.clone(),
-            to: "pfpaymentv2recipient0000000000000001".to_string(),
+            to: "pfa000000000000000000000000000000000000002".to_string(),
             amount: ACCOUNT_RESERVE,
             sequence: None,
             memo_type: Some(memo.memo_type.clone()),

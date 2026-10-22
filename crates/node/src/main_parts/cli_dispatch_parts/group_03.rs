@@ -1852,11 +1852,14 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
             Ok(())
         }
         "ratify-atomic-swap-activation-height"
+        | "ratify-rejected-tx-fee-activation-height"
+        | "ratify-require-memo-activation-height"
         | "ratify-orchard-aware-bridge-claim-activation-height"
         | "ratify-pfusdc-source-series-activation-height"
         | "ratify-replicated-state-v2-activation-height"
         | "ratify-bridge-exit-root-activation-height"
         | "ratify-shielded-atomic-batch-activation-height"
+        | "ratify-recipient-format-activation-height"
         | "ratify-vault-bridge-route-authority-activation-height" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let validators =
@@ -1871,6 +1874,14 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
                 "ratify-atomic-swap-activation-height" => (
                     GOVERNANCE_KIND_ATOMIC_SWAP_ACTIVATION_HEIGHT,
                     "--atomic-swap-activation-height",
+                ),
+                "ratify-rejected-tx-fee-activation-height" => (
+                    GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT,
+                    "--rejected-tx-fee-activation-height",
+                ),
+                "ratify-require-memo-activation-height" => (
+                    GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT,
+                    "--require-memo-activation-height",
                 ),
                 "ratify-orchard-aware-bridge-claim-activation-height" => (
                     GOVERNANCE_KIND_ORCHARD_AWARE_BRIDGE_CLAIM_ACTIVATION_HEIGHT,
@@ -1891,6 +1902,10 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
                 "ratify-shielded-atomic-batch-activation-height" => (
                     GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT,
                     "--shielded-atomic-batch-activation-height",
+                ),
+                "ratify-recipient-format-activation-height" => (
+                    GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+                    "--recipient-format-activation-height",
                 ),
                 _ => (
                     GOVERNANCE_KIND_VAULT_BRIDGE_ROUTE_AUTHORITY_ACTIVATION_HEIGHT,

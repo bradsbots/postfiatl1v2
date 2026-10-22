@@ -627,6 +627,16 @@ pub struct AssetExecutionCompatibility {
     pub atomic_swap_activation_height: Option<u64>,
     pub atomic_swap_paused: bool,
     pub yolo_target_activation_height: Option<u64>,
+    /// Height from which destination address fields must be canonical PFTL
+    /// addresses. `None` keeps historical behavior.
+    pub recipient_format_activation_height: Option<u64>,
+    /// Governance `rejected_tx_fee_activation_height`. Set only for execution
+    /// of certified transparent blocks (live and archive replay); every
+    /// constructor leaves it `None`, so mempool, RPC and shielded dry runs
+    /// never mutate a scratch ledger for a rejected transaction.
+    pub rejected_tx_fee_activation_height: Option<u64>,
+    /// Governance `require_memo_activation_height`.
+    pub require_memo_activation_height: Option<u64>,
 }
 
 impl AssetExecutionCompatibility {
@@ -652,6 +662,9 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: Some(0),
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
+            rejected_tx_fee_activation_height: None,
+            require_memo_activation_height: None,
         }
     }
 
@@ -672,6 +685,9 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
+            rejected_tx_fee_activation_height: None,
+            require_memo_activation_height: None,
         }
     }
 
@@ -692,6 +708,9 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
+            rejected_tx_fee_activation_height: None,
+            require_memo_activation_height: None,
         }
     }
 
@@ -712,6 +731,9 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
+            rejected_tx_fee_activation_height: None,
+            require_memo_activation_height: None,
         }
     }
 
@@ -732,6 +754,9 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
+            rejected_tx_fee_activation_height: None,
+            require_memo_activation_height: None,
         }
     }
 
@@ -813,6 +838,45 @@ impl AssetExecutionCompatibility {
     pub const fn with_atomic_swap_paused(mut self, paused: bool) -> Self {
         self.atomic_swap_paused = paused;
         self
+    }
+
+    pub const fn with_recipient_format_activation_height(
+        mut self,
+        activation_height: Option<u64>,
+    ) -> Self {
+        self.recipient_format_activation_height = activation_height;
+        self
+    }
+
+    pub fn recipient_format_active(&self, block_height: u64) -> bool {
+        self.recipient_format_activation_height
+            .is_some_and(|activation_height| block_height >= activation_height)
+    }
+
+    pub const fn with_rejected_tx_fee_activation_height(
+        mut self,
+        activation_height: Option<u64>,
+    ) -> Self {
+        self.rejected_tx_fee_activation_height = activation_height;
+        self
+    }
+
+    pub fn rejected_tx_fee_active(&self, block_height: u64) -> bool {
+        self.rejected_tx_fee_activation_height
+            .is_some_and(|activation_height| block_height >= activation_height)
+    }
+
+    pub const fn with_require_memo_activation_height(
+        mut self,
+        activation_height: Option<u64>,
+    ) -> Self {
+        self.require_memo_activation_height = activation_height;
+        self
+    }
+
+    pub fn require_memo_active(&self, block_height: u64) -> bool {
+        self.require_memo_activation_height
+            .is_some_and(|activation_height| block_height >= activation_height)
     }
 }
 
@@ -1005,7 +1069,57 @@ fn apply_asset_operation(
                     "issued_payment transaction kind mismatch".to_string(),
                 ));
             }
+            // `issued_payment` cannot carry a memo, so it never reaches an
+            // account that requires one once the gate is active.
+            require_destination_memo(ledger, &operation.to, 0, compatibility, block_height)?;
             apply_issued_payment(ledger, operation, block_height, compatibility)
+        }
+        AssetTransactionOperation::IssuedPaymentV2(operation) => {
+            if transaction.unsigned.transaction_kind
+                != postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND
+            {
+                return Err((
+                    "wrong_transaction_kind",
+                    "issued_payment_v2 transaction kind mismatch".to_string(),
+                ));
+            }
+            if !compatibility.require_memo_active(block_height) {
+                return Err((
+                    "issued_payment_v2_not_active",
+                    format!("issued_payment_v2 is not active at block height {block_height}"),
+                ));
+            }
+            require_destination_memo(
+                ledger,
+                &operation.to,
+                operation.memos.len(),
+                compatibility,
+                block_height,
+            )?;
+            apply_issued_payment(ledger, &operation.payment(), block_height, compatibility)
+        }
+        AssetTransactionOperation::AccountSet(operation) => {
+            if transaction.unsigned.transaction_kind != postfiat_types::ACCOUNT_SET_TRANSACTION_KIND
+            {
+                return Err((
+                    "wrong_transaction_kind",
+                    "account_set transaction kind mismatch".to_string(),
+                ));
+            }
+            if !compatibility.require_memo_active(block_height) {
+                return Err((
+                    "account_set_not_active",
+                    format!("account_set is not active at block height {block_height}"),
+                ));
+            }
+            let account = ledger.account_mut(&operation.account).ok_or_else(|| {
+                (
+                    "missing_account",
+                    format!("account_set account `{}` does not exist", operation.account),
+                )
+            })?;
+            account.flags = operation.apply_to(account.flags);
+            Ok(())
         }
         AssetTransactionOperation::AssetBurn(operation) => {
             if transaction.unsigned.transaction_kind != ASSET_BURN_TRANSACTION_KIND {

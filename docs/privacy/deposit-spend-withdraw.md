@@ -59,10 +59,25 @@ flowchart LR
   Notes -->|withdraw reveals recipient envelope| Withdrawals
   Withdrawals -->|credit transparent recipient| Accounts
 
-  Invariant[Turnstile invariant<br/>cumulative withdrawals <= net deposits<br/>violation freezes shielded action class]
+  Invariant[Turnstile invariant<br/>cumulative withdrawals <= net deposits<br/>a breaking action is rejected<br/>no automatic pause]
   Deposits -. counter input .-> Invariant
   Withdrawals -. counter input .-> Invariant
 ```
+
+An action that would break the turnstile is rejected with a receipt and
+changes no pool state; in an atomic batch the whole batch is aborted. Examples
+are a withdraw above the issued pool value (`orchard_withdraw_exceeds_pool`),
+new notes beyond the recorded deposit budget (`turnstile_insufficient_deposit`)
+and an Asset-Orchard egress above an asset's live balance
+(`asset_orchard_accounting_underflow`). A rejection pauses nothing: shielded
+actions stop only when governance activates the Orchard pool pause amendment,
+which then rejects every action in a shielded batch with `orchard_pool_paused`.
+
+Code: `orchard_withdraw_amount_for_apply`,
+`apply_verified_orchard_action_to_shielded_state_with_exit_policy_and_deposit_credit`
+and `debit_asset_orchard_balance` in `crates/node/src/orchard_state_application.rs`;
+`verify_orchard_turnstile_accounting` in `crates/node/src/shielded_batch_actions.rs`;
+`execute_shielded_batch_actions` in `crates/node/src/execution_actions.rs`.
 
 ## Deposit
 

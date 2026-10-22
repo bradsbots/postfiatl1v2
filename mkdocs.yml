@@ -10,11 +10,21 @@ exclude_docs: |
   archive/**
   examples/**
   references/**
+  handoffs/README.md
+  listings/**
   review/**
+  !review/README.md
   !review/navcoin-spec-platform-review-20261001.md
   !review/bmnrc-protocol-enforcement-check-20261002.md
   specs/**
+  !specs/account-key-rotation-boundary.md
+  !specs/plaintext-key-file-boundary.md
+  !specs/transparent-transaction-envelope.md
+  !specs/wallet-exchange-custody-model.md
+  !specs/wallet-mnemonic-design.md
   status/**
+  !status/README.md
+  !status/network-status.md
   !status/chain-state-current.md
   !status/testnet-path.md
   !status/release-gate-inventory.md
@@ -91,106 +101,6 @@ extra_css:
 
 nav:
   - Home: index.md
-  - Current State: status/chain-state-current.md
-  - Testnet Path: status/testnet-path.md
-  - Release Gate Inventory: status/release-gate-inventory.md
-  - Demo Readiness 2026-10-01: status/demo-readiness-20261001.md
-  - Whitepaper: whitepaper.md
-  - Legacy Whitepaper: whitepaper_legacy.md
-  - NAVCoins:
-      - Overview: navcoins/index.md
-      - Create And Swap Specification: navcoins/navcoin-create-and-swap-spec.md
-      - Specification Platform Review 2026-10-01: review/navcoin-spec-platform-review-20261001.md
-      - BMNRC Protocol Enforcement Check 2026-10-02: review/bmnrc-protocol-enforcement-check-20261002.md
-      - A666 Current State: status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md
-      - Legacy a651 Uniswap Pool: navcoins/uniswap-pool.md
-      - Proof-of-Reserve Primitives: navcoins/reserve-primitives.md
-      - YOLO Options Reserve Profile: navcoins/yolo-options-reserve-profile.md
-      - YOLO Target Receipt v1: yolo/target-receipt-v1.md
-      - Assets And Venues: navcoins/assets-and-venues.md
-      - PFTL Tools: navcoins/pftl-tools.md
-      - Reference Posts: navcoins/references.md
-      - Detailed Proof Of Reserves: business/navcoin-proof-of-reserves.md
-      - Current Infrastructure: business/navcoin-current-infra.md
-      - Python Example: business/navcoin-python-example.md
-      - Archive Summary: evidence/navcoin-archive-summary.md
-  - Plans:
-      - Completed Task Node UNL Amendment V2: plans/completed/tasknode-unl-amendment-v2-milestone.md
-      - Completed Task Node UNL MVP Plan: plans/completed/tasknode-unl-mvp-plan.md
-      - Active Storage Scaling: plans/active/storage-scaling-milestone.md
-      - Z3 NAVCoin Round-Trip Plan: plans/active/z3-navcoin-roundtrip-plan.md
-      - Completed Cobalt Adversarial Verification: plans/completed/cobalt-adversarial-verification-milestone.md
-      - Completed Cobalt Activation: plans/completed/cobalt-activate-or-retire-milestone.md
-      - Completed Cobalt Milestone: plans/completed/cobalt-governance-milestone.md
-      - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
-      - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
-  - Handoffs:
-      - Reserve Proof Conditions Done And Both Replays In: handoffs/2026-10-22___dravlic__reserve_proof_conditions_done_and_both_replays_in.md
-      - Chain P0 Fixes For The Coinbase Review: handoffs/2026-10-22___nazgul__chain_p0_fixes_for_the_coinbase_review.md
-      - Store Handle Release Deployed And Swap Service On Epoch 2: handoffs/2026-10-21___dravlic__store_handle_release_deployed_and_swap_service_on_epoch_2.md
-      - Answers Acted On And Store Handle Fix Qualified: handoffs/2026-10-20___dravlic__answers_acted_on_and_store_handle_fix_qualified.md
-      - Founder Lane Resync And Answers To Open Asks: handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md
-      - Storage Regression Campaign On The Running Code: handoffs/2026-10-19___dravlic__storage_regression_campaign_on_the_running_code.md
-      - Committee Migration Command And Relays Persistent: handoffs/2026-10-16___dravlic__committee_migration_command_and_relays_persistent.md
-      - Fastlane Cap Release Deployed And Bridge Committee Activated: handoffs/2026-10-15___dravlic__fastlane_cap_release_deployed_and_bridge_committee_activated.md
-      - Contributor Pull Requests Cleared And Release Tomorrow: handoffs/2026-10-14___dravlic__contributor_pull_requests_cleared_release_tomorrow.md
-      - Contributor Pull Requests Reviewed And Relays As Services: handoffs/2026-10-13___dravlic__contributor_pull_requests_reviewed_and_relays_as_services.md
-      - Signer Groups Half Switched And Size Cap Fixed: handoffs/2026-10-12___dravlic__signer_groups_half_switched_and_size_cap_fixed.md
-      - Signer Rotation Release Deployed: handoffs/2026-10-09___dravlic__signer_rotation_release_deployed.md
-      - Conference Day Two, Friday Ready: handoffs/2026-10-08___dravlic__conference_day_two_friday_ready.md
-      - Conference Day One, Release Day Prepared: handoffs/2026-10-07___dravlic__conference_day_one_release_day_prepared.md
-      - Release Candidate Cut And Locally Qualified: handoffs/2026-10-06___dravlic__release_candidate_cut_and_locally_qualified.md
-      - Release After The Conference Prepared On Main: handoffs/2026-10-05___dravlic__release_after_the_conference_prepared_on_main.md
-      - BMNRC Protocol Check, Inventory Rows Closed And Decisions Taken: handoffs/2026-10-02___dravlic__bmnrc_protocol_check_inventory_rows_closed_and_decisions_taken.md
-      - Fleet Recorded, Relay Default, WB-11 Repaired And Demo Readiness: handoffs/2026-10-01___dravlic__fleet_recorded_relay_default_wb11_repaired_and_demo_readiness.md
-      - NAVCoin Create And Swap, Phase 0 Closing And BMNRC Opening: handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md
-      - FastPay Resume Repaired, Wallet Caps And Log Checks: handoffs/2026-09-30___dravlic__fastpay_resume_repaired_wallet_caps_and_log_checks.md
-      - NEAR Intents Research, Wallet Flows Reviewed And Live-Funds Readiness: handoffs/2026-09-29___dravlic__near_intents_research_wallet_flows_reviewed_and_live_funds_readiness.md
-      - FastPay Stall Fixed Live And Main Line Caught Up: handoffs/2026-09-28___dravlic__fastpay_stall_fixed_live_and_main_line_caught_up.md
-      - Merged FastPay And Combined Lines Qualified, Deployment Prepared: handoffs/2026-09-25___dravlic__merged_fastpay_and_combined_lines_qualified_and_deployed.md
-      - Wallet Reviewed And Merged, Reserve-Proof Gaps, And Demo Runbook: handoffs/2026-09-24___dravlic__wallet_reviewed_and_merged_reserve_proof_gaps_and_demo_runbook.md
-      - StakeHub Money Path Repaired, Deploy Candidate, And Restart Cause: handoffs/2026-09-23___dravlic__stakehub_money_path_repaired_deploy_candidate_and_restart_cause.md
-      - Key Custody, Next Release Qualified, And Cycle Inputs: handoffs/2026-09-22___dravlic__key_custody_next_release_qualified_and_cycle_inputs.md
-      - Overnight Release And NAVCoin Preparation: handoffs/2026-09-22___codex__overnight_release_and_navcoin_preparation.md
-      - Deploy Prepared And NAVCoin Audit: handoffs/2026-09-21___dravlic__deploy_prepared_and_navcoin_audit.md
-      - Combined Release Merged, Repaired, And Qualified: handoffs/2026-09-18___dravlic__combined_release_merged_repaired_and_qualified.md
-      - Arc Test Wallet And Z3 Offline Gates: handoffs/2026-09-17___dravlic__arc_test_wallet_and_z3_offline_gates.md
-      - Flaky Tests, P3 Sweep, Candidate Review, And Burn Five: handoffs/2026-09-16___dravlic__flaky_tests_p3_sweep_candidate_review_and_burn_five.md
-      - Burn Four Closed And RPC Health Probe: handoffs/2026-09-15___dravlic__burn_four_closed_and_rpc_health_probe.md
-      - Fleet Restart Record And Burn Three Closed: handoffs/2026-09-14___dravlic__fleet_restart_record_and_burn_three_closed.md
-      - CI Green, Fleet Check, And Burn Three Closed Early: handoffs/2026-09-11___dravlic__ci_green_fleet_check_and_burn_three.md
-      - QA Campaign Burn One Done Burn Two Running: handoffs/2026-09-10___dravlic__qa_campaign_burn_one_done_burn_two_running.md
-      - Signing Fix Qualification Hold: handoffs/2026-09-09___dravlic__signing_fix_qualification_hold.md
-      - Whitepaper And Consensus For Dravlic: handoffs/2026-09-09___codex__whitepaper_and_consensus_to_dravlic.md
-      - Safety Landed And UNL V2 Milestone Complete: handoffs/2026-09-08___dravlic__safety_landed_v2_milestone_complete.md
-      - Whitepaper Candidate 04 Promotion: handoffs/2026-09-08___codex__whitepaper_candidate_04_promotion.md
-      - Whitepaper Update For Dravlic: handoffs/2026-09-08___codex__whitepaper_to_dravlic.md
-      - CI Repair, UNL Hardening, And StakeHub Review: handoffs/2026-09-07___dravlic__ci_repair_unl_hardening_stakehub_review.md
-      - Task Node UNL MVP Built And Hardened: handoffs/2026-09-04___dravlic__tasknode_unl_mvp_built_and_hardened.md
-      - Agent Direction Decided; Z3 Planned: handoffs/2026-09-03___dravlic__agent_direction_decided_z3_planned.md
-      - Bug Fixes And Pending Decisions: handoffs/2026-08-31___dravlic__bug_fixes_and_pending_decisions.md
-      - Devnet Registry-Continuation Fix Deployed: handoffs/2026-08-31___postfiatchad__devnet_registry_fix_deploy.md
-      - Storage Single-Writer Gate Passed: handoffs/2026-08-31___postfiatchad__storage_gate_passed_rollout_pending.md
-      - Devnet Storage Canary Rollback: handoffs/2026-08-30___postfiatchad__devnet_storage_canary_rollback.md
-      - G4 First Pass: handoffs/2026-08-30___postfiatchad__g4_first_pass.md
-      - G4 Measurement Environment Decision: handoffs/2026-08-29___postfiatchad__g4_measurement_environment_decision.md
-      - Batched-Index G4 Residual Failure: handoffs/2026-08-29___postfiatchad__batched_index_g4_residual_failure.md
-      - Vote-Lock Marker And Batched Index Fixes: handoffs/2026-08-29___postfiatchad__vote_lock_marker_and_batched_index_fixes.md
-      - Remediated G4 Qualification Failure: handoffs/2026-08-29___postfiatchad__remediated_g4_qualification_failure.md
-      - Certified-Send Eager-Index Remediation: handoffs/2026-08-29___postfiatchad__certified_send_eager_index_remediation_complete.md
-      - Storage Verifier And Campaign Reset: handoffs/2026-08-27___postfiatchad__storage_verifier_and_campaign_reset.md
-      - Storage Candidate Review: handoffs/2026-08-27___dravlic__storage_candidate_review.md
-      - Storage G4 Time-Budget Decision: handoffs/2026-08-28___dravlic__storage_g4_time_budget_decision.md
-      - Standard: handoffs/README.md
-      - Transactional Storage Candidate: handoffs/2026-08-27___postfiatchad__transactional_storage_candidate.md
-      - Storage Scaling Prototype (Historical): handoffs/2026-08-26___postfiatchad__storage_scaling_implementation.md
-      - Evidence Review And Next Specifications: handoffs/2026-08-26___dravlic__evidence_review_and_next_specs.md
-      - Cobalt Adversarial Verification Final Handoff: handoffs/2026-08-26___postfiatchad__cobalt_adversarial_verification.md
-      - Cobalt Post-Activation Review: handoffs/2026-08-25___dravlic__cobalt_post_activation_review.md
-      - Cobalt Governance Activation: handoffs/2026-08-25___postfiatchad__cobalt_governance_activation.md
-  - Business:
-      - Business Whitepaper: business/whitepaper.md
-      - Private Exchange Models: business/private-exchange-models.md
   - Start Here:
       - First Day: start/first-day.md
       - Glossary: start/glossary.md
@@ -200,45 +110,50 @@ nav:
       - Overview: architecture/overview.md
       - Transaction Lifecycle: architecture/transaction-lifecycle.md
       - Settlement Lanes: architecture/settlement-lanes.md
-      - State And Storage: architecture/state-and-storage.md
-      - Storage Scaling Research Specification: architecture/storage-scaling-research-spec.md
-      - Storage Scaling Fix Specification: architecture/storage-scaling-fix-spec.md
-      - Testnet Genesis And Launch Specification (locked): architecture/l1v2-testnet-genesis-and-launch-spec.md
-      - Genesis Registry Proposal Path: architecture/genesis-registry-proposal-path.md
-      - Launch Topology Thresholds (proposal): architecture/launch-topology-thresholds.md
       - Finality: architecture/finality.md
       - Consensus Signing Rounds: architecture/consensus-signing-rounds.md
+      - State And Storage: architecture/state-and-storage.md
       - Evidence Model: architecture/evidence-model.md
-  - Governance:
-      - Cobalt: governance/cobalt.md
-      - Cobalt Implementation: governance/cobalt-implementation.md
-      - Cobalt Transition Safety Proof: governance/cobalt-transition-safety-proof.md
-      - Cobalt Adversarial Verification Results: governance/cobalt-adversarial-verification-results.md
-      - Cobalt Adversarial Verification Spec (locked): governance/cobalt-adversarial-verification-research-spec.md
-      - Cobalt Independent-Operator Proposal Path (locked): governance/cobalt-independent-operator-proposal-path-research-spec.md
-      - Dynamic UNL Proposal Source Research Specification: governance/dynamic-unl-proposal-source-research-spec.md
-      - Dynamic UNL L1 Evidence-Source Decision Note: governance/dynamic-unl-l1-evidence-source-note.md
-      - Deterministic Sub-Scorer Shadow Evaluation: governance/dunl-subscorer-shadow-eval-20260901.md
-      - L1 Observer Service Research Specification: governance/l1-observer-research-spec.md
-      - L1 Dynamic UNL Anchor Profile Research Specification: governance/l1-anchor-profile-research-spec.md
-      - Validator Evaluator Alternatives Decision Note: governance/validator-evaluator-alternatives-note.md
-      - Institution Legitimacy Scoring: governance/institution-legitimacy-scoring.md
-      - Validator Identity Packets: governance/validator-identity-packets.md
-      - Institution Reputation H200 Results: governance/institution-reputation-unl-h200-results-20260901.md
-      - Identity Packet Replay Results: governance/identity-packet-replay-results-20260903.md
-      - Task Node UNL Real-Data Shadow Run: governance/tasknode-unl-shadow-run-20260904.md
-      - Task Node UNL Attack Simulation And Weight Sensitivity: governance/tasknode-unl-attack-simulation-20260907.md
-      - Task Node UNL V2 Shadow CLI And Report: governance/tasknode-unl-v2-shadow-report.md
-      - YOLO Target Receipts Deploy Decision: governance/yolo-deploy-decision-20260907.md
-      - Consensus Signing Fix Deploy Decision: governance/signing-fix-deploy-decision-20260909.md
-      - Pending Operator Decisions: governance/pending-operator-decisions.md
-      - AI Governance Direction Decision: governance/ai-governance-direction-20260903.md
-      - Verifiable Constitution: governance/verifiable-constitution.md
-      - Validator Registry: governance/validator-registry.md
-      - Validator Admission Bin Policy: governance/validator-admission-bin-policy.md
-      - Validator Evidence Packet Schema: governance/validator-evidence-packet-schema.md
-      - Validator Evidence Field Registry: governance/validator-evidence-field-registry.md
-      - Deterministic Governance Overview: governance/deterministic-governance-overview.md
+      - Post-Quantum Authorization:
+          - Authorization: quantum/authorization.md
+          - Signature Size And Certificates: quantum/signature-size-and-certificates.md
+          - Wallet Implications: quantum/wallet-implications.md
+      - Specifications And Proposals:
+          - Storage Scaling Research Specification: architecture/storage-scaling-research-spec.md
+          - Storage Scaling Fix Specification: architecture/storage-scaling-fix-spec.md
+          - Testnet Genesis And Launch Specification (locked): architecture/l1v2-testnet-genesis-and-launch-spec.md
+          - Genesis Registry Proposal Path: architecture/genesis-registry-proposal-path.md
+          - Launch Topology Thresholds (proposal): architecture/launch-topology-thresholds.md
+  - Network Status:
+      - Network Status: status/network-status.md
+      - Current State (Full Log): status/chain-state-current.md
+      - Testnet Path: status/testnet-path.md
+      - Release Gate Inventory: status/release-gate-inventory.md
+  - Integrate:
+      - Exchange Integration Guide: integrate/exchange-guide.md
+      - Addresses, Keys And Signatures: integrate/addresses-keys-signatures.md
+      - RPC:
+          - Overview: rpc/overview.md
+          - Methods: rpc/methods.md
+          - Dispatch Method Coverage: rpc/method-coverage.md
+          - Account History: rpc/account-history.md
+          - Write Policy: rpc/write-policy.md
+          - Examples: rpc/examples.md
+          - RPC Method Inventory: runbooks/rpc-method-inventory.md
+      - Python Client:
+          - Quickstart: python/quickstart.md
+          - Client API: python/client-api.md
+          - Wallet Functions: python/wallet-functions.md
+          - XRP-Style Transactions: python/xrp-style-transactions.md
+          - Examples: python/examples.md
+          - Python RPC Client Runbook: runbooks/python-rpc-client.md
+      - Wallets:
+          - Transparent Wallet: wallets/transparent-wallet.md
+          - Web Wallet: wallets/web-wallet.md
+          - Recovery Phrase Design: wallets/recovery-phrase-design.md
+          - Shielded Wallet: wallets/shielded-wallet.md
+          - Custody And Exchange: wallets/custody-and-exchange.md
+      - Addresses And Checksums: wallets/address-format.md
   - Privacy:
       - Overview: privacy/overview.md
       - Orchard/Halo2: privacy/orchard-halo2.md
@@ -253,64 +168,108 @@ nav:
       - Floor Calibration: privacy/floor-calibration.md
       - Longitudinal Linkage: privacy/longitudinal-linkage.md
       - RPC And Resource Policy: privacy/rpc-and-resource-policy.md
-  - Quantum Authorization:
-      - Authorization: quantum/authorization.md
-      - Signature Size And Certificates: quantum/signature-size-and-certificates.md
-      - Wallet Implications: quantum/wallet-implications.md
-  - RPC:
-      - Overview: rpc/overview.md
-      - Methods: rpc/methods.md
-      - Dispatch Method Coverage: rpc/method-coverage.md
-      - Account History: rpc/account-history.md
-      - Write Policy: rpc/write-policy.md
-      - Examples: rpc/examples.md
-  - Python Client:
-      - Quickstart: python/quickstart.md
-      - Client API: python/client-api.md
-      - Wallet Functions: python/wallet-functions.md
-      - XRP-Style Transactions: python/xrp-style-transactions.md
-      - Examples: python/examples.md
-  - Wallets:
-      - Transparent Wallet: wallets/transparent-wallet.md
-      - Web Wallet: wallets/web-wallet.md
-      - Recovery Phrase Design: wallets/recovery-phrase-design.md
-      - Shielded Wallet: wallets/shielded-wallet.md
-      - Custody And Exchange: wallets/custody-and-exchange.md
-  - Validators:
+  - NAVCoins:
+      - Overview: navcoins/index.md
+      - Create And Swap Specification: navcoins/navcoin-create-and-swap-spec.md
+      - Specification Platform Review 2026-10-01: review/navcoin-spec-platform-review-20261001.md
+      - BMNRC Protocol Enforcement Check 2026-10-02: review/bmnrc-protocol-enforcement-check-20261002.md
+      - Assets And Venues: navcoins/assets-and-venues.md
+      - Proof-of-Reserve Primitives: navcoins/reserve-primitives.md
+      - Detailed Proof Of Reserves: business/navcoin-proof-of-reserves.md
+      - Current Infrastructure: business/navcoin-current-infra.md
+      - Python Example: business/navcoin-python-example.md
+      - PFTL Tools: navcoins/pftl-tools.md
+      - YOLO Options Reserve Profile: navcoins/yolo-options-reserve-profile.md
+      - YOLO Target Receipt v1: yolo/target-receipt-v1.md
+      - Legacy a651 Uniswap Pool: navcoins/uniswap-pool.md
+      - Reference Posts: navcoins/references.md
+      - Archive Summary: evidence/navcoin-archive-summary.md
+  - Validators & Operations:
       - Overview: validators/overview.md
       - Launch: validators/launch.md
       - Operations: validators/operations.md
       - History Retention: validators/history-retention.md
       - Monitors: validators/monitors.md
       - Emergency Key Rotation: validators/emergency-key-rotation.md
-  - Evidence:
-      - Index: evidence/index.md
-      - Controlled Testnet: evidence/controlled-testnet.md
-      - Performance Methodology: evidence/performance-methodology.md
-      - Cobalt: evidence/cobalt.md
-      - XRPL UNL Coordination: evidence/xrpl-unl-coordination.md
-      - SGLang Determinism: evidence/sglang-determinism.md
-      - Privacy: evidence/privacy.md
-      - Latency: evidence/latency.md
-      - RPC And Wallets: evidence/rpc-and-wallets.md
-  - Postmortems:
-      - Devnet Storage Live Canary Rollback: postmortems/devnet-storage-live-canary-rollback-2026-08-30.md
-      - Devnet Storage G6 Rehearsal Stop: postmortems/devnet-storage-g6-rehearsal-stop-2026-08-30.md
-      - WAN Devnet Fleet Degradation: postmortems/wan-devnet-fleet-degradation-2026-06-25.md
+      - Runbooks:
+          - Public Operator Runbook: runbooks/public-operator-runbook.md
+          - Operator Day Two: runbooks/operator-day-two.md
+          - Incident Response: runbooks/incident-response.md
+          - Safe Validator Rollout: runbooks/safe-validator-rollout.md
+          - Signed Deployment Manifest: runbooks/signed-deployment-manifest.md
+          - Signed Validator Snapshot Recovery: runbooks/signed-validator-snapshot-recovery.md
+          - Public RPC Operator Policy: runbooks/public-rpc-operator-policy.md
+          - Validator Identity Packets: runbooks/validator-identity-packets.md
+          - Faucet Testnet Transactions: runbooks/faucet-testnet-transactions.md
   - Security:
+      - Overview: security/index.md
       - Threat Model: security/threat-model.md
+      - Public Launch Boundary: security/public-launch-boundary.md
       - Halo2 Dependency: security/halo2-dependency.md
+      - AssetOrchard h_action Audit Scope: security/orchard-h-action-binding-audit-scope.md
+      - Core Feature LOC Inventory: security/core-feature-loc-audit-inventory.md
+      - Asset-Orchard Verifying Keys: security/orchard-verifying-keys.md
       - Redaction Policy: security/redaction-policy.md
       - SEC-20260930-01 Closure: security/SEC-20260930-01-closure.md
-      - Public Launch Boundary: security/public-launch-boundary.md
       - Public History Publication: security/public-history-publication.md
-  - Runbooks:
-      - Public Operator Runbook: runbooks/public-operator-runbook.md
-      - Validator Identity Packets: runbooks/validator-identity-packets.md
-      - Faucet Testnet Transactions: runbooks/faucet-testnet-transactions.md
-      - Operator Day Two: runbooks/operator-day-two.md
-      - Python RPC Client: runbooks/python-rpc-client.md
-      - RPC Method Inventory: runbooks/rpc-method-inventory.md
+  - Governance:
+      - Cobalt:
+          - Cobalt: governance/cobalt.md
+          - Cobalt Implementation: governance/cobalt-implementation.md
+          - Cobalt Transition Safety Proof: governance/cobalt-transition-safety-proof.md
+          - Cobalt Adversarial Verification Results: governance/cobalt-adversarial-verification-results.md
+          - Cobalt Adversarial Verification Spec (locked): governance/cobalt-adversarial-verification-research-spec.md
+          - Cobalt Independent-Operator Proposal Path (locked): governance/cobalt-independent-operator-proposal-path-research-spec.md
+      - Validator Registry And Admission:
+          - Validator Registry: governance/validator-registry.md
+          - Validator Admission Bin Policy: governance/validator-admission-bin-policy.md
+          - Validator Evidence Packet Schema: governance/validator-evidence-packet-schema.md
+          - Validator Evidence Field Registry: governance/validator-evidence-field-registry.md
+          - Validator Identity Packets: governance/validator-identity-packets.md
+          - Verifiable Constitution: governance/verifiable-constitution.md
+          - Deterministic Governance Overview: governance/deterministic-governance-overview.md
+      - Dynamic UNL And Task Node Research:
+          - Dynamic UNL Proposal Source Research Specification: governance/dynamic-unl-proposal-source-research-spec.md
+          - Dynamic UNL L1 Evidence-Source Decision Note: governance/dynamic-unl-l1-evidence-source-note.md
+          - Deterministic Sub-Scorer Shadow Evaluation: governance/dunl-subscorer-shadow-eval-20260901.md
+          - L1 Observer Service Research Specification: governance/l1-observer-research-spec.md
+          - L1 Dynamic UNL Anchor Profile Research Specification: governance/l1-anchor-profile-research-spec.md
+          - Validator Evaluator Alternatives Decision Note: governance/validator-evaluator-alternatives-note.md
+          - Institution Legitimacy Scoring: governance/institution-legitimacy-scoring.md
+          - Institution Reputation H200 Results: governance/institution-reputation-unl-h200-results-20260901.md
+          - Identity Packet Replay Results: governance/identity-packet-replay-results-20260903.md
+          - Task Node UNL Real-Data Shadow Run: governance/tasknode-unl-shadow-run-20260904.md
+          - Task Node UNL Attack Simulation And Weight Sensitivity: governance/tasknode-unl-attack-simulation-20260907.md
+          - Task Node UNL V2 Shadow CLI And Report: governance/tasknode-unl-v2-shadow-report.md
+      - Decisions:
+          - Pending Operator Decisions: governance/pending-operator-decisions.md
+          - AI Governance Direction Decision: governance/ai-governance-direction-20260903.md
+          - YOLO Target Receipts Deploy Decision: governance/yolo-deploy-decision-20260907.md
+          - Consensus Signing Fix Deploy Decision: governance/signing-fix-deploy-decision-20260909.md
+  - Whitepaper: whitepaper.md
+  - Reference:
+      - Transparent Transaction Envelope: specs/transparent-transaction-envelope.md
+      - Wallet Exchange Custody Model: specs/wallet-exchange-custody-model.md
+      - Account Key Rotation Boundary: specs/account-key-rotation-boundary.md
+      - Plaintext Key File Boundary: specs/plaintext-key-file-boundary.md
+      - Wallet Mnemonic Design: specs/wallet-mnemonic-design.md
+      - Account History Index Runbook: runbooks/account-tx-index.md
+      - Evidence:
+          - Index: evidence/index.md
+          - Controlled Testnet: evidence/controlled-testnet.md
+          - Performance Methodology: evidence/performance-methodology.md
+          - Cobalt: evidence/cobalt.md
+          - XRPL UNL Coordination: evidence/xrpl-unl-coordination.md
+          - SGLang Determinism: evidence/sglang-determinism.md
+          - Privacy: evidence/privacy.md
+          - Latency: evidence/latency.md
+          - RPC And Wallets: evidence/rpc-and-wallets.md
+  - Engineering Records:
+      - Handoffs: handoffs/index.md
+      - Plans: plans/README.md
+      - Reviews: review/README.md
+      - Postmortems: postmortems/README.md
+      - Status Log: status/README.md
 
 plugins:
   - search

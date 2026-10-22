@@ -1333,6 +1333,11 @@
         assert_eq!(identity.account_index, 2);
         assert!(identity.private_key_material_redacted);
         assert!(identity.address.starts_with("pf"));
+        assert_eq!(
+            identity.address_checksummed,
+            postfiat_crypto_provider::checksum_address(&identity.address).expect("checksum")
+        );
+        assert_eq!(identity.address_checksummed.to_ascii_lowercase(), identity.address);
 
         let restored_identity = wallet_identity_from_backup(&backup).expect("restored identity");
         assert_eq!(restored_identity, identity);
@@ -1340,7 +1345,7 @@
         let quote_request = transfer_fee_quote_request(
             "fee-quote-1",
             identity.address.clone(),
-            "pf1-recipient",
+            "pf0000000000000000000000000000000000000001",
             25,
             Some(7),
         );
@@ -1352,7 +1357,7 @@
                 "genesis_hash": hex96,
                 "protocol_version": 1,
                 "from": identity.address,
-                "to": "pf1-recipient",
+                "to": "pf0000000000000000000000000000000000000001",
                 "amount": 25,
                 "sequence": 7,
                 "sequence_source": "explicit",
@@ -1395,6 +1400,30 @@
         assert_eq!(signed.algorithm_id, ML_DSA_65_ALGORITHM);
         assert_eq!(signed.public_key_hex, restored_identity.public_key_hex);
         signed.validate().expect("signed transfer validates");
+        for (to, code) in [
+            ("pf1-recipient", "invalid_recipient_address"),
+            (identity.address_checksummed.as_str(), "noncanonical_recipient_address"),
+        ] {
+            let error = wallet_sign_transfer_from_fields(
+                &backup,
+                WalletSignTransferFields {
+                    chain_id: quote_summary.chain_id.clone(),
+                    genesis_hash: quote_summary.genesis_hash.clone(),
+                    protocol_version: quote_summary.protocol_version,
+                    to: to.to_string(),
+                    amount: 25,
+                    fee: 32,
+                    sequence: 7,
+                },
+            )
+            .expect_err("wallet signed a non-canonical recipient");
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("wallet refuses to sign: {code}: transfer.to")),
+                "{error}"
+            );
+        }
 
         let public_key = crypto_hex_to_bytes(&signed.public_key_hex).expect("public key bytes");
         let signature = crypto_hex_to_bytes(&signed.signature_hex).expect("signature bytes");
@@ -1493,7 +1522,7 @@
                 "operation": {
                     "operation": ESCROW_CREATE_TRANSACTION_KIND,
                     "owner": restored_identity.address.as_str(),
-                    "recipient": "pf1-recipient",
+                    "recipient": "pf0000000000000000000000000000000000000001",
                     "asset_id": "PFT",
                     "amount": 20,
                     "condition": "secret",
@@ -1570,7 +1599,7 @@
                     "issuer": restored_identity.address.as_str(),
                     "collection_id": "wallet-sdk-collection",
                     "serial": 1,
-                    "owner": "pf1-owner",
+                    "owner": "pf0000000000000000000000000000000000000002",
                     "metadata_hash": "ab".repeat(32),
                     "metadata_uri": "ipfs://postfiat-nft",
                     "flags": NFT_FLAG_TRANSFERABLE,
@@ -1728,7 +1757,7 @@
                 chain_id: "postfiat-other-chain".to_string(),
                 genesis_hash: hex96.to_string(),
                 protocol_version: 1,
-                to: "pf1-recipient".to_string(),
+                to: "pf0000000000000000000000000000000000000001".to_string(),
                 amount: 25,
                 fee: 32,
                 sequence: 7,
@@ -1791,6 +1820,27 @@
             Err(RpcResponseValidationError::InvalidResult { field, .. })
                 if field == "header.height"
         ));
+    }
+
+    #[test]
+    fn account_response_accepts_only_supported_nonzero_flags() {
+        let account = |flags: Option<u64>| {
+            let mut result = json!({"address": "pf1-test", "balance": 10, "sequence": 1});
+            if let Some(flags) = flags {
+                result["flags"] = json!(flags);
+            }
+            success_response("account-1", &result, vec![]).expect("account response")
+        };
+        validate_response_kind(&account(None), RpcResponseKind::Account)
+            .expect("account without flags");
+        validate_response_kind(&account(Some(1)), RpcResponseKind::Account)
+            .expect("require-memo flag");
+        for flags in [0, 2, 1 << 31] {
+            assert!(matches!(
+                validate_response_kind(&account(Some(flags)), RpcResponseKind::Account),
+                Err(RpcResponseValidationError::InvalidResult { field, .. }) if field == "flags"
+            ));
+        }
     }
 
     #[test]
@@ -4197,3 +4247,207 @@
         }
     }
 
+
+    fn exchange_account_tx_rows(address: &str, hex96: &str) -> Vec<Value> {
+        vec![
+            json!({
+                "tx_id": hex96,
+                "block_height": 1,
+                "batch_kind": "transparent",
+                "batch_id": hex96,
+                "transaction_index": 0,
+                "transaction_kind": PAYMENT_V2_TRANSACTION_KIND,
+                "from": "pf-customer",
+                "to": address,
+                "amount": 10,
+                "fee": 1,
+                "sequence": 1,
+                "memo_hash": hex96,
+                "memo_count": 2,
+                "memo_bytes": 16,
+                "memos": [
+                    {
+                        "memo_type": "6465706f736974",
+                        "memo_format": "",
+                        "memo_data": "34323432",
+                        "memo_type_text": "deposit",
+                        "memo_data_text": "4242"
+                    },
+                    {"memo_type": "", "memo_format": "", "memo_data": "ff00"}
+                ],
+                "accepted": true,
+                "receipt_code": "accepted"
+            }),
+            json!({
+                "tx_id": "cd".repeat(48),
+                "block_height": 2,
+                "batch_kind": "shielded",
+                "batch_id": hex96,
+                "transaction_index": 0,
+                "transaction_kind": "asset_orchard_private_egress_v1",
+                "from": "asset-orchard-v1",
+                "to": address,
+                "amount": 900,
+                "fee": 0,
+                "sequence": 0,
+                "asset_id": "10".repeat(48),
+                "tx_role": "shielded_withdrawal",
+                "accepted": true,
+                "receipt_code": "accepted"
+            }),
+        ]
+    }
+
+    fn exchange_account_tx_response(address: &str, hex96: &str, rows: Vec<Value>) -> RpcResponse {
+        success_response(
+            "exchange-account-tx",
+            &json!({
+                "schema": "postfiat-account-tx-v1",
+                "chain_id": "postfiat-local",
+                "genesis_hash": hex96,
+                "protocol_version": 1,
+                "address": address,
+                "from_height": null,
+                "to_height": null,
+                "scan_limit": 10,
+                "scanned_block_count": 2,
+                "archive_lookup_count": 2,
+                "truncated": false,
+                "row_count": rows.len(),
+                "rows": rows
+            }),
+            vec![],
+        )
+        .expect("account tx response")
+    }
+
+    #[test]
+    fn account_tx_rows_accept_memo_contents_and_shielded_withdrawal_credits() {
+        let hex96 = "ab".repeat(48);
+        let address = "pf-exchange";
+        let rows = exchange_account_tx_rows(address, &hex96);
+        validate_response_kind(
+            &exchange_account_tx_response(address, &hex96, rows.clone()),
+            RpcResponseKind::AccountTx,
+        )
+        .expect("memo and shielded withdrawal rows validate");
+
+        let mut memo_on_transfer = rows[0].clone();
+        memo_on_transfer["transaction_kind"] = json!(TRANSPARENT_TRANSFER_KIND);
+        let mut memo_count_mismatch = rows[0].clone();
+        memo_count_mismatch["memo_count"] = json!(3);
+        let mut uppercase_memo = rows[0].clone();
+        uppercase_memo["memos"][0]["memo_data"] = json!("ABCD");
+        let mut shielded_without_role = rows[1].clone();
+        shielded_without_role
+            .as_object_mut()
+            .expect("row object")
+            .remove("tx_role");
+        let mut shielded_transfer = rows[1].clone();
+        shielded_transfer["transaction_kind"] = json!(TRANSPARENT_TRANSFER_KIND);
+        let mut transparent_withdrawal = rows[1].clone();
+        transparent_withdrawal["batch_kind"] = json!("transparent");
+        let mut governance_row = rows[1].clone();
+        governance_row["batch_kind"] = json!("governance");
+        let mut native_withdrawal_with_asset = rows[1].clone();
+        native_withdrawal_with_asset["transaction_kind"] = json!("orchard_withdraw_v1");
+        native_withdrawal_with_asset["from"] = json!("orchard-v1");
+        for (row, field) in [
+            (memo_on_transfer, "memos"),
+            (memo_count_mismatch, "memos"),
+            (uppercase_memo, "memo_data"),
+            (shielded_without_role, "tx_role"),
+            (shielded_transfer, "transaction_kind"),
+            (transparent_withdrawal, "transaction_kind"),
+            (governance_row, "batch_kind"),
+            (native_withdrawal_with_asset, "asset_id"),
+        ] {
+            let error = validate_response_kind(
+                &exchange_account_tx_response(address, &hex96, vec![row]),
+                RpcResponseKind::AccountTx,
+            )
+            .expect_err("invalid exchange row is rejected");
+            assert!(
+                error.to_string().contains(field),
+                "expected the error to name `{field}`, got {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn issued_payment_v2_history_accepts_signed_memo_contents() {
+        let hex96 = "ab".repeat(48);
+        let address = "pf-exchange";
+        let mut row = exchange_account_tx_rows(address, &hex96).remove(0);
+        row["transaction_kind"] = json!(postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND);
+        row["asset_id"] = json!("10".repeat(48));
+        validate_response_kind(
+            &exchange_account_tx_response(address, &hex96, vec![row]),
+            RpcResponseKind::AccountTx,
+        ).expect("issued-asset deposit memos validate");
+    }
+
+    #[test]
+    fn tx_transaction_rows_must_belong_to_the_finality_transaction() {
+        let hex96 = "ab".repeat(48);
+        let tx_id = hex96.clone();
+        let finality = |transaction_rows: Vec<Value>| {
+            success_response(
+                "exchange-tx",
+                &json!({
+                    "schema": "postfiat-tx-finality-v1",
+                    "proof_id": hex96,
+                    "chain_id": "postfiat-local",
+                    "genesis_hash": hex96,
+                    "protocol_version": 1,
+                    "tx_id": tx_id,
+                    "confirmed": true,
+                    "verification_mode": "selected-block-hot-path",
+                    "receipt": {
+                        "tx_id": tx_id,
+                        "accepted": true,
+                        "code": "accepted",
+                        "message": "payment applied"
+                    },
+                    "receipt_index": 0,
+                    "receipt_count": 1,
+                    "block": {
+                        "header": {
+                            "height": 1,
+                            "parent_hash": "genesis",
+                            "batch_kind": "transparent",
+                            "batch_id": hex96,
+                            "block_hash": hex96,
+                            "state_root": hex96,
+                            "receipt_count": 1,
+                            "certificate_id": hex96,
+                            "certificate": valid_block_certificate(&hex96)
+                        },
+                        "receipt_ids": [tx_id]
+                    },
+                    "block_log_verified": false,
+                    "block_count": 1,
+                    "tip_hash": hex96,
+                    "tip_state_root": hex96,
+                    "transaction_rows": transaction_rows
+                }),
+                vec![],
+            )
+            .expect("tx response")
+        };
+        let payment_row = exchange_account_tx_rows("pf-exchange", &hex96)[0].clone();
+        validate_response_kind(&finality(vec![payment_row.clone()]), RpcResponseKind::Tx)
+            .expect("tx with its own memo row validates");
+        validate_response_kind(&finality(Vec::new()), RpcResponseKind::Tx)
+            .expect("tx without rows validates");
+
+        let mut other_tx = payment_row.clone();
+        other_tx["tx_id"] = json!("cd".repeat(48));
+        let mut other_block = payment_row;
+        other_block["block_height"] = json!(2);
+        for row in [other_tx, other_block] {
+            let error = validate_response_kind(&finality(vec![row]), RpcResponseKind::Tx)
+                .expect_err("foreign transaction row is rejected");
+            assert!(error.to_string().contains("transaction_rows"), "{error}");
+        }
+    }

@@ -25,3 +25,4 @@ zeroize = { workspace = true }
 
 [dev-dependencies]
 fips204-reference = { package = "fips204", version = "=0.4.6", default-features = false, features = ["ml-dsa-65"] }
+serde_json = { workspace = true }

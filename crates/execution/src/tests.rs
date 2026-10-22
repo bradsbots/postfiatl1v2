@@ -10,3 +10,5 @@ include!("yolo_target_execution_tests.rs");
 include!("swap_settlement_execution_tests.rs");
 include!("pftl_uniswap_bridge_policy_update_tests.rs");
 include!("signer_committee_rotation_dry_run_tests.rs");
+include!("recipient_format_execution_tests.rs");
+include!("rejected_fee_claim_execution_tests.rs");

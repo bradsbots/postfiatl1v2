@@ -523,7 +523,7 @@ fn init_then_run_once() {
     let batch = create_transfer_batch(BatchTransferOptions {
         data_dir: data_dir.clone(),
         key_file: None,
-        to: "pfrecipient000000000000000000000000000001".to_string(),
+        to: "pf0000000000000000000000000000000000000001".to_string(),
         amount: 25,
         batch_file: batch_file.clone(),
     })
@@ -549,7 +549,7 @@ fn init_then_run_once() {
     let pending = submit_transfer_to_mempool(TransferOptions {
         data_dir: data_dir.clone(),
         key_file: None,
-        to: "pfrecipient000000000000000000000000000002".to_string(),
+        to: "pf0000000000000000000000000000000000000002".to_string(),
         amount: 15,
     })
     .expect("submit pending transfer");
@@ -557,7 +557,7 @@ fn init_then_run_once() {
     let second_pending = submit_transfer_to_mempool(TransferOptions {
         data_dir: data_dir.clone(),
         key_file: None,
-        to: "pfrecipient000000000000000000000000000003".to_string(),
+        to: "pf0000000000000000000000000000000000000003".to_string(),
         amount: ACCOUNT_RESERVE,
     })
     .expect("submit second pending transfer");
@@ -565,7 +565,7 @@ fn init_then_run_once() {
     assert!(submit_transfer_to_mempool(TransferOptions {
         data_dir: data_dir.clone(),
         key_file: None,
-        to: "pfrecipient000000000000000000000000000004".to_string(),
+        to: "pf0000000000000000000000000000000000000004".to_string(),
         amount: DEFAULT_FAUCET_BALANCE,
     })
     .is_err());

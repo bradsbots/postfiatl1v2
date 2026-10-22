@@ -62,6 +62,10 @@ The verifier compares the local tree with a fresh checkout of the immutable
 upstream commit. It fails closed on an unexpected source file, changed license,
 different upstream revision, or normalized patch mismatch.
 
+The pinned Asset-Orchard verifying keys, their fingerprints, and the check that
+regenerates them under this dependency set are in
+[Asset-Orchard Verifying Keys](orchard-verifying-keys.md).
+
 The complete machine-checkable source and license inventory is in
 `third_party/halo2_proofs/PROVENANCE.md`. A future dependency update or patch
 change requires new compatibility vectors and cryptographic review; changing a

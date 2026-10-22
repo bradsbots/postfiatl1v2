@@ -7,6 +7,7 @@ mod tests {
     include!("tests/yolo_target_receipt_tests.rs");
     include!("tests/nav_reserve_proof_status_tests.rs");
     mod a666_recovery_regression_tests;
+    mod account_tx_exchange_history;
     mod account_tx_truncation;
     mod archive_bridge_supply;
     mod consensus_history;
@@ -17,8 +18,10 @@ mod tests {
     mod fastpay_commitment_versions;
     mod orchard_transfer_escrow;
     mod replicated_state_activation;
+    mod rejected_fee_require_memo;
     mod lifecycle_checkpoint_tests;
     mod private_primary_replay_gate_tests;
+    mod recipient_format_activation;
     mod snapshot_deployment;
     mod validator_registry_continuation_tests;
     mod vault_bridge_governed_route;
