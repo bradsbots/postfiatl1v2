@@ -2,7 +2,7 @@
 
 **Status (2026-10-20):** Active. G4 **PASSED** on 2026-08-30 for build `d0ae79f3` (seventh one-shot run; consensus ratio 1.0581, wallet 1.0623; see the [model-floor G4 plan](model-floor-g4-campaign-plan.md)). A later build of that line has run on all six validators since 2026-08-31 (`storage-lease-af9b83c3`, [deploy receipt](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/storage-lease-20260831/deploy-receipt.json)); the deployed release `fastlane-cap-20261014` (source `8bed9b90`, deployed 2026-10-15) descends from it. Remaining: G3/G5 (`OFFLINE QUALIFIED`). The height-915 archive is lost, and I propose the signed height-1123 canary archive as its replacement. I am the height-924 custodian and one read-only copy is approved; that replay passed on 2026-10-22 with the STO-07 release ([G3](#g3-exact-replay)). G6 needs fresh copies and a separate decision. G4 regression on `8644f0af` (2026-10-20): **PASS** — STO-07 fixed on main; the fix ships with the next release; G3 (height-924 replay with our custody copy, the 915 replacement) can start after that release ([result](g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix); attempt 2 on `29824ed7` was blocked by the regression since `f0013c29`). Sections below record the qualification history through 2026-08-30; their "next step" text (`ff2b3532`/`48a94425`, no deployment-eligible candidate) is superseded by this header.
 
-**Status (2026-10-22):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. A4 did not assemble a packet: no single source and binary covers G2–G4 and the G3 replays, and the verifier still requires the lost height-915 archive. The missing inputs and their owners are listed under [G5](#g5-offline-qualification-packet).
+**Status (2026-10-22):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. A4 did not assemble a packet: no single source and binary covers G2–G4 and the G3 replays, and the verifier still requires the lost height-915 archive. The missing inputs and their owners are listed under [G5](#g5-offline-qualification-packet). G1, G2 and G4 now also PASS on the deployed binary `eea96ba6…` (source `86706699`), the replays' binary ([attempt 4](g4-regression-deployed-release-20261019.md#result-2026-10-22-attempt-4-deployed-binary)).
 
 **Decision date:** 2026-08-27
 
@@ -1205,7 +1205,7 @@ a migration report or replays on its binary.
 
 What the packet still lacks:
 
-- [ ] One candidate for G2–G4 and G3. This is the G1 exit rule above, and the
+- [x] One candidate for G2–G4 and G3. This is the G1 exit rule above, and the
       verifier (`storage_scaling.py:506-508`) and the packager
       (`package_packet.py:612,623`) enforce it. The replays ran on
       `86706699`/`eea96ba6…`; G1, G2 and G4 ran on `8644f0af`/`d1799edb…`.
@@ -1213,7 +1213,10 @@ What the packet still lacks:
       migration rehearsal on `d1799edb…`; re-run G1, G2, G4 and the migration
       rehearsal on `eea96ba6…`; or allow a lineage packet, which needs a
       verifier change. This lane runs the chosen option. **Decided
-      2026-10-22:** the second option; see the decision below.
+      2026-10-22:** the second option; see the decision below. **Done 2026-10-22:**
+      G1, G2 and G4 PASS on `eea96ba6…`/`86706699` (attempt 4, campaign report
+      `7aa8d72c…`), the binary of both replays. The migration rehearsal on that
+      binary is the separate item below.
 - [ ] Accept the 1123 replacement. The verifier still requires heights 915 and
       924 in the pair schema, with legacy commitments
       (`storage_scaling.py:510,553,584`; `package_packet.py:123`). Needed: a
@@ -1242,7 +1245,7 @@ binary. The remaining gaps follow in order:
 
 | Order | Step | Owner | Estimate |
 | ---: | --- | --- | --- |
-| 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | running |
+| 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | **done 2026-10-22, PASS** |
 | 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
 | 3 | Six-clone migration rehearsal on the same binary | ours | 0.5–1 d |
 | 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | 0.25 d |

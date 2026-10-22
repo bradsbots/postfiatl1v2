@@ -1,6 +1,8 @@
 # G4 Regression on the Deployed Release `8bed9b90`: Executable Plan
 
-**Status:** **CLOSED 2026-10-20: PASS.** Attempt 3 (candidate `8644f0af`, the STO-07 fix) meets the
+**Status:** **Attempt 4 CLOSED 2026-10-22: PASS** on the deployed executable `eea96ba6…` (source `86706699`); see
+[Result 2026-10-22](#result-2026-10-22-attempt-4-deployed-binary).
+**CLOSED 2026-10-20: PASS.** Attempt 3 (candidate `8644f0af`, the STO-07 fix) meets the
 G4 criteria; see [Result 2026-10-20](#result-2026-10-20-attempt-3-after-the-fix). Attempt 2
 (`29824ed7`, 2026-10-19) was **PUBLIC TESTNET BLOCKED** by the regression since `f0013c29`; see
 [Result 2026-10-19](#result-2026-10-19).
@@ -370,3 +372,69 @@ node binary replaced.
 
 Unchanged: the gates, the G4 criteria, the stop conditions and the one-run rule above. There is no
 validator-host contact and no transaction.
+
+## Result 2026-10-22 (attempt 4, deployed binary)
+
+- [x] G1 tests through G4 on `C4` with the deployed executable, which the pipeline accepted unchanged.
+  The pipeline ran 11:09:42–12:32:01Z; the G4 gate ran 11:32:31–12:32:01Z (campaign 3,276 s).
+  Output: `~/repos/postfiat-storage-g4-regression-20261022` (work server, private).
+- [x] Verdict: **PASS**, `evidence_eligible = true`, `no_positive_linear_height_relationship = true`,
+  `network_contacted = false`. No validator-host contact and no transaction.
+- [x] Pipeline glue only: `refreeze-attempt-4.sh` and `OUT` in `pipeline.sh`. No gate failed and nothing
+  was resumed. The binary stayed fixed from G1 to the end of G4.
+
+| Item | Value |
+| --- | --- |
+| Node | `eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36` (deployed; embeds `86706699`/`release`) |
+| Helper / rollback | `fb83d467…5f13` (`R` = `51a19272`) / `decaa411…370f` (`0fa55d0b`) |
+| `frozen-binaries.json` | `b5f8eb37f574b2f6f585b44f1249a2410187cde4e8197769867c6bc65ec11bc2` |
+| G1 manifest / G2 rollback / G2 tamper | `df6534a0…74ffc` / `c64882e6…e0ee1` / `6eff6241…9b30` (37 tests) |
+| Derived prepared-input manifest | `1dd2b96b…edcc9` (from `ec5a4715…98c3`) |
+| `campaign-report.json` | `7aa8d72ce4579be61321dc5bd624da720c8804301d5b6ac8edf7bb6f6166dfb0` |
+| `campaign-checkpoint.json` | `ce48959d15edf5819a591f0fc4541c211e1c14079fd51e590e74f89a4e131eb4` |
+| Free disk at close | 121 GB |
+
+| Gate | Time (UTC) | Result | Figures |
+| --- | --- | --- | --- |
+| G1 tests | 11:09:42–11:10:59 | PASS | `completed_index` 28, `certified_send` 48, `vote_lock` 19, `transactional_verify_only` 2 passed |
+| G2 rollback, tamper | 11:10:59–11:22:00 | PASS | six validators converge; 37 tamper tests, no uncovered requirement; `C4`'s scripts check 96 / 80 / 32 |
+| Copy (in-place check) | 11:22:01–11:23:17 | PASS | all 18 inputs already at the manifest paths, hashes match `ec5a4715` |
+| Rebind | 11:23:18–11:25:45 | PASS | derived manifest `1dd2b96b…` |
+| Preflight | 11:25:46–11:31:07 | PASS | fleet `4e2f24b7…` before and after |
+| Chain opens | 11:31:07–11:32:30 | PASS | six clones at height 5,000, tip `d246148a…`, root `b3d2f5eb…` |
+| G4 receipts, agreement, coverage | 11:32:31–12:32:01 | PASS | 15/15 windows: literal receipts exact, six validators converge, round coverage, certified-send, vote-lock and backend work gates pass; zero full-history reads |
+| Consensus round, 5,000 vs 50 | | PASS | p95 357.8 / 341.3 ms = **1.0482** (≤1.10; attempt 3 1.0261, August 1.0581) |
+| Wallet-to-final, 5,000 vs 50 | | PASS | p95 471.7 / 443.5 ms = **1.0637** (≤1.10; attempt 3 1.0326, August 1.0623) |
+| Height 50 vs legacy (consensus, wallet) | | PASS | 0.350, 0.450 (attempt 3 0.340, 0.447); legacy 974.2 / 984.7 ms |
+| Height-cost model, 5 ms floor | | PASS | no stage material; largest fitted delta `certified_sends_ms` +2.8 ms (threshold 8.2 ms) |
+
+Per-stage p95 (per-window median, ms; height 50 / height 5,000):
+
+| Stage | August `d0ae79f3` | Attempt 3 `8644f0af` | Attempt 4 `eea96ba6` |
+| --- | ---: | ---: | ---: |
+| `certificate_ms` | 167.4 / 172.1 | 156.3 / 152.9 | 159.6 / 162.8 |
+| `certified_sends_ms` | 80.2 / 81.1 | 81.5 / 82.7 | 81.8 / 84.9 |
+| `local_vote_ms` | 40.2 / 42.7 | 39.0 / 38.6 | 41.0 / 41.0 |
+| `vote_requests_ms` | 65.3 / 69.2 | 69.3 / 71.9 | 71.5 / 72.0 |
+| `proposal_ms` | 31.6 / 32.4 | 33.1 / 33.0 | 34.6 / 35.1 |
+| `post_apply_status_ms` | 0.9 / 0.9 | 0.7 / 0.6 | 0.7 / 0.6 |
+| `local_apply_ms` | 31.7 / 33.2 | 31.3 / 30.0 | 31.9 / 31.8 |
+| `write_commit_ms` | 8.1 / 9.2 | 7.9 / 8.1 | 8.7 / 8.9 |
+
+| Measure (selected lane) | Attempt 3 | Attempt 4 |
+| --- | --- | --- |
+| Page reads per stage: proposal / reconstruction / apply (max over 6,000 stage reports) | 37 / 43 / 42, 8 writes | 37 / 43 / 42, 8 writes: inside **96 / 80 / 32** (and `R`'s 176 / 160 / 32) |
+| Stage `database_opens` / `database_closes` | 0 / 0 | 0 / 0 in all 6,000 stage reports (500 rounds × 12 stages) |
+| Disk bytes written per window (median, range) | 1.03 / 3.68 GB | 1.04 (1.03–1.05) / 3.58 (3.38–3.76) GB; legacy 0.34 GB |
+
+The figures come from `campaign-report.json` and the raw stage reports
+(`lanes/selected-indexed/*/iterations.jsonl`). The read-only closure script is
+`~/.cache/storage-g4-20261019/attempt-4-analysis/analyze.py`; run on the attempt 3 output, it
+reproduces that attempt's table.
+
+**What it proves:** the code the fleet runs, the deployed executable `eea96ba6…`, meets the
+unchanged G4 criteria. Its storage work equals attempt 3's (same page counts, no database opens per
+stage). Both ratios stay below 1.10, with about 2 to 3 points more height-5,000 tail than attempt 3,
+and inside August's range. G1 tests, G2 and G4 are now on the same source and binary as the 924 and
+1123 replays. No milestone label changes: the storage packet still needs the items in
+[G5](storage-scaling-milestone.md#g5-offline-qualification-packet).
