@@ -11,6 +11,7 @@ exclude_docs: |
   examples/**
   references/**
   handoffs/README.md
+  listings/**
   review/**
   !review/README.md
   !review/navcoin-spec-platform-review-20261001.md

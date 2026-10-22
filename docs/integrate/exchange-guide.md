@@ -13,6 +13,10 @@ must close before a real-value integration.
     externally audited. Do not hold customer funds on it. Current facts are on
     [Network Status](../status/network-status.md).
 
+For the full integration plan written for Coinbase, with roadmap, audit plan and
+comparisons, see the
+[Coinbase listing package](https://github.com/postfiatorg/postfiatl1v2/blob/main/docs/listings/coinbase/integration-plan.md).
+
 ## At a glance
 
 | Topic | Rule today | Details |
