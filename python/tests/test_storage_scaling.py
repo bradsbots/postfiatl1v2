@@ -1834,6 +1834,125 @@ def _rewrite_first_selected_normalized_report(
     _write_checksums(packet)
 
 
+REPLACEMENT_HEIGHT = 1123
+REPLACEMENT_MANIFEST_SHA256 = (
+    "d957141e68a29f8cf690aec9f9193ec0631fede0fad95a2329f4cf3a8b21189a"
+)
+SIGNED_ARCHIVE_STEPS = (
+    "snapshot-import-signed-finalized-checkpoint",
+    "status",
+    "verify-finalized-checkpoint",
+    "verify-state",
+)
+
+
+def _replace_915_with_signed_archive(
+    packet: Path,
+    receipt_mutation: Callable[[dict[str, object]], None] | None = None,
+) -> None:
+    """Turn a passing pair packet into the 1123-canary replacement shape."""
+    revision = "b" * 40
+    tip, root = "c" * 96, "d" * 96
+    identity = {
+        "chain_id": "postfiat-wan-devnet-2",
+        "genesis_hash": (
+            "ce22ca8c932da0998b484483a09647138a30e0bf44408dd49a8d6d452787ad255"
+            "21aff3ed334da07e150a7233a3e90a9"
+        ),
+        "protocol_version": 1,
+    }
+    (packet / "replay" / "height-915.json").unlink()
+    base = packet / "replay" / f"signed-archive-{REPLACEMENT_HEIGHT}"
+    outputs: dict[str, dict[str, object]] = {
+        "snapshot-import-signed-finalized-checkpoint": {
+            **identity,
+            "block_height": REPLACEMENT_HEIGHT,
+        },
+        "status": {
+            **identity,
+            "block_height": REPLACEMENT_HEIGHT,
+            "block_tip_hash": tip,
+            "state_root": root,
+        },
+        "verify-finalized-checkpoint": {
+            **identity,
+            "verified": True,
+            "checkpoint_height": REPLACEMENT_HEIGHT,
+            "checkpoint_block_hash": tip,
+            "checkpoint_state_root": root,
+        },
+        "verify-state": {
+            **identity,
+            "verified": True,
+            "block_log": {
+                "verified": True,
+                "block_count": REPLACEMENT_HEIGHT,
+                "tip_hash": tip,
+                "state_root": root,
+            },
+        },
+    }
+    steps = {}
+    for name in SIGNED_ARCHIVE_STEPS:
+        path = base / "steps" / f"{name}.json"
+        _write_json(path, outputs[name])
+        steps[name] = {"path": f"steps/{name}.json", "sha256": _sha256(path)}
+    receipt: dict[str, object] = {
+        "schema": "postfiat-storage-signed-archive-replay-receipt-v1",
+        "source_height": REPLACEMENT_HEIGHT,
+        "source_kind": "signed_archive",
+        "block_count": REPLACEMENT_HEIGHT,
+        "commitment_version": "postfiat.replicated_state.v2",
+        "storage_activation_height": 930,
+        "exact_replay": True,
+        "full_replay_passed": True,
+        "tip_hash": tip,
+        "state_root": root,
+        "matched": {"height": True, "tip": True, "root": True},
+        "verdict": "PASS",
+        **identity,
+        "node_id": "validator-1",
+        "publisher": "pf" + "4" * 40,
+        "signed_manifest_sha256": REPLACEMENT_MANIFEST_SHA256,
+        "trusted_publisher_file_sha256": "5" * 64,
+        "source_tree_sha256": "6" * 64,
+        "source_tree_sha256_after": "6" * 64,
+        "steps": steps,
+        "source_revision": revision,
+        "harness_revision": "7" * 40,
+        "node_binary_sha256": _sha256(packet / "bin" / "postfiat-node"),
+        "node_binary_build": {"git_revision": revision[:8], "profile": "release"},
+        "offline": True,
+        "network_contacted": False,
+    }
+    if receipt_mutation is not None:
+        receipt_mutation(receipt)
+    receipt_path = base / "receipts" / f"height-{REPLACEMENT_HEIGHT}.json"
+    _write_json(receipt_path, receipt)
+
+    replay_path = packet / "artifacts" / "replay.json"
+    replay = json.loads(replay_path.read_text(encoding="utf-8"))
+    del replay["quarantine_archive_blocks"]
+    replay["receipts"] = [
+        reference
+        for reference in replay["receipts"]
+        if reference["path"] != "replay/height-915.json"
+    ]
+    replay["quarantine_archive_replacement"] = {
+        "replaced_height": 915,
+        "replacement_height": REPLACEMENT_HEIGHT,
+        "signed_manifest_sha256": REPLACEMENT_MANIFEST_SHA256,
+        "reason": storage_scaling.QUARANTINE_REPLACEMENT["reason"],
+        "receipt": _reference(packet, receipt_path),
+    }
+    _write_json(replay_path, replay)
+    manifest_path = packet / MANIFEST_FILE
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"]["replay"]["sha256"] = _sha256(replay_path)
+    _write_json(manifest_path, manifest)
+    _write_checksums(packet)
+
+
 class StorageScalingVerifierTests(unittest.TestCase):
     def packet_dir(self, temporary: str) -> Path:
         return Path(temporary) / "packet"
@@ -2521,6 +2640,115 @@ class StorageScalingVerifierTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 StorageScalingVerificationError,
                 "source stop receipt is invalid",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_accepts_signed_archive_replacement_for_915(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _replace_915_with_signed_archive(packet)
+            verified = verify_packet(packet)
+            self.assertIs(verified.report["verified"], True)
+            replacement = verified.report["quarantine_archive_replacement"]
+            self.assertEqual(replacement["replaced_height"], 915)
+            self.assertEqual(replacement["replacement_height"], REPLACEMENT_HEIGHT)
+            self.assertEqual(
+                replacement["signed_manifest_sha256"], REPLACEMENT_MANIFEST_SHA256
+            )
+            self.assertEqual(replacement["source_tree_sha256"], "6" * 64)
+            self.assertEqual(replacement["trusted_publisher_file_sha256"], "5" * 64)
+            self.assertIn("lost", replacement["reason"])
+            self.assertIn("1123", replacement["reason"])
+
+    def test_storage_scaling_legacy_pair_report_is_unchanged(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            verified = verify_packet(packet)
+            self.assertEqual(
+                set(verified.report),
+                {
+                    "schema",
+                    "verified",
+                    "offline",
+                    "live_probe_performed",
+                    "packet_dir",
+                    "captured_at",
+                    "checksum_manifest_sha256",
+                    "checked_file_count",
+                    "tamper_case_count",
+                    "performance_ratios",
+                    "state_distinction",
+                    "conclusion",
+                },
+            )
+
+    def test_storage_scaling_packet_rejects_replacement_on_another_binary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def other_binary(receipt: dict[str, object]) -> None:
+                receipt["node_binary_sha256"] = "f" * 64
+
+            _replace_915_with_signed_archive(packet, other_binary)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "replacement archive receipt binary identity disagrees",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_replacement_without_manifest_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def drop_manifest_hash(receipt: dict[str, object]) -> None:
+                del receipt["signed_manifest_sha256"]
+
+            _replace_915_with_signed_archive(packet, drop_manifest_hash)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "signed manifest hash is missing or differs",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_replacement_step_hash_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _replace_915_with_signed_archive(packet)
+            step = (
+                packet
+                / "replay"
+                / f"signed-archive-{REPLACEMENT_HEIGHT}"
+                / "steps"
+                / "verify-state.json"
+            )
+            value = json.loads(step.read_text(encoding="utf-8"))
+            value["block_log"]["state_root"] = "e" * 96
+            _write_json(step, value)
+            _write_checksums(packet)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "replacement archive step verify-state reference",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_unapproved_replacement_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def other_height(receipt: dict[str, object]) -> None:
+                receipt["source_height"] = 1036
+                receipt["block_count"] = 1036
+
+            _replace_915_with_signed_archive(packet, other_height)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "not the approved height",
             ):
                 verify_packet(packet)
 

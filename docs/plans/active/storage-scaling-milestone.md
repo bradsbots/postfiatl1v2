@@ -1217,12 +1217,17 @@ What the packet still lacks:
       G1, G2 and G4 PASS on `eea96ba6…`/`86706699` (attempt 4, campaign report
       `7aa8d72c…`), the binary of both replays. The migration rehearsal on that
       binary is the separate item below.
-- [ ] Accept the 1123 replacement. The verifier still requires heights 915 and
-      924 in the pair schema, with legacy commitments
-      (`storage_scaling.py:510,553,584`; `package_packet.py:123`). Needed: a
-      packager and verifier change, with tests, that accepts the signed-archive
-      receipt (`signed-archive-replay-receipt-v1`) and the 924
-      `legacy-replay-v1` report. Owner: this lane, after the decision above.
+- [x] Accept the 1123 replacement (done 2026-10-22, commit "Accept a signed
+      post-activation archive replay as the replacement for the lost height-915
+      input in the storage packet"). `package_packet.py
+      --replacement-archive-receipt` binds the signed-archive receipt and its
+      step outputs byte for byte, plus the 924 receipt from the legacy-source
+      report. `artifacts/replay.json` then carries `quarantine_archive_replacement`
+      instead of `quarantine_archive_blocks`. The verifier accepts only height
+      1123 with manifest `d957141e…` on the packet's binary and source. It
+      re-checks the step outputs by hash and against the receipt, and reports the
+      replacement with its reason. The 915+924 pair path is unchanged. On the real
+      receipts (`c172d31e…`, `fa643375…`) the replay section verifies.
 - [ ] A six-clone migration report and its incompatible binary for the chosen
       candidate (`run_migration_rehearsal.py`). None exists for `8644f0af`,
       `86706699` or `d0ae79f3`. The incompatible binary of the `10dd9f20`

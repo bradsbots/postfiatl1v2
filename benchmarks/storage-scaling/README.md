@@ -471,6 +471,27 @@ python3 benchmarks/storage-scaling/package_packet.py \
   --migration-report /PATH/migration-report.json
 ```
 
+The height-915 quarantine archive is lost; its approved replacement is the
+signed validator-1 canary at height 1123 (manifest `d957141e…`). To bind it,
+pass the legacy-source report (`--legacy-source-dir` mode) as `--replay-report`
+and add the signed-archive receipt:
+
+```bash
+  --replay-report /PATH/replay-924/replay-report.json \
+  --replacement-archive-receipt /PATH/replay-1123/receipts/height-1123.json
+```
+
+The packet then holds `replay/height-924.json` and, byte for byte in the
+harness layout, `replay/signed-archive-1123/receipts/height-1123.json` with its
+four step outputs. `artifacts/replay.json` has no `quarantine_archive_blocks`;
+its `quarantine_archive_replacement` block names 915 → 1123, the manifest hash,
+the reason and the receipt. The verifier accepts only that height and manifest
+hash, on the packet's binary and source. It checks the tree and trusted-key
+hashes, the step outputs by hash and against the receipt's height, tip and
+root, and the 924 receipt as in the pair. Its report records the replacement and
+its reason under `quarantine_archive_replacement`. The 915+924 pair is verified
+as before.
+
 All paths above are operator procedures, not deployment authorization. Do not
 probe, restart, or mutate the live fleet from this harness. Do not publish
 validator keys, clone directories, authorization files, host paths, or raw

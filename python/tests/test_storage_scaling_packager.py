@@ -338,5 +338,131 @@ class StorageScalingPackagerTests(unittest.TestCase):
                 )
 
 
+REPLACEMENT_MANIFEST_SHA256 = (
+    "d957141e68a29f8cf690aec9f9193ec0631fede0fad95a2329f4cf3a8b21189a"
+)
+BINARY = "e" * 64
+
+
+def _replacement_inputs(root: Path) -> tuple[Path, Path]:
+    """Harness outputs: the 924 legacy report and the 1123 signed-archive receipt."""
+    build = {"git_revision": "86706699", "profile": "release"}
+    legacy_dir = root / "legacy-924"
+    receipt_924 = legacy_dir / "receipts" / "height-924.json"
+    _write_json(
+        receipt_924,
+        {
+            "schema": "postfiat-storage-replay-receipt-v1",
+            "source_height": 924,
+            "exact_replay": True,
+            "full_replay_passed": True,
+            "logical_rebuild_identical": True,
+            "canonical_export_identical": True,
+            "node_binary_sha256": BINARY,
+        },
+    )
+    _write_json(
+        legacy_dir / "replay-report.json",
+        {
+            "schema": "postfiat-storage-legacy-replay-v1",
+            "verdict": "PASS",
+            "source_height": 924,
+            "tip_hash": "1" * 96,
+            "state_root": "2" * 96,
+            "ordered_history_accumulator": "3" * 96,
+            "receipts": [
+                {"path": "receipts/height-924.json", "sha256": _sha256(receipt_924)}
+            ],
+            "source_revision": "86706699" + "0" * 32,
+            "node_binary_sha256": BINARY,
+            "node_binary_build": build,
+        },
+    )
+    archive_dir = root / "signed-1123"
+    steps = {}
+    for name in ("status", "verify-state"):
+        path = archive_dir / "steps" / f"{name}.json"
+        _write_json(path, {"step": name})
+        steps[name] = {"path": f"steps/{name}.json", "sha256": _sha256(path)}
+    receipt_1123 = archive_dir / "receipts" / "height-1123.json"
+    _write_json(
+        receipt_1123,
+        {
+            "schema": "postfiat-storage-signed-archive-replay-receipt-v1",
+            "verdict": "PASS",
+            "source_height": 1123,
+            "signed_manifest_sha256": REPLACEMENT_MANIFEST_SHA256,
+            "steps": steps,
+            "node_binary_sha256": BINARY,
+        },
+    )
+    return legacy_dir / "replay-report.json", receipt_1123
+
+
+class ReplacementReplayPackagingTests(unittest.TestCase):
+    def test_copy_replacement_replay_binds_signed_archive_and_924_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root)
+            packet = root / "packet"
+            destination = PACKAGER.copy_replacement_replay(packet, legacy, archive, BINARY)
+
+            replay = json.loads(destination.read_text(encoding="utf-8"))
+            self.assertEqual(replay["schema"], "postfiat-storage-scaling-replay-v1")
+            self.assertNotIn("quarantine_archive_blocks", replay)
+            self.assertEqual(replay["authenticated_history_height"], 924)
+            self.assertEqual(replay["tip_hash"], "1" * 96)
+            self.assertEqual(
+                replay["receipts"],
+                [
+                    {
+                        "path": "replay/height-924.json",
+                        "sha256": _sha256(legacy.parent / "receipts" / "height-924.json"),
+                    }
+                ],
+            )
+            replacement = replay["quarantine_archive_replacement"]
+            self.assertEqual(replacement["replaced_height"], 915)
+            self.assertEqual(replacement["replacement_height"], 1123)
+            self.assertEqual(replacement["signed_manifest_sha256"], REPLACEMENT_MANIFEST_SHA256)
+            self.assertEqual(
+                replacement["receipt"],
+                {
+                    "path": "replay/signed-archive-1123/receipts/height-1123.json",
+                    "sha256": _sha256(archive),
+                },
+            )
+            for name in ("status", "verify-state"):
+                copied = packet / "replay" / "signed-archive-1123" / "steps" / f"{name}.json"
+                self.assertEqual(
+                    _sha256(copied), _sha256(archive.parent.parent / "steps" / f"{name}.json")
+                )
+
+    def test_copy_replacement_replay_rejects_another_binary(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root)
+            with self.assertRaisesRegex(ValueError, "binary differs from the packet binary"):
+                PACKAGER.copy_replacement_replay(root / "packet", legacy, archive, "f" * 64)
+
+    def test_copy_replacement_replay_rejects_changed_step_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root)
+            _write_json(archive.parent.parent / "steps" / "verify-state.json", {"step": "x"})
+            with self.assertRaisesRegex(ValueError, "digest mismatch"):
+                PACKAGER.copy_replacement_replay(root / "packet", legacy, archive, BINARY)
+
+    def test_copy_replacement_replay_rejects_unapproved_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root)
+            receipt = json.loads(archive.read_text(encoding="utf-8"))
+            del receipt["signed_manifest_sha256"]
+            _write_json(archive, receipt)
+            with self.assertRaisesRegex(ValueError, "not the approved height-915 replacement"):
+                PACKAGER.copy_replacement_replay(root / "packet", legacy, archive, BINARY)
+
+
 if __name__ == "__main__":
     unittest.main()

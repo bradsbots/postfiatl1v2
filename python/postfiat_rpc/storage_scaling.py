@@ -175,6 +175,29 @@ ARTIFACT_SCHEMAS = {
     "migration": "postfiat-storage-scaling-six-clone-migration-v1",
     "redaction": "postfiat-storage-scaling-redaction-v1",
 }
+# The height-915 quarantine archive is lost; the approved replacement replay
+# input is the signed validator-1 canary export at height 1123 (storage-scaling
+# milestone G3). A packet may bind it instead of the 915 receipt.
+QUARANTINE_REPLACEMENT = {
+    "replaced_height": 915,
+    "replacement_height": 1123,
+    "signed_manifest_sha256": (
+        "d957141e68a29f8cf690aec9f9193ec0631fede0fad95a2329f4cf3a8b21189a"
+    ),
+    "reason": (
+        "The height-915 quarantine archive is lost (recorded 2026-10-20). The "
+        "signed validator-1 canary archive at height 1123 replaces it: it is "
+        "signed, its manifest hash is pinned, and it covers the 915 and 924 "
+        "ranges (storage-scaling milestone G3)."
+    ),
+}
+SIGNED_ARCHIVE_RECEIPT_SCHEMA = "postfiat-storage-signed-archive-replay-receipt-v1"
+SIGNED_ARCHIVE_STEPS = (
+    "snapshot-import-signed-finalized-checkpoint",
+    "status",
+    "verify-finalized-checkpoint",
+    "verify-state",
+)
 REQUIRED_TAMPER_REASONS = {
     "history_truncated": "storage_legacy_jsonl_mac_chain_mismatch",
     "history_padded": "storage_count_mismatch",
@@ -588,6 +611,198 @@ def _verify_replay(
         replay.get("ordered_history_accumulator"),
     ):
         _fail("replay summary disagrees with the exact height-924 receipt")
+
+
+def _verify_authenticated_history_receipt(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    replay: Mapping[str, Any],
+    source_revision: str,
+    current_binary_digest: str,
+) -> None:
+    """The height-924 receipt of a replacement packet, checked as in the pair."""
+    receipts = _list(replay.get("receipts"), "replay receipts")
+    if len(receipts) != 1:
+        _fail("replacement replay must bind exactly the height-924 receipt")
+    receipt = _bound_json(packet_dir, checksums, receipts[0], "replay receipt")
+    if receipt.get("schema") != "postfiat-storage-replay-receipt-v1":
+        _fail("replay receipt schema is unsupported")
+    if receipt.get("source_revision") != source_revision:
+        _fail("replay receipt source revision disagrees with the packet")
+    if receipt.get("node_binary_sha256") != current_binary_digest:
+        _fail("replay receipt binary identity disagrees with the packet")
+    _verify_binary_build(receipt, "replay receipt", source_revision)
+    if (
+        receipt.get("source_height") != 924
+        or receipt.get("source_kind") != "authenticated_history"
+        or receipt.get("block_count") != 924
+    ):
+        _fail("replay receipt does not identify the height-924 source")
+    if receipt.get("chain_id") != CONTROLLED_CHAIN_ID:
+        _fail("replay receipt at height 924 used the wrong chain")
+    if receipt.get("genesis_hash") != CONTROLLED_GENESIS_HASH:
+        _fail("replay receipt at height 924 used the wrong genesis")
+    if receipt.get("commitment_mode") != "legacy_below_storage_activation":
+        _fail("replay receipt at height 924 used the wrong commitment mode")
+    for key in (
+        "exact_replay",
+        "full_replay_passed",
+        "logical_rebuild_identical",
+        "canonical_export_identical",
+    ):
+        _bool(receipt.get(key), f"replay receipt 924 {key}")
+    identity = tuple(
+        str(receipt.get(key, ""))
+        for key in ("tip_hash", "state_root", "ordered_history_accumulator")
+    )
+    if any(HEX96.fullmatch(value) is None for value in identity):
+        _fail("replay receipt 924 identity is invalid")
+    canonical_export = _object(
+        receipt.get("canonical_export_receipt"),
+        "replay receipt 924 canonical export",
+    )
+    if (
+        canonical_export.get("schema")
+        != "postfiat-transactional-canonical-export-receipt-v1"
+        or canonical_export.get("finalized_height") != 924
+        or type(canonical_export.get("record_count")) is not int
+        or canonical_export.get("record_count", 0) <= 0
+        or HEX96.fullmatch(str(canonical_export.get("records_sha3_384", ""))) is None
+        or HEX64.fullmatch(str(receipt.get("canonical_export_sha256", ""))) is None
+    ):
+        _fail("replay receipt 924 canonical export is invalid")
+    if identity != (
+        replay.get("tip_hash"),
+        replay.get("state_root"),
+        replay.get("ordered_history_accumulator"),
+    ):
+        _fail("replay summary disagrees with the exact height-924 receipt")
+
+
+def _verify_replacement_replay(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    replay: Mapping[str, Any],
+    source_revision: str,
+    current_binary_digest: str,
+) -> dict[str, Any]:
+    """Verify the 1123 signed-archive replacement plus the 924 legacy receipt."""
+    if replay.get("source_revision") != source_revision:
+        _fail("replay source revision disagrees with the packet")
+    if replay.get("node_binary_sha256") != current_binary_digest:
+        _fail("replay binary identity disagrees with the packet")
+    _verify_binary_build(replay, "replay", source_revision)
+    if "quarantine_archive_blocks" in replay:
+        _fail("replacement replay must not also claim the height-915 archive")
+    if replay.get("authenticated_history_height") != 924:
+        _fail("authenticated history does not reach height 924")
+    for key in (
+        "exact_pre_activation_replay",
+        "full_replay_passed",
+        "logical_rebuild_identical",
+        "canonical_export_identical",
+    ):
+        _bool(replay.get(key), f"replay {key}")
+    _verify_authenticated_history_receipt(
+        packet_dir, checksums, replay, source_revision, current_binary_digest
+    )
+
+    replacement = _object(
+        replay.get("quarantine_archive_replacement"), "quarantine archive replacement"
+    )
+    for key, approved in QUARANTINE_REPLACEMENT.items():
+        if replacement.get(key) != approved:
+            _fail(f"quarantine archive replacement {key} is not the approved one")
+    reference = _object(replacement.get("receipt"), "replacement archive receipt")
+    receipt = _bound_json(packet_dir, checksums, reference, "replacement archive receipt")
+    height = QUARANTINE_REPLACEMENT["replacement_height"]
+    if receipt.get("schema") != SIGNED_ARCHIVE_RECEIPT_SCHEMA:
+        _fail("replacement archive receipt schema is unsupported")
+    if receipt.get("source_revision") != source_revision:
+        _fail("replacement archive receipt source revision disagrees with the packet")
+    if receipt.get("node_binary_sha256") != current_binary_digest:
+        _fail("replacement archive receipt binary identity disagrees with the packet")
+    _verify_binary_build(receipt, "replacement archive receipt", source_revision)
+    if (
+        receipt.get("source_kind") != "signed_archive"
+        or receipt.get("source_height") != height
+        or receipt.get("block_count") != height
+    ):
+        _fail("replacement archive receipt is not the approved height")
+    if receipt.get("signed_manifest_sha256") != replacement["signed_manifest_sha256"]:
+        _fail("replacement archive receipt signed manifest hash is missing or differs")
+    for key in ("trusted_publisher_file_sha256", "source_tree_sha256"):
+        if HEX64.fullmatch(str(receipt.get(key, ""))) is None:
+            _fail(f"replacement archive receipt {key} is missing or invalid")
+    if receipt.get("source_tree_sha256_after") != receipt["source_tree_sha256"]:
+        _fail("replacement archive changed during its replay")
+    if receipt.get("chain_id") != CONTROLLED_CHAIN_ID:
+        _fail("replacement archive receipt used the wrong chain")
+    if receipt.get("genesis_hash") != CONTROLLED_GENESIS_HASH:
+        _fail("replacement archive receipt used the wrong genesis")
+    activation = receipt.get("storage_activation_height")
+    if (
+        receipt.get("commitment_version") != "postfiat.replicated_state.v2"
+        or type(activation) is not int
+        or not 924 < activation <= height
+    ):
+        _fail("replacement archive is not a post-activation export")
+    for key in ("exact_replay", "full_replay_passed"):
+        _bool(receipt.get(key), f"replacement archive receipt {key}")
+    if (
+        receipt.get("verdict") != "PASS"
+        or receipt.get("matched") != {"height": True, "tip": True, "root": True}
+        or receipt.get("offline") is not True
+        or receipt.get("network_contacted") is not False
+    ):
+        _fail("replacement archive replay is not an offline exact match")
+    tip, root = str(receipt.get("tip_hash", "")), str(receipt.get("state_root", ""))
+    if HEX96.fullmatch(tip) is None or HEX96.fullmatch(root) is None:
+        _fail("replacement archive receipt identity is invalid")
+    steps = _object(receipt.get("steps"), "replacement archive receipt steps")
+    if set(steps) != set(SIGNED_ARCHIVE_STEPS):
+        _fail("replacement archive receipt steps are incomplete")
+    base = PurePosixPath(str(reference["path"])).parent.parent
+    outputs = {}
+    for name in SIGNED_ARCHIVE_STEPS:
+        step = _object(steps[name], f"replacement archive step {name}")
+        outputs[name] = _bound_json(
+            packet_dir,
+            checksums,
+            {"path": (base / str(step.get("path", ""))).as_posix(), "sha256": step.get("sha256")},
+            f"replacement archive step {name}",
+        )
+    status = outputs["status"]
+    checkpoint = outputs["verify-finalized-checkpoint"]
+    state = outputs["verify-state"]
+    block_log = _object(state.get("block_log"), "replacement archive block log")
+    observed = (
+        (status.get("block_height"), status.get("block_tip_hash"), status.get("state_root")),
+        (
+            checkpoint.get("checkpoint_height"),
+            checkpoint.get("checkpoint_block_hash"),
+            checkpoint.get("checkpoint_state_root"),
+        ),
+        (block_log.get("block_count"), block_log.get("tip_hash"), block_log.get("state_root")),
+    )
+    if (
+        checkpoint.get("verified") is not True
+        or state.get("verified") is not True
+        or block_log.get("verified") is not True
+        or any(item != (height, tip, root) for item in observed)
+    ):
+        _fail("replacement archive step outputs disagree with its receipt")
+    return {
+        "replaced_height": QUARANTINE_REPLACEMENT["replaced_height"],
+        "replacement_height": height,
+        "replacement_kind": "signed_post_activation_archive",
+        "signed_manifest_sha256": receipt["signed_manifest_sha256"],
+        "source_tree_sha256": receipt["source_tree_sha256"],
+        "trusted_publisher_file_sha256": receipt["trusted_publisher_file_sha256"],
+        "tip_hash": tip,
+        "state_root": root,
+        "reason": QUARANTINE_REPLACEMENT["reason"],
+    }
 
 
 def _metric_p95(row: Mapping[str, Any], metric: str) -> float:
@@ -3428,13 +3643,23 @@ def verify_packet(packet: str | Path) -> VerifiedPacket:
     current_binary_digest = binaries["bin/postfiat-node"]
     rollback_binary_digest = binaries["bin/postfiat-node-rollback"]
     incompatible_binary_digest = binaries["bin/postfiat-node-incompatible"]
-    _verify_replay(
-        packet_dir,
-        checksums,
-        artifacts["replay"],
-        source_revision,
-        current_binary_digest,
-    )
+    replacement = None
+    if "quarantine_archive_replacement" in artifacts["replay"]:
+        replacement = _verify_replacement_replay(
+            packet_dir,
+            checksums,
+            artifacts["replay"],
+            source_revision,
+            current_binary_digest,
+        )
+    else:
+        _verify_replay(
+            packet_dir,
+            checksums,
+            artifacts["replay"],
+            source_revision,
+            current_binary_digest,
+        )
     ratios = _verify_performance(
         packet_dir,
         checksums,
@@ -3472,6 +3697,8 @@ def verify_packet(packet: str | Path) -> VerifiedPacket:
         "state_distinction": manifest["state_distinction"],
         "conclusion": "storage scaling completion gates passed for this recorded packet",
     }
+    if replacement is not None:
+        report["quarantine_archive_replacement"] = replacement
     return VerifiedPacket(packet_dir=packet_dir, manifest=manifest, report=report)
 
 

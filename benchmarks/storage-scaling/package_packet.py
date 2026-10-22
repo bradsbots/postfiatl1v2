@@ -139,6 +139,103 @@ def copy_replay(packet: Path, source: Path) -> Path:
     return destination
 
 
+LEGACY_REPLAY_REPORT_SCHEMA = "postfiat-storage-legacy-replay-v1"
+SIGNED_ARCHIVE_RECEIPT_SCHEMA = "postfiat-storage-signed-archive-replay-receipt-v1"
+REPLAY_FLAGS = (
+    "exact_replay",
+    "full_replay_passed",
+    "logical_rebuild_identical",
+    "canonical_export_identical",
+)
+
+
+def copy_replacement_replay(
+    packet: Path,
+    legacy_report_path: Path,
+    archive_receipt_path: Path,
+    binary_digest: str,
+) -> Path:
+    """Bind the approved 1123 signed archive in place of the lost 915 archive.
+
+    The 924 receipt comes from the legacy-source report; the signed-archive
+    receipt and its step outputs are copied byte-for-byte in the harness layout.
+    """
+    sys.path.insert(0, str(PYTHON_ROOT))
+    from postfiat_rpc.storage_scaling import QUARANTINE_REPLACEMENT
+
+    legacy = read_json(legacy_report_path)
+    archive = read_json(archive_receipt_path)
+    if (
+        legacy.get("schema") != LEGACY_REPLAY_REPORT_SCHEMA
+        or legacy.get("verdict") != "PASS"
+        or legacy.get("source_height") != 924
+    ):
+        raise ValueError("legacy height-924 replay report is not a PASS")
+    if (
+        archive.get("schema") != SIGNED_ARCHIVE_RECEIPT_SCHEMA
+        or archive.get("verdict") != "PASS"
+    ):
+        raise ValueError("replacement archive receipt is not a signed-archive PASS")
+    height = QUARANTINE_REPLACEMENT["replacement_height"]
+    if (
+        archive.get("source_height") != height
+        or archive.get("signed_manifest_sha256")
+        != QUARANTINE_REPLACEMENT["signed_manifest_sha256"]
+    ):
+        raise ValueError("replacement archive is not the approved height-915 replacement")
+    for label, value in (("legacy height-924 replay", legacy), ("replacement archive", archive)):
+        if value.get("node_binary_sha256") != binary_digest:
+            raise ValueError(f"{label} binary differs from the packet binary")
+
+    receipts = legacy.get("receipts")
+    if not isinstance(receipts, list) or len(receipts) != 1:
+        raise ValueError("legacy height-924 replay report must bind one receipt")
+    receipt_source = resolve_report_reference(legacy_report_path, receipts[0])
+    receipt = read_json(receipt_source)
+    if receipt.get("source_height") != 924 or any(
+        receipt.get(flag) is not True for flag in REPLAY_FLAGS
+    ):
+        raise ValueError("height-924 replay receipt is not an exact replay")
+    receipt_destination = packet / "replay" / "height-924.json"
+    copy_file(receipt_source, receipt_destination)
+
+    base = packet / "replay" / f"signed-archive-{height}"
+    archive_destination = base / "receipts" / archive_receipt_path.name
+    steps = archive.get("steps")
+    if not isinstance(steps, dict) or not steps:
+        raise ValueError("replacement archive receipt omitted its steps")
+    step_sources = [
+        (resolve_report_reference(archive_receipt_path.parent, step), step)
+        for step in steps.values()
+    ]
+    copy_file(archive_receipt_path, archive_destination)
+    for source, step in step_sources:
+        copy_file(source, base.joinpath(*PurePosixPath(step["path"]).parts))
+
+    report = {
+        "schema": ARTIFACT_SCHEMAS["replay"],
+        "authenticated_history_height": 924,
+        "exact_pre_activation_replay": True,
+        "full_replay_passed": True,
+        "logical_rebuild_identical": True,
+        "canonical_export_identical": True,
+        "tip_hash": legacy.get("tip_hash"),
+        "state_root": legacy.get("state_root"),
+        "ordered_history_accumulator": legacy.get("ordered_history_accumulator"),
+        "receipts": [reference(packet, receipt_destination)],
+        "quarantine_archive_replacement": {
+            **QUARANTINE_REPLACEMENT,
+            "receipt": reference(packet, archive_destination),
+        },
+        "source_revision": legacy.get("source_revision"),
+        "node_binary_sha256": legacy.get("node_binary_sha256"),
+        "node_binary_build": legacy.get("node_binary_build"),
+    }
+    destination = packet / "artifacts" / "replay.json"
+    write_json(destination, report)
+    return destination
+
+
 def copy_prepared_input(
     packet: Path,
     campaign_root: Path,
@@ -521,6 +618,12 @@ def main() -> int:
     parser.add_argument("--incompatible-node-bin", type=Path, required=True)
     parser.add_argument("--state-distinction", type=Path, required=True)
     parser.add_argument("--replay-report", type=Path, required=True)
+    parser.add_argument(
+        "--replacement-archive-receipt",
+        type=Path,
+        help="signed-archive receipt replacing the lost 915 archive; "
+        "--replay-report is then the legacy height-924 report",
+    )
     parser.add_argument("--performance-report", type=Path, required=True)
     parser.add_argument("--tamper-report", type=Path, required=True)
     parser.add_argument("--migration-report", type=Path, required=True)
@@ -663,7 +766,16 @@ def main() -> int:
 
     artifact_paths = {
         "source": source_path,
-        "replay": copy_replay(packet, args.replay_report.resolve()),
+        "replay": (
+            copy_replacement_replay(
+                packet,
+                args.replay_report.resolve(),
+                args.replacement_archive_receipt.resolve(),
+                binary_digest,
+            )
+            if args.replacement_archive_receipt is not None
+            else copy_replay(packet, args.replay_report.resolve())
+        ),
         "performance": copy_performance(packet, args.performance_report.resolve()),
         "tamper": copy_tamper(packet, args.tamper_report.resolve()),
         "migration": copy_direct(
