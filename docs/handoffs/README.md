@@ -1,7 +1,25 @@
 # Handoff Standard
 
+> **Internal engineering record.** Handoffs are dated working notes between
+> operators and agents, not current operating truth. For the live network, read
+> [Network Status](../status/network-status.md).
+
 Use handoffs to transfer active context between operators and agents. Keep each
 handoff concise, plain-English, and grounded in repository references.
+
+## Publishing a handoff
+
+Do not edit `mkdocs.yml` for a new handoff. After adding the file, regenerate
+the newest-first [handoff index](index.md) and commit it with the handoff:
+
+```bash
+scripts/docs-handoffs-index           # rewrites docs/handoffs/index.md
+scripts/docs-handoffs-index --check   # exits 1 if the index is stale
+```
+
+The docs site shows `index.md` as the Handoffs page. MkDocs does not publish
+this README, because a directory's `README.md` and `index.md` would map to the
+same page, so link to the standard by its GitHub URL from published pages.
 
 ## Filename
 

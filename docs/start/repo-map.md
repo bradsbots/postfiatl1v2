@@ -38,12 +38,15 @@ The canonical docs live under `docs/`. MkDocs publishes the curated subset
 configured in `mkdocs.yml`; source-only archives, runbooks, specs, and status
 logs remain in the same tree but are excluded from the hosted site when needed.
 
-- `docs/whitepaper.md`
-- `docs/status/full-cobalt-burndown.md`
-- `docs/status/privacy-production-burndown.md`
-- `docs/status/controlled-testnet-burndown.md`
-- `docs/runbooks/`
-- `docs/specs/`
+- `docs/whitepaper.md`: the protocol design.
+- `docs/status/network-status.md` and `docs/status/chain-state-current.md`: the
+  running network (summary and full log).
+- `docs/integrate/`: exchange and wallet integration.
+- `docs/runbooks/`: operator procedures.
+- `docs/specs/`: specifications; the site publishes the ones listed under
+  Reference.
+- `docs/handoffs/`, `docs/plans/`, `docs/review/`, `docs/postmortems/` and the
+  dated files in `docs/status/`: internal engineering records.
 
 ## Reports
 

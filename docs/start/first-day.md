@@ -57,14 +57,19 @@ relevant evidence or status page.
 
 | Topic | Current Source |
 | --- | --- |
-| Unified thesis | `docs/whitepaper.md` |
-| Controlled testnet | `docs/status/controlled-testnet-burndown.md` |
-| Cobalt | `docs/status/full-cobalt-burndown.md` |
-| Cobalt adversarial work | `docs/status/cobalt-adversarial-burndown.md` |
-| Privacy | `docs/status/privacy-production-burndown.md` |
-| Operator launch | `docs/runbooks/controlled-testnet-operator-launch.md` |
-| RPC inventory | `docs/runbooks/rpc-method-inventory.md` |
-| Python client | `docs/runbooks/python-rpc-client.md` |
+| Unified thesis | [Whitepaper](../whitepaper.md) (`docs/whitepaper.md`) |
+| Running network | [Network Status](../status/network-status.md), then the full log in [Current State](../status/chain-state-current.md) |
+| Path to public testnet | [Testnet Path](../status/testnet-path.md) and [Release Gate Inventory](../status/release-gate-inventory.md) |
+| Security position | [Security](../security/index.md) |
+| Integration | [Exchange Integration Guide](../integrate/exchange-guide.md) and [Addresses, Keys And Signatures](../integrate/addresses-keys-signatures.md) |
+| RPC inventory | [RPC Method Inventory](../runbooks/rpc-method-inventory.md) |
+| Python client | [Python RPC Client](../runbooks/python-rpc-client.md) |
+
+Older execution burndowns (`docs/status/controlled-testnet-burndown.md`,
+`docs/status/full-cobalt-burndown.md`, `docs/status/cobalt-adversarial-burndown.md`,
+`docs/status/privacy-production-burndown.md`) and the operator launch runbook
+(`docs/runbooks/controlled-testnet-operator-launch.md`) were last updated in July
+and August 2026. Read them as history.
 
 Archived drafts and old research prompts are useful context, not current
 operating truth.
