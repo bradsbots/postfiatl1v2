@@ -166,7 +166,7 @@ Hash/embedded-byte comparisons completed at **2026-09-22T09:50:48.724549Z**, usi
 
 **Re-check, 2026-10-22.** The retained Arc egress file in the row above and in `EGRESS_ELF` (`~/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program`) is no longer on this server: the directory is gone, and none of the 185 egress-named files under `~/.cache` and `~/repos` has SHA-256 `8b0f266a…`. Cycle 1 needs it restored, or the `arc-v2-20260902` guest rebuilt with the SP1 Docker build (no Docker on this server).
 
-**Search, 2026-10-22: found in Git, no file copy anywhere.** The program is committed in this repository. Commit `65df4263` (2026-09-02, "fix: pin reproducible Arc proof identities") is the `retained_commit` that `programs/pfusdc-egress/releases.json` names for `arc-v2-20260902`. At `programs/pfusdc-egress/elf/pfusdc-egress-program` it holds Git blob `e76a553e…`: 5,183,608 bytes, SHA-256 `8b0f266a035a432ef3c0e4233672d8a15b913cefd4c85ff07f91f008601bb744`, an exact match. It is the only commit with that blob, and it is an ancestor of `main`. The same blob, at the same commit, is in `postfiatl1v2-private-archive-20260717`. Restore it with `git show 65df4263:programs/pfusdc-egress/elf/pfusdc-egress-program > "$EGRESS_ELF"`, then check the SHA-256. Its vkey `0x0036cbe7…` was not recomputed here because SP1 was not run.
+**Search, 2026-10-22: found in Git, no file copy anywhere.** The program is committed in this repository. Commit `65df4263` (2026-09-02, "fix: pin reproducible Arc proof identities") is the `retained_commit` that `programs/pfusdc-egress/releases.json` names for `arc-v2-20260902`. At `programs/pfusdc-egress/elf/pfusdc-egress-program` it holds Git blob `e76a553e…`: 5,183,608 bytes, SHA-256 `8b0f266a035a432ef3c0e4233672d8a15b913cefd4c85ff07f91f008601bb744`, an exact match. It is the only commit with that blob, and it is an ancestor of `main`. The same blob, at the same commit, is in `postfiatl1v2-private-archive-20260717`. Restored on 2026-10-22 from `65df4263` to `/home/postfiatchad/.cache/arc-identity-20260902-restored/pfusdc-egress-program` (mode 400, directory 700); 5,183,608 bytes, SHA-256 verified. Receipt: `/home/postfiatchad/.cache/arc-identity-20260902-restored/restore-receipt.json`. Its vkey `0x0036cbe7…` was not recomputed here because SP1 was not run.
 
 Places searched, matching by size and SHA-256, not by name:
 
@@ -290,8 +290,8 @@ TOOLING=/home/postfiatchad/repos/postfiatl1v2
 NODE=/home/postfiatchad/.cache/release-fastlane-cap-20261014/binaries/candidate-1
 # until 2026-10-20 (deleted): PROVER=/home/postfiatchad/repos/postfiatl1v2-arcusdc-current/tools/pfusdc-tier4-prover/target/release/pfusdc-tier4-prover
 PROVER=/home/postfiatchad/.cache/pfusdc-prover-build-20261022/bin/pfusdc-tier4-prover
-# EGRESS_ELF is missing on this server since before 2026-10-22; see Prover provenance
-EGRESS_ELF=/home/postfiatchad/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program
+# until 2026-10-19 (deleted): EGRESS_ELF=/home/postfiatchad/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program
+EGRESS_ELF=/home/postfiatchad/.cache/arc-identity-20260902-restored/pfusdc-egress-program
 WORK=/home/postfiatchad/.cache/z3-cycle1-20260922/work
 PACKET=/home/postfiatchad/.cache/z3-cycle1-20260922/packet
 INPUTS=/home/postfiatchad/.cache/z3-cycle1-20260922/inputs-reviewed.json
