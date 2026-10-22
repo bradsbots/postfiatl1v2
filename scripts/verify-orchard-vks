@@ -1,0 +1,81 @@
+#!/usr/bin/env bash
+# Regenerate the current Asset-Orchard verifying keys from their circuits and
+# compare them with the release-pinned keys. See
+# docs/security/orchard-verifying-keys.md.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ARTIFACTS="$ROOT/crates/privacy_orchard/artifacts"
+PACKAGE="postfiat-privacy-orchard"
+
+usage() {
+  echo "usage: $0 [--quick]" >&2
+  echo "  --quick  check the embedded and replay artifacts against their pins only;" >&2
+  echo "           skip the release keygen (about 6 minutes on 8+ cores)" >&2
+  exit 2
+}
+
+quick=0
+case "${1:-}" in
+  "") ;;
+  --quick) quick=1 ;;
+  *) usage ;;
+esac
+[[ $# -le 1 ]] || usage
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+cd "$ROOT"
+
+lock_version() {
+  awk -v name="$1" '
+    $0 == "name = \"" name "\"" { found = 1; next }
+    found && /^version = / { gsub(/"/, "", $3); print $3; exit }
+  ' Cargo.lock
+}
+
+for pin in "orchard 0.14.0" "halo2_gadgets 0.5.0" "halo2_proofs 0.3.2"; do
+  set -- $pin
+  actual="$(lock_version "$1")"
+  if [[ "$actual" != "$2" ]]; then
+    echo "Cargo.lock pins $1 $actual, expected $2" >&2
+    exit 1
+  fi
+  echo "Cargo.lock: $1 $actual"
+done
+
+echo "== Embedded and replay verifying-key artifacts against their pins"
+cargo test --locked --release -p "$PACKAGE" --lib vk 2>&1 | tee "$work/pins.log"
+grep -Eq '^test result: ok\. 14 passed; 0 failed' "$work/pins.log" || {
+  echo "expected 14 passing verifying-key pin tests" >&2
+  exit 1
+}
+
+if [[ "$quick" == 1 ]]; then
+  echo "Pins verified; release keygen skipped (--quick)."
+  exit 0
+fi
+
+echo "== Release keygen of the current circuits"
+env -u POSTFIAT_ASSET_ORCHARD_SWAP_VK_ARTIFACT \
+  -u POSTFIAT_ASSET_ORCHARD_SWAP_VK_REBUILD \
+  -u POSTFIAT_ASSET_ORCHARD_PRIVATE_EGRESS_VK_ARTIFACT \
+  -u POSTFIAT_ASSET_ORCHARD_PRIVATE_EGRESS_VK_REBUILD \
+  POSTFIAT_ASSET_ORCHARD_SWAP_VK_WRITE_ARTIFACT="$work/swap.bin" \
+  POSTFIAT_ASSET_ORCHARD_PRIVATE_EGRESS_VK_WRITE_ARTIFACT="$work/private-egress.bin" \
+  cargo test --locked --release -p "$PACKAGE" --features asset-orchard-vk-dev-env --lib \
+    full_shape_key_metadata_is_pinned_and_consistent -- --ignored --nocapture \
+  2>&1 | tee "$work/keygen.log"
+grep -Eq '^test result: ok\. 2 passed; 0 failed' "$work/keygen.log" || {
+  echo "expected 2 passing release keygen tests" >&2
+  exit 1
+}
+
+cmp "$work/swap.bin" "$ARTIFACTS/asset_orchard_swap_vk_pinned_assembly.v1.bin"
+cmp "$work/private-egress.bin" \
+  "$ARTIFACTS/asset_orchard_private_egress_vk_pinned_assembly.v1.bin"
+
+echo "== Result"
+grep -E '^ +(circuit_id|runtime_pinned_vk_fingerprint):' "$work/keygen.log"
+echo "Regenerated swap and private-egress verifying keys match their pins and"
+echo "are byte-identical to the committed pinned-assembly artifacts."

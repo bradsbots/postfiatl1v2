@@ -299,6 +299,7 @@ nav:
   - Security:
       - Threat Model: security/threat-model.md
       - Halo2 Dependency: security/halo2-dependency.md
+      - Asset-Orchard Verifying Keys: security/orchard-verifying-keys.md
       - Redaction Policy: security/redaction-policy.md
       - SEC-20260930-01 Closure: security/SEC-20260930-01-closure.md
       - Public Launch Boundary: security/public-launch-boundary.md
