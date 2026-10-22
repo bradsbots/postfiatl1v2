@@ -1,7 +1,7 @@
 {
   "name": "postfiatl1v2",
   "version": "1.0.0",
-  "description": "Current state: [docs/status/chain-state-current.md](docs/status/chain-state-current.md).",
+  "description": "Post Fiat L1 (PFTL): a Rust layer-1 settlement ledger with post-quantum ML-DSA-65 accounts and Orchard-based private settlement.",
   "main": "index.js",
   "directories": {
     "doc": "docs"
@@ -11,5 +11,5 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "MIT OR Apache-2.0"
 }

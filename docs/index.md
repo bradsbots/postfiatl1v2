@@ -1,104 +1,94 @@
-# PostFiat L1 Engineering Docs
+# Post Fiat L1 Documentation
 
-PostFiat is an XRP-style authority-validator Layer 1 rebuilt around Rust,
-post-quantum authorization, versioned validator governance, Orchard/Halo2
-privacy, fixed supply, fee burn, and no native validator reward schedule. The
-final authenticated `postfiat-wan-devnet-2` E5 observation ran from
-`2026-08-26T06:34:55Z` through `06:35:50Z` with all six validators converged
-at height 924 and all validator, RPC, and shadow services active. Cobalt remained
-active for the bounded validator-trust lane after the signed rollback/return
-drills; Consensus v2 remained the only block-finality protocol.
+Post Fiat L1 (PFTL) is a layer-1 settlement ledger written in Rust. It follows
+the XRP Ledger model: known validators, deterministic finality from quorum
+certificates, a fixed-supply native token (PFT) whose fees burn, and no
+validator rewards. Accounts and validators sign with post-quantum ML-DSA-65
+from genesis, validator-trust changes are ratified on chain by Cobalt, and
+private settlement uses Asset-Orchard, a typed-asset extension of Zcash Orchard.
+Its main application is NAVCoins, assets whose supply is tied to
+machine-checkable reserve packets. The design is in the
+[Whitepaper](whitepaper.md) (also published at
+[postfiat.org/whitepaper](https://postfiat.org/whitepaper/)).
 
-Start with [Current State](status/chain-state-current.md). It separates the active
-consensus runtime, governance auditor, Cobalt shadow, current Git HEAD,
-adversarial campaign, and evidence freshness. The repository branch must not be
-used as proof of what is running.
+!!! warning "Devnet only, not audited"
 
-This site is the engineering front door. It is not a dump of internal notes. It
-points to the current code, scripts, reports, and operating runbooks that define
-what has been built.
+    One network runs today: the controlled devnet `postfiat-wan-devnet-2`, run
+    by six Foundation-administered validators. It is not a production mainnet,
+    no public testnet is open, and the code has not been externally audited.
+    Current facts are on [Network Status](status/network-status.md); the audit
+    and release-gate position is on [Security](security/index.md).
 
-For the A666 implementation and operating boundary, start with the
-[July 30 deployed-state baseline](status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md)
-and the
-[deferred production-hardening specification](deferred-plans/A666-PRIVATE-SWAP-PRODUCTION-HARDENING-SPEC-20260730.md).
-Completed campaign plans and dated execution handoffs are deliberately absent
-from the active documentation tree; Git history retains them when historical
-investigation is necessary. The proposed next-generation
-[NAVCoin Reserve Redemption System](deferred-plans/NAVCOIN-RESERVE-REDEMPTION-SYSTEM-SPEC-20260730.md)
-defines separately escrowed two-sided primary facilities for approved
-`pfUSD`, `pfXRP`, `pfETH`, `pfStakedETH`, and `pfBTC` assets; it is a
-specification, not a claim about currently deployed A666 functionality.
+## Start here
 
-The sidebar is curated for reading. Generated governance packets and per-gate
-receipts stay searchable in the site and are collected in the
-Generated Governance Archive, but
-they are not listed one-by-one in the primary navigation.
+| If you are | Read, in order |
+| --- | --- |
+| Evaluating the project | [Whitepaper](whitepaper.md), [Network Status](status/network-status.md), [Security](security/index.md), [Architecture Overview](architecture/overview.md) |
+| Integrating an exchange, custodian or wallet | [Exchange Integration Guide](integrate/exchange-guide.md), [Addresses, Keys And Signatures](integrate/addresses-keys-signatures.md), [RPC Overview](rpc/overview.md), [Python Client](python/quickstart.md) |
+| A new engineer | [First Day](start/first-day.md), [Glossary](start/glossary.md), [Repo Map](start/repo-map.md), [Settlement Lanes](architecture/settlement-lanes.md) |
+| A validator operator | [Validators](validators/overview.md), [Public Operator Runbook](runbooks/public-operator-runbook.md), [Public RPC Operator Policy](runbooks/public-rpc-operator-policy.md) |
 
-## What Exists Now
+Codenames such as A666, BMNRC, Z3 or G4 are defined in the
+[Glossary](start/glossary.md).
 
-| Area | Current State | Where To Read |
+## What exists now
+
+| Area | State | Read |
 | --- | --- | --- |
-| A666 primary market | Mainnet components and full economic loop are functionally proven; resident private swaps remain limited availability and production GA is closed. Multi-asset reserve facilities are proposed, not deployed. | [A666 current state](status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md), [deferred production hardening](deferred-plans/A666-PRIVATE-SWAP-PRODUCTION-HARDENING-SPEC-20260730.md), [deferred reserve redemption system](deferred-plans/NAVCOIN-RESERVE-REDEMPTION-SYSTEM-SPEC-20260730.md) |
-| YOLO target receipts | Consensus-verified receipts for Nitro-attested, SP1-proven options portfolio targets: a signed registration pins program/key, methodology, collection and submitter; a later submission verifies the Groth16 proof on-chain and records the target with transaction finality. Implemented and locally qualified on a four-validator receipt workflow (PR #38, merged 2026-09-07); feature defaults to disabled, and testnet deployment and governance activation have not occurred. Receipts confer no trading, minting or reserve authority. | [Target Receipt v1](yolo/target-receipt-v1.md), [YOLO Options Reserve Profile](navcoins/yolo-options-reserve-profile.md) |
-| Core chain | Rust L1 with accounts, signed transfers, fees, blocks, receipts, deterministic replay, and state roots. | [Architecture](architecture/overview.md) |
-| Storage scaling | Candidate `d0ae79f3` passed G4, then failed exact height-924 G6 on the first certified continuation round after six rebuild/verify passes. It is not clone-qualified and was not deployed; a successor needs owning-boundary repair and repeated affected gates. Public testnet is blocked. | [Active milestone](plans/active/storage-scaling-milestone.md), [State and Storage](architecture/state-and-storage.md) |
-| Finality | Versioned certified ordering: legacy single-view mode and activated consensus v2 with durable prepare/precommit, timeout certificates, and proposer rotation. | [Finality](architecture/finality.md) |
-| Settlement lanes | Consensus transactions, W6 dual-authorized atomic swap, FastPay payments, FastSwap DvP, and Asset-Orchard private settlement have distinct finality and recovery boundaries. | [Settlement Lanes](architecture/settlement-lanes.md) |
-| Governance | The final E5 audit verified Cobalt ratifying validator-registry and trust-graph changes at height 924; unrelated scopes and the current proposal/authorization custody remain Foundation-administered. | [Current State](status/chain-state-current.md), [Validator Registry](governance/validator-registry.md) |
-| Cobalt governance | The E1-E6 campaign closed `KEEP_ACTIVE` for validator-trust evolution only; Cobalt does not choose trust, originate proposals, or control block finality. | [Adversarial Results](governance/cobalt-adversarial-verification-results.md), [Cobalt Governance](governance/cobalt.md) |
-| Verifiable Constitution | Canonical readable constitution for typed, replayable, challengeable model-assisted governance with no-live-effect authority boundaries. | [Constitution](governance/verifiable-constitution.md), Proof Summary |
-| Privacy | Orchard/Halo2 deposit, spend, withdraw, scan, disclose, pool report, and live validator evidence. | [Privacy](privacy/overview.md) |
-| Quantum auth | ML-DSA-style account and validator authorization with larger certificate economics accepted as a design cost. | [Quantum Authorization](quantum/authorization.md) |
-| RPC | Read RPC, transaction finality, account history, pool reports, controlled write policy, doctor tooling. | [RPC](rpc/overview.md) |
-| Python | Python client for status, ledger, fee, finality, account history, and CSV-oriented reads. | [Python Client](python/quickstart.md) |
-| Validators | Launch packets, service layout, history retention, doctor, monitor, restart/outage drills, emergency key rotation. | [Validators](validators/overview.md) |
-| Wallets | Transparent/PFT, issued-asset, FastPay, swap, memo, and shielded tooling with explicit proxy/custody boundaries. | [Web Wallet](wallets/web-wallet.md), [Shielded Wallet](wallets/shielded-wallet.md) |
-| Evidence | Redaction-safe reports tie claims to scripts and code. | [Evidence](evidence/index.md) |
+| Core chain | Accounts, signed transfers, fees, blocks, receipts, deterministic replay and state roots. | [Architecture Overview](architecture/overview.md) |
+| Finality | Consensus v2 prepare/precommit with commit quorum certificates; 5 of 6 on the devnet. | [Finality](architecture/finality.md) |
+| Validator-trust governance | Cobalt ratifies validator-registry and trust-graph changes; active on the devnet since height 916. Other governance scopes and proposals remain Foundation-administered. | [Cobalt](governance/cobalt.md), [Validator Registry](governance/validator-registry.md) |
+| Settlement lanes | Consensus transactions, W6 atomic swaps, FastPay, FastSwap and Asset-Orchard, each with its own finality and recovery rules. | [Settlement Lanes](architecture/settlement-lanes.md) |
+| Privacy | Orchard/Halo2 deposit, spend, withdraw, scan and selective disclosure. The shielded stack is not post-quantum. | [Privacy](privacy/overview.md) |
+| Post-quantum authorization | ML-DSA-65 for accounts and validators; larger certificates accepted as a design cost. | [Quantum Authorization](quantum/authorization.md) |
+| Storage | Transactional `redb` storage active on the devnet since height 930; the storage-scaling offline qualification packet (G5) is not yet assembled. | [Network Status](status/network-status.md), [State And Storage](architecture/state-and-storage.md) |
+| NAVCoins | A666 v2 is the deployed NAVCoin lineage (public general availability closed); BMNRC was created on the devnet on 2026-10-02. | [NAVCoins](navcoins/index.md) |
+| YOLO target receipts | Implemented and disabled by default; activation needs a future governance amendment. Receipts confer no trading, minting or reserve authority. | [YOLO Target Receipt v1](yolo/target-receipt-v1.md) |
+| RPC and clients | Newline-delimited JSON over TCP; read methods, controlled write methods, account history; Python client and Rust SDK. | [RPC](rpc/overview.md), [Python](python/quickstart.md) |
+| Wallets | Transparent, issued-asset, FastPay, swap, memo and shielded flows in the web wallet and tools. | [Web Wallet](wallets/web-wallet.md), [Shielded Wallet](wallets/shielded-wallet.md) |
+| Validators | Launch packets, service layout, history retention, monitors, signed rollout, key rotation. | [Validators](validators/overview.md) |
 
-## Fast Reading Path
+What remains before public launch is listed in the
+[Release Gate Inventory](status/release-gate-inventory.md), the
+[Testnet Path](status/testnet-path.md) and the
+[Public Launch Boundary](security/public-launch-boundary.md).
 
-1. Read the [Whitepaper](whitepaper.md) for the thesis.
-2. Read [First Day](start/first-day.md) for build and local workflow.
-3. Read [Settlement Lanes](architecture/settlement-lanes.md), the
-   [Constitution](governance/verifiable-constitution.md), [Cobalt](governance/cobalt.md),
-   and [Privacy](privacy/overview.md) for the protocol boundaries.
-4. Read [RPC](rpc/overview.md), [Python](python/quickstart.md), and
-   [Validators](validators/overview.md) for integration and operation.
-5. Use [Evidence](evidence/index.md) when you need proof, not prose.
+## How this site is organized
 
-## Core Claim
+| Section | Contents |
+| --- | --- |
+| Start Here | Onboarding, glossary, repository map, release process |
+| Architecture | Transaction lifecycle, settlement lanes, finality, storage, post-quantum authorization |
+| Network Status | The current summary, the full state log, testnet path, release gates |
+| Integrate | Exchange guide, addresses and signatures, RPC, Python client, wallets |
+| Privacy, NAVCoins, Governance | Protocol areas in depth |
+| Validators & Operations | Validator docs and operator runbooks |
+| Security | Audit status, threat model, launch boundary, audit scopes |
+| Reference | Specifications an integrator needs, and the evidence index |
+| Engineering Records | Internal history: handoffs, plans, reviews, postmortems, status log |
 
-The implementation is a controlled-testnet L1. It is built to prove protocol
-correctness, replayability, validator behavior, wallet/RPC behavior, privacy
-flows, and operator runbooks before public launch.
+## Engineering records
 
-Public launch requires the active storage-scaling milestone to pass, plus
-independent placement evidence, longer mixed soaks, external privacy review,
-production public write-edge policy, and custodian workflows. Those are launch
-tasks. They do not erase the controlled-testnet code and
-evidence that already exist.
+Dated handoffs, plans, reviews, postmortems and status entries are internal
+engineering records. They are point-in-time notes written while the work
+happened and are often superseded. Use them for history, not as current
+operating truth:
 
-## Self-Hosted URL
+- [Handoffs](handoffs/index.md): newest-first index, regenerated by
+  `scripts/docs-handoffs-index`.
+- [Plans](plans/README.md): active and completed execution plans.
+- [Reviews](review/README.md): internal review packets and the defect inventory.
+- [Postmortems](postmortems/README.md): incident write-ups.
+- [Status log](status/README.md): the state log and dated status records.
 
-The docs are meant to run on a project-controlled machine:
+## Build this site locally
 
 ```bash
+python3 -m pip install --require-hashes -r requirements-docs.txt
 scripts/docs-site-build
 scripts/docs-site-serve --host 127.0.0.1 --port 8088
 ```
 
-Then visit:
-
-```text
-http://127.0.0.1:8088/
-```
-
-Remote access should be placed behind SSH forwarding or an authenticated reverse
-proxy. Opening the firewall is an operator decision:
-
-```bash
-sudo ufw allow 8088/tcp
-```
-
-The docs server does not modify UFW.
+Then open `http://127.0.0.1:8088/`. For remote access, use SSH port forwarding
+or an authenticated reverse proxy; `scripts/docs-site-serve` uses HTTP basic
+authentication when `POSTFIAT_DOCS_PASSWORD` is set.
