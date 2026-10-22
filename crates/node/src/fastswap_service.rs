@@ -28,6 +28,12 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+#[path = "fastswap_committee_migration.rs"]
+mod committee_migration;
+pub(crate) use committee_migration::{
+    fastswap_committee_migrate, FastSwapCommitteeMigrationOptions,
+};
+
 const FASTSWAP_DIRECTORY: &str = "fastswap-v1";
 const FASTSWAP_BASE_STATE: &str = "base-state.json";
 const FASTSWAP_COMMITTEE: &str = "committee.json";
@@ -104,6 +110,14 @@ impl FastSwapValidatorServiceV1 {
             .iter()
             .map(|permit| (permit.permit_id, permit.clone()))
             .collect::<std::collections::BTreeMap<_, _>>();
+        // Verify the migrated base itself, before canonical controls replace
+        // its policies: the service never rewrites base-state.json, so this is
+        // the file the migration checked. The replayed state and the canonical
+        // policy set legitimately diverge once epoch-2 records or policies exist.
+        let committee_active = ledger.fastswap_committees.last() == Some(&committee);
+        if committee_active && committee.domain.committee_epoch > 1 {
+            verify_migrated_base_at_open(&base, &ledger, &committee)?;
+        }
         // Canonical consensus state is authoritative for mutable controls. The
         // base file seeds object state only; it cannot override a finalized
         // rule or policy registration.
@@ -162,10 +176,6 @@ impl FastSwapValidatorServiceV1 {
         }
         let finalized_primary_height = node_store.read_chain_tip()?.height;
         let activation_height = ledger.fastswap_activation_height.unwrap_or(u64::MAX);
-        let committee_active = ledger.fastswap_committees.last() == Some(&committee);
-        if committee_active && committee.domain.committee_epoch > 1 {
-            verify_migrated_committee_base(&state, &ledger, &committee)?;
-        }
         let mut service = Self {
             store,
             state,
@@ -1495,6 +1505,73 @@ fn verify_migrated_committee_base(
     ledger: &LedgerState,
     committee: &FastSwapCommitteeV1,
 ) -> io::Result<()> {
+    let (previous_checkpoint_id, previous_checkpoint) = migrated_base_drain_checkpoint(
+        state,
+        ledger,
+        committee,
+        &ledger.fastswap_policy_snapshots,
+    )?;
+    let candidate = build_fastlane_checkpoint(state, ledger, Some(previous_checkpoint_id), 0)
+        .map_err(|error| {
+            invalid_data(&format!(
+                "FastSwap migration base checkpoint failed: {error:?}"
+            ))
+        })?;
+    if !base_fields_match_drain_checkpoint(&candidate, &previous_checkpoint)
+        || candidate.redeemed_exit_claim_root != previous_checkpoint.redeemed_exit_claim_root
+    {
+        return Err(invalid_data(
+            "FastSwap migration base does not match the anchored drain checkpoint",
+        ));
+    }
+    Ok(())
+}
+
+/// The open-time form of `verify_migrated_committee_base`. It checks the
+/// migrated base file against the anchored drain checkpoint only. Reserves
+/// and redeemed exits on the live ledger move with epoch-2 deposits, exits
+/// and fee burns, so the epoch-1 base cannot balance against them; live
+/// solvency belongs to the replayed state and is enforced where checkpoints
+/// are built. Here the base's liabilities are balanced against the drain
+/// checkpoint's own live totals instead.
+fn verify_migrated_base_at_open(
+    base: &FastLaneStateV1,
+    ledger: &LedgerState,
+    committee: &FastSwapCommitteeV1,
+) -> io::Result<()> {
+    let (previous_checkpoint_id, previous_checkpoint) = migrated_base_drain_checkpoint(
+        base,
+        ledger,
+        committee,
+        // The policies the migration wrote; the canonical set may grow in
+        // epoch 2 without an epoch-1 fence for the new policy epoch.
+        &base.policy_snapshots.values().cloned().collect::<Vec<_>>(),
+    )?;
+    let mut drain_view = LedgerState::empty();
+    drain_view.fast_lane_reserves = previous_checkpoint.live_object_totals.clone();
+    drain_view
+        .redeemed_fast_lane_exit_claims
+        .clone_from(&ledger.redeemed_fast_lane_exit_claims);
+    let candidate = build_fastlane_checkpoint(base, &drain_view, Some(previous_checkpoint_id), 0)
+        .map_err(|error| {
+        invalid_data(&format!(
+            "FastSwap migration base checkpoint failed: {error:?}"
+        ))
+    })?;
+    if !base_fields_match_drain_checkpoint(&candidate, &previous_checkpoint) {
+        return Err(invalid_data(
+            "FastSwap migration base does not match the anchored drain checkpoint",
+        ));
+    }
+    Ok(())
+}
+
+fn migrated_base_drain_checkpoint(
+    state: &FastLaneStateV1,
+    ledger: &LedgerState,
+    committee: &FastSwapCommitteeV1,
+    drained_policies: &[postfiat_types::FastSwapPolicySnapshotV1],
+) -> io::Result<(FastLaneCheckpointIdV1, postfiat_types::FastLaneCheckpointV1)> {
     let previous_epoch = committee.domain.committee_epoch.saturating_sub(1);
     let previous_committee = ledger
         .fastswap_committees
@@ -1516,8 +1593,7 @@ fn verify_migrated_committee_base(
             Some((checkpoint_id, checkpoint))
         })
         .ok_or_else(|| invalid_data("FastSwap migration drain checkpoint is absent or invalid"))?;
-    let mut expected_fences = ledger
-        .fastswap_policy_snapshots
+    let mut expected_fences = drained_policies
         .iter()
         .map(|policy| policy.policy_epoch)
         .collect::<Vec<_>>();
@@ -1542,26 +1618,20 @@ fn verify_migrated_committee_base(
             "FastSwap migration base is not a clean drained state",
         ));
     }
-    let candidate = build_fastlane_checkpoint(state, ledger, Some(previous_checkpoint_id), 0)
-        .map_err(|error| {
-            invalid_data(&format!(
-                "FastSwap migration base checkpoint failed: {error:?}"
-            ))
-        })?;
-    if candidate.live_object_root != previous_checkpoint.live_object_root
-        || candidate.live_object_totals != previous_checkpoint.live_object_totals
-        || candidate.exit_claim_root != previous_checkpoint.exit_claim_root
-        || candidate.exit_claim_totals != previous_checkpoint.exit_claim_totals
-        || candidate.terminal_root != previous_checkpoint.terminal_root
-        || candidate.active_policy_hashes != previous_checkpoint.active_policy_hashes
-        || candidate.imported_deposit_root != previous_checkpoint.imported_deposit_root
-        || candidate.redeemed_exit_claim_root != previous_checkpoint.redeemed_exit_claim_root
-    {
-        return Err(invalid_data(
-            "FastSwap migration base does not match the anchored drain checkpoint",
-        ));
-    }
-    Ok(())
+    Ok((previous_checkpoint_id, previous_checkpoint))
+}
+
+fn base_fields_match_drain_checkpoint(
+    candidate: &postfiat_types::FastLaneCheckpointV1,
+    previous_checkpoint: &postfiat_types::FastLaneCheckpointV1,
+) -> bool {
+    candidate.live_object_root == previous_checkpoint.live_object_root
+        && candidate.live_object_totals == previous_checkpoint.live_object_totals
+        && candidate.exit_claim_root == previous_checkpoint.exit_claim_root
+        && candidate.exit_claim_totals == previous_checkpoint.exit_claim_totals
+        && candidate.terminal_root == previous_checkpoint.terminal_root
+        && candidate.active_policy_hashes == previous_checkpoint.active_policy_hashes
+        && candidate.imported_deposit_root == previous_checkpoint.imported_deposit_root
 }
 
 fn read_bounded_json<T: serde::de::DeserializeOwned>(path: &Path) -> io::Result<T> {
@@ -1738,6 +1808,10 @@ pub(crate) fn swap_id_hex(value: FastSwapIdV1) -> String {
 }
 
 #[cfg(test)]
+#[path = "fastswap_committee_migration_tests.rs"]
+mod committee_migration_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use postfiat_crypto_provider::{
@@ -1779,11 +1853,11 @@ mod tests {
 
     static TEST_ID: AtomicU64 = AtomicU64::new(0);
 
-    struct Fixture {
-        root: PathBuf,
-        base: FastLaneStateV1,
-        committee: FastSwapCommitteeV1,
-        validator_keys: Vec<Vec<u8>>,
+    pub(super) struct Fixture {
+        pub(super) root: PathBuf,
+        pub(super) base: FastLaneStateV1,
+        pub(super) committee: FastSwapCommitteeV1,
+        pub(super) validator_keys: Vec<Vec<u8>>,
         owner_0_private_key: Vec<u8>,
         owner_1_private_key: Vec<u8>,
         signed: SignedFastSwapIntentV1,
@@ -2141,7 +2215,7 @@ mod tests {
         }
     }
 
-    fn fixture() -> Fixture {
+    pub(super) fn fixture() -> Fixture {
         let root = std::env::temp_dir().join(format!(
             "postfiat-fastswap-service-{}-{}",
             std::process::id(),
@@ -2848,9 +2922,11 @@ mod tests {
         next_committee.domain.committee_root = postfiat_types::FastSwapCommitteeRootV1::ZERO;
         next_committee.domain.committee_root = next_committee.computed_root().expect("next root");
         ledger.fastswap_committees.push(next_committee.clone());
-        let mut migrated = old_state;
-        migrated.committee = next_committee.domain.clone();
-        migrated.prepare_fences.clear();
+        let mut migrated = committee_migration::migrate_drained_fastlane_state(
+            &old_state,
+            &next_committee.domain,
+            None,
+        );
         verify_migrated_committee_base(&migrated, &ledger, &next_committee)
             .expect("matching migration base");
 

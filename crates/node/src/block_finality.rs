@@ -574,35 +574,52 @@ fn account_tx_scan(
             Some(index)
         })
         .collect::<Vec<_>>();
+    // The scan reads at most `scan_limit` blocks, so blocks of the range outside
+    // that window are not read: `truncated` then means "possibly incomplete".
     let mut truncated = block_indexes.len() > scan_limit;
+    let newest_first = options.from_height.is_none();
     if block_indexes.len() > scan_limit {
-        if options.from_height.is_some() {
-            block_indexes.truncate(scan_limit);
+        if newest_first {
+            block_indexes.drain(..block_indexes.len() - scan_limit);
         } else {
-            block_indexes = block_indexes[block_indexes.len() - scan_limit..].to_vec();
+            block_indexes.truncate(scan_limit);
         }
     }
 
-    let mut rows = Vec::new();
+    // Without a start height keep the newest matching rows, as the index does.
+    let mut block_rows = Vec::new();
+    let mut row_count = 0_usize;
     let mut archive_lookup_count = 0_u64;
-    for block_index in &block_indexes {
-        let block = &block_log.blocks[*block_index];
+    let mut scan_order = block_indexes.clone();
+    if newest_first {
+        scan_order.reverse();
+    }
+    for block_index in scan_order {
+        let block = &block_log.blocks[block_index];
         if block.header.batch_kind != "transparent" {
             continue;
         }
         archive_lookup_count = archive_lookup_count.saturating_add(1);
-        for row in account_tx_rows_for_transparent_block(block, &archive, &receipt_by_tx)? {
-            if row.from_address != options.address && row.to_address != options.address {
-                continue;
-            }
-            rows.push(row);
-            if rows.len() >= scan_limit {
-                truncated = true;
-                break;
-            }
-        }
-        if rows.len() >= scan_limit {
+        let matching = account_tx_rows_for_transparent_block(block, &archive, &receipt_by_tx)?
+            .into_iter()
+            .filter(|row| row.from_address == options.address || row.to_address == options.address)
+            .collect::<Vec<_>>();
+        row_count += matching.len();
+        block_rows.push(matching);
+        if row_count > scan_limit {
+            truncated = true;
             break;
+        }
+    }
+    if newest_first {
+        block_rows.reverse();
+    }
+    let mut rows = block_rows.into_iter().flatten().collect::<Vec<_>>();
+    if rows.len() > scan_limit {
+        if newest_first {
+            rows.drain(..rows.len() - scan_limit);
+        } else {
+            rows.truncate(scan_limit);
         }
     }
 
@@ -655,7 +672,7 @@ fn account_tx_from_rows(
                     .is_none_or(|to_height| row.block_height <= to_height)
         })
         .collect::<Vec<_>>();
-    let truncated = rows_for_account.len() >= scan_limit;
+    let truncated = rows_for_account.len() > scan_limit;
     let rows = if rows_for_account.len() > scan_limit {
         if options.from_height.is_some() {
             rows_for_account[..scan_limit].to_vec()
@@ -1464,6 +1481,15 @@ fn account_tx_rows_for_transparent_block(
                 None,
                 None,
             ),
+            AssetTransactionOperation::PftlUniswapRouteBridgePolicyUpdate(operation) => (
+                operation.issuer.clone(),
+                operation.route_id.clone(),
+                0,
+                None,
+                None,
+                None,
+                None,
+            ),
             AssetTransactionOperation::PftlUniswapExportDebit(operation) => (
                 operation.owner.clone(),
                 operation.ethereum_recipient.clone(),
@@ -2212,6 +2238,7 @@ pub fn create_block_vote_with_timings(
     let store = NodeStore::new(&options.data_dir);
     timings.store_init_ms = node_timing_elapsed_ms(stage_start);
     let legacy_work_before = store.work_counters();
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -2253,7 +2280,11 @@ pub fn create_block_vote_with_timings(
         .zip(transactional_work_before)
         .map(|(transactional, before)| transactional.work_counters().saturating_delta(before));
     let legacy_work = legacy_work_delta(store.work_counters(), legacy_work_before);
-    vote.timings.storage_work = Some(storage_work_report(transactional_work, legacy_work));
+    vote.timings.storage_work = Some(storage_work_report(
+        transactional_work,
+        legacy_work,
+        opens_before,
+    ));
     Ok(vote)
 }
 

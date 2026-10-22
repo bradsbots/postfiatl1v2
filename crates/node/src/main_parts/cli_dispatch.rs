@@ -138,9 +138,10 @@ use postfiat_node::{
     verify_block_proposal_equivocation, verify_block_timeout_certificate_file,
     verify_block_vote_equivocation, verify_blocks, verify_bridge,
     verify_signed_block_proposal,
-    verify_consensus_v2_proposal_matches_block, verify_deployment_manifest,
+    verify_consensus_v2_proposal_matches_block, verify_deployment_manifest_with_record,
     verify_finalized_checkpoint, verify_governance_amendment_replay_bundle,
-    verify_governance_genesis_bundle, verify_governance_replay_package,
+    verify_governance_genesis_bundle, verify_governance_genesis_bundle_snapshot,
+    verify_governance_replay_package,
     verify_governance_with_options, verify_history_archive_handoff,
     verify_history_archive_window_bundle, verify_mempool, verify_operator_independence,
     verify_operator_control_attestation, verify_operator_manifest, verify_or_apply_orchard_action,
@@ -484,6 +485,9 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "ethereum-receipt-proof-build"
         | "ethereum-checkpoint-vote-sign"
         | "ethereum-checkpoint-certificate-assemble"
+        | "fastswap-control-prepare"
+        | "fastswap-control-vote-sign"
+        | "fastswap-control-assemble"
         | "validator-registry-root"
         | "validator-registry-update"
         | "validator-registry-authorization-sign"
@@ -497,6 +501,8 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "operator-onboarding-keygen"
         | "operator-manifest-create"
         | "operator-manifest-verify"
+        | "operator-attestation-create"
+        | "operator-attestation-verify"
         | "operator-independence-verify"
         | "governance-genesis-bundle"
         | "governance-genesis-verify"
@@ -524,6 +530,9 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "fastswap-governance-bootstrap-assemble"
         | "fastpay-recovery-governance-bootstrap"
         | "fastpay-recovery-governance-bootstrap-assemble"
+        | "fastpay-committee-prepare"
+        | "fastswap-store-migrate"
+        | "fastswap-committee-migrate"
         | "vault-bridge-route-profile-governance"
         | "vault-bridge-route-profile-governance-assemble"
         | "apply-governance-batch"

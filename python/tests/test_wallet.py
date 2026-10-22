@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import stat
 import tempfile
@@ -457,11 +458,29 @@ class WalletHelperTests(unittest.TestCase):
         result_schema = {"value": "postfiat-asset-info-v1"}
 
         def response_for_request(request: dict[str, object]) -> dict[str, object]:
+            result: dict[str, object] = {"schema": result_schema["value"]}
+            method = str(request["method"])
+            if method in {"asset_info", "escrow_info", "nft_info", "offer_info"}:
+                kind = method.removesuffix("_info")
+                requested_id = request["params"][f"{kind}_id"]
+                result.update(
+                    {
+                        f"{kind}_id": requested_id,
+                        "found": True,
+                        kind: {f"{kind}_id": requested_id},
+                    }
+                )
+            elif method in {"account_offers", "account_escrows"}:
+                params = request["params"]
+                result.update({"account": params["account"], "state": params.get("state")})
+                if method == "account_escrows":
+                    result["role"] = params.get("role")
+                result[method.removeprefix("account_")] = []
             return {
                 "version": "postfiat-local-rpc-v1",
                 "id": request["id"],
                 "ok": True,
-                "result": {"schema": result_schema["value"]},
+                "result": result,
             }
 
         with mock.patch.object(client, "_send", side_effect=response_for_request) as send:
@@ -2897,6 +2916,40 @@ class FastPayClientMethodTests(unittest.TestCase):
         self.assertEqual(result, apply_result)
         mock_call.assert_called_once_with("owned_apply", {"cert_json": cert_json})
 
+    def test_owned_recovery_read_rpc_contract(self) -> None:
+        """owned_recovery_status and owned_certificate follow the node's selector contract."""
+        client = PostFiatRpcClient("127.0.0.1:1234")
+        lock_id = "ab" * 48
+        certificate_digest = "cd" * 48
+        with mock.patch.object(client, "_call", return_value={"ok": True}) as call:
+            client.owned_recovery_status(lock_id)
+            client.owned_certificate(lock_id=lock_id)
+            client.owned_certificate(certificate_digest=certificate_digest)
+
+        self.assertEqual(
+            call.call_args_list,
+            [
+                mock.call("owned_recovery_status", {"lock_id": lock_id}),
+                mock.call("owned_certificate", {"lock_id": lock_id}),
+                mock.call("owned_certificate", {"certificate_digest": certificate_digest}),
+            ],
+        )
+
+        with mock.patch.object(client, "_call") as call:
+            with self.assertRaisesRegex(ValueError, "exactly one of"):
+                client.owned_certificate()
+            with self.assertRaisesRegex(ValueError, "exactly one of"):
+                client.owned_certificate(
+                    lock_id=lock_id, certificate_digest=certificate_digest
+                )
+            with self.assertRaisesRegex(ValueError, "must not be empty"):
+                client.owned_certificate(lock_id="")
+            with self.assertRaisesRegex(ValueError, "must not be empty"):
+                client.owned_certificate(certificate_digest="")
+            with self.assertRaisesRegex(ValueError, "lock_id is required"):
+                client.owned_recovery_status("")
+            call.assert_not_called()
+
     def test_recovery_safe_fastpay_v3_rpc_contract(self) -> None:
         """The WAN client must expose every recovery-safe v3 payment boundary."""
         client = PostFiatRpcClient("127.0.0.1:1234")
@@ -3153,7 +3206,7 @@ class FastPayFlowTests(unittest.TestCase):
                 mock.patch.object(
                     wallet_module,
                     "_verify_fastpay_apply_v3",
-                    return_value=tuple({"validator_id": f"validator-{i}"} for i in range(5)),
+                    return_value={"authenticated_acknowledgements": [{"validator_id": f"validator-{i}"} for i in range(5)], "verified_effects": {}},
                 ),
                 mock.patch.object(client, "validators", return_value={"validators": validators}),
                 mock.patch.object(
@@ -3236,7 +3289,7 @@ class FastPayFlowTests(unittest.TestCase):
                 mock.patch.object(
                     wallet_module,
                     "_verify_fastpay_apply_v3",
-                    return_value=tuple({"validator_id": f"validator-{i}"} for i in range(5)),
+                    return_value={"authenticated_acknowledgements": [{"validator_id": f"validator-{i}"} for i in range(5)], "verified_effects": {}},
                 ),
                 mock.patch.object(client, "validators", return_value={"validators": validators}),
                 mock.patch.object(
@@ -3301,7 +3354,11 @@ class FastPayFlowTests(unittest.TestCase):
             self.assertEqual(signed["order"]["recovery"]["lock_id"], lock_id)
             return {"validator_id": validator_id, "signature_hex": f"vote-{validator_id}"}
 
+        verified_effects = {"consumed_count": 1, "credited": 6, "credited_to": "pf-owner"}
         apply_result = {
+            "credited": 999,
+            "credited_to": "forged-proxy-address",
+            "authenticated_acknowledgements": [{"validator_id": "unverified-response-value"}],
             "validators": [
                 {
                     "validator_id": f"validator-{index}",
@@ -3341,7 +3398,7 @@ class FastPayFlowTests(unittest.TestCase):
                 mock.patch.object(
                     wallet_module,
                     "_verify_fastpay_apply_v3",
-                    return_value=authenticated,
+                    return_value={"authenticated_acknowledgements": list(authenticated), "verified_effects": verified_effects},
                 ) as verify_apply,
                 mock.patch.object(
                     client,
@@ -3363,6 +3420,9 @@ class FastPayFlowTests(unittest.TestCase):
                 )
 
         self.assertEqual(result.order["recovery"]["lock_id"], lock_id)
+        self.assertEqual(result.result["credited"], 6)
+        self.assertEqual(result.result["credited_to"], "pf-owner")
+        self.assertEqual(result.result["apply"], apply_result)
         self.assertEqual(result.result["authenticated_acknowledgements"], list(authenticated))
         self.assertGreaterEqual(sign_rpc.call_count, 5)
         apply_rpc.assert_called_once()
@@ -3407,7 +3467,7 @@ class FastPayFlowTests(unittest.TestCase):
                 mock.patch.object(
                     wallet_module,
                     "_verify_fastpay_apply_v3",
-                    return_value=tuple({"validator_id": f"validator-{i}"} for i in range(5)),
+                    return_value={"authenticated_acknowledgements": [{"validator_id": f"validator-{i}"} for i in range(5)], "verified_effects": {}},
                 ),
                 mock.patch.object(client, "validators", return_value={"validators": validators}),
                 mock.patch.object(
@@ -3474,7 +3534,10 @@ class FastPayFlowTests(unittest.TestCase):
             self.assertEqual(signed["order"]["recovery"]["lock_id"], lock_id)
             return {"validator_id": validator_id, "signature_hex": f"vote-{validator_id}"}
 
+        created_objects = [{"id": "recipient-output", "owner_pubkey_hex": "recipient_pk", "value": 50, "asset": "PFT"}]
         apply_result = {
+            "created_objects": [],
+            "authenticated_acknowledgements": [{"validator_id": "unverified-response-value"}],
             "validators": [
                 {
                     "validator_id": f"validator-{index}",
@@ -3507,7 +3570,7 @@ class FastPayFlowTests(unittest.TestCase):
                     wallet_module,
                     "_verify_fastpay_apply_v3",
                     create=True,
-                    return_value=authenticated,
+                    return_value={"authenticated_acknowledgements": list(authenticated), "verified_effects": {"created_objects": created_objects}},
                 ) as verify_apply,
                 mock.patch.object(
                     client,
@@ -3531,10 +3594,180 @@ class FastPayFlowTests(unittest.TestCase):
 
         self.assertEqual(len(result.votes), 5)
         self.assertEqual(result.order["recovery"]["lock_id"], lock_id)
+        self.assertEqual(result.result["created_objects"], created_objects)
+        self.assertEqual(result.result["apply"], apply_result)
         self.assertEqual(result.result["authenticated_acknowledgements"], list(authenticated))
         self.assertGreaterEqual(owned_sign_v3.call_count, 5)
         owned_apply_v3.assert_called_once()
         verify_apply.assert_called_once()
+
+    def _fastpay_coin(self) -> dict[str, object]:
+        return {"id": "11" * 32, "version": 1, "value": 100, "asset": "PFT"}
+
+    def _fastpay_send_patches(self, client, *, objects, sign, collect, apply):
+        validators = [
+            {"node_id": f"validator-{index}", "public_key_hex": f"pk-{index}"}
+            for index in range(6)
+        ]
+        stack = contextlib.ExitStack()
+        patch = lambda target, name, **kwargs: stack.enter_context(  # noqa: E731
+            mock.patch.object(target, name, **kwargs)
+        )
+        patch(client, "server_capabilities", return_value=self._fastpay_caps())
+        patch(client, "owned_recovery_capabilities", return_value=self._fastpay_recovery_caps())
+        patch(client, "validators", return_value={"validators": validators})
+        mocks = {
+            "objects": patch(client, "owned_objects", side_effect=objects),
+            "sign": patch(wallet_module, "_sign_fastpay_order_v3", side_effect=sign),
+            "collect": patch(wallet_module, "_collect_fastpay_votes_v3", side_effect=collect),
+            "apply": patch(client, "owned_apply_v3", side_effect=apply),
+            "verify": patch(
+                wallet_module,
+                "_verify_fastpay_apply_v3",
+                return_value={
+                    "authenticated_acknowledgements": [{"validator_id": f"validator-{i}"} for i in range(5)],
+                    "verified_effects": {"created_objects": [{"id": "out", "value": 50}]},
+                },
+            ),
+        }
+        return stack, mocks
+
+    @staticmethod
+    def _fastpay_sign(*, wallet, order, capabilities, work_dir):
+        del wallet, capabilities, work_dir
+        signed_order = json.loads(json.dumps(order))
+        signed_order["recovery"]["lock_id"] = "ac" * 48
+        return {"owner_pubkey_hex": "owner_pk", "owner_signature_hex": "owner_sig", "order": signed_order}
+
+    @staticmethod
+    def _fastpay_votes(client, signed_order, validators, quorum):
+        del client, signed_order
+        return [{"validator_id": row["node_id"], "signature_hex": "vote"} for row in validators[:quorum]]
+
+    def _fastpay_send_journal(self, work_dir) -> dict[str, object]:
+        (path,) = Path(work_dir).glob("fastpay-send-*.json")
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        return json.loads(path.read_text())
+
+    def _send_timed_out_after_certificate(self, client, wallet, tmp) -> list[str]:
+        submitted: list[str] = []
+
+        def apply_timeout(cert_json):
+            journal = self._fastpay_send_journal(tmp)
+            self.assertEqual(journal["state"], "certified")
+            self.assertEqual(journal["certificate_json"], cert_json)
+            submitted.append(cert_json)
+            raise TimeoutError("owned_apply_v3 timed out")
+
+        stack, _ = self._fastpay_send_patches(
+            client,
+            objects=AssertionError("pinned input needs no lookup"),
+            sign=self._fastpay_sign,
+            collect=self._fastpay_votes,
+            apply=apply_timeout,
+        )
+        with stack, self.assertRaises(TimeoutError):
+            send_fastpay(
+                client, wallet=wallet, recipient_public_key_hex="recipient_pk",
+                amount=50, fee=1, work_dir=tmp, owned_objects=[self._fastpay_coin()],
+            )
+        return submitted
+
+    def test_send_fastpay_resume_reapplies_the_stored_certificate_after_apply_timeout(self) -> None:
+        client = PostFiatRpcClient("127.0.0.1:1234")
+        wallet = self._wallet()
+        with tempfile.TemporaryDirectory() as tmp:
+            submitted = self._send_timed_out_after_certificate(client, wallet, tmp)
+            stack, mocks = self._fastpay_send_patches(
+                client,
+                objects=[{"objects": [self._fastpay_coin()], "truncated": False}],
+                sign=AssertionError("resume must not sign again"),
+                collect=AssertionError("resume must not collect new votes"),
+                apply=lambda cert_json: submitted.append(cert_json) or {"validators": []},
+            )
+            with stack:
+                result = send_fastpay(
+                    client, wallet=wallet, recipient_public_key_hex="recipient_pk",
+                    amount=50, fee=1, work_dir=tmp, owned_objects=[self._fastpay_coin()],
+                )
+            journal = self._fastpay_send_journal(tmp)
+
+        self.assertEqual(len(submitted), 2)
+        self.assertEqual(submitted[0], submitted[1])
+        self.assertEqual(result.certificate, json.loads(submitted[0]))
+        self.assertEqual(result.result["created_objects"], [{"id": "out", "value": 50}])
+        self.assertEqual(len(result.votes), 5)
+        mocks["sign"].assert_not_called()
+        mocks["verify"].assert_called_once()
+        self.assertEqual(journal["state"], "applied")
+
+    def test_send_fastpay_resume_before_certificate_reports_pending_without_signing(self) -> None:
+        client = PostFiatRpcClient("127.0.0.1:1234")
+        wallet = self._wallet()
+        with tempfile.TemporaryDirectory() as tmp:
+            stack, _ = self._fastpay_send_patches(
+                client,
+                objects=AssertionError("pinned input needs no lookup"),
+                sign=self._fastpay_sign,
+                collect=KeyboardInterrupt,
+                apply=AssertionError("no certificate to apply"),
+            )
+            with stack, self.assertRaises(KeyboardInterrupt):
+                send_fastpay(
+                    client, wallet=wallet, recipient_public_key_hex="recipient_pk",
+                    amount=50, fee=1, work_dir=tmp, owned_objects=[self._fastpay_coin()],
+                )
+            self.assertEqual(self._fastpay_send_journal(tmp)["state"], "signed")
+            # Resume without pinning the input: the SDK must not pick the same or
+            # another coin and sign a new order for this send.
+            stack, mocks = self._fastpay_send_patches(
+                client,
+                objects=[{"objects": [self._fastpay_coin()], "truncated": False}],
+                sign=AssertionError("resume must not sign again"),
+                collect=AssertionError("resume must not collect new votes"),
+                apply=AssertionError("no certificate to apply"),
+            )
+            with stack, self.assertRaises(wallet_module.FastPayPendingError) as raised:
+                send_fastpay(
+                    client, wallet=wallet, recipient_public_key_hex="recipient_pk",
+                    amount=50, fee=1, work_dir=tmp,
+                )
+            self.assertEqual(self._fastpay_send_journal(tmp)["state"], "signed")
+
+        self.assertEqual(raised.exception.object_id, "11" * 32)
+        self.assertEqual(raised.exception.version, 1)
+        self.assertIn("pending", str(raised.exception))
+        mocks["sign"].assert_not_called()
+        mocks["apply"].assert_not_called()
+
+    def test_send_fastpay_resume_reconciles_an_applied_certificate_without_resubmitting(self) -> None:
+        client = PostFiatRpcClient("127.0.0.1:1234")
+        wallet = self._wallet()
+        with tempfile.TemporaryDirectory() as tmp:
+            submitted = self._send_timed_out_after_certificate(client, wallet, tmp)
+            stack, mocks = self._fastpay_send_patches(
+                client,
+                objects=[{"objects": [], "truncated": False}],
+                sign=AssertionError("resume must not sign again"),
+                collect=AssertionError("resume must not collect new votes"),
+                apply=AssertionError("an applied certificate must not be resubmitted"),
+            )
+            with stack:
+                result = send_fastpay(
+                    client, wallet=wallet, recipient_public_key_hex="recipient_pk",
+                    amount=50, fee=1, work_dir=tmp, owned_objects=[self._fastpay_coin()],
+                )
+            journal = self._fastpay_send_journal(tmp)
+
+        self.assertEqual(len(submitted), 1)
+        self.assertEqual(result.certificate, json.loads(submitted[0]))
+        self.assertEqual(
+            result.result,
+            {"reconciled_from_chain": True, "spent_input": {"id": "11" * 32, "version": 1}},
+        )
+        mocks["apply"].assert_not_called()
+        mocks["objects"].assert_called_once()
+        self.assertEqual(journal["state"], "applied")
 
     def test_fastpay_helpers_reject_raw_single_validator_rpc(self) -> None:
         client = PostFiatRpcClient("127.0.0.1:1234")

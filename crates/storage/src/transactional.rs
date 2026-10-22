@@ -33,10 +33,16 @@ mod canonical_export;
 mod export;
 mod fastpay_index;
 mod generation;
+mod lease;
 
 pub use canonical_export::CanonicalExportReceiptV1;
 pub use export::CanonicalHistoryIndexEntryV1;
 pub use generation::TransactionalGenerationPointerV1;
+use lease::shared_transactional_store;
+pub use lease::{
+    release_inactive_shared_transactional_stores, transactional_open_counts,
+    transactional_open_counts_for, TransactionalOpenCounts,
+};
 
 pub const TRANSACTIONAL_BACKEND: &str = "redb";
 pub const TRANSACTIONAL_BACKEND_VERSION: &str = "4.2.0";
@@ -93,14 +99,6 @@ const ALLOWED_ADDITIONAL_STATE_DOMAINS: &[&str] = &[
     "retained_history_checkpoint",
 ];
 const FASTPAY_ANCHOR_KEY_PREFIX: &[u8] = b"fastpay_anchor_v1\0";
-
-static SHARED_STORES: OnceLock<Mutex<HashMap<PathBuf, Weak<TransactionalStore>>>> = OnceLock::new();
-
-/// Total time a writer-lease acquisition retries against a database held by
-/// another process before failing closed with `storage_writer_busy`.
-const WRITER_LEASE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(20);
-const WRITER_LEASE_INITIAL_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
-const WRITER_LEASE_MAX_BACKOFF: std::time::Duration = std::time::Duration::from_millis(500);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StorageErrorCode {
@@ -495,10 +493,13 @@ impl TransactionalDatabase {
 }
 
 pub struct TransactionalStore {
+    // Field order is drop order: the database closes before the close is
+    // recorded.
     database_path: PathBuf,
     database: TransactionalDatabase,
     integrity_key: IntegrityKey,
     counters: Arc<WorkCounterState>,
+    _open_record: lease::OpenRecord,
 }
 
 /// One backend-consistent read view bound to the authenticated finalized tip
@@ -534,11 +535,13 @@ impl TransactionalStore {
         fs::create_dir_all(data_dir).map_err(database_error)?;
         let database_path = data_dir.join(TRANSACTIONAL_DATABASE_FILE);
         let database = Database::create(&database_path).map_err(database_error)?;
+        let _open_record = lease::record_open(&database_path);
         Ok(Self {
             database_path,
             database: TransactionalDatabase::ReadWrite(database),
             integrity_key,
             counters: Arc::new(WorkCounterState::default()),
+            _open_record,
         })
     }
 
@@ -557,11 +560,13 @@ impl TransactionalStore {
         }
         let database_path = data_dir.join(TRANSACTIONAL_DATABASE_FILE);
         let database = ReadOnlyDatabase::open(&database_path).map_err(database_error)?;
+        let _open_record = lease::record_open(&database_path);
         Ok(Self {
             database_path,
             database: TransactionalDatabase::ReadOnly(database),
             integrity_key,
             counters: Arc::new(WorkCounterState::default()),
+            _open_record,
         })
     }
 
@@ -2634,107 +2639,6 @@ impl TransactionalReadSnapshot {
         .map(|raw| decode_json(&raw))
         .transpose()
     }
-}
-
-/// Acquire the process-shared transactional store under the bounded writer
-/// lease.
-///
-/// `redb` grants exactly one process access to the database file: a writable
-/// [`Database`] excludes every other open, and [`ReadOnlyDatabase`] cannot
-/// coexist with a writer either. The deployed topology runs two services
-/// (`transport-validator-serve` and `rpc-serve`) against one data directory,
-/// so no process may hold the database while idle. This function therefore
-/// hands out a shared handle whose lifetime is exactly the set of in-flight
-/// operations:
-///
-/// - Callers inside one process share a single live handle through a weak
-///   registry entry, so concurrent redb read transactions never reopen the
-///   file.
-/// - When the last caller drops its `Arc`, the database closes and the file
-///   lock is released for the other process.
-/// - When the file is held by the other process, acquisition retries with
-///   backoff until [`WRITER_LEASE_DEADLINE`], then fails closed with
-///   `storage_writer_busy` without mutating anything. The retry also absorbs
-///   the drop race in which redb's destructor is still releasing the lock of
-///   a handle whose strong count already reached zero.
-///
-/// The devnet is operator-driven: blocks exist only during explicit certified
-/// rounds and rounds are serialized by proposer election, so contention
-/// windows are short and bounded.
-fn shared_transactional_store(
-    data_dir: &Path,
-    integrity_key: IntegrityKey,
-) -> StorageResult<Arc<TransactionalStore>> {
-    fs::create_dir_all(data_dir).map_err(database_error)?;
-    let canonical_dir = fs::canonicalize(data_dir).map_err(database_error)?;
-    let database_path = canonical_dir.join(TRANSACTIONAL_DATABASE_FILE);
-    let registry = SHARED_STORES.get_or_init(|| Mutex::new(HashMap::new()));
-    let deadline = std::time::Instant::now() + writer_lease_deadline();
-    let mut backoff = WRITER_LEASE_INITIAL_BACKOFF;
-    loop {
-        {
-            let mut stores = registry.lock().map_err(|_| {
-                StorageError::new(
-                    StorageErrorCode::Database,
-                    "shared transactional store registry is poisoned",
-                )
-            })?;
-            stores.retain(|_, store| store.strong_count() > 0);
-            if let Some(store) = stores.get(&database_path).and_then(Weak::upgrade) {
-                return Ok(store);
-            }
-            match TransactionalStore::open_with_integrity_key(&canonical_dir, integrity_key.clone())
-            {
-                Ok(store) => {
-                    let store = Arc::new(store);
-                    stores.insert(database_path, Arc::downgrade(&store));
-                    return Ok(store);
-                }
-                Err(error) if !error.is_database_contention() => return Err(error),
-                Err(_) => {}
-            }
-        }
-        if std::time::Instant::now() >= deadline {
-            return Err(StorageError::new(
-                StorageErrorCode::WriterBusy,
-                format!(
-                    "transactional database `{}` is held by another process; \
-                     writer lease deadline exhausted",
-                    database_path.display()
-                ),
-            ));
-        }
-        std::thread::sleep(backoff);
-        backoff = (backoff * 2).min(WRITER_LEASE_MAX_BACKOFF);
-    }
-}
-
-fn writer_lease_deadline() -> std::time::Duration {
-    std::env::var("POSTFIAT_STORAGE_WRITER_LEASE_DEADLINE_MS")
-        .ok()
-        .and_then(|value| value.parse::<u64>().ok())
-        .map(std::time::Duration::from_millis)
-        .unwrap_or(WRITER_LEASE_DEADLINE)
-}
-
-/// Drop process-global transactional handles that have no live caller.
-///
-/// The registry holds only weak references, so this is now a sweep of dead
-/// entries. It is retained because command-line binaries call it before
-/// returning to the operating system and because it documents the invariant:
-/// no process may keep the database open while idle.
-pub fn release_inactive_shared_transactional_stores() -> StorageResult<()> {
-    let Some(registry) = SHARED_STORES.get() else {
-        return Ok(());
-    };
-    let mut stores = registry.lock().map_err(|_| {
-        StorageError::new(
-            StorageErrorCode::Database,
-            "shared transactional store registry is poisoned",
-        )
-    })?;
-    stores.retain(|_, store| store.strong_count() > 0);
-    Ok(())
 }
 
 const STORED_RECEIPT_HISTORY_SCHEMA: &str = "postfiat-stored-receipt-history-v1";

@@ -18,7 +18,7 @@ For NAVCOIN reserve arithmetic and native NAV operation JSON, see
 ```python
 from postfiat_rpc import PostFiatRpcClient
 
-client = PostFiatRpcClient("127.0.0.1:8080")
+client = PostFiatRpcClient("127.0.0.1:27650")
 print(client.status())
 ```
 
@@ -27,7 +27,7 @@ print(client.status())
 ```python
 from postfiat_rpc import PostFiatRpcClient
 
-client = PostFiatRpcClient("127.0.0.1:8080")
+client = PostFiatRpcClient("127.0.0.1:27650")
 history = client.account_tx_history("<address>", to_height=100)
 for row in history.rows:
     print(row)
@@ -358,7 +358,7 @@ print(shielded.tx_id)
 ## Operational Script
 
 ```bash
-scripts/postfiat-rpc-account-tx --endpoint 127.0.0.1:8080 --account <address>
+scripts/postfiat-rpc-account-tx --endpoint 127.0.0.1:27650 --address <address>
 ```
 
 The exact CLI flags are defined by `python/postfiat_rpc/__main__.py` and the

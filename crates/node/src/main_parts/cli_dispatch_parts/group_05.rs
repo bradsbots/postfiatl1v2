@@ -3072,17 +3072,23 @@ fn run_cli_group_05(command: &str, flags: &[String]) -> Result<(), String> {
             let runtime_private_egress_circuit_metadata_file =
                 flag_value(flags, "--runtime-private-egress-circuit-metadata-file")
                     .map(PathBuf::from);
-            let manifest = verify_deployment_manifest(DeploymentManifestVerifyOptions {
-                manifest_file: PathBuf::from(manifest_file),
-                trusted_publisher_key_file: PathBuf::from(trusted_publisher_key_file),
-                now_unix,
-                validator_id,
-                validator_bindings_file,
-                runtime_binary_file,
-                runtime_topology_file,
-                runtime_swap_circuit_metadata_file,
-                runtime_private_egress_circuit_metadata_file,
-            })
+            let verified_record_file = std::env::var_os("POSTFIAT_DEPLOYMENT_VERIFIED_RECORD")
+                .filter(|path| !path.is_empty())
+                .map(PathBuf::from);
+            let manifest = verify_deployment_manifest_with_record(
+                DeploymentManifestVerifyOptions {
+                    manifest_file: PathBuf::from(manifest_file),
+                    trusted_publisher_key_file: PathBuf::from(trusted_publisher_key_file),
+                    now_unix,
+                    validator_id,
+                    validator_bindings_file,
+                    runtime_binary_file,
+                    runtime_topology_file,
+                    runtime_swap_circuit_metadata_file,
+                    runtime_private_egress_circuit_metadata_file,
+                },
+                verified_record_file.as_deref(),
+            )
             .map_err(|error| format!("deployment-manifest-verify failed: {error}"))?;
             let json = serde_json::to_string_pretty(&manifest)
                 .map_err(|error| format!("deployment manifest serialization failed: {error}"))?;

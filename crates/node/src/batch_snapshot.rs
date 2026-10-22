@@ -257,6 +257,11 @@ pub struct ApplyBatchStorageWorkReport {
     pub legacy: postfiat_storage::StorageWorkCounters,
     pub full_history_records_read: u64,
     pub full_history_bytes_read: u64,
+    /// redb opens and closes inside this stage, process-wide (STO-07).
+    #[serde(default)]
+    pub database_opens: u64,
+    #[serde(default)]
+    pub database_closes: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -445,7 +450,10 @@ pub(super) fn legacy_work_delta(
 pub(super) fn storage_work_report(
     transactional: Option<postfiat_storage::transactional::TransactionalWorkCounters>,
     legacy: postfiat_storage::StorageWorkCounters,
+    opens_before: postfiat_storage::transactional::TransactionalOpenCounts,
 ) -> ApplyBatchStorageWorkReport {
+    let opens =
+        postfiat_storage::transactional::transactional_open_counts().saturating_delta(opens_before);
     let transactional_full_history_records = transactional
         .as_ref()
         .map(|work| work.full_history_records_read)
@@ -467,6 +475,8 @@ pub(super) fn storage_work_report(
             .saturating_add(legacy.ordered_history_bytes_read)
             .saturating_add(legacy.ordered_index_bitmap_bytes_read),
         legacy,
+        database_opens: opens.database_opens,
+        database_closes: opens.database_closes,
     }
 }
 
@@ -517,6 +527,7 @@ fn apply_batch_with_timings_inner(
     let stage_start = std::time::Instant::now();
     let store = NodeStore::new(&options.data_dir);
     let store_init_ms = apply_batch_elapsed_ms(stage_start);
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -533,7 +544,7 @@ fn apply_batch_with_timings_inner(
 
     let stage_start = std::time::Instant::now();
     let genesis = store.read_genesis()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let mut governance = store.read_governance()?;
     let read_core_state_ms = apply_batch_elapsed_ms(stage_start);
 
@@ -741,7 +752,7 @@ fn apply_batch_with_timings_inner(
         .map(|(transactional, before)| {
             transactional_work_delta(transactional.work_counters(), before)
         });
-    let storage_work = storage_work_report(transactional_work, legacy_work);
+    let storage_work = storage_work_report(transactional_work, legacy_work, opens_before);
 
     Ok(ApplyBatchWithTimingsReport {
         receipts,
@@ -984,7 +995,7 @@ pub fn apply_bridge_batch_with_replay(
     let batch = read_bridge_action_batch_file(&options.batch_file)?;
     verify_bridge_action_batch_id(&genesis, &batch)?;
 
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let shielded = store.read_shielded()?;
     let chain_tip = read_chain_tip_or_reconstruct_for_genesis(&store, &genesis)?;
     let block_height = chain_tip
@@ -2400,7 +2411,7 @@ fn deployment_rpc_unit(
 ) -> String {
     let ready_file = data_dir.join("readiness/rpc.ready.json");
     format!(
-        "[Unit]\nDescription=PostFiat L1 RPC {validator_id}\nAfter=network-online.target postfiat-{validator_id}.service\nWants=network-online.target\nStartLimitIntervalSec=300\nStartLimitBurst=5\n\n[Service]\nType=simple\nUser=postfiat\nGroup=postfiat\nEnvironmentFile={release_config_dir}/{validator_id}.rpc.env\nExecStartPre=+/usr/bin/install -d -o postfiat -g postfiat -m 0700 {data_dir}/finality-artifacts\nExecStartPre=/usr/bin/rm -f {ready_file}\nExecStartPre={verify_command}\nExecStart={binary_path} rpc-serve --unsafe-devnet-json-storage --data-dir {data_dir} --spool-dir {data_dir}/runtime/rpc-spool --ready-file {ready_file} --bind-host 127.0.0.1 --port {rpc_port} --max-requests 10000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log {log_dir}/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology {release_config_dir}/topology.json --finality-key-file {data_dir}/validator_keys.json --finality-proposal-key-file {data_dir}/validator_keys.json --finality-artifact-root {data_dir}/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=strict\nProtectHome=true\nProtectControlGroups=true\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectKernelLogs=true\nRestrictSUIDSGID=true\nLockPersonality=true\nRestrictRealtime=true\nSystemCallArchitectures=native\nCapabilityBoundingSet=\nAmbientCapabilities=\nReadWritePaths={data_dir} {log_dir}\nUMask=0077\nLimitNOFILE=65536\nLimitCORE=0\nTasksMax=1024\nKillMode=control-group\nRestart=always\nRestartSec=5\nTimeoutStopSec=30\nStandardOutput=append:{log_dir}/rpc-stdout.log\nStandardError=append:{log_dir}/rpc-stderr.log\n\n[Install]\nWantedBy=multi-user.target\n",
+        "[Unit]\nDescription=PostFiat L1 RPC {validator_id}\nAfter=network-online.target postfiat-{validator_id}.service\nWants=network-online.target\nStartLimitIntervalSec=300\nStartLimitBurst=5\n\n[Service]\nType=simple\nUser=postfiat\nGroup=postfiat\nEnvironmentFile={release_config_dir}/{validator_id}.rpc.env\nExecStartPre=+/usr/bin/install -d -o postfiat -g postfiat -m 0700 {data_dir}/finality-artifacts\nExecStartPre=/usr/bin/rm -f {ready_file}\nExecStartPre={verify_command}\nExecStart={binary_path} rpc-serve --unsafe-devnet-json-storage --data-dir {data_dir} --spool-dir {data_dir}/runtime/rpc-spool --ready-file {ready_file} --bind-host 127.0.0.1 --port {rpc_port} --max-requests 100000 --timeout-ms 30000 --child-timeout-ms 30000 --event-log {log_dir}/rpc-events.ndjson --allow-mempool-submit-finality --finality-topology {release_config_dir}/topology.json --finality-key-file {data_dir}/validator_keys.json --finality-proposal-key-file {data_dir}/validator_keys.json --finality-artifact-root {data_dir}/finality-artifacts --finality-timeout-ms 30000 --finality-send-retries 16 --finality-retry-backoff-ms 250 --finality-quorum-early-full-propagation --keep-alive\nNoNewPrivileges=true\nPrivateTmp=true\nProtectSystem=strict\nProtectHome=true\nProtectControlGroups=true\nProtectKernelTunables=true\nProtectKernelModules=true\nProtectKernelLogs=true\nRestrictSUIDSGID=true\nLockPersonality=true\nRestrictRealtime=true\nSystemCallArchitectures=native\nCapabilityBoundingSet=\nAmbientCapabilities=\nReadWritePaths={data_dir} {log_dir}\nUMask=0077\nLimitNOFILE=65536\nLimitCORE=0\nTasksMax=1024\nKillMode=control-group\nRestart=always\nRestartSec=1\nTimeoutStopSec=30\nStandardOutput=append:{log_dir}/rpc-stdout.log\nStandardError=append:{log_dir}/rpc-stderr.log\n\n[Install]\nWantedBy=multi-user.target\n",
         release_config_dir = release_config_dir.display(),
         ready_file = ready_file.display(),
         verify_command = deployment_manifest_verify_command(
@@ -2550,11 +2561,18 @@ pub fn stage_deployment_validator_units(
 
             let base_environment =
                 deployment_runtime_environment(&release_config_dir, &binary_path, validator_id);
-            write_public_deployment_artifact(&rpc_environment, &base_environment)?;
+            write_public_deployment_artifact(
+                &rpc_environment,
+                format!(
+                    "{base_environment}POSTFIAT_DEPLOYMENT_VERIFIED_RECORD={}/readiness/rpc.deployment-verified.json\n",
+                    data_dir.display(),
+                ),
+            )?;
             write_public_deployment_artifact(
                 &transport_environment,
                 format!(
-                    "{base_environment}POSTFIAT_PREWARM_SHIELDED_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_PRIVATE_EGRESS_VERIFIER=1\nPOSTFIAT_TRANSPORT_VALIDATOR_READY_FILE={}/readiness/transport-validator.ready.json\nPOSTFIAT_TRANSPORT_BLOCK_VOTE_READY_FILE={}/readiness/transport-block-vote.ready.json\n",
+                    "{base_environment}POSTFIAT_DEPLOYMENT_VERIFIED_RECORD={}/readiness/transport.deployment-verified.json\nPOSTFIAT_PREWARM_SHIELDED_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER=1\nPOSTFIAT_PREWARM_ASSET_ORCHARD_PRIVATE_EGRESS_VERIFIER=1\nPOSTFIAT_TRANSPORT_VALIDATOR_READY_FILE={}/readiness/transport-validator.ready.json\nPOSTFIAT_TRANSPORT_BLOCK_VOTE_READY_FILE={}/readiness/transport-block-vote.ready.json\n",
+                    data_dir.display(),
                     data_dir.display(),
                     data_dir.display(),
                 ),
@@ -2961,6 +2979,48 @@ pub fn verify_deployment_manifest(
             ))
         }
     }
+    Ok(manifest)
+}
+
+/// Runs `verify_deployment_manifest` and, when it passes, records the verified
+/// manifest hash at `record_file` so `status` can report the result. Any earlier
+/// record is removed first, so a failed verification never leaves one behind.
+pub fn verify_deployment_manifest_with_record(
+    options: DeploymentManifestVerifyOptions,
+    record_file: Option<&Path>,
+) -> io::Result<DeploymentManifest> {
+    let Some(record_file) = record_file else {
+        return verify_deployment_manifest(options);
+    };
+    match std::fs::remove_file(record_file) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error),
+    }
+    let manifest_file = options.manifest_file.clone();
+    let manifest_sha256 = sha256_file_hex(&manifest_file, "deployment manifest")?;
+    let now_unix = options.now_unix.unwrap_or_else(unix_now);
+    let manifest = verify_deployment_manifest(DeploymentManifestVerifyOptions {
+        now_unix: Some(now_unix),
+        ..options
+    })?;
+    if sha256_file_hex(&manifest_file, "deployment manifest")? != manifest_sha256 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "deployment manifest changed during verification",
+        ));
+    }
+    let record = DeploymentManifestVerifiedRecord {
+        schema: DEPLOYMENT_MANIFEST_VERIFIED_RECORD_SCHEMA.to_string(),
+        manifest_sha256,
+        deployment_id: manifest.deployment_id.clone(),
+        publisher: manifest.publisher.clone(),
+        verified_at_unix: now_unix,
+        valid_from_unix: manifest.valid_from_unix,
+        valid_until_unix: manifest.valid_until_unix,
+    };
+    let json = serde_json::to_string_pretty(&record).map_err(invalid_data)?;
+    atomic_write(record_file, format!("{json}\n"))?;
     Ok(manifest)
 }
 
@@ -3399,6 +3459,18 @@ pub(super) fn prospective_absolute_import_target(target: &Path) -> io::Result<Pa
     Ok(std::fs::canonicalize(parent)?.join(target_name))
 }
 
+// A sealed capability for the fresh destination created by snapshot import.
+// Other modules can consume it, but cannot construct one for a live directory.
+pub(super) struct FreshCheckpointImport {
+    data_dir: PathBuf,
+}
+
+impl FreshCheckpointImport {
+    pub(super) fn data_dir(&self) -> &Path {
+        &self.data_dir
+    }
+}
+
 fn import_snapshot_with_basis(
     options: SnapshotImportOptions,
     basis: SnapshotVerificationBasis,
@@ -3546,13 +3618,24 @@ fn import_snapshot_into_staging(
         .is_some_and(|height| imported_tip.height >= height)
     {
         let transactional_generation = data_dir.join("transactional-snapshot-generation-v1");
-        rebuild_transactional_storage(StorageMigrationOptions {
+        let migration = StorageMigrationOptions {
             data_dir: data_dir.to_path_buf(),
             output_dir: transactional_generation,
             expected_tip: imported_tip.block_hash,
             expected_state_root: imported_tip.state_root,
             verify_only: false,
-        })?;
+        };
+        match basis {
+            SnapshotVerificationBasis::FullHistory => rebuild_transactional_storage(migration)?,
+            SnapshotVerificationBasis::FinalizedCheckpoint => {
+                super::storage_migration::restore_transactional_checkpoint(
+                    migration,
+                    FreshCheckpointImport {
+                        data_dir: data_dir.to_path_buf(),
+                    },
+                )?
+            }
+        };
     }
 
     let restored = status(NodeOptions {

@@ -1012,6 +1012,9 @@ mod tests {
         SignedCobaltAuthorityTransitionApprovalV1, SignedCobaltValidatorUpdateAuthorizationV1,
         ValidatorRegistryEntry, COBALT_VALIDATOR_UPDATE_DECISION_CERTIFICATE_SCHEMA_V1,
     };
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_FIXTURE_ROOT: AtomicU64 = AtomicU64::new(0);
 
     struct Fixture {
         genesis: Genesis,
@@ -1048,14 +1051,7 @@ mod tests {
         };
         let governance = GovernanceState::new(validator_count_u32);
         let registry_root = validator_registry_root(&registry, &validators).expect("registry root");
-        let nonce = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .expect("clock")
-            .as_nanos();
-        let cobalt_root = std::env::temp_dir().join(format!(
-            "postfiat-cobalt-authority-certificate-{}-{nonce}",
-            std::process::id()
-        ));
+        let cobalt_root = fixture_root();
         let mut services = validators
             .iter()
             .map(|validator| {
@@ -1121,6 +1117,49 @@ mod tests {
 
     fn fixture() -> Fixture {
         fixture_with_validator_count(4)
+    }
+
+    /// libtest runs this module's tests on threads of one process, so the pid is
+    /// shared and two fixtures can read the same clock nanoseconds; the counter
+    /// keeps every root distinct within the process.
+    fn fixture_root() -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "postfiat-cobalt-authority-certificate-{}-{nonce}-{}",
+            std::process::id(),
+            NEXT_FIXTURE_ROOT.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    #[test]
+    fn fixture_roots_are_unique_within_one_process() {
+        const THREADS: usize = 16;
+        const ROUNDS: usize = 200;
+        let mut roots = std::collections::BTreeSet::new();
+        for _ in 0..ROUNDS {
+            let barrier = std::sync::Arc::new(std::sync::Barrier::new(THREADS));
+            let handles = (0..THREADS)
+                .map(|_| {
+                    let barrier = barrier.clone();
+                    std::thread::spawn(move || {
+                        barrier.wait();
+                        fixture_root()
+                    })
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                let root = handle.join().expect("fixture root thread");
+                assert!(
+                    roots.insert(root.clone()),
+                    "duplicate fixture root {}",
+                    root.display()
+                );
+            }
+        }
+        assert_eq!(roots.len(), THREADS * ROUNDS);
     }
 
     fn signed_transition(
@@ -1462,9 +1501,7 @@ mod tests {
         );
         let result = decompress_cobalt_protocol_transcript(&certificate.protocol_transcript);
         std::fs::remove_dir_all(&fixture.cobalt_root).expect("cleanup");
-        let error = result
-            .err()
-            .expect("expanded data must be bounded before checkpoint cloning");
+        let error = result.expect_err("expanded data must be bounded before checkpoint cloning");
         assert!(error.to_string().contains("expanded transcript"), "{error}");
     }
 
@@ -1536,6 +1573,222 @@ mod tests {
         verify_cobalt_authority_history(&fixture.genesis, &restored).expect("history");
         assert_eq!(restored.validator_registry_updates, vec![update]);
         std::fs::remove_dir_all(root).expect("cleanup");
+    }
+
+    #[test]
+    fn burn5_negative_rehearsal_probes_reject_for_their_own_reasons_with_approvals_present() {
+        // CHO-05: the probes used to strip every approval, so each case that
+        // reached the approval check could only fail for a missing quorum.
+        let fixture = fixture();
+        let governance = fixture.governance.clone();
+        let lock_hash = "11".repeat(48);
+        let transition = signed_transition(
+            &fixture,
+            &governance,
+            10,
+            1,
+            lock_hash.clone(),
+            fixture.cobalt_binding.trust_graph.trust_graph_root.clone(),
+        );
+        let activated = activate(&fixture);
+        let update = signed_rotate_update(&fixture, &activated, 11);
+        let report = crate::cobalt_handoff_rehearsal::negative_probe_report(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &transition,
+            &update,
+            &lock_hash,
+            &fixture.validators[0],
+        )
+        .expect("negative probes with real approvals");
+        assert_eq!(report["all_rejected"], true);
+        assert_eq!(report["durable_state_unchanged"], true);
+        assert_eq!(report["positive_fixture_verified"], true);
+        assert_eq!(
+            report["approval_count"].as_u64().expect("approval count"),
+            transition.approvals.len() as u64
+        );
+        assert!(report["scope"]
+            .as_str()
+            .expect("scope")
+            .contains("in-memory"));
+        let cases = report["cases"].as_object().expect("cases");
+        assert_eq!(cases.len(), 6);
+        for (case, expected) in [
+            ("early", "must be ordered at its exact activation height"),
+            ("stale", "approval binding mismatch"),
+            ("wrong_root", "does not bind the active validator registry"),
+            (
+                "self_authorized",
+                "does not bind the active validator registry",
+            ),
+            ("replayed", "replay rejected"),
+            (
+                "mixed_authority",
+                "Cobalt authority mode has no transition record",
+            ),
+        ] {
+            let error = cases[case].as_str().expect("case error");
+            assert!(error.contains(expected), "{case}: {error}");
+            assert!(
+                !error.contains("outside quorum bounds"),
+                "{case} rejected only for a missing quorum: {error}"
+            );
+            assert!(report["expected_reasons"][case].as_str().is_some());
+        }
+
+        // A fixture without approvals is refused up front instead of being
+        // reported as six independent rejections.
+        let mut stripped = transition.clone();
+        stripped.approvals.clear();
+        let error = crate::cobalt_handoff_rehearsal::negative_probe_report(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &stripped,
+            &update,
+            &lock_hash,
+            &fixture.validators[0],
+        )
+        .expect_err("stripped approvals must be refused");
+        assert!(error.to_string().contains("carries none"), "{error}");
+
+        // A fixture whose approvals do not verify is refused as not positive.
+        let mut tampered = transition.clone();
+        tampered.approvals[0].signature_hex = "00".repeat(3309);
+        let error = crate::cobalt_handoff_rehearsal::negative_probe_report(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &tampered,
+            &update,
+            &lock_hash,
+            &fixture.validators[0],
+        )
+        .expect_err("tampered positive fixture must be refused");
+        assert!(
+            error
+                .to_string()
+                .contains("require a verifying positive signed fixture"),
+            "{error}"
+        );
+        std::fs::remove_dir_all(&fixture.cobalt_root).expect("cleanup");
+    }
+
+    #[test]
+    fn burn5_negative_rehearsal_probes_each_vary_only_their_declared_binding() {
+        // CHO-05 follow-up: `self_authorized` used to remove a validator, set
+        // `approval_quorum` to 4 and replace `cobalt_registry_root` at once, so
+        // the root or quorum mismatch alone produced the same OR-combined
+        // binding rejection and the probe could not show that a
+        // candidate-chosen validator set is rejected.
+        use crate::cobalt_handoff_rehearsal::{
+            negative_probe_candidates, NEGATIVE_PROBE_VARIED_FIELDS,
+        };
+        let fixture = fixture();
+        let governance = fixture.governance.clone();
+        let lock_hash = "11".repeat(48);
+        let transition = signed_transition(
+            &fixture,
+            &governance,
+            10,
+            1,
+            lock_hash.clone(),
+            fixture.cobalt_binding.trust_graph.trust_graph_root.clone(),
+        );
+        verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &transition,
+            transition.activation_height,
+        )
+        .expect("positive signed fixture verifies");
+        let positive = serde_json::to_value(&transition).expect("positive json");
+        let positive = positive.as_object().expect("positive object");
+        let candidates = negative_probe_candidates(&transition).expect("probe candidates");
+        assert_eq!(candidates.len(), NEGATIVE_PROBE_VARIED_FIELDS.len());
+        for ((case, candidate, slot), (declared_case, declared_fields)) in
+            candidates.iter().zip(NEGATIVE_PROBE_VARIED_FIELDS)
+        {
+            assert_eq!(*case, declared_case);
+            assert_eq!(candidate.approvals, transition.approvals, "{case}");
+            let value = serde_json::to_value(candidate).expect("candidate json");
+            let value = value.as_object().expect("candidate object");
+            let mut varied = positive
+                .keys()
+                .filter(|key| {
+                    key.as_str() != "transition_id"
+                        && value.get(key.as_str()) != positive.get(key.as_str())
+                })
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            varied.sort_unstable();
+            assert_eq!(
+                varied, declared_fields,
+                "{case} varies exactly its declared binding"
+            );
+            assert!(
+                verify_cobalt_authority_transition(
+                    &fixture.genesis,
+                    &governance,
+                    &fixture.registry,
+                    candidate,
+                    *slot,
+                )
+                .is_err(),
+                "{case} must reject"
+            );
+        }
+
+        // The self-authorized candidate differs from the active registry only
+        // in its validator set: restoring the active set (and recomputing the
+        // id) yields the positive fixture, which verifies. If a root or quorum
+        // mismatch were still present, this restored candidate would reject.
+        let (_, self_authorized, slot) = candidates
+            .iter()
+            .find(|(case, _, _)| *case == "self_authorized")
+            .expect("self_authorized candidate");
+        let active = active_validator_ids(&governance).expect("active validators");
+        assert_ne!(self_authorized.validators, active);
+        assert_eq!(self_authorized.approval_quorum, transition.approval_quorum);
+        assert_eq!(
+            self_authorized.old_registry_root,
+            transition.old_registry_root
+        );
+        assert_eq!(
+            self_authorized.cobalt_registry_root,
+            transition.cobalt_registry_root
+        );
+        let error = verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            self_authorized,
+            *slot,
+        )
+        .expect_err("candidate-chosen validator set must reject");
+        assert!(
+            error
+                .to_string()
+                .contains("does not bind the active validator registry"),
+            "{error}"
+        );
+        let mut restored = self_authorized.clone();
+        restored.validators = active;
+        restored.transition_id =
+            cobalt_authority_transition_id(&restored).expect("restored transition id");
+        assert_eq!(restored, transition);
+        verify_cobalt_authority_transition(
+            &fixture.genesis,
+            &governance,
+            &fixture.registry,
+            &restored,
+            *slot,
+        )
+        .expect("restoring only the validator set must verify");
+        std::fs::remove_dir_all(&fixture.cobalt_root).expect("cleanup");
     }
 
     #[test]
@@ -2057,6 +2310,8 @@ mod tests {
 
     #[test]
     fn production_operator_lifecycle_emits_an_applicable_cobalt_handoff_batch() {
+        // Only this test uses this prefix, so it cannot meet another root from the
+        // same process; it does not need fixture_root()'s counter.
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("clock")

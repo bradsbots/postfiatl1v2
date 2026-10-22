@@ -1,17 +1,20 @@
 # QA defect inventory — 2026-09-10
 
-Status: burn 2 inventory reconciled; burn 3–5 findings appended; P3 sweep recorded.
-The inventory has 126 rows: 26 P1, 68 P2 and 32 P3. The burn 2
+Status: burn 2 inventory reconciled; burn 3–6 findings appended; P3 sweep recorded.
+The inventory has 142 rows: 27 P1, 77 P2 and 38 P3. The burn 2
 Text Improvement Harness result is in the [2026-09-10 campaign log](qa-campaign-20260910.md);
 the burn 3 gate is in the [2026-09-11 campaign log](qa-campaign-20260911.md);
 the burn 4 gate is in the [2026-09-15 campaign log](qa-campaign-20260915.md);
-the burn 5 gate is recorded in the [2026-09-16 campaign log](qa-campaign-20260916.md).
+the burn 5 gate is in the [2026-09-16 campaign log](qa-campaign-20260916.md);
+the burn 6 gate is recorded in the [2026-09-21 campaign log](qa-campaign-20260921.md#scores).
+That gate predates the four A5/NOD- additions; this extension was not rescored.
 
 This inventory separates demonstrated failures from missing evidence, operating
 assumptions, and capabilities that have not been built or activated. A
 **reproduced defect** has an observed failing case. A **code-observed defect**
 has a concrete failure scenario established by source review without an executed
-reproduction; this distinguishes burn 5's seven recorded P3 findings. An **evidence gap** means the
+reproduction; this includes burn 5's seven and burn 6's six recorded P3 findings.
+An **evidence gap** means the
 available record cannot establish the claim. An **economic assumption** is a
 load or incentive premise rather than a code result. A **proposed capability**
 must not be described as shipped or authoritative.
@@ -34,12 +37,13 @@ must not be described as shipped or authoritative.
 | UNL-01 | Reproduced defect | P1 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#1-p1-a-complete-score-window-passes-without-a-renewed-vouch-or-post-epoch-co-work): accounts with no bilateral records return `READY` after score-only continuity. |
 | UNL-02 | Reproduced defect | P2 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#2-p2-a-stale-score-replay-can-suppress-fresh-score-evidence-by-input-order): stale-first and fresh-first orderings of the same digest produce different continuity decisions. |
 | UNL-03 | Reproduced defect | P2 | Fixed — `1c10f828` | [Task Node UNL review](tasknode-unl-review-20260910.md#3-p2-valid-identifiers-can-inject-markdown-structure-into-the-operator-report): an accepted newline/backtick identifier creates an attacker-chosen heading in the root-valid human report. |
-| UNL-04 | Reproduced defect | P3 | Reproduced — P3 recorded only | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an in-memory report candidate replacement still bypasses a saturated-group hold in caller-owned hypothetical state. |
+| UNL-04 | Reproduced defect | P3 | Reproduced — fixed `64e15108` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an in-memory report candidate replacement still bypasses a saturated-group hold in caller-owned hypothetical state. |
 
 ## Burn 3 campaign findings
 
 These 28 findings are from the [burn 3 campaign](qa-campaign-20260911.md).
 Consensus-affecting repairs remain source-only and were not activated or deployed.
+STO-07 was added later, from the 2026-10-19 G4 regression campaign.
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
@@ -47,8 +51,9 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 | STO-02 | Reproduced defect | P2 | Fixed — `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): FastSwap WAL append had no total growth fence; reopen and artifact reads allocated oversized files before enforcing bounds. |
 | STO-03 | Reproduced defect | P3 | Fixed — `7095b393` | [Storage review](storage-snapshots-review-20260911.md): a crash after deleting the legacy ordered-history index and before renaming its replacement leaves no usable index generation. Comparison-only backend. |
 | STO-04 | Reproduced defect | P3 | Recorded, not fixed | [Storage review](storage-snapshots-review-20260911.md): legacy receipt compaction performs the same atomic state write twice, doubling I/O without improving crash safety. Comparison-only backend. |
-| STO-05 | Evidence gap | P2 | Needs live environment — source clarification `69e1f1ce`; fleet export receipt missing | [Storage review](storage-snapshots-review-20260911.md): the block-924 source repair predates the deployed base, but no post-repair signed fleet snapshot export establishes backup usability. |
+| STO-05 | Evidence gap | P2 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing record; source clarification `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): the block-924 source repair predates the deployed base, but no post-repair signed fleet snapshot export establishes backup usability. Evidence: on 2026-09-28, with all six at height 1050 on `combined-fastpay-20260925` (source `f60e9639`, which contains `353156c3` and `69e1f1ce`), a finalized-checkpoint export from validator-1 was signed (manifest `a40d6a99…`), imported, checkpoint-verified and fully replayed to root `13d9e652…`; a copy with a changed signature was rejected ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md), [result](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/canary-backup/result.json)). Scope: one host's export of the six-way-agreed state. |
 | STO-06 | Reproduced defect | P1 | Fixed — `69e1f1ce` | [Storage review](storage-snapshots-review-20260911.md): a torn FastSwap WAL suffix remained after replay, so a subsequent synced vote record appended behind it could not be replayed after restart. |
+| STO-07 | Reproduced defect | P1 | Fixed — `8644f0af` (re-run PASS 2026-10-20, campaign report `d1e9b39c6498558da7c2bd3aa979ec2a71fd6cffd0a3c9abe376c513ebb0aac0`) | Campaign report `94188f3c…`, [G4 regression result](../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-19): since `f0013c29` the store handle lease reopens and closes the redb database on most lookups. Close cost grows with the database size, so disk writes for identical logical writes are 23× August's at height 50 and 78× at height 5,000. Fix 2026-10-20: one store open per consensus operation or round, validated pointer binding reused while the handle is open; database opens per validator in one six-validator round 126 → 8 (proposer 163 → 5) ([fix](../plans/active/g4-regression-deployed-release-20261019.md#fix-2026-10-20)). The G4 re-run on `8644f0af` passed: consensus 1.0261, wallet 1.0326; stage p95 back at August's; per-window disk writes 1.03 / 3.68 GB; zero stage database opens ([result](../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix)). The deployed `fastlane-cap-20261014` (`8bed9b90`) still has it until the next release. |
 | EXE-01 | Reproduced defect | P1 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): a repeated transaction generated duplicate receipt IDs eligible for certification but rejected at ordered commit, halting that height. |
 | EXE-02 | Reproduced defect | P2 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): ordered `OwnedDeposit` bypassed the 100,000-object cap and could commit object 100,001. |
 | EXE-03 | Reproduced defect | P2 | Fixed — `e95efbdf`; consensus-affecting, source-only; not activated or deployed | [Execution review](execution-review-20260911.md): validators could certify a state root whose serialized state file exceeded storage's 256 MiB limit and could not be persisted. |
@@ -99,34 +104,67 @@ Consensus-affecting repairs remain source-only and were not activated or deploye
 
 These 22 findings are from the [burn 5 campaign](qa-campaign-20260916.md):
 1 P1, 14 P2 and 7 P3. Fourteen findings have source repairs, seven P3s remain
-recorded without repair, and SMG-07 is blocked by an out-of-scope dependency.
+recorded without repair, and SMG-07 was blocked by an out-of-scope dependency
+(repaired 2026-10-14; see its row).
 All five repair commits still have a full Rust suite verdict pending.
 Consensus-affecting repairs remain source-only and were not activated or deployed.
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
 | MPL-01 | Reproduced defect | P2 | Fixed — `1c9f44f1`; not consensus-affecting | [Mempool proposals review](mempool-proposals-review-20260916.md#findings): sender admission omitted pending offers from its quota, admitting a pool that later state-limit verification rejected. |
-| MPL-02 | Code-observed defect | P3 | Recorded, not fixed | [Mempool proposals review](mempool-proposals-review-20260916.md#findings): latest-ID reporting preferred an atomic swap although verification and batch selection process FastLane later; no common arrival order establishes wall-clock recency. |
+| MPL-02 | Code-observed defect | P3 | Fixed — `5f093fc5` | [Mempool proposals review](mempool-proposals-review-20260916.md#findings): latest-ID reporting preferred an atomic swap although verification and batch selection process FastLane later; no common arrival order establishes wall-clock recency. |
 | VLK-01 | Reproduced defect | P1 | Fixed — `090bd17e`; consensus-affecting, conservatively, because this tightens signer-safety persistence; source-only; not activated or deployed | [Vote locks review](vote-locks-review-20260916.md#findings): lock reservation could succeed without syncing the published canonical directory entry, including identical retries. Injected sync failures and store reopen reproduced the missing interlock; physical power loss was not tested. |
 | VLK-02 | Reproduced defect | P2 | Fixed — `090bd17e`; consensus-affecting, conservatively, because this tightens signer admission on ambiguous restored state; source-only; not activated or deployed | [Vote locks review](vote-locks-review-20260916.md#findings): migration silently skipped non-regular JSON lock entries before marking completion, allowing a new reservation despite unresolved restored lock evidence. |
 | CHO-01 | Reproduced defect | P2 | Fixed — `21cf30f8`; consensus-affecting, because authority-certificate admission is tightened; source-only; not activated or deployed | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): a newer authority decision accepted valid older full-knowledge checkpoints without binding their interval, coverage or signed pending pair to the current ratification. |
 | CHO-02 | Reproduced defect | P2 | Fixed — `21cf30f8`; consensus-affecting, because the authority verifier rejects over-bound expansion; source-only; not activated or deployed | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): compact certificate expansion cloned shared checks into every checkpoint without bounding their product; the repair bounds serialized expansion to 16 MiB before cloning. |
 | CHO-03 | Reproduced defect | P2 | Fixed — `21cf30f8`; not consensus-affecting | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): malformed-request or ordinary-response write failures escaped the connection and terminated the shadow listener; in-memory regressions verify later probes remain serviceable. |
 | CHO-04 | Reproduced defect | P2 | Fixed — `21cf30f8`; not consensus-affecting | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): valid update rehearsal finalization panicked when unrelated governance correctly selected Foundation authority; the rehearsal now checks mixed-batch rejection and returns ordinary errors. |
-| CHO-05 | Code-observed defect | P3 | Recorded, not fixed | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): negative rehearsal probes discarded signed approvals, so a missing-quorum rejection could be reported as independent stale-height or replay evidence. |
-| CHO-06 | Code-observed defect | P3 | Recorded, not fixed | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): rehearsal manifest digest checks accepted lowercase letters outside hexadecimal, carrying malformed anchors into prepared evidence without establishing a live admission bypass. |
+| CHO-05 | Code-observed defect | P3 | Fixed — `f0225b23`, `7bd9c3e3`; not consensus-affecting (rehearsal probes only) | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): negative rehearsal probes discarded signed approvals, so a missing-quorum rejection could be reported as independent stale-height or replay evidence. |
+| CHO-06 | Code-observed defect | P3 | Fixed — `de3731b3` | [Cobalt handoff review](cobalt-handoff-review-20260916.md#findings): rehearsal manifest digest checks accepted lowercase letters outside hexadecimal, carrying malformed anchors into prepared evidence without establishing a live admission bypass. |
 | SMG-01 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): check-then-replace output could overwrite a competing activation/cancellation artifact or dangling symlink; publication now uses an atomic no-replace hard link and directory sync. |
-| SMG-02 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting; append recovery only | [Storage migration review](storage-migration-review-20260916.md#findings): append recovery skipped move-directory sync when an earlier rename was already visible, then published its index and cleared the intent. Both append barriers now retry; prune durability remains unqualified behind SMG-07. |
+| SMG-02 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting; append recovery only | [Storage migration review](storage-migration-review-20260916.md#findings): append recovery skipped move-directory sync when an earlier rename was already visible, then published its index and cleared the intent. Both append barriers now retry; the prune half is repaired under SMG-07 (2026-10-14). |
 | SMG-03 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): pending-intent recovery could stamp unrelated completed-directory additions or omissions as consistent; bounded membership checks now preserve the old index and intent on refusal. |
 | SMG-04 | Reproduced defect | P2 | Fixed — `401fa055`; not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): backend selection left the candidate mode published after post-validation failed; returned errors now restore the previous mode and report restoration failure. |
-| SMG-05 | Code-observed defect | P3 | Recorded, not fixed | [Storage migration review](storage-migration-review-20260916.md#findings): migration manifest/checksum reads were unbounded, and index metadata checks preceded a separate unbounded read vulnerable to non-cooperating local replacement or growth. |
-| SMG-06 | Code-observed defect | P3 | Recorded, not fixed | [Storage migration review](storage-migration-review-20260916.md#findings): a bare relative output could fail disk-space preflight on its empty parent path; an existing output mount could also differ from the parent filesystem used for estimation. |
-| SMG-07 | Reproduced defect | P2 | Recorded, repair blocked by A4 scope | [Storage migration review](storage-migration-review-20260916.md#findings): interrupted prune recovery rejected an already moved retention payload as non-canonical. Repair requires the shared resolver in `crates/node/src/transport_cli.rs`, outside A4's four-file list; the record does not establish a release-candidate exclusion. |
+| SMG-05 | Code-observed defect | P3 | Fixed — `8b97667f`; symlink substitution corrected 2026-10-13 by the PR #62 follow-up, excluded on Unix only (no-follow open); not consensus-affecting | [Storage migration review](storage-migration-review-20260916.md#findings): migration manifest/checksum reads were unbounded, and index metadata checks preceded a separate unbounded read vulnerable to non-cooperating local replacement or growth. |
+| SMG-06 | Code-observed defect | P3 | Fixed — `8b97667f` | [Storage migration review](storage-migration-review-20260916.md#findings): a bare relative output could fail disk-space preflight on its empty parent path; an existing output mount could also differ from the parent filesystem used for estimation. |
+| SMG-07 | Reproduced defect | P2 | Fixed — `1dee83bf` (PR #122); not consensus-affecting; the path refusal was fixture-only, and prune recovery now retries both directory barriers before index publication | [Storage migration review](storage-migration-review-20260916.md#findings): interrupted prune recovery rejected an already moved retention payload as non-canonical. Repair requires the shared resolver in `crates/node/src/transport_cli.rs`, outside A4's four-file list; the record does not establish a release-candidate exclusion. The refusal needs stored `completed/` payload paths, which only the test fixture writes; production jobs store `outbox/<job_id>/` paths, which the resolver already accepts from retention, so `transport_cli.rs` is unchanged and the fixture shape stays refused. Recovery of an indexed prune now syncs the completed and retention directories before removing the index entry, also when the rename was already visible. |
 | SWP-01 | Reproduced defect | P2 | Fixed — `d679f8e8`; consensus-affecting, because recovery reconciliation results change; source-only; not activated or deployed | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): FastPay rollback zipped ledger-position inverse records with certificate-ordered inputs and rejected valid differing orders. Exact identity/version sets and unique ascending positions now restore the original ledger; the fixture does not establish quorum admission or historical replay. |
 | SWP-02 | Reproduced defect | P2 | Fixed — `d679f8e8`; not consensus-affecting | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): forward PFTL journal transitions could substitute the prepared or published batch hash, making recovery identity ambiguous; publication and resolution now reject substitution while permitting prepublication reproof. |
 | SWP-03 | Reproduced defect | P2 | Fixed — `d679f8e8`; not consensus-affecting | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): the journal writer could persist valid histories exceeding the reader's 32 MiB limit; serialized bytes including the newline are now bounded before replacing the readable file. |
-| SWP-04 | Code-observed defect | P3 | Recorded, not fixed | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): timing retries counted already recorded stages against capacity again, rejecting an identical-stage replay at the 64-stage bound. |
-| SWP-05 | Code-observed defect | P3 | Recorded, not fixed | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): attestation timestamp validation checked shape and digits but accepted impossible calendar and time values; external trust and freshness remain consumer responsibilities. |
+| SWP-04 | Code-observed defect | P3 | Fixed — `5f093fc5` | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): timing retries counted already recorded stages against capacity again, rejecting an identical-stage replay at the 64-stage bound. |
+| SWP-05 | Code-observed defect | P3 | Fixed — `de3731b3` | [Swap and recovery review](swap-recovery-services-review-20260916.md#findings): attestation timestamp validation checked shape and digits but accepted impossible calendar and time values; external trust and freshness remain consumer responsibilities. |
+
+## Burn 6 campaign findings
+
+These 15 findings are from the [burn 6 campaign](qa-campaign-20260921.md):
+nine repaired P2s and six P3s recorded without repair. No repair was blocked
+by the release candidate. All four repair commits retain a full Rust suite
+verdict pending. NAV-03 and SWX-01 are consensus-affecting: release-tip
+re-qualification is required before deployment; neither was deployed.
+The focused A5 review contributes four rows; its unreviewed ranges remain explicit.
+
+| ID | Classification | Severity | Status | Source and reproduction |
+| --- | --- | --- | --- | --- |
+| PFV-01 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Portfolio review](portfolio-verification-review-20260921.md#findings): collection binding regression mutates only the attestation digest, leaving eight other digest mismatches and the count mismatch untested. Production compares all ten; no invalid-proof acceptance was established. |
+| NAV-01 | Reproduced defect | P2 | Fixed — `e9ccdeda`; not consensus-affecting | [NAV review](nav-reserve-verification-review-20260921.md#findings): duplicate bucket/allocation rows inflated the unsigned builder's reserve overlay; duplicate receipt IDs silently overwrote entries. All three identity sets now reject duplicates before summing. |
+| NAV-02 | Reproduced defect | P2 | Fixed — `e9ccdeda`; not consensus-affecting | [NAV review](nav-reserve-verification-review-20260921.md#findings): a packet-supplied operation tag replaced the builder's reserve-submit tag. Optional tags are now validated and the fixed tag assigned last. |
+| NAV-03 | Reproduced defect | P2 | Fixed — `e9ccdeda`; consensus-affecting: release-tip re-qualification required before deployment | [NAV review](nav-reserve-verification-review-20260921.md#findings): invalid receipt history rejected a local bridge transition after persisting reserve changes; appends could exceed readable history limits. Prepublication validation now preserves both files on rejection. The brief's state-transition-result classification covers rejected local persistence; cross-file crash/I/O atomicity remains unqualified. |
+| SWX-01 | Reproduced defect | P2 | Fixed — `043b9d69`; consensus-affecting: release-tip re-qualification required before deployment | [Swap execution review](swap-settlement-execution-review-20260921.md#findings): public redemption enforced the general NAV window but omitted the policy's shorter age limit. Policy-stale redemptions previously accepted now reject before pricing or mutation. |
+| BRW-01 | Reproduced defect | P2 | Fixed — `10bb5655`; not consensus-affecting | [Bridge review](bridge-workflows-review-20260921.md#findings): conservation verification trusted cached success despite altered balance/claim components. It now recomputes checked sums and vault identity; report authenticity remains unproven. |
+| BRW-02 | Reproduced defect | P2 | Fixed — `10bb5655`; not consensus-affecting | [Bridge review](bridge-workflows-review-20260921.md#findings): receipt validation accepted explicit failures, missing RPC status, contradictory log coordinates and removed logs into unsigned success plans. These inputs now reject; legacy supplied receipts without status remain unproven input. |
+| BRW-03 | Reproduced defect | P2 | Fixed — `10bb5655`; not consensus-affecting | [Bridge review](bridge-workflows-review-20260921.md#findings): sequential latest-block reads could double-count moving funds or mix withdrawal state. Reads now pin one finalized height per chain and reject hash drift; RPC honesty and cross-chain/PFTL atomicity remain limits. |
+| BRW-04 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Bridge review](bridge-workflows-review-20260921.md#findings): file and child-output limits follow unbounded collection; lineage files lack a byte cap and stalled children lack deadlines. Oversized or growing inputs can exhaust operator resources. |
+| BRW-05 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Bridge review](bridge-workflows-review-20260921.md#findings): checkpoint RPC parsing treats malformed Content-Length as absent and checks only the first parsable length. Ambiguous framing can pass; no wrong checkpoint signature was demonstrated. |
+| BRW-06 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Bridge review](bridge-workflows-review-20260921.md#findings): the V2 recipient decoder accepts offset 192 inside its 224-byte head because it uses the V1 bound. Later identity checks still apply; no receipt-proof bypass was established. |
+
+### A5 addition after the inventory gate
+
+| ID | Classification | Severity | Status | Source and reproduction |
+| --- | --- | --- | --- | --- |
+| NOD-01 | Reproduced defect | P2 | Fixed — `87c992c3`; not consensus-affecting | [Remaining node review](node-remaining-review-20260921.md#findings): duplicate delivery reported every block receipt as accepted without reading outcomes. Stored outcomes now determine counts; missing/conflicting evidence and inconsistent count totals reject. |
+| NOD-02 | Reproduced defect | P2 | Fixed — `87c992c3`; not consensus-affecting | [Remaining node review](node-remaining-review-20260921.md#findings): key generation or restore could overwrite its backup with the key file. Resolved destination aliases now reject before writing; concurrent filesystem replacement remains outside the interlock. |
+| NOD-03 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Remaining node review](node-remaining-review-20260921.md#findings): transport JSON readers collect local files without a byte cap; payload reads enforce only a prior metadata limit, permitting growth between check and read. |
+| NOD-04 | Code-observed defect | P3 | Fixed — `0b9c6715` | [Remaining node review](node-remaining-review-20260921.md#findings): manifest reporting reopens the bundle after verification, so concurrent replacement can mix verified hash/count metadata with different manifest bytes. |
 
 ## Storage, Cobalt, and Task Node review
 
@@ -139,9 +177,9 @@ The source is the historical [2026-09-06 review](https://github.com/postfiatorg/
 | SCT-03 | Reproduced defect | P2 | Fixed — `1267df6a` | Replacing the candidate key hash preserved an admitted shadow result because the registry key was not joined to the authenticated binding key. |
 | SCT-04 | Reproduced defect | P2 | Reproduced — fixed `acdbb1f2` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): publication hashes now resolve against immutable source revision `41202067`; consolidated and independent verifiers pass. |
 | SCT-05 | Reproduced defect | P2 | Reproduced — fixed `acdbb1f2` | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a post-lock correction preserves the scored text while naming exclusive cross-process access and operation-scoped leases as the implemented mechanism. |
-| SCT-06 | Economic assumption | P2 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): sustained overlapping public traffic and observable writer-fairness measurements are required. |
-| SCT-07 | Evidence gap | P3 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): fleet disk-capacity and growth telemetry is not exposed by the permitted ledger/status endpoints. |
-| SCT-08 | Evidence gap | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a separately authorized evidence campaign is required; burn 2 permits no Task Node action. |
+| SCT-06 | Economic assumption | P2 | Needs a traffic campaign on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): sustained overlapping public traffic and observable writer-fairness measurements are required. Remaining need, not read-only (spends test PFT): about 2 h of concurrent transfers submitted through all six RPCs alongside continuous RPC reads, sampling each validator's `status.storage` transaction counters and `durable_commit_micros`, per-request latency, and `writer lease deadline exhausted` errors per host; about 3 h including setup and analysis. This lane can run it on this environment on request. It measures writer fairness under the chosen synthetic load, not public demand. |
+| SCT-07 | Evidence gap | P3 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): fleet disk-capacity and growth telemetry is not exposed by the permitted ledger/status endpoints. Source used instead: the read-only preflight's free space on `/` per host plus the dated records of 2026-09-29 and 2026-10-01. Free space fell 0.10–0.36 GB per host over 24.7 h; the lowest is 17.00 GB on validator-0 ([check](#live-environment-check-20261002)). The ledger/status endpoints still expose no disk telemetry. |
+| SCT-08 | Evidence gap | P2 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I authorized the evidence campaign (complete signed bindings, publisher-attested work digests, exclusions, admission facts, native registry-root binding) as a bounded read-only campaign of the operating lane; it is an item in the [next validator release plan](../plans/active/next-validator-release-plan-20261101.md#candidates). |
 | SCT-09 | Proposed capability | P2 | Dispositioned by the locked V2 shadow successor; not promoted | The September 3 model-flag direction and Admission Policy V1 had different eligibility semantics and no selected versioned successor policy. The [V2 milestone](../plans/completed/tasknode-unl-amendment-v2-milestone.md) now implements that successor as `SHADOW_ONLY`; this is not live adoption. |
 | SCT-10 | Proposed capability | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): independent operators and a separately authorized end-to-end rehearsal are prerequisites. |
 
@@ -191,7 +229,7 @@ inventory was committed in `80f2232b`.
 | PI-15 | Reproduced defect | P2 | Fixed — `80f2232b` | The source-qualification checker referenced a retired evidence tree; immutable full-packet fallback now rejects partial or corrupt working packets. |
 | PI-16 | Evidence gap | P2 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): an operator must assign an independent cryptography audit and define its YOLO scope. |
 | PI-17 | Evidence gap | P2 | Dispositioned | Archive integrity checks establish retained bytes and bindings, not fresh cryptographic re-verification of the historical proofs. |
-| PI-18 | Proposed capability | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): the local readiness checker still reports `qualified=0/6 stakehub_deprecated=false`. |
+| PI-18 | Proposed capability | P1 | Narrowed 2026-10-02 — needs six production-qualified A666 adapters, not a live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): the local readiness checker still reports `qualified=0/6 stakehub_deprecated=false`. Rerun on 2026-10-02: same output ([check](#live-environment-check-20261002)). The six counted items are the A666 public adapters in `docs/status/A666-PUBLIC-ADAPTER-READINESS-20260802.json`, all `partial`; the checker reads repository files only, so postfiat-wan-devnet-2 cannot change its result. The RPC readiness flags on the six validators (`ready=true`, `degraded=false`) are a different check. Remaining need: production qualification of the six adapters (plan gate `G3`). |
 
 ## Consensus signing-fix qualification
 
@@ -200,52 +238,90 @@ and its frozen [qualification receipt](https://github.com/postfiatorg/postfiatl1
 
 | ID | Classification | Severity | Status | Source and reproduction |
 | --- | --- | --- | --- | --- |
-| SQ-01 | Reproduced defect | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local release link still embeds a randomized Rust temporary `RUNPATH`; a governed release-normalization or toolchain contract is required. |
-| SQ-02 | Evidence gap | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): deployed source remains outside main's ancestry and `pftl_source_settlement.rs` remains absent. |
-| SQ-03 | Evidence gap | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a current simultaneous all-six snapshot is still required. |
-| SQ-04 | Evidence gap | P1 | Needs live environment | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local search found 0/50 matching node binaries; retrieval requires a separately authorized operational path. |
+| SQ-01 | Reproduced defect | P1 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I decided that the toolchain contract is the two-clean-build identity gate of the release qualification: `signer-rotation-20261007` passed it with one hash (`decaa411…`, `cmp` exit 0), and a release whose two builds differ is not cut. |
+| SQ-02 | Evidence gap | P1 | Closed 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). The deployed source `0fa55d0b` (release `signer-rotation-20261007`, deployed 2026-10-09) is in main's ancestry and `crates/execution/src/pftl_source_settlement.rs` is present. |
+| SQ-03 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 — existing records | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a current simultaneous all-six snapshot is still required. Simultaneous all-six records: 2026-10-01T10:32:42Z, height 1085, tip `b2c7f04e…`, root `b60665e9…`, 0 pending ([fleet record](../status/chain-state-current.md#2026-10-01-fleet-after-the-other-lanes-navcoin-operator-tests), `dc734563`); 2026-10-02T11:13Z, height 1103, tip `c9469f05…`, root `ad296a02…`, 0 pending ([check](#live-environment-check-20261002)). The deployed release carrying `bbb291ce` (`c93b2137`) was qualified on six validator copies at 1020 and a fresh signed validator-1 backup at 1050, taken with six-way agreement ([qualification](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/release-repair-20260928/README.md)). |
+| SQ-04 | Evidence gap | P1 | Closed 2026-10-02 on postfiat-wan-devnet-2 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): a fresh local search found 0/50 matching node binaries; retrieval requires a separately authorized operational path. The exact binary SHA-256 `57b0f4d1…634eec83` is retained on all six hosts under release `a666-source-route-20260907` (hashed in place, not copied) and is present on the work server. The current rollback executable `d66cecc3…` is retained on all six; the running `1f8b332d…` matches two identical clean builds of `c93b2137` and is verified on all six ([check](#live-environment-check-20261002)). |
 | SQ-05 | Evidence gap | P1 | Dispositioned for current state; see RPC-01 | Validator-0 now answers at the same height and root previously observed on validators 1–5 after an out-of-campaign restart. This does not repair the diagnosed recurrence condition or replace a current simultaneous all-six rehearsal. |
-| SQ-06 | Proposed capability | P1 | Needs operator decision | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md): source contains `bbb291ce`, but the combined lineage, reproducibility, snapshot, rollback, and rollout decision remains unmade. |
+| SQ-06 | Proposed capability | P1 | Decided 2026-10-12 | [Burn 2 reproduction](burn2-open-row-reproduction-20260910.md). I decided that the release process used on 2026-09-25 and 2026-10-09 is the process: a release branch cut from main, two clean builds that must produce one identical executable hash, a signed deployment manifest, a signed canary backup with a full replay, `postfiat-safe-rollout` one validator at a time with a grant after each, and `rollback-one.sh` as the rollback ([DEPLOY-SHEET.md](https://github.com/postfiatorg/postfiatl1v2/blob/release/signer-rotation-20261007/deployments/signer-rotation-20261007/DEPLOY-SHEET.md)). |
+
+## Live-environment check — 2026-10-02 { #live-environment-check-20261002 }
+
+Environment: controlled devnet `postfiat-wan-devnet-2`, six validators on release
+`combined-fastpay-20260928` (source `c93b2137`, executable `1f8b332d…`, signed
+manifest `d2fdb687…`). Every command was read-only: no transaction, restart or
+file write on any host.
+
+| Command (UTC) | Key output |
+| --- | --- |
+| `deployments/combined-fastpay-20260928/demo-preflight.py --json` (11:13:22Z) | `READY WITH ATTENTION`: 55 PASS, 5 ATTENTION (hand-started relays 28701/28702), 0 FAIL. 6/6 at height 1103, tip `c9469f05…`, root `ad296a02…`, 0 pending each; all six run `1f8b332d…` with the manifest verified |
+| `ssh root@<host> sha256sum` of `postfiat-node` under `/opt/postfiat/releases/combined-fastpay-20260925` and `…/a666-source-route-20260907`, six hosts | all six: `d66cecc3…` and `57b0f4d1…634eec83` |
+| RPC `status`, validator-1 | `storage` holds I/O and transaction counters; no free-space, capacity or database-size field |
+| `scripts/check-a666-public-adapter-readiness` | `a666_public_adapter_readiness=ok qualified=0/6 stakehub_deprecated=false` |
+
+Free space on `/` (GB), from the preflight and the dated
+[current-state](../status/chain-state-current.md) records:
+
+| Host | 2026-09-29, after rotation | 2026-10-01 10:32Z | 2026-10-02 11:13Z | Last 24.7 h |
+| --- | ---: | ---: | ---: | ---: |
+| validator-0 | 17.36 | 17.13 | 17.00 | −0.13 |
+| validator-1 | 19.57 | 19.53 | 19.40 | −0.13 |
+| validator-2 | 24.51 | 24.23 | 23.87 | −0.36 |
+| validator-3 | 29.10 | 28.91 | 28.76 | −0.15 |
+| validator-4 | 24.19 | 24.16 | 24.03 | −0.13 |
+| validator-5 | 28.03 | 27.86 | 27.76 | −0.10 |
 
 ## Final disposition
 
-The inventory contains 126 unique rows, including 28 burn 3 findings (6 P1,
-14 P2, 8 P3), 15 burn 4 findings (0 P1, 10 P2, 5 P3), and 22 burn 5 findings
-(1 P1, 14 P2, 7 P3). Classification and severity describe what the cited evidence
+The inventory contains 142 unique rows, including 28 burn 3 findings (6 P1,
+14 P2, 8 P3), 15 burn 4 findings (0 P1, 10 P2, 5 P3), 22 burn 5 findings
+(1 P1, 14 P2, 7 P3), 15 burn 6 findings (0 P1, 9 P2, 6 P3), and one
+2026-10-19 G4 regression finding (STO-07, P1).
+Classification and severity describe what the cited evidence
 establishes; status describes the bounded disposition in that row, not a
 broader production claim.
 
 | Measure | Count |
 | --- | ---: |
-| Reproduced defects | 92 |
-| Code-observed defects (burn 5 P3) | 7 |
+| Reproduced defects | 102 |
+| Code-observed defects (burn 5–6 P3) | 13 |
 | Evidence gaps | 22 |
 | Economic assumptions | 1 |
 | Proposed capabilities | 4 |
-| P1 | 26 |
-| P2 | 68 |
-| P3 | 32 |
-| Fixed | 84 |
+| P1 | 27 |
+| P2 | 77 |
+| P3 | 38 |
+| Fixed | 109 |
 | Dispositioned | 16 |
 | Reproduced and retained (prior campaigns) | 5 |
-| Recorded, not fixed (burn 3–5 P3) | 8 |
-| Recorded, repair blocked by A4 scope (SMG-07) | 1 |
-| Needs live environment | 6 |
-| Needs operator decision | 6 |
+| Recorded, not fixed (burn 3–6 P3) | 1 |
+| Recorded, repair blocked by A4 scope (SMG-07) | 0 |
+| Closed 2026-10-02 on postfiat-wan-devnet-2 | 4 |
+| Narrowed 2026-10-02 (PI-18, not a live-environment need) | 1 |
+| Needs a traffic campaign on postfiat-wan-devnet-2 | 1 |
+| Closed 2026-10-12 (SQ-02) | 1 |
+| Decided 2026-10-12 (SQ-01, SQ-06, SCT-08) | 3 |
+| Needs operator decision | 2 |
 | Bare open | 0 |
 
 Burn 2 grounded all nineteen rows that entered it as open. Three received
 in-repository source or documentation repairs; five remain directly
 reproduced, comprising the two P3s and three findings in the read-only
-StakeHub lane; five name the exact missing live environment; and six name the
+StakeHub lane; five named the exact missing live environment; and six name the
 operator decision required before more work is authorized. The bounded
 commands and conditions are in the [burn 2 reproduction record](burn2-open-row-reproduction-20260910.md).
+On 2026-10-02 those five rows and STO-05 were checked read-only on
+`postfiat-wan-devnet-2`: STO-05, SCT-07, SQ-03 and SQ-04 are closed; PI-18 is
+narrowed to adapter qualification; SCT-06 needs a traffic campaign
+([check](#live-environment-check-20261002)).
+On 2026-10-12 I closed SQ-02 and decided SQ-01, SQ-06 and SCT-08; SCT-10
+and PI-16 stay with the product owner.
 
 Burn 3 added 19 fixed source findings, one still-unproven fleet snapshot export,
 and eight P3 findings recorded without repair. The five consensus-affecting
 execution and Cobalt repairs are source-only, not activated or deployed. The
-fleet export receipt remains missing even though the deployed source contains
-the block-924 repair.
+fleet export receipt was then missing even though the deployed source contained
+the block-924 repair; STO-05 records the later signed export.
 
 Burn 4 added ten repaired P2 findings and five P3 findings recorded without
 repair. The finality, canonical types and recovery commitments, and shadow/swap
@@ -268,6 +344,18 @@ they remain source-only, not activated or deployed. All five repair commits
 have a full Rust suite verdict pending. SMG-07 requires the shared retention-path
 resolver outside A4; the append fix does not qualify the blocked prune path.
 No burn 5 finding is documented as blocked specifically by the release candidate.
+On 2026-10-14 SMG-07 was repaired without the resolver: its path refusal needs
+a fixture-only stored path, and the prune barriers are now retried.
+
+Burn 6 added nine repaired P2s and six code-observed P3s recorded without
+repair: PFV-01, BRW-04/05/06 and NOD-03/04. The consensus-affecting repairs are NAV-03
+(`e9ccdeda`, rejected local-transition persistence) and SWX-01 (`043b9d69`,
+policy-stale public redemption rejection). The release tip requires
+re-qualification before deployment. Both commits and the bridge repairs
+(`10bb5655`) and node repairs (`87c992c3`) retain a full Rust suite verdict pending; focused tests do not
+establish deployment qualification. No burn 6 repair is blocked by the release
+candidate. A5 is a focused review with explicit unreviewed ranges; its two
+repairs are not consensus-affecting. The retained inventory score predates A5.
 
 “Fixed” remains scoped by the row. In particular, the RPC supervisor repair is
 not deployed, StakeHub fixes are local and unpublished, the Arc controller
@@ -301,7 +389,13 @@ or StakeHub write.
 | Burn 5 Cobalt handoff and authority (CHO-) | 6 |
 | Burn 5 storage migration, activation and certified-send index (SMG-) | 7 |
 | Burn 5 swap and recovery services (SWP-) | 5 |
-| **Total** | **126** |
+| Burn 6 portfolio verification (PFV-) | 1 |
+| Burn 6 NAV and reserve verification (NAV-) | 3 |
+| Burn 6 swap and settlement execution (SWX-) | 1 |
+| Burn 6 bridge workflows (BRW-) | 6 |
+| Burn 6 remaining node files (NOD-) | 4 |
+| 2026-10-19 G4 regression campaign (STO-07) | 1 |
+| **Total** | **142** |
 
 Campaign review and repair commits are recorded in the
 [campaign log](qa-campaign-20260910.md). The inventory preserves open design,

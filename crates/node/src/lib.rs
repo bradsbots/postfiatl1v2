@@ -234,8 +234,8 @@ use postfiat_types::{
     GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT, GOVERNANCE_KIND_VALIDATOR_SET,
     ISSUED_ASSET_ID_HEX_LEN, MAX_NFT_COLLECTION_ID_BYTES, MAX_TEXT_FIELD_BYTES,
     NAV_PROFILE_ID_DOMAIN, NAV_PROFILE_VERIFIER_SP1_ARBITRUM_BONDED_V1,
-    NAV_PROFILE_VERIFIER_SP1_ARBITRUM_FINALITY_V1, NAV_PROFILE_VERIFIER_SP1_GROTH16,
-    NAV_RESERVE_STATE_FINALIZED, NFT_COLLECTION_FLAG_BURN_LOCKED,
+    NAV_PROFILE_VERIFIER_SP1_ARBITRUM_FINALITY_V1, NAV_PROFILE_VERIFIER_SP1_ARC_FINALITY_V1,
+    NAV_PROFILE_VERIFIER_SP1_GROTH16, NAV_RESERVE_STATE_FINALIZED, NFT_COLLECTION_FLAG_BURN_LOCKED,
     NFT_COLLECTION_FLAG_TRANSFER_LOCKED, NFT_FLAG_ISSUER_BURNABLE, NFT_FLAG_TRANSFERABLE,
     NFT_ID_HEX_LEN, OFFER_ID_HEX_LEN, OFFER_OBJECT_RESERVE, OFFER_STATE_CANCELED,
     OFFER_STATE_FILLED, OFFER_STATE_OPEN, OFFER_STATE_UNFUNDED, OFFER_TX_ROLE_CANCEL,
@@ -306,7 +306,7 @@ use lifecycle_queries::{
 mod mempool_proposals;
 pub use mempool_proposals::{
     admit_fastlane_primary_to_mempool, create_mempool_batch, create_signed_asset_transaction_batch,
-    create_transfer_batch, mempool_state, propose_batch,
+    create_transfer_batch, fastlane_primary_receipt_is_success, mempool_state, propose_batch,
     propose_batch_with_required_parent_with_timings, propose_batch_with_timings,
     reconcile_terminal_mempool_entries, submit_signed_asset_transaction_json_to_mempool,
     submit_signed_escrow_transaction_json_to_mempool,
@@ -398,7 +398,9 @@ use block_replay_wallet::{
 };
 pub use pftl_swap_service::*;
 mod state_commitment;
+mod state_commitment_governance;
 mod storage_vote_guard;
+mod store_lease;
 pub use state_commitment::global_issued_asset_supply;
 #[allow(unused_imports)]
 use state_commitment::{
@@ -450,7 +452,10 @@ use state_commitment::{
     verify_global_issued_asset_supply_caps_legacy_non_nav_spread_omitted,
     LegacyJsonGovernanceState, LegacyJsonLedgerState, LegacyJsonShieldedState,
 };
+pub use store_lease::hold_transactional_store;
 mod execution_actions;
+#[cfg(test)]
+use execution_actions::execute_transparent_batch;
 #[allow(unused_imports)]
 use execution_actions::{
     apply_archived_wan_devnet2_pre_pricing_swap, apply_governance_amendment_with_lifecycle_records,
@@ -488,10 +493,6 @@ use execution_actions::{
     verify_governance_amendment_supersession_record_for_domain,
     verify_governance_amendment_supersession_records, ArchivedAssetOrchardSwapReplayAction,
     ASSET_ORCHARD_NAV_USD_E8_ACTIVATION_HEIGHT,
-};
-#[cfg(test)]
-use execution_actions::{
-    execute_transparent_batch, validate_asset_orchard_swap_pricing_against_ledger,
 };
 mod storage_commit;
 pub use storage_commit::*;
@@ -548,7 +549,9 @@ mod consensus_v2_finality;
 mod consensus_v2_store;
 mod ethereum_checkpoint_signing;
 mod ethereum_receipt_proof_builder;
+mod fastpay_committee_prepare;
 mod fastpay_recovery_node;
+mod fastswap_control_signing;
 #[cfg(test)]
 use consensus_artifacts::write_signed_transfer_file;
 pub use consensus_artifacts::*;
@@ -606,7 +609,9 @@ pub use consensus_v2_finality::*;
 pub use consensus_v2_store::*;
 pub use ethereum_checkpoint_signing::*;
 pub use ethereum_receipt_proof_builder::*;
+pub use fastpay_committee_prepare::*;
 pub use fastpay_recovery_node::*;
+pub use fastswap_control_signing::*;
 
 #[cfg(test)]
 include!("lib_tests.rs");

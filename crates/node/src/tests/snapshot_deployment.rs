@@ -17,7 +17,7 @@ fn runtime_manifest_identity_marks_replaced_unsigned_bytes_unverified() {
         "publisher": "untrusted", "algorithm_id": "", "public_key_hex": "", "signature_hex": ""
     });
     let read_identity = || deployment_runtime_identity_from_config(
-        Some(path.clone().into_os_string()), None, None, None, None, None, None
+        Some(path.clone().into_os_string()), None, None, None, None, None, None, None
     ).expect("current-file identity");
     fs::write(&path, serde_json::to_vec(&manifest).unwrap()).unwrap();
     let original = read_identity();
@@ -27,6 +27,189 @@ fn runtime_manifest_identity_marks_replaced_unsigned_bytes_unverified() {
     assert_ne!(original.manifest_sha256, replaced.manifest_sha256);
     assert!(!original.manifest_verified);
     assert!(!replaced.manifest_verified);
+    fs::remove_dir_all(root).unwrap();
+}
+
+/// Signs a one-validator deployment manifest; returns the manifest and trusted key paths.
+fn signed_single_validator_deployment_manifest(root: &Path) -> (PathBuf, PathBuf) {
+    fs::create_dir_all(root).expect("create deployment record test root");
+    let publisher_key_file = root.join("publisher.private.json");
+    create_deployment_publisher_private_key(DeploymentPublisherKeyCreateOptions {
+        publisher_key_file: publisher_key_file.clone(),
+    })
+    .expect("create deployment publisher key");
+    let trusted_key_file = root.join("publisher.public.json");
+    export_deployment_publisher_public_key(DeploymentPublisherKeyExportOptions {
+        publisher_key_file: publisher_key_file.clone(),
+        public_key_file: trusted_key_file.clone(),
+    })
+    .expect("export deployment publisher key");
+    let path = |name: &str| root.join(name);
+    for name in [
+        "postfiat-node",
+        "rpc.service",
+        "rpc.env",
+        "transport.service",
+        "transport.env",
+        "swap.metadata.json",
+        "egress.metadata.json",
+    ] {
+        atomic_write(path(name), format!("{name}-v1")).expect("write deployment input");
+    }
+    let topology = serde_json::json!({
+        "topology_id": "record-test-topology", "chain_id": "postfiat-local",
+        "genesis_hash": "11".repeat(48), "protocol_version": 1,
+        "peers": [{"node_id": "validator-0", "host": "127.0.0.1", "p2p_port": 26650,
+                   "rpc_port": 27650, "p2p_address": "127.0.0.1:26650"}]
+    });
+    atomic_write(path("topology.json"), format!("{topology}\n")).expect("write topology");
+    let service = |id: &str| {
+        serde_json::json!({
+            "service_id": id,
+            "service_unit_file": path(&format!("{id}.service")).to_string_lossy(),
+            "environment_file": path(&format!("{id}.env")).to_string_lossy()
+        })
+    };
+    let bindings = serde_json::json!({
+        "schema": DEPLOYMENT_VALIDATOR_BINDINGS_SCHEMA,
+        "validators": [{"validator_id": "validator-0",
+                        "services": [service("rpc"), service("transport")]}]
+    });
+    atomic_write(path("bindings.json"), format!("{bindings}\n")).expect("write bindings");
+    let now = unix_now();
+    let manifest_file = path("deployment-manifest.json");
+    create_deployment_manifest(DeploymentManifestCreateOptions {
+        deployment_id: "record-test".to_string(),
+        valid_from_unix: now.saturating_sub(1),
+        valid_until_unix: now.saturating_add(3_600),
+        chain_id: "postfiat-local".to_string(),
+        genesis_hash: "11".repeat(48),
+        git_revision: "0123456789abcdef".to_string(),
+        binary_file: path("postfiat-node"),
+        build_profile: "release".to_string(),
+        build_features: vec!["transport".to_string()],
+        protocol_version: 1,
+        rpc_schema: "postfiat-local-rpc-v1".to_string(),
+        service_unit_file: path("rpc.service"),
+        environment_file: path("rpc.env"),
+        validator_bindings_file: path("bindings.json"),
+        topology_file: path("topology.json"),
+        swap_circuit_metadata_file: path("swap.metadata.json"),
+        private_egress_circuit_metadata_file: path("egress.metadata.json"),
+        publisher_key_file,
+        manifest_file: manifest_file.clone(),
+    })
+    .expect("create signed deployment manifest");
+    (manifest_file, trusted_key_file)
+}
+
+fn manifest_only_verify_options(
+    manifest_file: &Path,
+    trusted_key_file: &Path,
+) -> DeploymentManifestVerifyOptions {
+    DeploymentManifestVerifyOptions {
+        manifest_file: manifest_file.to_path_buf(),
+        trusted_publisher_key_file: trusted_key_file.to_path_buf(),
+        now_unix: None,
+        validator_id: None,
+        validator_bindings_file: None,
+        runtime_binary_file: None,
+        runtime_topology_file: None,
+        runtime_swap_circuit_metadata_file: None,
+        runtime_private_egress_circuit_metadata_file: None,
+    }
+}
+
+fn manifest_verified_with_record(manifest_file: &Path, record_file: &Path) -> bool {
+    deployment_runtime_identity_from_config(
+        Some(manifest_file.as_os_str().to_owned()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(record_file.as_os_str().to_owned()),
+    )
+    .expect("status identity must not fail on the verification record")
+    .manifest_verified
+}
+
+#[test]
+fn deployment_status_reports_signature_verified_manifest() {
+    let root = unique_test_dir("postfiat-deployment-verified-record");
+    let (manifest_file, trusted_key_file) = signed_single_validator_deployment_manifest(&root);
+    let record_file = root.join("readiness/rpc.deployment-verified.json");
+    verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect("verify signed manifest and write record");
+    assert!(
+        manifest_verified_with_record(&manifest_file, &record_file),
+        "a validly signed manifest with a matching record must report verified"
+    );
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn deployment_status_rejects_stale_or_missing_verification_record() {
+    let root = unique_test_dir("postfiat-deployment-stale-record");
+    let (manifest_file, trusted_key_file) = signed_single_validator_deployment_manifest(&root);
+    let record_file = root.join("readiness/rpc.deployment-verified.json");
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect("verify signed manifest and write record");
+
+    // A bad signature: the old record no longer matches the replaced bytes.
+    let mut tampered: DeploymentManifest =
+        serde_json::from_slice(&fs::read(&manifest_file).unwrap()).unwrap();
+    tampered.binary_sha256 = "00".repeat(32);
+    atomic_write(
+        &manifest_file,
+        serde_json::to_vec_pretty(&tampered).unwrap(),
+    )
+    .unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    let error = verify_deployment_manifest_with_record(
+        manifest_only_verify_options(&manifest_file, &trusted_key_file),
+        Some(&record_file),
+    )
+    .expect_err("tampered manifest must fail verification");
+    assert!(
+        error.to_string().contains("signature verification"),
+        "{error}"
+    );
+    assert!(
+        !record_file.exists(),
+        "failed verification must remove the record"
+    );
+
+    // A forged record naming the tampered bytes must not pass either.
+    let identity = deployment_runtime_identity_from_config(
+        Some(manifest_file.as_os_str().to_owned()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .unwrap();
+    let forged = serde_json::json!({
+        "schema": "postfiat.deployment_manifest_verified.v0",
+        "manifest_sha256": identity.manifest_sha256, "deployment_id": tampered.deployment_id,
+        "publisher": tampered.publisher, "verified_at_unix": unix_now(),
+        "valid_from_unix": tampered.valid_from_unix, "valid_until_unix": tampered.valid_until_unix
+    });
+    atomic_write(&record_file, forged.to_string()).unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
+    atomic_write(&record_file, b"not json").unwrap();
+    assert!(!manifest_verified_with_record(&manifest_file, &record_file));
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -635,7 +818,8 @@ fn init_then_run_once() {
         limit: Some(1),
     })
     .expect("recipient account tx history");
-    assert!(recipient_history.truncated);
+    // The recipient's only row fits the limit, so nothing was omitted.
+    assert!(!recipient_history.truncated);
     assert_eq!(recipient_history.row_count, 1);
     assert_eq!(recipient_history.rows[0].tx_id, mempool_receipts[1].tx_id);
 
@@ -1758,6 +1942,15 @@ fn snapshot_import_rejects_nonempty_destination_before_any_mutation() {
 #[test]
 fn finalized_checkpoint_snapshot_accepts_certified_legacy_governance_anomaly_and_rejects_tampering()
 {
+    finalized_checkpoint_snapshot_fixture(false);
+}
+
+#[test]
+fn finalized_checkpoint_snapshot_restores_transactional_storage_without_legacy_replay() {
+    finalized_checkpoint_snapshot_fixture(true);
+}
+
+fn finalized_checkpoint_snapshot_fixture(transactional: bool) {
     let unique = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .expect("clock")
@@ -1772,7 +1965,7 @@ fn finalized_checkpoint_snapshot_accepts_certified_legacy_governance_anomaly_and
         node_id: "validator-0".to_string(),
         validator_count: 1,
         activation_height: 1,
-        storage_activation_height: None,
+        storage_activation_height: transactional.then_some(1),
     })
     .expect("init activated source");
 
@@ -1798,6 +1991,54 @@ fn finalized_checkpoint_snapshot_accepts_certified_legacy_governance_anomaly_and
     store
         .write_governance(&governance)
         .expect("persist legacy anomaly before finality");
+    if transactional {
+        // Activation executes from the initialized transactional generation.
+        // Put the historical fixture in that generation before it is certified.
+        let fixture_dir = data_dir.join("historical-fixture-generation");
+        let target = store.open_transactional_store_at(&fixture_dir).unwrap();
+        let initial = store.transactional_store().unwrap();
+        let tip = store.read_chain_tip().unwrap();
+        let commitment = postfiat_storage::OrderedHistoryCommitment::genesis(
+            &genesis.chain_id,
+            &genesis_hash(&genesis),
+            genesis.protocol_version,
+        )
+        .unwrap();
+        let ledger = store.read_ledger().unwrap();
+        let shielded = store.read_shielded().unwrap();
+        let bridge = store.read_bridge().unwrap();
+        let node_state = store.read_node_state().unwrap();
+        let registry = initial
+            .current_state_raw("validator_registry")
+            .unwrap()
+            .unwrap();
+        drop(initial);
+        let additional = [postfiat_storage::transactional::NamedStateValue {
+            domain: "validator_registry".to_owned(),
+            canonical_bytes: registry,
+        }];
+        target
+            .initialize_with_activation(
+                &tip,
+                &commitment,
+                postfiat_storage::CurrentStateUpdate {
+                    ledger: Some(&ledger),
+                    governance: Some(&governance),
+                    shielded: Some(&shielded),
+                    bridge: Some(&bridge),
+                    node_state: Some(&node_state),
+                    additional: &additional,
+                },
+                Some(1),
+            )
+            .unwrap();
+        let packet = hash_hex("postfiat.test.historical-fixture", b"checkpoint");
+        target.verify_and_bind_migration(&packet).unwrap();
+        drop(target);
+        store
+            .publish_transactional_generation(&fixture_dir, &packet)
+            .unwrap();
+    }
 
     let batch_file = root.join("batch.json");
     create_transfer_batch(BatchTransferOptions {
@@ -1950,6 +2191,14 @@ fn finalized_checkpoint_snapshot_accepts_certified_legacy_governance_anomaly_and
         .expect("parse compact checkpoint artifact");
         assert_eq!(value["files"], serde_json::json!([]));
     }
+    if transactional {
+        import_snapshot(SnapshotImportOptions {
+            data_dir: root.join("full-history-must-reject"),
+            snapshot_dir: snapshot_dir.clone(),
+            node_id: None,
+        })
+        .expect_err("ordinary import still requires full history replay");
+    }
     let restored_dir = root.join("checkpoint-restored");
     let restored = import_snapshot_from_finalized_checkpoint(SnapshotImportOptions {
         data_dir: restored_dir.clone(),
@@ -1974,6 +2223,82 @@ fn finalized_checkpoint_snapshot_accepts_certified_legacy_governance_anomaly_and
             .count(),
         0
     );
+
+    if transactional {
+        // Recompute the unsigned manifest hashes: certificate/state verification,
+        // rather than a file checksum, must reject these otherwise valid imports.
+        for attack in [
+            "state",
+            "certificate",
+            "missing-certificate",
+            "registry",
+            "tip",
+            "root",
+        ] {
+            let attacked = root.join(format!("snapshot-{attack}"));
+            std::fs::create_dir(&attacked).unwrap();
+            for entry in std::fs::read_dir(&snapshot_dir).unwrap() {
+                let entry = entry.unwrap();
+                std::fs::copy(entry.path(), attacked.join(entry.file_name())).unwrap();
+            }
+            let mut manifest =
+                read_snapshot_manifest(&attacked.join(SNAPSHOT_MANIFEST_FILE)).unwrap();
+            let filename = match attack {
+                "state" => Some(LEDGER_FILE),
+                "certificate" | "missing-certificate" => Some(BLOCKS_FILE),
+                "registry" => Some(VALIDATOR_REGISTRY_FILE),
+                "tip" => {
+                    manifest.block_tip_hash = "00".repeat(48);
+                    None
+                }
+                _ => {
+                    manifest.state_root = "00".repeat(48);
+                    None
+                }
+            };
+            if let Some(filename) = filename {
+                let path = attacked.join(filename);
+                let mut value: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+                match attack {
+                    "state" => {
+                        let balance = value["accounts"][0]["balance"].as_u64().unwrap();
+                        value["accounts"][0]["balance"] = (balance + 1).into();
+                    }
+                    "certificate" => {
+                        value["blocks"][0]["header"]["consensus_v2_commit"]["proposal"]["block"]
+                            ["state_root"] = "00".repeat(48).into();
+                    }
+                    "missing-certificate" => {
+                        value["blocks"][0]["header"]["consensus_v2_commit"] =
+                            serde_json::Value::Null;
+                    }
+                    _ => {
+                        value["validators"][0]["public_key_hex"] =
+                            bytes_to_hex(&ml_dsa_65_keygen_from_seed(&[94; 32]).public_key).into();
+                    }
+                }
+                let bytes = serde_json::to_vec(&value).unwrap();
+                atomic_write(&path, &bytes).unwrap();
+                let file = manifest
+                    .files
+                    .iter_mut()
+                    .find(|file| file.name == filename)
+                    .unwrap();
+                file.bytes = bytes.len() as u64;
+                file.hash_hex = hash_hex("postfiat.snapshot.file.v1", &bytes);
+            }
+            write_snapshot_manifest(&attacked.join(SNAPSHOT_MANIFEST_FILE), &manifest).unwrap();
+            import_snapshot_from_finalized_checkpoint(SnapshotImportOptions {
+                data_dir: root.join(format!("reject-{attack}")),
+                snapshot_dir: attacked,
+                node_id: None,
+            })
+            .expect_err("checkpoint verification must reject tampered state or certification");
+        }
+        std::fs::remove_dir_all(root).expect("cleanup transactional checkpoint test");
+        return;
+    }
 
     let mut undersized_tip = legacy_retry_tip.clone();
     undersized_tip.receipt_count = 0;
@@ -2384,6 +2709,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
             Some(topology.clone().into_os_string()),
             Some(swap_metadata.clone().into_os_string()),
             Some(egress_metadata.clone().into_os_string()),
+            None,
         )
         .expect("read local deployment runtime identity");
         assert!(runtime_identity.manifest_sha256.is_some());
@@ -2419,6 +2745,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         None,
         None,
         None,
+        None,
     )
     .expect_err("partial runtime deployment binding must fail");
     assert!(
@@ -2432,6 +2759,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some("validator-0".into()),
         Some(validator_bindings.clone().into_os_string()),
         Some(binary.clone().into_os_string()),
+        None,
         None,
         None,
         None,
@@ -2464,6 +2792,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some(topology.clone().into_os_string()),
         Some(swap_metadata.clone().into_os_string()),
         Some(egress_metadata.clone().into_os_string()),
+        None,
     )
     .expect_err("runtime status identity must fail on a changed binary");
     assert!(
@@ -2590,6 +2919,7 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         Some(topology.clone().into_os_string()),
         Some(swap_metadata.clone().into_os_string()),
         Some(egress_metadata.clone().into_os_string()),
+        None,
     )
     .expect_err("runtime status identity must fail on changed service artifacts");
     assert!(
@@ -2704,6 +3034,37 @@ fn signed_deployment_manifest_rejects_tampering_expiry_and_wrong_publisher() {
         "{error}"
     );
     std::fs::remove_dir_all(root).expect("cleanup deployment manifest test");
+}
+
+/// The RPC accept budget and restart gap the release generator renders
+/// (`batch_snapshot.rs`, RPC unit template). The operator-facing example unit
+/// must carry the same values; `example_rpc_unit_matches_generator_accept_budget`
+/// fails when either side drifts (the 2026-10-05 release raised the budget from
+/// 10000 to 100000 and the gap from 5 s to 1 s, and the example lagged behind).
+const RPC_ACCEPT_BUDGET_ARGUMENT: &str = "--max-requests 100000 ";
+const RPC_RESTART_SEC_LINE: &str = "\nRestartSec=1\n";
+
+#[test]
+fn example_rpc_unit_matches_generator_accept_budget() {
+    let example = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../systemd/postfiat-rpc.service.example");
+    let unit = std::fs::read_to_string(&example)
+        .unwrap_or_else(|error| panic!("read {}: {error}", example.display()));
+    assert!(
+        unit.contains(RPC_ACCEPT_BUDGET_ARGUMENT),
+        "systemd/postfiat-rpc.service.example must pass {RPC_ACCEPT_BUDGET_ARGUMENT:?} like the generator"
+    );
+    assert_eq!(
+        unit.matches("--max-requests ").count(),
+        1,
+        "the example unit passes --max-requests exactly once"
+    );
+    assert!(unit.contains("\nRestart=always\n"));
+    assert!(
+        unit.contains(RPC_RESTART_SEC_LINE),
+        "systemd/postfiat-rpc.service.example must set RestartSec=1 like the generator"
+    );
+    assert!(!unit.contains("RestartSec=5"));
 }
 
 #[test]
@@ -2824,8 +3185,10 @@ fn deployment_validator_unit_stage_is_canonical_and_non_overwriting() {
         assert!(rpc_unit.contains("--spool-dir"));
         assert!(rpc_unit.contains("--ready-file"));
         assert!(rpc_unit.contains("--bind-host 127.0.0.1"));
-        assert!(rpc_unit.contains("--max-requests 10000"));
+        assert!(rpc_unit.contains(RPC_ACCEPT_BUDGET_ARGUMENT));
         assert!(rpc_unit.contains("Restart=always"));
+        assert!(rpc_unit.contains(RPC_RESTART_SEC_LINE));
+        assert!(!rpc_unit.contains("RestartSec=5"));
         assert!(!rpc_unit.contains("Restart=on-failure"));
         assert!(rpc_unit.contains("--unsafe-devnet-json-storage"));
         assert!(rpc_unit.contains("--allow-mempool-submit-finality"));

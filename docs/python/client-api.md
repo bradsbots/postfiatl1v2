@@ -76,7 +76,12 @@ receipt. `send_fastpay()` and `unwrap_fastpay()` require the governed v3
 recovery capability, bind its exact domain/committee/window, sign through the
 Rust SDK, collect a distinct-validator certificate, and verify a governed
 quorum of signed durable-apply acknowledgements. An unavailable recovery
-capability fails closed before signing. The legacy unsigned `wrap_owned` and
+capability fails closed before signing. With a caller-owned `work_dir`,
+`send_fastpay()` journals the signed order and then the exact certificate
+before submission. Calling it again with that `work_dir` re-applies the stored
+certificate, reconciles when the input is already spent, or raises
+`FastPayPendingError` when no certificate was assembled; it never signs a
+second order for a journaled input. The legacy unsigned `wrap_owned` and
 `unwrap_owned` RPC methods are not exposed by the Python client.
 
 For full transaction examples, see

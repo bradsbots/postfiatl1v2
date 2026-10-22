@@ -218,6 +218,14 @@ BASE_DIR="$NODE_DIR/signed-mempool-ingress" \
 jq -e '.schema == "postfiat-devnet-signed-mempool-ingress-v1" and .signed_mempool_ingress_ok == true' \
   "$signed_mempool_ingress_report" >/dev/null
 
+node_helper_report="$LOG_DIR/node-helper-smoke.json"
+BASE_DIR="$NODE_DIR/node-helper-smoke" \
+  LOG_DIR="$LOG_DIR/node-helper-smoke-logs" \
+  REPORT="$node_helper_report" \
+  scripts/node-helper-smoke >"$LOG_DIR/node-helper-smoke.out"
+jq -e '.schema == "postfiat-node-helper-smoke-v1" and .node_helper_ok == true' \
+  "$node_helper_report" >/dev/null
+
 wallet_minimum_report="$LOG_DIR/wallet-minimum-smoke.json"
 BASE_DIR="$NODE_DIR/wallet-minimum-smoke" \
   LOG_DIR="$LOG_DIR/wallet-minimum-smoke-logs" \

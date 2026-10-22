@@ -1,5 +1,7 @@
 'use strict';
 
+const { parseBooleanEnv, parseBooleanValue } = require('./boolean-env');
+
 function create(runtime) {
     const { execFileSync,
  spawn } = runtime;
@@ -1434,13 +1436,19 @@ wss } = runtime;
         // background thread) recovers the ~14s round the optimized operator runner achieves. The
         // dropped slow peer is reconciled afterward via rpc-catch-up (see runShieldedLaggardCatchUp),
         // so 6/6 convergence is preserved without full state-sync repair. Env-gated + reversible.
-        if (process.env.SHIELDED_EARLY_QUORUM === 'true') {
+        if (parseBooleanEnv('SHIELDED_EARLY_QUORUM', false)) {
             args.push('--quorum-early-full-propagation', '--local-apply-before-certified-send', '--defer-certified-sends');
         }
         if (config.proposal_key_file) {
             args.splice(11, 0, '--proposal-key-file', config.proposal_key_file);
         }
         return args;
+    }
+
+    function shieldedRoundPrewarmEnabled(env) {
+        const name = ['NAVSWAP_SHIELDED_ROUND_PREWARM', 'POSTFIAT_SHIELDED_ROUND_PREWARM']
+            .find((candidate) => String(env[candidate] ?? '').trim() !== '');
+        return name === undefined ? false : parseBooleanValue(name, env[name], false);
     }
 
     function shieldedCertifiedRoundEnv(baseEnv = process.env) {
@@ -1450,9 +1458,7 @@ wss } = runtime;
                 env[name] = value;
             }
         };
-        const roundPrewarmEnabled = ['1', 'true', 'yes'].includes(lower(
-            env.NAVSWAP_SHIELDED_ROUND_PREWARM || env.POSTFIAT_SHIELDED_ROUND_PREWARM || ''
-        ));
+        const roundPrewarmEnabled = shieldedRoundPrewarmEnabled(env);
         if (roundPrewarmEnabled) {
             defaultIfUnset('POSTFIAT_PREWARM_SHIELDED_VERIFIER', '1');
             defaultIfUnset('POSTFIAT_PREWARM_ASSET_ORCHARD_SWAP_VERIFIER', '1');
@@ -1521,11 +1527,7 @@ wss } = runtime;
             args.push('--quorum-early-full-propagation', '--local-apply-before-certified-send', '--defer-certified-sends');
         }
 
-        const certifierLoopPrewarm = ['1', 'true', 'yes', 'enabled'].includes(
-            String(process.env.NAVSWAP_SHIELDED_ROUND_PREWARM || process.env.POSTFIAT_SHIELDED_ROUND_PREWARM || '')
-                .trim()
-                .toLowerCase(),
-        );
+        const certifierLoopPrewarm = shieldedRoundPrewarmEnabled(process.env);
         const childEnv = {
             ...process.env,
             POSTFIAT_CERTIFIED_BATCH_LOOP_READY_FILE: loop.ready_file,
@@ -1709,7 +1711,7 @@ wss } = runtime;
     }
 
     function shieldedEarlyQuorumEnabled() {
-        return process.env.SHIELDED_EARLY_QUORUM === 'true';
+        return parseBooleanEnv('SHIELDED_EARLY_QUORUM', false);
     }
 
     function shieldedLaggardCatchUpConfig() {

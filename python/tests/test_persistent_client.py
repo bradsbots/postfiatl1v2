@@ -4,7 +4,9 @@ import json
 import socket
 from threading import Thread
 import unittest
+from unittest import mock
 
+from postfiat_rpc.client import RPC_VERSION, RpcError, RpcProtocolError
 from postfiat_rpc.persistent_client import PersistentPostFiatRpcClient
 from postfiat_rpc.transparent_swap_latency import CertifiedParent, TransparentSwapFleetSession
 from postfiat_rpc.transparent_swap_latency import (
@@ -55,6 +57,256 @@ class PersistentClientTests(unittest.TestCase):
         server.join(timeout=2)
         self.assertFalse(server.is_alive())
         self.assertEqual(len(accepted), 1)
+
+
+def envelope(request: dict, **overrides: object) -> bytes:
+    response = {
+        "version": RPC_VERSION,
+        "id": request["id"],
+        "ok": True,
+        "result": {"method": request["method"], "params": request["params"]},
+    }
+    response.update(overrides)
+    return json.dumps(response).encode() + b"\n"
+
+
+def read_request(wire, requests: list[dict]) -> dict | None:
+    line = wire.readline()
+    if not line:
+        return None
+    request = json.loads(line)
+    requests.append(request)
+    return request
+
+
+def drain(wire, requests: list[dict]) -> None:
+    while read_request(wire, requests) is not None:
+        pass
+
+
+def echo_once(wire, requests: list[dict]) -> None:
+    wire.write(envelope(read_request(wire, requests)))
+    drain(wire, requests)
+
+
+def start_peer(handlers: list) -> tuple[int, Thread, list[list[dict]]]:
+    """Accept one connection per handler, in order, recording each request."""
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen()
+    port = listener.getsockname()[1]
+    seen: list[list[dict]] = []
+
+    def serve() -> None:
+        try:
+            for handler in handlers:
+                stream, _address = listener.accept()
+                requests: list[dict] = []
+                seen.append(requests)
+                with stream, stream.makefile("rwb", buffering=0) as wire:
+                    handler(wire, requests)
+        finally:
+            listener.close()
+
+    server = Thread(target=serve, daemon=True)
+    server.start()
+    return port, server, seen
+
+
+class ScriptedStream:
+    """Stand-in socket whose recv replays scripted chunks or raises."""
+
+    def __init__(self, replies: list) -> None:
+        self.replies = list(replies)
+        self.sent: list[dict] = []
+        self.closed = False
+
+    def settimeout(self, _timeout: float) -> None:
+        pass
+
+    def sendall(self, data: bytes) -> None:
+        self.sent.append(json.loads(data))
+
+    def recv(self, _size: int) -> bytes:
+        reply = self.replies.pop(0)
+        if isinstance(reply, BaseException):
+            raise reply
+        return reply(self.sent[-1])
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class PersistentClientResponseBindingTests(unittest.TestCase):
+    def assert_closed_then_reconnects(self, client, streams, *, request_id=None) -> None:
+        self.assertIsNone(client._stream)
+        self.assertTrue(streams[0].closed)
+        response = client.call_response(
+            "account_info", {"address": "next"}, request_id=request_id
+        )
+        self.assertEqual(
+            response["result"], {"method": "account_info", "params": {"address": "next"}}
+        )
+        self.assertIs(client._stream, streams[1])
+
+    def scripted_client(self, *streams: ScriptedStream):
+        client = PersistentPostFiatRpcClient("127.0.0.1:9", timeout_seconds=2)
+        patcher = mock.patch.object(socket, "create_connection", side_effect=list(streams))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(client.close)
+        return client
+
+    def test_duplicated_response_line_closes_and_next_call_gets_own_result(self) -> None:
+        def stray_duplicate(wire, requests):
+            first = read_request(wire, requests)
+            wire.write(envelope(first))
+            read_request(wire, requests)
+            wire.write(envelope(first))
+            drain(wire, requests)
+
+        port, server, seen = start_peer([stray_duplicate, echo_once])
+        client = PersistentPostFiatRpcClient(f"127.0.0.1:{port}", timeout_seconds=2)
+        try:
+            self.assertEqual(
+                client.call_response("account_info", {"address": "A"})["result"],
+                {"method": "account_info", "params": {"address": "A"}},
+            )
+            with self.assertRaisesRegex(RpcProtocolError, "response id mismatch"):
+                client.call_response("account_info", {"address": "B"})
+            self.assertIsNone(client._stream)
+            self.assertEqual(
+                client.call_response("account_info", {"address": "C"})["result"],
+                {"method": "account_info", "params": {"address": "C"}},
+            )
+        finally:
+            client.close()
+        server.join(timeout=2)
+        self.assertFalse(server.is_alive())
+        self.assertEqual([len(requests) for requests in seen], [2, 1])
+        self.assertEqual(seen[1][0]["params"], {"address": "C"})
+
+    def test_foreign_response_id_closes_and_next_call_reconnects(self) -> None:
+        def foreign_id(wire, requests):
+            wire.write(envelope(read_request(wire, requests), id="other"))
+            drain(wire, requests)
+
+        port, server, seen = start_peer([foreign_id, echo_once])
+        client = PersistentPostFiatRpcClient(f"127.0.0.1:{port}", timeout_seconds=2)
+        try:
+            with self.assertRaisesRegex(RpcProtocolError, "response id mismatch"):
+                client.call_response("account_info", {"address": "A"})
+            self.assertIsNone(client._stream)
+            self.assertEqual(
+                client.call_response("account_info", {"address": "B"})["result"],
+                {"method": "account_info", "params": {"address": "B"}},
+            )
+        finally:
+            client.close()
+        server.join(timeout=2)
+        self.assertFalse(server.is_alive())
+        self.assertEqual([len(requests) for requests in seen], [1, 1])
+
+    def test_reused_request_id_is_refused_before_send_and_closes(self) -> None:
+        port, server, seen = start_peer([echo_once, echo_once])
+        client = PersistentPostFiatRpcClient(f"127.0.0.1:{port}", timeout_seconds=2)
+        try:
+            client.call_response("account_info", {"address": "A"}, request_id="fixed")
+            with self.assertRaisesRegex(
+                RpcProtocolError, "request id reused on this persistent session"
+            ):
+                client.call_response("ledger_status", {}, request_id="fixed")
+            self.assertIsNone(client._stream)
+            self.assertEqual(
+                client.call_response("account_info", {"address": "C"}, request_id="fixed")[
+                    "result"
+                ],
+                {"method": "account_info", "params": {"address": "C"}},
+            )
+        finally:
+            client.close()
+        server.join(timeout=2)
+        self.assertFalse(server.is_alive())
+        self.assertEqual(
+            [[request["id"] for request in requests] for requests in seen],
+            [["fixed"], ["fixed"]],
+        )
+        self.assertEqual(seen[0][0]["params"], {"address": "A"})
+
+    def test_caller_id_matching_an_earlier_auto_id_is_refused(self) -> None:
+        first, second = ScriptedStream([envelope]), ScriptedStream([envelope])
+        client = self.scripted_client(first, second)
+        auto_id = client.call_response("server_info")["id"]
+        with self.assertRaisesRegex(RpcProtocolError, "request id reused"):
+            client.call_response("status", request_id=auto_id)
+        self.assertEqual(len(first.sent), 1)
+        self.assert_closed_then_reconnects(client, [first, second], request_id=auto_id)
+
+    def test_keyboard_interrupt_during_recv_closes_session(self) -> None:
+        first, second = ScriptedStream([KeyboardInterrupt()]), ScriptedStream([envelope])
+        client = self.scripted_client(first, second)
+        with self.assertRaises(KeyboardInterrupt):
+            client.call_response("server_info")
+        self.assert_closed_then_reconnects(client, [first, second])
+
+    def test_response_version_mismatch_closes_session(self) -> None:
+        first = ScriptedStream([lambda request: envelope(request, version="v0")])
+        second = ScriptedStream([envelope])
+        client = self.scripted_client(first, second)
+        with self.assertRaisesRegex(RpcProtocolError, "response version mismatch"):
+            client.call_response("server_info")
+        self.assert_closed_then_reconnects(client, [first, second])
+
+    def test_response_id_with_another_json_type_is_a_mismatch(self) -> None:
+        first = ScriptedStream([lambda request: envelope(request, id=1)])
+        second = ScriptedStream([envelope])
+        client = self.scripted_client(first, second)
+        with self.assertRaisesRegex(RpcProtocolError, "response id mismatch"):
+            client.call_response("server_info", request_id="1")
+        self.assert_closed_then_reconnects(client, [first, second], request_id="1")
+
+    def test_bytes_beyond_one_response_close_session(self) -> None:
+        first = ScriptedStream([lambda request: envelope(request) + b'{"stray"'])
+        second = ScriptedStream([envelope])
+        client = self.scripted_client(first, second)
+        with self.assertRaisesRegex(
+            RpcProtocolError, "persistent RPC peer sent data beyond one response"
+        ):
+            client.call_response("server_info")
+        self.assert_closed_then_reconnects(client, [first, second])
+
+    def test_unparseable_response_closes_session(self) -> None:
+        for raw in (b"not json\n", b"[]\n", b"\xff\n", b'{"id": ' + b"9" * 5000 + b"}\n"):
+            with self.subTest(raw=raw[:16]):
+                first = ScriptedStream([lambda _request, raw=raw: raw])
+                second = ScriptedStream([envelope])
+                client = self.scripted_client(first, second)
+                with self.assertRaises(RpcProtocolError):
+                    client.call_response("server_info")
+                self.assert_closed_then_reconnects(client, [first, second])
+
+    def test_error_envelope_bound_to_request_keeps_session(self) -> None:
+        def rejected(request):
+            return json.dumps(
+                {
+                    "version": RPC_VERSION,
+                    "id": request["id"],
+                    "ok": False,
+                    "error": {"code": "not_found", "message": "missing"},
+                }
+            ).encode() + b"\n"
+
+        stream = ScriptedStream([rejected, envelope])
+        client = self.scripted_client(stream)
+        with self.assertRaisesRegex(RpcError, "not_found"):
+            client.call_response("account_info", {"address": "A"})
+        self.assertIs(client._stream, stream)
+        self.assertEqual(
+            client.call_response("account_info", {"address": "B"})["result"]["params"],
+            {"address": "B"},
+        )
+        self.assertIs(client._stream, stream)
+        self.assertFalse(stream.closed)
 
 
 class FakePersistentClient:

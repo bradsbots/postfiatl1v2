@@ -11,11 +11,14 @@ exclude_docs: |
   examples/**
   references/**
   review/**
+  !review/navcoin-spec-platform-review-20261001.md
+  !review/bmnrc-protocol-enforcement-check-20261002.md
   specs/**
   status/**
   !status/chain-state-current.md
   !status/testnet-path.md
   !status/release-gate-inventory.md
+  !status/demo-readiness-20261001.md
   !status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md
   ai-handoff.md
   cut.md
@@ -91,10 +94,14 @@ nav:
   - Current State: status/chain-state-current.md
   - Testnet Path: status/testnet-path.md
   - Release Gate Inventory: status/release-gate-inventory.md
+  - Demo Readiness 2026-10-01: status/demo-readiness-20261001.md
   - Whitepaper: whitepaper.md
   - Legacy Whitepaper: whitepaper_legacy.md
   - NAVCoins:
       - Overview: navcoins/index.md
+      - Create And Swap Specification: navcoins/navcoin-create-and-swap-spec.md
+      - Specification Platform Review 2026-10-01: review/navcoin-spec-platform-review-20261001.md
+      - BMNRC Protocol Enforcement Check 2026-10-02: review/bmnrc-protocol-enforcement-check-20261002.md
       - A666 Current State: status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md
       - Legacy a651 Uniswap Pool: navcoins/uniswap-pool.md
       - Proof-of-Reserve Primitives: navcoins/reserve-primitives.md
@@ -118,6 +125,29 @@ nav:
       - Completed P0 Remediation: plans/completed/P0-COMPLETE-REMEDIATION-PLAN-20260716.md
       - Completed Capability Restoration: plans/completed/OPEN-SOURCE-CAPABILITY-RESTORATION-PLAN-20260716.md
   - Handoffs:
+      - Reserve Proof Conditions Done And Both Replays In: handoffs/2026-10-22___dravlic__reserve_proof_conditions_done_and_both_replays_in.md
+      - Store Handle Release Deployed And Swap Service On Epoch 2: handoffs/2026-10-21___dravlic__store_handle_release_deployed_and_swap_service_on_epoch_2.md
+      - Answers Acted On And Store Handle Fix Qualified: handoffs/2026-10-20___dravlic__answers_acted_on_and_store_handle_fix_qualified.md
+      - Founder Lane Resync And Answers To Open Asks: handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md
+      - Storage Regression Campaign On The Running Code: handoffs/2026-10-19___dravlic__storage_regression_campaign_on_the_running_code.md
+      - Committee Migration Command And Relays Persistent: handoffs/2026-10-16___dravlic__committee_migration_command_and_relays_persistent.md
+      - Fastlane Cap Release Deployed And Bridge Committee Activated: handoffs/2026-10-15___dravlic__fastlane_cap_release_deployed_and_bridge_committee_activated.md
+      - Contributor Pull Requests Cleared And Release Tomorrow: handoffs/2026-10-14___dravlic__contributor_pull_requests_cleared_release_tomorrow.md
+      - Contributor Pull Requests Reviewed And Relays As Services: handoffs/2026-10-13___dravlic__contributor_pull_requests_reviewed_and_relays_as_services.md
+      - Signer Groups Half Switched And Size Cap Fixed: handoffs/2026-10-12___dravlic__signer_groups_half_switched_and_size_cap_fixed.md
+      - Signer Rotation Release Deployed: handoffs/2026-10-09___dravlic__signer_rotation_release_deployed.md
+      - Conference Day Two, Friday Ready: handoffs/2026-10-08___dravlic__conference_day_two_friday_ready.md
+      - Conference Day One, Release Day Prepared: handoffs/2026-10-07___dravlic__conference_day_one_release_day_prepared.md
+      - Release Candidate Cut And Locally Qualified: handoffs/2026-10-06___dravlic__release_candidate_cut_and_locally_qualified.md
+      - Release After The Conference Prepared On Main: handoffs/2026-10-05___dravlic__release_after_the_conference_prepared_on_main.md
+      - BMNRC Protocol Check, Inventory Rows Closed And Decisions Taken: handoffs/2026-10-02___dravlic__bmnrc_protocol_check_inventory_rows_closed_and_decisions_taken.md
+      - Fleet Recorded, Relay Default, WB-11 Repaired And Demo Readiness: handoffs/2026-10-01___dravlic__fleet_recorded_relay_default_wb11_repaired_and_demo_readiness.md
+      - NAVCoin Create And Swap, Phase 0 Closing And BMNRC Opening: handoffs/2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md
+      - FastPay Resume Repaired, Wallet Caps And Log Checks: handoffs/2026-09-30___dravlic__fastpay_resume_repaired_wallet_caps_and_log_checks.md
+      - NEAR Intents Research, Wallet Flows Reviewed And Live-Funds Readiness: handoffs/2026-09-29___dravlic__near_intents_research_wallet_flows_reviewed_and_live_funds_readiness.md
+      - FastPay Stall Fixed Live And Main Line Caught Up: handoffs/2026-09-28___dravlic__fastpay_stall_fixed_live_and_main_line_caught_up.md
+      - Merged FastPay And Combined Lines Qualified, Deployment Prepared: handoffs/2026-09-25___dravlic__merged_fastpay_and_combined_lines_qualified_and_deployed.md
+      - Wallet Reviewed And Merged, Reserve-Proof Gaps, And Demo Runbook: handoffs/2026-09-24___dravlic__wallet_reviewed_and_merged_reserve_proof_gaps_and_demo_runbook.md
       - StakeHub Money Path Repaired, Deploy Candidate, And Restart Cause: handoffs/2026-09-23___dravlic__stakehub_money_path_repaired_deploy_candidate_and_restart_cause.md
       - Key Custody, Next Release Qualified, And Cycle Inputs: handoffs/2026-09-22___dravlic__key_custody_next_release_qualified_and_cycle_inputs.md
       - Overnight Release And NAVCoin Preparation: handoffs/2026-09-22___codex__overnight_release_and_navcoin_preparation.md
@@ -270,6 +300,7 @@ nav:
       - Threat Model: security/threat-model.md
       - Halo2 Dependency: security/halo2-dependency.md
       - Redaction Policy: security/redaction-policy.md
+      - SEC-20260930-01 Closure: security/SEC-20260930-01-closure.md
       - Public Launch Boundary: security/public-launch-boundary.md
       - Public History Publication: security/public-history-publication.md
   - Runbooks:

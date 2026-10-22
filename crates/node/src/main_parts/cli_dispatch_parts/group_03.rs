@@ -286,11 +286,17 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
         }
         "rpc-serve" => {
             require_transactional_or_unsafe_devnet_json_storage(flags, "rpc service")?;
-            let data_dir =
-                PathBuf::from(flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR));
-            let spool_dir = flag_value(flags, "--spool-dir")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| data_dir.join("runtime/rpc-spool"));
+            // RPC workers run with their working directory moved to the data
+            // directory, so every path derived here must be absolute or the
+            // child resolves it against the wrong base (issue #27).
+            let data_dir = rpc_serve_absolute_path(
+                flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR),
+                "--data-dir",
+            )?;
+            let spool_dir = match flag_value(flags, "--spool-dir") {
+                Some(spool_dir) => rpc_serve_absolute_path(spool_dir, "--spool-dir")?,
+                None => data_dir.join("runtime/rpc-spool"),
+            };
             let ready_file = flag_value(flags, "--ready-file")
                 .map(PathBuf::from)
                 .unwrap_or_else(|| data_dir.join("readiness/rpc.ready.json"));
@@ -421,41 +427,40 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
                 return Err("--max-child-dispatch-per-peer must be positive".to_string());
             }
             let keep_alive = flag_present(flags, "--keep-alive");
-            let report = rpc_serve(RpcServeOptions {
-                data_dir,
-                spool_dir,
-                ready_file,
-                bind_host,
-                port,
-                max_requests,
-                timeout_ms,
-                child_timeout_ms,
-                event_log,
-                allow_mempool_submit,
-                allow_mempool_submit_finality,
-                allow_orchard_batch_create,
-                owned_lane_enabled,
-                finality_topology_file,
-                finality_key_file,
-                finality_proposal_key_file,
-                finality_artifact_root,
-                finality_timeout_ms,
-                finality_send_retries,
-                finality_retry_backoff_ms,
-                finality_quorum_early_full_propagation,
-                max_mempool_submit_per_peer,
-                max_mempool_submit_total,
-                max_orchard_batch_create_per_peer,
-                max_orchard_batch_create_total,
-                max_orchard_batch_create_concurrent,
-                max_child_dispatch_concurrent,
-                max_child_dispatch_per_peer,
-                keep_alive,
-            })?;
-            let json = serde_json::to_string_pretty(&report)
-                .map_err(|error| format!("rpc serve serialization failed: {error}"))?;
-            println!("{json}");
-            Ok(())
+            rpc_serve_with_report(
+                RpcServeOptions {
+                    data_dir,
+                    spool_dir,
+                    ready_file,
+                    bind_host,
+                    port,
+                    max_requests,
+                    timeout_ms,
+                    child_timeout_ms,
+                    event_log,
+                    allow_mempool_submit,
+                    allow_mempool_submit_finality,
+                    allow_orchard_batch_create,
+                    owned_lane_enabled,
+                    finality_topology_file,
+                    finality_key_file,
+                    finality_proposal_key_file,
+                    finality_artifact_root,
+                    finality_timeout_ms,
+                    finality_send_retries,
+                    finality_retry_backoff_ms,
+                    finality_quorum_early_full_propagation,
+                    max_mempool_submit_per_peer,
+                    max_mempool_submit_total,
+                    max_orchard_batch_create_per_peer,
+                    max_orchard_batch_create_total,
+                    max_orchard_batch_create_concurrent,
+                    max_child_dispatch_concurrent,
+                    max_child_dispatch_per_peer,
+                    keep_alive,
+                },
+                &mut std::io::stdout().lock(),
+            )
         }
         "validator-keys" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
@@ -2060,6 +2065,104 @@ fn run_cli_group_03(command: &str, flags: &[String]) -> Result<(), String> {
                 serde_json::to_string_pretty(&certificate).map_err(|error| {
                     format!("checkpoint certificate serialization failed: {error}")
                 })?
+            );
+            Ok(())
+        }
+        "fastswap-control-prepare" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let epoch_flag = |flag: &str| {
+                flag_value(flags, flag)
+                    .ok_or(format!("missing {flag}"))?
+                    .parse::<u64>()
+                    .map_err(|_| format!("{flag} must be a u64"))
+            };
+            let kind = match flag_value(flags, "--kind").ok_or("missing --kind")? {
+                "activate-committee" => postfiat_node::FastSwapControlPrepareKind::ActivateCommittee {
+                    committee_epoch: epoch_flag("--epoch")?,
+                    committee_root_hex: flag_value(flags, "--committee-root")
+                        .ok_or("missing --committee-root")?
+                        .to_string(),
+                },
+                "stop-prepare" => postfiat_node::FastSwapControlPrepareKind::StopPrepare {
+                    policy_epoch: epoch_flag("--policy-epoch")?,
+                },
+                _ => return Err("--kind must be activate-committee or stop-prepare".to_string()),
+            };
+            let summary =
+                postfiat_node::fastswap_control_prepare(postfiat_node::FastSwapControlPrepareOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    kind,
+                    control_file: PathBuf::from(control_file),
+                })
+                .map_err(|error| format!("fastswap-control-prepare refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&summary)
+                    .map_err(|error| format!("control summary serialization failed: {error}"))?
+            );
+            Ok(())
+        }
+        "fastswap-control-vote-sign" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let validator = flag_value(flags, "--validator").ok_or("missing --validator")?;
+            let validator_key_file =
+                flag_value(flags, "--validator-key-file").ok_or("missing --validator-key-file")?;
+            let vote_file = flag_value(flags, "--vote-file").ok_or("missing --vote-file")?;
+            let vote = postfiat_node::fastswap_control_vote_sign(
+                postfiat_node::FastSwapControlVoteSignOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    control_file: PathBuf::from(control_file),
+                    validator: validator.to_string(),
+                    validator_key_file: PathBuf::from(validator_key_file),
+                    vote_file: PathBuf::from(vote_file),
+                },
+            )
+            .map_err(|error| format!("fastswap-control-vote-sign failed: {error}"))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "validator_id": vote.validator_id,
+                    "committee_epoch": vote.committee.committee_epoch,
+                    "action_digest": bytes_to_hex(&vote.action_digest.0),
+                    "vote_file": vote_file,
+                })
+            );
+            Ok(())
+        }
+        "fastswap-control-assemble" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let control_file =
+                flag_value(flags, "--control-file").ok_or("missing --control-file")?;
+            let vote_files =
+                split_csv(flag_value(flags, "--vote-files").ok_or("missing --vote-files")?)
+                    .into_iter()
+                    .map(PathBuf::from)
+                    .collect::<Vec<_>>();
+            let certificate_file =
+                flag_value(flags, "--certificate-file").ok_or("missing --certificate-file")?;
+            let certificate = postfiat_node::fastswap_control_assemble(
+                postfiat_node::FastSwapControlAssembleOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    control_file: PathBuf::from(control_file),
+                    vote_files,
+                    certificate_file: PathBuf::from(certificate_file),
+                },
+            )
+            .map_err(|error| format!("fastswap-control-assemble failed: {error}"))?;
+            println!(
+                "{}",
+                serde_json::json!({
+                    "signers": certificate
+                        .votes
+                        .iter()
+                        .map(|vote| vote.validator_id.clone())
+                        .collect::<Vec<_>>(),
+                    "certificate_file": certificate_file,
+                })
             );
             Ok(())
         }

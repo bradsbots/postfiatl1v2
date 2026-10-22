@@ -339,6 +339,69 @@ mod rpc_serve_request_tests {
     }
 
     #[test]
+    fn rpc_serve_budget_drains_in_flight_request_and_reports_before_closing_listener() {
+        struct ListenerProbe {
+            port: u16,
+            bytes: Vec<u8>,
+            bound_during_write: bool,
+        }
+        impl Write for ListenerProbe {
+            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+                if self.bytes.is_empty() {
+                    self.bound_during_write = TcpStream::connect(("127.0.0.1", self.port)).is_ok();
+                }
+                self.bytes.extend_from_slice(buf);
+                Ok(buf.len())
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+        let root = node_serving_read_only_root("budget-drain");
+        let port = TcpListener::bind(("127.0.0.1", 0))
+            .expect("reserve test port")
+            .local_addr().expect("test port address").port();
+        let mut options = node_serving_read_only_options(&root, port, true);
+        options.max_requests = 1;
+        let ready_file = options.ready_file.clone();
+        let server = std::thread::spawn(move || {
+            let mut probe = ListenerProbe { port, bytes: Vec::new(), bound_during_write: false };
+            rpc_serve_with_report(options, &mut probe).map(|()| probe)
+        });
+        for _ in 0..100 {
+            if ready_file.is_file() { break; }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(ready_file.is_file(), "RPC server must be ready");
+        // The only budgeted connection is accepted, then its request arrives
+        // after the accept loop has stopped: it is in flight during the drain.
+        let mut stream = TcpStream::connect(("127.0.0.1", port)).expect("connect RPC");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("read timeout");
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(!server.is_finished(), "drain must wait for the in-flight connection");
+        let mut line = serde_json::to_vec(&RpcRequest::empty("in-flight", "status"))
+            .expect("serialize status request");
+        line.push(b'\n');
+        stream.write_all(&line).expect("send in-flight request");
+        let mut reply = String::new();
+        BufReader::new(stream.try_clone().expect("clone RPC stream"))
+            .read_line(&mut reply)
+            .expect("read in-flight response");
+        let response: RpcResponse = serde_json::from_str(&reply).expect("parse response");
+        assert!(response.ok, "{:?}", response.error);
+        stream.shutdown(std::net::Shutdown::Write).expect("close request stream");
+        let probe = server.join().expect("join RPC server").expect("serve and report");
+        assert!(probe.bound_during_write, "report must be written before the listener closes");
+        let report: serde_json::Value = serde_json::from_slice(&probe.bytes).expect("parse report");
+        assert_eq!(report["schema"], "postfiat-rpc-serve-v1");
+        assert_eq!(report["request_count"], 1);
+        assert_eq!(report["max_requests"], 1);
+        assert_eq!(report["requests"][0]["id"], "in-flight");
+        assert!(TcpStream::connect(("127.0.0.1", port)).is_err(), "listener closes after the report");
+        fs::remove_dir_all(root).expect("cleanup fixture");
+    }
+
+    #[test]
     fn rpc_serve_accept_budget_is_exact_at_every_small_boundary() {
         for max_requests in 0..=1_024 {
             let mut accepted = 0;
@@ -776,7 +839,7 @@ mod rpc_serve_request_tests {
                 ready_file: server_root.join("readiness/fastpay-v3-rpc.json"),
                 bind_host: "127.0.0.1".to_string(),
                 port,
-                max_requests: 8,
+                max_requests: 11,
                 timeout_ms: 10_000,
                 child_timeout_ms: 10_000,
                 event_log: None,
@@ -917,6 +980,65 @@ mod rpc_serve_request_tests {
         assert_eq!(
             recovered_certificate,
             postfiat_types::FastPayCertificateV1::Transfer(certificate)
+        );
+
+        let certificate_by_lock = send_loopback_rpc(
+            port,
+            &RpcRequest::empty("v3-certificate-by-lock", "owned_certificate")
+                .with_param("lock_id", &lock_id)
+                .expect("lock parameter"),
+        )
+        .result_as::<postfiat_types::FastPayCertificateV1>()
+        .expect("recover certificate by lock id");
+        assert_eq!(certificate_by_lock, recovered_certificate);
+
+        // A JSON null lock_id is still a present key, so a null lock_id next
+        // to a digest is the same ambiguous request and gets the same error
+        // (previously it fell to the missing-selector error).
+        let null_lock_certificate = send_loopback_rpc(
+            port,
+            &RpcRequest::empty("v3-certificate-null-lock", "owned_certificate")
+                .with_param("lock_id", &serde_json::Value::Null)
+                .and_then(|request| {
+                    request.with_param("certificate_digest", &apply_ack.certificate_digest)
+                })
+                .expect("null-lock certificate request"),
+        );
+        assert!(
+            !null_lock_certificate.ok,
+            "owned_certificate must reject a null lock_id next to certificate_digest"
+        );
+        let null_lock_error = null_lock_certificate
+            .error
+            .expect("null-lock-selector error");
+        assert_eq!(null_lock_error.code, "rpc_protocol_error");
+        assert_eq!(
+            null_lock_error.message,
+            "owned_certificate takes exactly one of lock_id or certificate_digest"
+        );
+
+        // Both selectors at once is ambiguous and must be rejected, not
+        // silently answered from the lock_id lookup.
+        let ambiguous_certificate = send_loopback_rpc(
+            port,
+            &RpcRequest::empty("v3-certificate-ambiguous", "owned_certificate")
+                .with_param("lock_id", &lock_id)
+                .and_then(|request| {
+                    request.with_param("certificate_digest", &apply_ack.certificate_digest)
+                })
+                .expect("ambiguous certificate request"),
+        );
+        assert!(
+            !ambiguous_certificate.ok,
+            "owned_certificate must reject lock_id and certificate_digest together"
+        );
+        let ambiguous_error = ambiguous_certificate
+            .error
+            .expect("ambiguous-selector error");
+        assert_eq!(ambiguous_error.code, "rpc_protocol_error");
+        assert_eq!(
+            ambiguous_error.message,
+            "owned_certificate takes exactly one of lock_id or certificate_digest"
         );
 
         let malformed_sign = send_loopback_rpc(
@@ -1178,6 +1300,150 @@ mod rpc_serve_request_tests {
     }
 
     #[test]
+    fn rpc_serve_absolute_path_resolves_relative_against_cwd_without_existing() {
+        let cwd = env::current_dir().expect("cwd");
+        let relative = Path::new(".postfiat-issue-27-does-not-exist/runtime/rpc-spool");
+        let resolved = rpc_serve_absolute_path(relative, "--spool-dir").expect("resolve");
+        assert!(resolved.is_absolute(), "{}", resolved.display());
+        assert!(resolved.starts_with(&cwd), "{}", resolved.display());
+        assert!(resolved.ends_with(relative), "{}", resolved.display());
+
+        let absolute = cwd.join("already-absolute");
+        let unchanged = rpc_serve_absolute_path(&absolute, "--data-dir").expect("resolve");
+        assert_eq!(unchanged, absolute);
+    }
+
+    #[test]
+    fn rpc_serve_child_response_restores_request_id_on_mismatch() {
+        // A worker that cannot read its spooled request answers with the CLI
+        // default id in the exact `print_rpc_error` shape; the parent must put
+        // the real request id on the wire for that error only.
+        let fallback = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        let restored = rpc_serve_child_response_with_request_id(fallback, "py-00000001");
+        assert_eq!(restored.id, "py-00000001");
+        assert!(!restored.ok);
+        assert_eq!(
+            restored.error.as_ref().map(|error| error.code.as_str()),
+            Some("rpc_read_error")
+        );
+        assert_eq!(
+            restored.error.as_ref().map(|error| error.message.as_str()),
+            Some("rpc request read failed")
+        );
+        assert!(
+            restored.events.iter().any(|event| event.subject == "rpc_child_id_mismatch"),
+            "{:?}",
+            restored.events
+        );
+
+        let matching = error_response("py-00000002", "rpc_error", "unchanged", vec![]);
+        let untouched = rpc_serve_child_response_with_request_id(matching.clone(), "py-00000002");
+        assert_eq!(untouched, matching);
+
+        let matching_success =
+            success_response("py-00000003", &serde_json::json!({"height": 7}), vec![])
+                .expect("success response");
+        let untouched_success =
+            rpc_serve_child_response_with_request_id(matching_success.clone(), "py-00000003");
+        assert_eq!(untouched_success, matching_success);
+    }
+
+    fn assert_rpc_serve_child_mismatch_discarded(response: &RpcResponse, request_id: &str) {
+        assert_eq!(response.id, request_id);
+        assert!(!response.ok, "{response:?}");
+        assert!(response.result.is_none(), "{response:?}");
+        assert_eq!(
+            response.error.as_ref().map(|error| error.code.as_str()),
+            Some("rpc_child_id_mismatch"),
+            "{response:?}"
+        );
+        assert_eq!(
+            response.events,
+            vec![RpcEvent::new(
+                "rpc_serve",
+                "rpc_child_id_mismatch",
+                "remote rpc request rejected",
+            )]
+        );
+        response.validate_protocol().expect("parent error is protocol valid");
+    }
+
+    #[test]
+    fn rpc_serve_child_response_rejects_mismatched_success() {
+        // A valid `ok: true` worker response for a different request id must
+        // not be relabeled as the caller's success.
+        let other = success_response(
+            "other-id",
+            &serde_json::json!({"balance": "1000", "account": "rOther"}),
+            vec![RpcEvent::new("rpc", "account_info", "served")],
+        )
+        .expect("success response");
+        other.validate_protocol().expect("worker success is protocol valid");
+        let response = rpc_serve_child_response_with_request_id(other, "py-00000004");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000004");
+
+        // The fallback id alone does not unlock recovery for a success.
+        let fallback_success =
+            success_response("local-1", &serde_json::json!({"balance": "1"}), vec![])
+                .expect("success response");
+        let response = rpc_serve_child_response_with_request_id(fallback_success, "py-00000005");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000005");
+    }
+
+    #[test]
+    fn rpc_serve_child_response_rejects_mismatched_non_fallback_errors() {
+        // An error under some other request id is a different request's
+        // answer, not the read-failure fallback.
+        let other_error = error_response(
+            "other-id",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        let response = rpc_serve_child_response_with_request_id(other_error, "py-00000006");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000006");
+
+        // `local-1` errors that deviate from the exact `print_rpc_error`
+        // shape (extra events, mismatched event subject, carried result) are
+        // not the fallback either.
+        let extra_event = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![
+                RpcEvent::new("error", "rpc_read_error", "rpc request failed"),
+                RpcEvent::new("rpc", "account_info", "served"),
+            ],
+        );
+        let response = rpc_serve_child_response_with_request_id(extra_event, "py-00000007");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000007");
+
+        let wrong_subject = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "other_code", "rpc request failed")],
+        );
+        let response = rpc_serve_child_response_with_request_id(wrong_subject, "py-00000008");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000008");
+
+        let mut with_result = error_response(
+            "local-1",
+            "rpc_read_error",
+            "rpc request read failed",
+            vec![RpcEvent::new("error", "rpc_read_error", "rpc request failed")],
+        );
+        with_result.result = Some(serde_json::json!({"balance": "1"}));
+        let response = rpc_serve_child_response_with_request_id(with_result, "py-00000009");
+        assert_rpc_serve_child_mismatch_discarded(&response, "py-00000009");
+    }
+
+    #[test]
     fn rpc_serve_spool_root_rejects_non_directory() {
         let path = env::temp_dir().join(format!("postfiat-rpc-spool-file-{}", process::id()));
         std::fs::write(&path, b"not a directory").expect("write spool root file");
@@ -1244,6 +1510,106 @@ mod rpc_serve_request_tests {
         assert_ne!(first_status, second_status);
         assert_ne!(first_mempool, second_mempool);
         std::fs::remove_dir_all(root).expect("cleanup health stamp root");
+    }
+
+    #[test]
+    fn rpc_serve_status_cache_expires_after_transactional_commit() {
+        let root = env::temp_dir().join(format!(
+            "postfiat-rpc-status-transactional-{}-{}",
+            process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos(),
+        ));
+        init_consensus_v2(InitConsensusV2Options {
+            data_dir: root.clone(),
+            chain_id: "rpc-status-transactional".to_string(),
+            node_id: "validator-0".to_string(),
+            validator_count: 1,
+            activation_height: 1000,
+            storage_activation_height: Some(1),
+        })
+        .expect("initialize transactional RPC fixture");
+        let recipient_backup = postfiat_rpc_sdk::wallet_backup_from_master_seed(
+            "rpc-status-transactional",
+            "ab".repeat(32),
+            0,
+        )
+        .unwrap();
+        let recipient_key = postfiat_rpc_sdk::derive_wallet_key_pair(&recipient_backup).unwrap();
+        let recipient =
+            postfiat_crypto_provider::address_from_public_key(&recipient_key.public_key);
+        let commit = || {
+            let batch_file = root.join("transfer.batch.json");
+            create_transfer_batch(BatchTransferOptions {
+                data_dir: root.clone(),
+                key_file: None,
+                to: recipient.clone(),
+                amount: 250_000,
+                batch_file: batch_file.clone(),
+            })
+            .expect("build transfer");
+            let receipts = apply_batch(ApplyBatchOptions {
+                data_dir: root.clone(),
+                batch_file,
+                certificate_file: None,
+            })
+            .expect("commit transfer");
+            assert!(
+                receipts.iter().all(|receipt| receipt.accepted),
+                "{receipts:?}"
+            );
+        };
+        commit();
+        let cache = Mutex::new(RpcServeHealthCache::default());
+        let (first, hit) = rpc_serve_cached_status(&root, &cache).expect("prime cache");
+        assert!(!hit);
+        assert_eq!(first.block_height, 1);
+        assert!(postfiat_storage::NodeStore::new(&root)
+            .transactional_storage_active()
+            .unwrap());
+        let stamp = rpc_serve_health_stamp(&root, true).expect("legacy stamp");
+        commit();
+        assert_eq!(
+            rpc_serve_health_stamp(&root, true).unwrap(),
+            stamp,
+            "transactional commits must exercise unchanged legacy metadata"
+        );
+        assert_eq!(
+            status(NodeOptions {
+                data_dir: root.clone()
+            })
+            .unwrap()
+            .block_height,
+            2
+        );
+        let expired = Instant::now() - RPC_SERVE_HEALTH_STAMP_MAX_AGE - Duration::from_secs(1);
+        cache.lock().unwrap().status_checked_at = Some(expired);
+        let (fresh, hit) = rpc_serve_cached_status(&root, &cache).expect("refresh expired cache");
+        assert!(
+            !hit,
+            "unchanged legacy files must not extend an expired report"
+        );
+        assert_eq!(fresh.block_height, 2);
+        let (cached, hit) = rpc_serve_cached_status(&root, &cache).expect("reuse fresh cache");
+        assert!(hit);
+        assert_eq!(cached.block_tip_hash, fresh.block_tip_hash);
+
+        cache.lock().unwrap().status_checked_at = Some(expired);
+        let genesis_path = root.join(postfiat_storage::GENESIS_FILE);
+        let genesis = fs::read(&genesis_path).unwrap();
+        fs::write(&genesis_path, b"invalid genesis").unwrap();
+        for _ in 0..2 {
+            assert!(
+                rpc_serve_cached_status(&root, &cache).is_err(),
+                "failed refresh must not make an expired report fresh again"
+            );
+            assert_eq!(cache.lock().unwrap().status_checked_at, Some(expired));
+        }
+        fs::write(&genesis_path, genesis).unwrap();
+        assert!(!rpc_serve_cached_status(&root, &cache).unwrap().1);
+        fs::remove_dir_all(root).expect("cleanup transactional RPC fixture");
     }
 
     #[cfg(target_os = "linux")]

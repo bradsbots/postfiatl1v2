@@ -399,7 +399,70 @@ pub(super) fn completed_index_intent_path_for_test(data_dir: &Path) -> PathBuf {
     completed_index_intent_path(data_dir)
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Test-only hook run between the pathname pre-check and the open in
+    /// `read_bounded_regular_file`, so a regression can substitute the path
+    /// inside that window.
+    static BOUNDED_READ_BEFORE_OPEN_HOOK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Opens `path` for a bounded control-artifact read.
+///
+/// On Unix the open itself refuses a symlink in the final path component
+/// (`O_NOFOLLOW`), so a path swapped for a symlink after any earlier pathname
+/// check is rejected atomically by the kernel rather than followed.
+/// `O_NONBLOCK` keeps a FIFO swapped into the path from blocking the open;
+/// the caller's `fstat` check on the handle then rejects it. It has no effect
+/// on reads of a regular file.
+#[cfg(unix)]
+fn open_for_bounded_read(path: &Path) -> io::Result<std::fs::File> {
+    OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+        .open(path)
+}
+
+/// Non-Unix: there is no portable no-follow open here, so this is an ordinary
+/// open that follows symlinks. The symlink rejection on these platforms is
+/// only the pathname pre-check in `read_bounded_regular_file`, which a
+/// concurrent local writer can race; the regular-file check on the handle and
+/// the byte cap still hold.
+#[cfg(not(unix))]
+fn open_for_bounded_read(path: &Path) -> io::Result<std::fs::File> {
+    std::fs::File::open(path)
+}
+
+/// True when the open failed because `O_NOFOLLOW` met a symlink (Linux and
+/// macOS report `ELOOP`; FreeBSD reports `EMLINK`).
+#[cfg(unix)]
+fn is_no_follow_symlink_error(error: &io::Error) -> bool {
+    matches!(error.raw_os_error(), Some(code) if code == libc::ELOOP || code == libc::EMLINK)
+}
+
+#[cfg(not(unix))]
+fn is_no_follow_symlink_error(_error: &io::Error) -> bool {
+    false
+}
+
+/// Reads a small control artifact through one checked handle (SMG-05).
+///
+/// The pathname `symlink_metadata` check is only an early rejection. The
+/// guarantees come from the opened handle: on Unix the open does not follow
+/// a symlink (see `open_for_bounded_read`), the handle's own metadata must be
+/// a regular file, and the read goes through a limiting reader that rejects
+/// any byte past `max_bytes`, so replacement or growth after the pathname
+/// check cannot deliver substituted symlink-target bytes, a non-regular file,
+/// or more than the cap. On non-Unix targets symlink substitution between the
+/// pathname check and the open is not excluded.
 fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result<Option<Vec<u8>>, String> {
+    let not_regular = || {
+        format!(
+            "certified send {label} `{}` must be a non-symlink regular file",
+            path.display()
+        )
+    };
     let metadata = match std::fs::symlink_metadata(path) {
         Ok(metadata) => metadata,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -411,10 +474,7 @@ fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result
         }
     };
     if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(format!(
-            "certified send {label} `{}` must be a non-symlink regular file",
-            path.display()
-        ));
+        return Err(not_regular());
     }
     if metadata.len() > max_bytes {
         return Err(format!(
@@ -422,9 +482,38 @@ fn read_bounded_regular_file(path: &Path, max_bytes: u64, label: &str) -> Result
             path.display()
         ));
     }
-    std::fs::read(path)
-        .map(Some)
-        .map_err(|error| format!("certified send {label} read `{}` failed: {error}", path.display()))
+    #[cfg(test)]
+    if let Some(hook) = BOUNDED_READ_BEFORE_OPEN_HOOK.with(|hook| hook.borrow_mut().take()) {
+        hook();
+    }
+    use std::io::Read as _;
+    let file = match open_for_bounded_read(path) {
+        Ok(file) => file,
+        Err(error) if is_no_follow_symlink_error(&error) => return Err(not_regular()),
+        Err(error) => {
+            return Err(format!(
+                "certified send {label} open `{}` failed: {error}",
+                path.display()
+            ));
+        }
+    };
+    let opened = file
+        .metadata()
+        .map_err(|error| format!("certified send {label} metadata `{}` failed: {error}", path.display()))?;
+    if !opened.is_file() {
+        return Err(not_regular());
+    }
+    let mut bytes = Vec::with_capacity(opened.len().min(max_bytes) as usize);
+    file.take(max_bytes.saturating_add(1))
+        .read_to_end(&mut bytes)
+        .map_err(|error| format!("certified send {label} read `{}` failed: {error}", path.display()))?;
+    if bytes.len() as u64 > max_bytes {
+        return Err(format!(
+            "certified send {label} `{}` exceeds {max_bytes} bytes",
+            path.display()
+        ));
+    }
+    Ok(Some(bytes))
 }
 
 fn read_index(
@@ -922,6 +1011,17 @@ fn sync_append_move(data_dir: &Path) -> Result<(), String> {
     )
 }
 
+fn sync_prune_move(data_dir: &Path) -> Result<(), String> {
+    sync_recovery_directory(
+        &certified_send_completed_dir(data_dir),
+        "completed directory after prune move",
+    )?;
+    sync_recovery_directory(
+        &certified_send_completed_retention_dir(data_dir),
+        "retention directory after prune move",
+    )
+}
+
 fn retention_destination(data_dir: &Path, job_id: &str) -> PathBuf {
     certified_send_completed_retention_dir(data_dir).join(job_id)
 }
@@ -1047,14 +1147,12 @@ fn reconcile_prune_op(
                     entry.job_id
                 )
             })?;
-            sync_certified_send_directory(
-                &certified_send_completed_dir(data_dir),
-                "completed directory after prune recovery move",
-            )?;
-            sync_certified_send_directory(
-                &certified_send_completed_retention_dir(data_dir),
-                "retention directory after prune recovery move",
-            )?;
+        }
+        if source_exists || destination_exists {
+            // A previous rename can be visible after an interrupted or failed
+            // sync. Retry both directory barriers before the index and intent
+            // acknowledge the prune.
+            sync_prune_move(data_dir)?;
         }
         index.entries.remove(position);
         return Ok(());
@@ -1747,6 +1845,119 @@ mod completed_index_tests {
     }
 
     #[test]
+    fn bounded_regular_file_read_enforces_the_cap_on_the_opened_handle() {
+        // SMG-05: the previous implementation checked metadata, then did a
+        // separate unbounded read; the bound now holds on the bytes actually
+        // read from the handle.
+        let root = test_root("bounded-read");
+        std::fs::create_dir_all(&root).expect("create root");
+        let path = root.join("probe.json");
+        assert_eq!(
+            read_bounded_regular_file(&path, 16, "probe").expect("missing file"),
+            None
+        );
+        std::fs::write(&path, [b'x'; 16]).expect("write exact");
+        assert_eq!(
+            read_bounded_regular_file(&path, 16, "probe")
+                .expect("exactly at the cap")
+                .map(|bytes| bytes.len()),
+            Some(16)
+        );
+        std::fs::write(&path, [b'x'; 17]).expect("write over");
+        let error = read_bounded_regular_file(&path, 16, "probe").expect_err("over the cap");
+        assert!(error.contains("exceeds 16 bytes"), "{error}");
+        let error = read_bounded_regular_file(&root, 16, "probe").expect_err("directory");
+        assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        #[cfg(unix)]
+        {
+            let link = root.join("probe-link.json");
+            std::os::unix::fs::symlink(&path, &link).expect("create symlink");
+            let error = read_bounded_regular_file(&link, 64, "probe").expect_err("symlink");
+            assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        }
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    fn set_bounded_read_before_open_hook(hook: impl FnOnce() + 'static) {
+        BOUNDED_READ_BEFORE_OPEN_HOOK.with(|slot| *slot.borrow_mut() = Some(Box::new(hook)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_regular_file_read_rejects_symlink_swapped_in_after_the_check() {
+        // SMG-05 replacement window: the path is a regular file when
+        // `symlink_metadata` checks it, then is replaced by a symlink to
+        // another file before the open. A following open would return the
+        // substituted target's bytes while the handle reports a regular file.
+        let root = test_root("bounded-read-symlink-swap");
+        std::fs::create_dir_all(&root).expect("create root");
+        let path = root.join("probe.json");
+        let substituted = root.join("substituted.json");
+        std::fs::write(&path, b"checked").expect("write checked file");
+        std::fs::write(&substituted, b"substituted").expect("write substituted file");
+        let swap_path = path.clone();
+        let swap_target = substituted.clone();
+        set_bounded_read_before_open_hook(move || {
+            std::fs::remove_file(&swap_path).expect("remove checked file");
+            std::os::unix::fs::symlink(&swap_target, &swap_path).expect("swap in symlink");
+        });
+        let result = read_bounded_regular_file(&path, 64, "probe");
+        assert!(
+            std::fs::symlink_metadata(&path)
+                .expect("swapped path")
+                .file_type()
+                .is_symlink(),
+            "the hook must have swapped the path for a symlink"
+        );
+        let error = result.expect_err("symlink swapped in after the check must be rejected");
+        assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_regular_file_read_rejects_fifo_swapped_in_after_the_check() {
+        // The no-follow open is also non-blocking, so a FIFO swapped into the
+        // path cannot hang the reader; the handle check rejects it.
+        let root = test_root("bounded-read-fifo-swap");
+        std::fs::create_dir_all(&root).expect("create root");
+        let path = root.join("probe.json");
+        std::fs::write(&path, b"checked").expect("write checked file");
+        let swap_path = path.clone();
+        set_bounded_read_before_open_hook(move || {
+            std::fs::remove_file(&swap_path).expect("remove checked file");
+            use std::os::unix::ffi::OsStrExt as _;
+            let fifo = std::ffi::CString::new(swap_path.as_os_str().as_bytes())
+                .expect("fifo path");
+            // SAFETY: `fifo` is a valid NUL-terminated path for this call.
+            let status = unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) };
+            assert_eq!(status, 0, "mkfifo failed: {}", io::Error::last_os_error());
+        });
+        let error = read_bounded_regular_file(&path, 64, "probe")
+            .expect_err("FIFO swapped in after the check must be rejected");
+        assert!(error.contains("must be a non-symlink regular file"), "{error}");
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bounded_read_open_does_not_follow_an_existing_symlink() {
+        // The open primitive itself refuses a symlink, independent of the
+        // pathname pre-check.
+        let root = test_root("bounded-read-no-follow-open");
+        std::fs::create_dir_all(&root).expect("create root");
+        let target = root.join("target.json");
+        std::fs::write(&target, b"target").expect("write target");
+        let link = root.join("link.json");
+        std::os::unix::fs::symlink(&target, &link).expect("create symlink");
+        let error = open_for_bounded_read(&link).expect_err("no-follow open of a symlink");
+        assert!(is_no_follow_symlink_error(&error), "{error:?}");
+        assert!(open_for_bounded_read(&target).is_ok());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
     fn no_outbox_first_resume_migrates_empty_index() {
         let root = test_root("no-outbox-first-resume");
         std::fs::create_dir_all(&root).expect("create fresh data directory");
@@ -2238,6 +2449,108 @@ mod completed_index_tests {
             assert!(!completed_index_intent_path(&root).exists());
             std::fs::remove_dir_all(root).unwrap();
         }
+    }
+
+    /// Seeds a production-shaped completed job (stored paths under `outbox/`,
+    /// as `enqueue` writes them, then moved into `completed/` as an append
+    /// does), indexes it and writes a durable prune intent for it.
+    fn seed_prune_intent(root: &Path, topology: &NetworkTopology) -> (String, PathBuf) {
+        seed_completed(root, topology, 2);
+        let (job_id, outbox_dir) = tombstone_job(root, topology, 50, false);
+        let completed = certified_send_completed_dir(root).join(&job_id);
+        std::fs::rename(&outbox_dir, &completed).unwrap();
+        verify_and_rebuild_completed_index(root).unwrap();
+        let mut work = DurableCertifiedSendWorkReport::default();
+        let entry = validate_job_directory(&completed, &job_id, &mut work)
+            .unwrap()
+            .entry;
+        write_intent(root, "prune", &entry).unwrap();
+        (job_id, completed)
+    }
+
+    fn assert_prune_recovery_retries_sync(moved_before_crash: bool) {
+        for fail_retention in [false, true] {
+            let root = test_root("smg07-prune-sync");
+            let topology = test_topology();
+            let (job_id, completed) = seed_prune_intent(&root, &topology);
+            let retained = retention_destination(&root, &job_id);
+            if moved_before_crash {
+                ensure_retention_directory(&root).unwrap();
+                std::fs::rename(&completed, &retained).unwrap();
+            }
+            let prior_index = std::fs::read(completed_index_path(&root)).unwrap();
+            let fail_path = if fail_retention {
+                certified_send_completed_retention_dir(&root)
+            } else {
+                certified_send_completed_dir(&root)
+            };
+            for _ in 0..2 {
+                RECOVERY_SYNC_FAILURE
+                    .with(|failure| *failure.borrow_mut() = Some(fail_path.clone()));
+                let result = compact_completed_with_index(&root);
+                RECOVERY_SYNC_FAILURE.with(|failure| *failure.borrow_mut() = None);
+                let error = result.unwrap_err();
+                assert!(
+                    error.contains("injected completed-index recovery sync failure"),
+                    "{error}"
+                );
+                assert_eq!(
+                    std::fs::read(completed_index_path(&root)).unwrap(),
+                    prior_index
+                );
+                assert!(completed_index_intent_path(&root).is_file());
+                assert!(retained.is_dir());
+                assert!(!completed.exists());
+            }
+            compact_completed_with_index(&root).unwrap();
+            let index = read_index(&root, &mut DurableCertifiedSendWorkReport::default())
+                .unwrap()
+                .unwrap();
+            assert_eq!(index.entries.len(), 2);
+            assert!(index_entry_position(&index, &job_id).is_none());
+            assert!(!completed_index_intent_path(&root).exists());
+            assert!(!retained.exists());
+            let verified = verify_and_rebuild_completed_index(&root).unwrap();
+            assert_eq!(verified.entry_count, 2);
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
+
+    #[test]
+    fn smg07_prune_recovery_retries_directory_sync_before_index_publication() {
+        assert_prune_recovery_retries_sync(true);
+    }
+
+    #[test]
+    fn smg07_prune_recovery_rename_branch_retries_directory_sync() {
+        assert_prune_recovery_retries_sync(false);
+    }
+
+    #[test]
+    fn smg07_fixture_completed_paths_stay_refused() {
+        let root = test_root("smg07-fixture-paths");
+        let topology = test_topology();
+        seed_completed(&root, &topology, 2);
+        let (job_id, completed) = tombstone_job(&root, &topology, 50, true);
+        verify_and_rebuild_completed_index(&root).unwrap();
+        let mut work = DurableCertifiedSendWorkReport::default();
+        let entry = validate_job_directory(&completed, &job_id, &mut work)
+            .unwrap()
+            .entry;
+        write_intent(&root, "prune", &entry).unwrap();
+        ensure_retention_directory(&root).unwrap();
+        let retained = retention_destination(&root, &job_id);
+        std::fs::rename(&completed, &retained).unwrap();
+        let prior_index = std::fs::read(completed_index_path(&root)).unwrap();
+        let error = compact_completed_with_index(&root).unwrap_err();
+        assert!(error.contains("not canonical"), "{error}");
+        assert_eq!(
+            std::fs::read(completed_index_path(&root)).unwrap(),
+            prior_index
+        );
+        assert!(completed_index_intent_path(&root).is_file());
+        assert!(retained.is_dir());
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     #[test]

@@ -1,0 +1,285 @@
+{
+ "schema": "combined-fastpay-20260928-rollout-record-v1",
+ "tool": "scripts/postfiat-safe-rollout apply-next",
+ "order": [
+  "validator-1",
+  "validator-0",
+  "validator-2",
+  "validator-3",
+  "validator-4",
+  "validator-5"
+ ],
+ "rollout_state_sha256_after": "dde65f5bc8563441d50b687e691cd33c31b9f3112da0df35dd0a3a85cb219f0f",
+ "applies": [
+  {
+   "validator_id": "validator-1",
+   "completed_unix": 1790581250,
+   "restart_height": 1050,
+   "fleet_convergence_height": 1050,
+   "fleet_convergence_root": "13d9e652392be49f03eb3c0f683718684203051d56a05da365dbb45e03dda183e89977b5e0772fbf6c633df65c3c39be",
+   "exit": 0,
+   "evidence": "apply-1.json"
+  },
+  {
+   "validator_id": "validator-0",
+   "completed_unix": 1790581559,
+   "restart_height": 1051,
+   "fleet_convergence_height": 1051,
+   "fleet_convergence_root": "0342778184aca22c86ff2d35fee1fad2eabfea3bc5b6834830a6a3f41fafd3d60528c1dc9a7439706893e82d01f753a7",
+   "exit": 0,
+   "evidence": "apply-2.json"
+  },
+  {
+   "validator_id": "validator-2",
+   "completed_unix": 1790582071,
+   "restart_height": 1052,
+   "fleet_convergence_height": 1052,
+   "fleet_convergence_root": "c971dce48b2c6af0a3b37c69d611684f6702c8736a3b14278f3d5f457d54b19843f8256bfe39c5d62fe11fc5d8c7d166",
+   "exit": 0,
+   "evidence": "apply-3.json"
+  },
+  {
+   "validator_id": "validator-3",
+   "completed_unix": 1790582288,
+   "restart_height": 1053,
+   "fleet_convergence_height": 1053,
+   "fleet_convergence_root": "e6bf5a9adc0820c58e451d8957eb5a26eb112dc7266a8bbfa72e98a072db0dbe72673cb6a651f599c497eb1a90b30679",
+   "exit": 0,
+   "evidence": "apply-4.json"
+  },
+  {
+   "validator_id": "validator-4",
+   "completed_unix": 1790582475,
+   "restart_height": 1054,
+   "fleet_convergence_height": 1054,
+   "fleet_convergence_root": "8ee8314dd104f1e800419e951995535250dfc8ca93219ebd543ea773d85bd49c5b76e6f3935e539f0e8f8be168f45376",
+   "exit": 0,
+   "evidence": "apply-5.json"
+  },
+  {
+   "validator_id": "validator-5",
+   "completed_unix": 1790582726,
+   "restart_height": 1055,
+   "fleet_convergence_height": 1055,
+   "fleet_convergence_root": "d86d3931db5ab5877f091f3520fa02180ecc01ac765ffce24944bab3d5873c1e1db98fc628ad10e37fcfada7d8f94580",
+   "exit": 0,
+   "evidence": "apply-6.json"
+  }
+ ],
+ "faucet_path": "StakeHub pft faucet testing --asset PFT --amount 1000000 (send_pft)",
+ "faucet_grants": [
+  {
+   "after_apply_of": "validator-1",
+   "height": 1051,
+   "view": 0,
+   "proposer": "validator-1",
+   "tx_id": "0d8413ba8685521303247362a7637b402b2a628bbc27f82001bd3389cbc8361739bf76d3dcdb37e848b78340d1436722",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "e3c0d584230889759afca048202986845eab53483025d8559a4a404db7457059d79a6bce34d9fdc110f6cacf169e5de3",
+   "state_root": "0342778184aca22c86ff2d35fee1fad2eabfea3bc5b6834830a6a3f41fafd3d60528c1dc9a7439706893e82d01f753a7",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  },
+  {
+   "after_apply_of": "validator-0",
+   "height": 1052,
+   "view": 0,
+   "proposer": "validator-2",
+   "tx_id": "c7ff719368be2fd2e003da2cd83f1a4109a387db3625a01afe65008fcb22a8aaf440276a29ed72ae224199fc5a73ebf0",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "2ef7e45d1daf7053494d0a1e48f7591b2ab83a604d17bd4732fcf1c30ced70ee86f94e04f7995bcca182ebb8a6bfb556",
+   "state_root": "c971dce48b2c6af0a3b37c69d611684f6702c8736a3b14278f3d5f457d54b19843f8256bfe39c5d62fe11fc5d8c7d166",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-1",
+    "validator-2",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  },
+  {
+   "after_apply_of": "validator-2",
+   "height": 1053,
+   "view": 0,
+   "proposer": "validator-3",
+   "tx_id": "8298d68be93227fe46586e923cda7fbc5c5dd9528cec3af1f39ba7589b9cb1df1aeae229220335a350c3f48d6cffb1f5",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "b0b27dffc125e959469000ab39690d6a20ef17b0eb9624e6ee2a4eadc500ed967350e79e438298f0ab89bf7f4a7c7224",
+   "state_root": "e6bf5a9adc0820c58e451d8957eb5a26eb112dc7266a8bbfa72e98a072db0dbe72673cb6a651f599c497eb1a90b30679",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  },
+  {
+   "after_apply_of": "validator-3",
+   "height": 1054,
+   "view": 0,
+   "proposer": "validator-4",
+   "tx_id": "1fc4fe37bda450b71365cfb677ef3aa246e6608ed1e129df79a7948c965bc37b1da2af1227c1093e4a5a8695a1ceb053",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "5b95553c9bb210615c174a799c1658b6657856ecd8a08fca975ecfa9f9b460e21be640d55e7212b85cef2efa0af81dd0",
+   "state_root": "8ee8314dd104f1e800419e951995535250dfc8ca93219ebd543ea773d85bd49c5b76e6f3935e539f0e8f8be168f45376",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  },
+  {
+   "after_apply_of": "validator-4",
+   "height": 1055,
+   "view": 0,
+   "proposer": "validator-5",
+   "tx_id": "85e7f177231097ec6e7fd402bd7193f500b797167dc0bb74c134eefc8b5bc8d11fb77e4419a957812c8db38f4009f9d2",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "693cc76ef9eea2ed19b238c1ee92565eeebb698bc654de024aec4ddbe0b931b06ada4c57c0cb0134605381fc929d3b86",
+   "state_root": "d86d3931db5ab5877f091f3520fa02180ecc01ac765ffce24944bab3d5873c1e1db98fc628ad10e37fcfada7d8f94580",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-1",
+    "validator-2",
+    "validator-3",
+    "validator-4",
+    "validator-5"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  },
+  {
+   "after_apply_of": "validator-5",
+   "height": 1056,
+   "view": 0,
+   "proposer": "validator-0",
+   "tx_id": "f519040ef905f5b6ffe701d64da2b3eac7dca978e160eeb5c8c78fe3c1d346c99bd8031a5b7701f3279a73bbd95ac632",
+   "from_faucet": "pfcd4cc8c354bd340fe18386e6f875ff68f215a95c",
+   "to_testing": "pf6395ef7f43ffaa74ce178d320b9bbbfd45532b38",
+   "amount_atoms": 1000000,
+   "fee_atoms": 32,
+   "block_hash": "30ebdccd49b21d578c06ac2d7ac0c2bd9b394b92fcbab7f0ceb6a3aeaeb477f10eb51d4999feb412e976b9f8ba323495",
+   "state_root": "22576546812ab925296b8be3927e913df59b6cccff54c546f60eb9eb12a4bdcad395bf4e5168bbe6c50151f5bf92730f",
+   "certificate_quorum": 5,
+   "certificate_voters": [
+    "validator-0",
+    "validator-1",
+    "validator-2",
+    "validator-3",
+    "validator-4"
+   ],
+   "verified_6_of_6": true,
+   "identical_block_on_6": true
+  }
+ ],
+ "live_fix_check": {
+  "checked_at": "2026-09-28T08:08:07+00:00",
+  "result": "NOT_RUN",
+  "reason": "validator-5's next view-0 turn is height 1061; the chain is at 1056, so 4 positioning grants (1057-1060) would be needed before the payment and the check grant, more than the three allowed",
+  "proposer_rule": "crates/ordering_fast/src/lib.rs leader_for_view: validators[(height + view) mod 6]",
+  "certificate_validators": [
+   "validator-0",
+   "validator-1",
+   "validator-2",
+   "validator-3",
+   "validator-4",
+   "validator-5"
+  ],
+  "schedule_confirmed_on_heights": [
+   {
+    "height": 1051,
+    "view": 0,
+    "proposer": "validator-1"
+   },
+   {
+    "height": 1052,
+    "view": 0,
+    "proposer": "validator-2"
+   },
+   {
+    "height": 1053,
+    "view": 0,
+    "proposer": "validator-3"
+   },
+   {
+    "height": 1054,
+    "view": 0,
+    "proposer": "validator-4"
+   },
+   {
+    "height": 1055,
+    "view": 0,
+    "proposer": "validator-5"
+   },
+   {
+    "height": 1056,
+    "view": 0,
+    "proposer": "validator-0"
+   }
+  ],
+  "chain_height": 1056,
+  "next_view0_proposers": [
+   {
+    "height": 1057,
+    "proposer": "validator-1"
+   },
+   {
+    "height": 1058,
+    "proposer": "validator-2"
+   },
+   {
+    "height": 1059,
+    "proposer": "validator-3"
+   },
+   {
+    "height": 1060,
+    "proposer": "validator-4"
+   },
+   {
+    "height": 1061,
+    "proposer": "validator-5"
+   },
+   {
+    "height": 1062,
+    "proposer": "validator-0"
+   }
+  ],
+  "fastpay_payment_made": false,
+  "grants_used": 0
+ }
+}

@@ -19,6 +19,9 @@ RPC_VERSION = "postfiat-local-rpc-v1"
 DEFAULT_TIMEOUT_SECONDS = 8.0
 DEFAULT_RESPONSE_BYTE_CAP = 1_048_576
 DEFAULT_READ_LIMIT = 100
+# Mirrors crates/node/src/lifecycle_queries.rs MAX_READ_QUERY_LIMIT: the node
+# refuses an `archive_window` range longer than this many blocks.
+MAX_ARCHIVE_WINDOW_BLOCKS = 512
 MAX_ACCOUNT_TX_SCAN_LIMIT = 512
 ESCROW_ID_DOMAIN = "postfiat.escrow_id.v1"
 ESCROW_CONDITION_HASH_DOMAIN = "postfiat.escrow_condition_hash.v1"
@@ -656,9 +659,7 @@ class PostFiatRpcClient:
         if not offer_id:
             raise ValueError("offer_id is required")
         result = self._call("offer_info", {"offer_id": offer_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("offer_info result must be an object")
-        return result
+        return self._bound_info_result("offer_info", result, "offer_id", "offer", offer_id)
 
     def account_offers(
         self,
@@ -679,7 +680,9 @@ class PostFiatRpcClient:
         result = self._call("account_offers", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_offers result must be an object")
-        return result
+        return self._bound_account_collection_result(
+            "account_offers", result, account, state=state
+        )
 
     def book_offers(
         self,
@@ -709,9 +712,7 @@ class PostFiatRpcClient:
         if not asset_id:
             raise ValueError("asset_id is required")
         result = self._call("asset_info", {"asset_id": asset_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("asset_info result must be an object")
-        return result
+        return self._bound_info_result("asset_info", result, "asset_id", "asset", asset_id)
 
     def account_lines(
         self,
@@ -775,9 +776,7 @@ class PostFiatRpcClient:
         if not escrow_id:
             raise ValueError("escrow_id is required")
         result = self._call("escrow_info", {"escrow_id": escrow_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("escrow_info result must be an object")
-        return result
+        return self._bound_info_result("escrow_info", result, "escrow_id", "escrow", escrow_id)
 
     def account_escrows(
         self,
@@ -803,15 +802,56 @@ class PostFiatRpcClient:
         result = self._call("account_escrows", params)
         if not isinstance(result, dict):
             raise RpcProtocolError("account_escrows result must be an object")
+        return self._bound_account_collection_result(
+            "account_escrows", result, account, state=state, role=role
+        )
+
+    @staticmethod
+    def _bound_account_collection_result(
+        method: str,
+        result: dict[str, Any],
+        account: str,
+        *,
+        state: str | None,
+        role: str | None = None,
+    ) -> dict[str, Any]:
+        if type(result.get("account")) is not str or result["account"] != account:
+            raise RpcProtocolError(f"{method} result.account must match requested account")
+        collection = "offers" if method == "account_offers" else "escrows"
+        filters = {"role": role, "state": state} if collection == "escrows" else {"state": state}
+        for field, requested in filters.items():
+            value = result.get(field)
+            matches = value is None if requested is None else type(value) is str and value == requested
+            if field not in result or not matches:
+                raise RpcProtocolError(f"{method} result.{field} must match requested {field}")
+        rows = result.get(collection)
+        if not isinstance(rows, list):
+            raise RpcProtocolError(f"{method} result.{collection} must be an array")
+        fields = ("owner", "recipient", "state") if collection == "escrows" else ("owner", "state")
+        for index, row in enumerate(rows):
+            label = f"{method} result.{collection}[{index}]"
+            if not isinstance(row, dict):
+                raise RpcProtocolError(f"{label} must be an object")
+            for field in fields:
+                if type(row.get(field)) is not str:
+                    raise RpcProtocolError(f"{label}.{field} must be a string")
+            if collection == "offers":
+                if row["owner"] != account:
+                    raise RpcProtocolError(f"{label}.owner must match requested account")
+            elif role is not None:
+                if row[role] != account:
+                    raise RpcProtocolError(f"{label}.{role} must match requested account for role {role}")
+            elif row["owner"] != account and row["recipient"] != account:
+                raise RpcProtocolError(f"{label} must belong to requested account")
+            if state is not None and row["state"] != state:
+                raise RpcProtocolError(f"{label}.state must match requested state")
         return result
 
     def nft_info(self, nft_id: str) -> dict[str, Any]:
         if not nft_id:
             raise ValueError("nft_id is required")
         result = self._call("nft_info", {"nft_id": nft_id})
-        if not isinstance(result, dict):
-            raise RpcProtocolError("nft_info result must be an object")
-        return result
+        return self._bound_info_result("nft_info", result, "nft_id", "nft", nft_id)
 
     def account_nfts(
         self,
@@ -1141,6 +1181,38 @@ class PostFiatRpcClient:
         """Read the governed FastPay v3 domain, committee, and recovery window."""
         return self._call("owned_recovery_capabilities")
 
+    def owned_recovery_status(self, lock_id: str) -> dict[str, Any]:
+        """Read the FastPay v3 recovery fence and reveal status for a lock."""
+        if not lock_id:
+            raise ValueError("lock_id is required")
+        return self._call("owned_recovery_status", {"lock_id": lock_id})
+
+    def owned_certificate(
+        self,
+        *,
+        lock_id: str | None = None,
+        certificate_digest: str | None = None,
+    ) -> dict[str, Any]:
+        """Read a retained FastPay certificate by exactly one selector.
+
+        The node treats ``lock_id`` and ``certificate_digest`` as alternatives;
+        sending both is rejected client-side so the request can never be
+        answered from the wrong selector.
+        """
+        if (lock_id is None) == (certificate_digest is None):
+            raise ValueError(
+                "owned_certificate takes exactly one of lock_id or certificate_digest"
+            )
+        if lock_id is not None:
+            if not lock_id:
+                raise ValueError("lock_id must not be empty")
+            return self._call("owned_certificate", {"lock_id": lock_id})
+        if not certificate_digest:
+            raise ValueError("certificate_digest must not be empty")
+        return self._call(
+            "owned_certificate", {"certificate_digest": certificate_digest}
+        )
+
     def owned_sign_v3(
         self,
         order_json: str,
@@ -1343,9 +1415,20 @@ class PostFiatRpcClient:
         required_parent_hash: str | None = None,
         required_state_root: str | None = None,
     ) -> dict[str, Any]:
-        """Certify a shielded batch using the remote validator's sole proposer key."""
+        """Certify a shielded batch using the remote validator's sole proposer key.
+
+        The proxy parent pins are all-or-none around the height: a parent hash
+        or state root only means something relative to ``required_current_height``
+        and the node rejects a pin sent without it, so it is refused here instead
+        of being sent.
+        """
         if not isinstance(batch_json, str) or not batch_json.strip():
             raise ValueError("batch_json is required")
+        if required_current_height is None:
+            if required_parent_hash is not None:
+                raise ValueError("required_parent_hash requires required_current_height")
+            if required_state_root is not None:
+                raise ValueError("required_state_root requires required_current_height")
         params: dict[str, Any] = {"batch_json": batch_json}
         if required_current_height is not None:
             if required_current_height < 0:
@@ -1444,6 +1527,275 @@ class PostFiatRpcClient:
         if not isinstance(result, list):
             raise RpcProtocolError("batch_archive result must be a list")
         return result
+
+    def archive_window(
+        self,
+        from_height: int,
+        to_height: int,
+        *,
+        archive_uri: str | None = None,
+    ) -> dict[str, Any]:
+        """Build a bounded history handoff bundle for an inclusive height window.
+
+        Mirrors the node's `archive_window` read: both heights are
+        non-negative, `to_height >= from_height`, and the window spans at most
+        `MAX_ARCHIVE_WINDOW_BLOCKS` blocks, checked here so a bad range fails
+        before a request is sent. The bundle is returned as the node encodes
+        it; nothing is published.
+        """
+        for name, value in (("from_height", from_height), ("to_height", to_height)):
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{name} must be an integer")
+            if value < 0:
+                raise ValueError(f"{name} must be non-negative")
+        if to_height < from_height:
+            raise ValueError("to_height must be >= from_height")
+        if to_height - from_height + 1 > MAX_ARCHIVE_WINDOW_BLOCKS:
+            raise ValueError(
+                f"archive window must not exceed {MAX_ARCHIVE_WINDOW_BLOCKS} blocks"
+            )
+        params: dict[str, Any] = {"from_height": from_height, "to_height": to_height}
+        if archive_uri is not None:
+            if not archive_uri:
+                raise ValueError("archive_uri must not be empty")
+            params["archive_uri"] = archive_uri
+        result = self._call("archive_window", params)
+        if not isinstance(result, dict):
+            raise RpcProtocolError("archive_window result must be an object")
+        return result
+
+    def _verification_report(self, method: str) -> dict[str, Any]:
+        result = self._call(method, {})
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        return result
+
+    def verify_blocks(self) -> dict[str, Any]:
+        """Re-verify the node's local block-log chain and signatures (public read)."""
+        return self._verification_report("verify_blocks")
+
+    def verify_state(self) -> dict[str, Any]:
+        """Re-verify the aggregate local state, including block-log integrity."""
+        return self._verification_report("verify_state")
+
+    def verify_bridge(self) -> dict[str, Any]:
+        """Re-verify local bridge-state invariants."""
+        return self._verification_report("verify_bridge")
+
+    def verify_mempool(self) -> dict[str, Any]:
+        """Re-verify admitted mempool entries against local policy."""
+        return self._verification_report("verify_mempool")
+
+    def verify_shielded(self) -> dict[str, Any]:
+        """Re-verify the local shielded-state commitment and accounting."""
+        return self._verification_report("verify_shielded")
+
+    @staticmethod
+    def _required_text(value: object, field: str) -> str:
+        if not isinstance(value, str) or not value:
+            raise ValueError(f"{field} must be a non-empty string")
+        return value
+
+    @staticmethod
+    def _bound_info_result(
+        method: str,
+        result: Any,
+        id_field: str,
+        object_field: str,
+        requested_id: str,
+    ) -> dict[str, Any]:
+        """Bind a single-object ``*_info`` read to the id that was requested.
+
+        The node echoes the queried id verbatim (it only accepts lowercase hex,
+        so no case folding applies), reports ``found`` as a bool, and serializes
+        the object as null when it is absent (``Option<...Report>``). Any other
+        shape describes a different object or is malformed.
+        """
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        echoed_id = result.get(id_field)
+        if type(echoed_id) is not str or echoed_id != requested_id:
+            raise RpcProtocolError(f"{method} {id_field} does not match the requested id")
+        found = result.get("found")
+        if type(found) is not bool:
+            raise RpcProtocolError(f"{method} found must be a boolean")
+        if object_field not in result:
+            raise RpcProtocolError(f"{method} {object_field} is missing")
+        report = result[object_field]
+        if not found:
+            if report is not None:
+                raise RpcProtocolError(f"{method} {object_field} must be null when found is false")
+            return result
+        if not isinstance(report, dict):
+            raise RpcProtocolError(f"{method} {object_field} must be an object when found is true")
+        report_id = report.get(id_field)
+        if type(report_id) is not str or report_id != requested_id:
+            raise RpcProtocolError(
+                f"{method} {object_field}.{id_field} does not match the requested id"
+            )
+        return result
+
+    def _object_read(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        result = self._call(method, params)
+        if not isinstance(result, dict):
+            raise RpcProtocolError(f"{method} result must be an object")
+        return result
+
+    def shield_scan(self, owner: str) -> list[dict[str, Any]]:
+        """List the shielded notes visible to `owner` (public read, `--owner`)."""
+        result = self._call("shield_scan", {"owner": self._required_text(owner, "owner")})
+        if not isinstance(result, list):
+            raise RpcProtocolError("shield_scan result must be a list")
+        return result
+
+    def shield_disclose(self, note_id: str) -> dict[str, Any]:
+        """Disclose one shielded note by id (public read, `--note-id`)."""
+        return self._object_read(
+            "shield_disclose", {"note_id": self._required_text(note_id, "note_id")}
+        )
+
+    def vault_bridge_route(self, asset_id: str) -> dict[str, Any]:
+        """Verify and report the governed vault bridge route for an asset."""
+        return self._object_read(
+            "vault_bridge_route", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def market_ops_status(self, asset_id: str, *, epoch: int | None = None) -> dict[str, Any]:
+        """Market-operations status for an asset, optionally pinned to an epoch."""
+        params: dict[str, Any] = {"asset_id": self._required_text(asset_id, "asset_id")}
+        if epoch is not None:
+            if isinstance(epoch, bool) or not isinstance(epoch, int) or epoch < 0:
+                raise ValueError("epoch must be a non-negative integer")
+            params["epoch"] = epoch
+        return self._object_read("market_ops_status", params)
+
+    def asset_orchard_action_status(
+        self,
+        nullifiers: tuple[str, str] | list[str],
+        output_commitments: tuple[str, str] | list[str],
+    ) -> dict[str, Any]:
+        """Status of one Asset-Orchard action's two nullifiers and two output commitments.
+
+        The node takes exactly two of each (`--nullifier-1`, `--nullifier-2`,
+        `--output-commitment-1`, `--output-commitment-2`).
+        """
+        params: dict[str, Any] = {}
+        for prefix, values in (("nullifier", nullifiers), ("output_commitment", output_commitments)):
+            if not isinstance(values, (list, tuple)) or len(values) != 2:
+                raise ValueError(f"{prefix}s must hold exactly two values")
+            for index, value in enumerate(values, start=1):
+                params[f"{prefix}_{index}"] = self._required_text(value, f"{prefix}_{index}")
+        return self._object_read("asset_orchard_action_status", params)
+
+    @staticmethod
+    def _required_u64(value: object, field: str) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{field} must be a non-negative integer")
+        return value
+
+    def nav_reserve_proof_status(self, asset_id: str) -> dict[str, Any]:
+        """NAV reserve-proof status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "nav_reserve_proof_status",
+            {"asset_id": self._required_text(asset_id, "asset_id")},
+        )
+
+    def vault_bridge_status(self, asset_id: str) -> dict[str, Any]:
+        """Vault bridge status for an asset (public read, `--asset-id`)."""
+        return self._object_read(
+            "vault_bridge_status", {"asset_id": self._required_text(asset_id, "asset_id")}
+        )
+
+    def fx_fix_list(
+        self,
+        *,
+        base_asset_id: str | None = None,
+        quote_asset_id: str | None = None,
+        active_only: bool = False,
+        limit: int | None = None,
+    ) -> dict[str, Any]:
+        """List FX fix packets, optionally filtered by pair and activity.
+
+        `active_only` is a presence flag on the node (`--active-only`), so it is
+        sent only when true. `limit` is bounded like the other list reads.
+        """
+        params = self._limit_params(limit)
+        if base_asset_id is not None:
+            params["base_asset_id"] = self._required_text(base_asset_id, "base_asset_id")
+        if quote_asset_id is not None:
+            params["quote_asset_id"] = self._required_text(quote_asset_id, "quote_asset_id")
+        if active_only:
+            params["active_only"] = True
+        return self._object_read("fx_fix_list", params)
+
+    def fx_fix_info(self, fix_packet_hash: str) -> dict[str, Any]:
+        """One FX fix packet by hash (public read, `--fix-packet-hash`)."""
+        return self._object_read(
+            "fx_fix_info",
+            {"fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash")},
+        )
+
+    def fx_fix_reservation_info(self, reservation_id: str) -> dict[str, Any]:
+        """One FX fix reservation by id (public read, `--reservation-id`)."""
+        return self._object_read(
+            "fx_fix_reservation_info",
+            {"reservation_id": self._required_text(reservation_id, "reservation_id")},
+        )
+
+    def fx_fix_quote(self, fix_packet_hash: str, base_atoms: int) -> dict[str, Any]:
+        """Quote `base_atoms` against an FX fix packet (public read).
+
+        The node parses `--base-atoms` as a u64, so a negative, boolean or
+        non-integer value is rejected here before any request.
+        """
+        return self._object_read(
+            "fx_fix_quote",
+            {
+                "fix_packet_hash": self._required_text(fix_packet_hash, "fix_packet_hash"),
+                "base_atoms": self._required_u64(base_atoms, "base_atoms"),
+            },
+        )
+
+    def pfusdc_ingress_preflight(
+        self,
+        asset_id: str,
+        *,
+        recipient: str,
+        depositor: str,
+        amount_atoms: int,
+    ) -> dict[str, Any]:
+        """Preflight a pfUSDC ingress (public read; all four arguments required by the node)."""
+        return self._object_read(
+            "pfusdc_ingress_preflight",
+            {
+                "asset_id": self._required_text(asset_id, "asset_id"),
+                "recipient": self._required_text(recipient, "recipient"),
+                "depositor": self._required_text(depositor, "depositor"),
+                "amount_atoms": self._required_u64(amount_atoms, "amount_atoms"),
+            },
+        )
+
+    def pfusdc_egress_witness(
+        self, withdrawal_id: str, *, prior_checkpoint: str | None = None
+    ) -> dict[str, Any]:
+        """Export the proof-ready witness for a pfUSDC withdrawal.
+
+        `prior_checkpoint` (the node's optional `--prior-checkpoint` block id)
+        is sent only when given.
+        """
+        params: dict[str, Any] = {
+            "withdrawal_id": self._required_text(withdrawal_id, "withdrawal_id")
+        }
+        if prior_checkpoint is not None:
+            params["prior_checkpoint"] = self._required_text(prior_checkpoint, "prior_checkpoint")
+        return self._object_read("pfusdc_egress_witness", params)
+
+    def yolo_target_receipt(self, registration_id: str) -> dict[str, Any]:
+        """Target receipt for a YOLO registration (public read, `--registration-id`)."""
+        return self._object_read(
+            "yolo_target_receipt",
+            {"registration_id": self._required_text(registration_id, "registration_id")},
+        )
 
     def account_tx(
         self,
@@ -1594,7 +1946,18 @@ class PostFiatRpcClient:
         to_height: int | None,
         scan_limit: int,
     ) -> AccountTxScan:
+        # Same answer as the server archive scan: the oldest `scan_limit` blocks
+        # of the range with a start height, the newest without one. `truncated`
+        # means a matching row in that window was omitted, or the range continues
+        # past the window (possibly incomplete: those blocks are not read).
         blocks = self.blocks(from_height=from_height, limit=scan_limit)
+        if from_height is None and to_height is not None:
+            heights = [h for h in map(self._block_height, blocks) if h is not None]
+            if heights and max(heights) > to_height:
+                # The end height is below the tip: read the newest blocks at or
+                # below it, as the server does, not the chain's newest blocks.
+                window_start = max(0, to_height + 1 - scan_limit)
+                blocks = self.blocks(from_height=window_start, limit=scan_limit)
         selected_blocks = []
         for block in blocks:
             height = self._block_height(block)
@@ -1604,9 +1967,14 @@ class PostFiatRpcClient:
                 continue
             selected_blocks.append(block)
 
-        rows: list[AccountTxRow] = []
+        truncated = len(selected_blocks) >= scan_limit and self._account_tx_range_continues(
+            selected_blocks, from_height, to_height
+        )
+        if from_height is None:
+            selected_blocks.reverse()
+        block_rows: list[list[AccountTxRow]] = []
+        row_count = 0
         archive_lookup_count = 0
-        truncated = len(blocks) >= scan_limit
         for block in selected_blocks:
             header = block.get("header", {})
             if not isinstance(header, dict):
@@ -1619,12 +1987,13 @@ class PostFiatRpcClient:
             if batch_kind != "transparent":
                 continue
             archive_lookup_count += 1
+            rows_in_block: list[AccountTxRow] = []
             for entry in self.batch_archive(
                 batch_kind=batch_kind,
                 batch_id=batch_id,
                 limit=1,
             ):
-                rows.extend(
+                rows_in_block.extend(
                     self._account_tx_rows_from_archive_entry(
                         address=address,
                         block=block,
@@ -1634,12 +2003,16 @@ class PostFiatRpcClient:
                         entry=entry,
                     )
                 )
-                if len(rows) >= scan_limit:
-                    truncated = True
-                    rows = rows[:scan_limit]
-                    break
-            if len(rows) >= scan_limit:
+            block_rows.append(rows_in_block)
+            row_count += len(rows_in_block)
+            if row_count > scan_limit:
+                truncated = True
                 break
+        if from_height is None:
+            block_rows.reverse()
+        rows = [row for rows_in_block in block_rows for row in rows_in_block]
+        if len(rows) > scan_limit:
+            rows = rows[:scan_limit] if from_height is not None else rows[-scan_limit:]
         return AccountTxScan(
             address=address,
             from_height=from_height,
@@ -1650,6 +2023,28 @@ class PostFiatRpcClient:
             archive_lookup_count=archive_lookup_count,
             truncated=truncated,
             rows=tuple(rows),
+        )
+
+    def _account_tx_range_continues(
+        self,
+        blocks: list[dict[str, Any]],
+        from_height: int | None,
+        to_height: int | None,
+    ) -> bool:
+        """Whether the height range holds a block outside a full scan window."""
+        heights = [h for h in map(self._block_height, blocks) if h is not None]
+        if not heights:
+            return False
+        if from_height is None:
+            first = self.blocks(from_height=0, limit=1)
+            first_height = self._block_height(first[0]) if first else None
+            return first_height is not None and first_height < min(heights)
+        if to_height is not None and max(heights) >= to_height:
+            return False
+        following = self.blocks(from_height=max(heights) + 1, limit=1)
+        following_height = self._block_height(following[0]) if following else None
+        return following_height is not None and (
+            to_height is None or following_height <= to_height
         )
 
     def _account_tx_scan_from_server_result(
@@ -1828,6 +2223,9 @@ class PostFiatRpcClient:
         offer_transactions = payload.get("offer_transactions", [])
         if not isinstance(offer_transactions, list):
             offer_transactions = []
+        atomic_swap_transactions = payload.get("atomic_swap_transactions", [])
+        if not isinstance(atomic_swap_transactions, list):
+            atomic_swap_transactions = []
         receipt_ids = block.get("receipt_ids", [])
         if not isinstance(receipt_ids, list):
             receipt_ids = []
@@ -2034,6 +2432,73 @@ class PostFiatRpcClient:
                 )
             )
         offset += len(asset_transactions)
+        # Atomic swaps sit between asset and escrow transactions in the batch,
+        # so they occupy receipt ids here and shift every later kind's
+        # transaction_index. The archive scan emits one row per leg the
+        # account owns or receives, tagged with the leg as tx_role.
+        for swap_index, transaction in enumerate(atomic_swap_transactions):
+            if not isinstance(transaction, dict):
+                continue
+            unsigned = transaction.get("unsigned", {})
+            if not isinstance(unsigned, dict):
+                continue
+            index = offset + swap_index
+            tx_id = receipt_ids[index] if index < len(receipt_ids) else None
+            receipt: dict[str, Any] | None = None
+            for role in ("leg_0", "leg_1"):
+                leg = unsigned.get(role)
+                if not isinstance(leg, dict):
+                    continue
+                sender = leg.get("owner")
+                recipient = leg.get("recipient")
+                if sender != address and recipient != address:
+                    continue
+                if receipt is None:
+                    receipt = self._receipt_for_tx_id(tx_id)
+                rows.append(
+                    AccountTxRow(
+                        tx_id=tx_id,
+                        block_height=height,
+                        batch_kind=batch_kind,
+                        batch_id=batch_id,
+                        transaction_index=index,
+                        transaction_kind="atomic_swap",
+                        sender=sender if isinstance(sender, str) else None,
+                        recipient=recipient if isinstance(recipient, str) else None,
+                        amount=leg.get("amount") if isinstance(leg.get("amount"), int) else None,
+                        fee=leg.get("fee") if isinstance(leg.get("fee"), int) else None,
+                        sequence=(
+                            leg.get("sequence") if isinstance(leg.get("sequence"), int) else None
+                        ),
+                        memo_hash=None,
+                        memo_count=None,
+                        memo_bytes=None,
+                        asset_id=(
+                            leg.get("asset_id") if isinstance(leg.get("asset_id"), str) else None
+                        ),
+                        issuer=leg.get("issuer") if isinstance(leg.get("issuer"), str) else None,
+                        trustline_authorized=None,
+                        trustline_frozen=None,
+                        nft_id=None,
+                        nft_issuer_transfer_fee=None,
+                        nft_collection_flags=None,
+                        escrow_id=None,
+                        offer_id=None,
+                        tx_role=role,
+                        counterparty_offer_id=None,
+                        fill_index=None,
+                        condition_hash=None,
+                        accepted=(
+                            receipt.get("accepted")
+                            if isinstance(receipt.get("accepted"), bool)
+                            else None
+                        ),
+                        receipt_code=(
+                            receipt.get("code") if isinstance(receipt.get("code"), str) else None
+                        ),
+                    )
+                )
+        offset += len(atomic_swap_transactions)
         for escrow_index, transaction in enumerate(escrow_transactions):
             if not isinstance(transaction, dict):
                 continue
@@ -2415,8 +2880,11 @@ class PostFiatRpcClient:
 
     @staticmethod
     def _account_tx_row_identity(row: AccountTxRow) -> str:
+        # One transaction can list several rows for an account: one per atomic
+        # swap leg (`tx_role`) and one per offer fill (`fill_index`).
         height, batch_id, tx_index, tx_id = PostFiatRpcClient._account_tx_row_sort_key(row)
-        return f"{height}:{batch_id}:{tx_index}:{tx_id}"
+        fill_index = "" if row.fill_index is None else row.fill_index
+        return f"{height}:{batch_id}:{tx_index}:{tx_id}:{row.tx_role or ''}:{fill_index}"
 
     @staticmethod
     def _required_int(value: dict[str, Any], key: str, label: str) -> int:
@@ -2526,7 +2994,11 @@ class PostFiatRpcClient:
 
 
 class PostFiatWebSocketRpcClient(PostFiatRpcClient):
-    """Synchronous WebSocket RPC client for wallet-facing proxy endpoints."""
+    """Synchronous WebSocket RPC client for wallet-facing proxy endpoints.
+
+    As on the persistent TCP client, request ids are never reused on a
+    session, so a late or stray message can never match a later request.
+    """
 
     def __init__(
         self,
@@ -2548,6 +3020,7 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
         self.origin = origin
         self.proxy_auth_token = proxy_auth_token
         self._websocket = None
+        self._sent_request_ids: set[str] = set()
         self._send_lock = threading.Lock()
         self._worker_lock = threading.Lock()
         self._worker_clients: dict[str, PostFiatWebSocketRpcClient] = {}
@@ -2564,12 +3037,14 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
             self._close_websocket()
 
     def _close_websocket(self) -> None:
-        if self._websocket is not None:
+        websocket = self._websocket
+        self._websocket = None
+        self._sent_request_ids.clear()
+        if websocket is not None:
             try:
-                self._websocket.close()
+                websocket.close()
             except Exception:
                 pass
-        self._websocket = None
 
     def persistent_worker(self, key: str) -> "PostFiatWebSocketRpcClient":
         """Return a client-lifetime WebSocket session for one concurrent lane."""
@@ -2644,28 +3119,39 @@ class PostFiatWebSocketRpcClient(PostFiatRpcClient):
         with self._send_lock:
             try:
                 websocket = self._connect_websocket()
+                wire_id = json.dumps(request["id"])
+                if wire_id in self._sent_request_ids:
+                    raise RpcProtocolError("request id reused on this WebSocket session")
+                self._sent_request_ids.add(wire_id)
                 websocket.send(wire)
                 message = websocket.recv(timeout=self.timeout_seconds)
+                if isinstance(message, bytes):
+                    raw = message.decode("utf-8")
+                else:
+                    raw = str(message)
+                if len(raw.encode("utf-8")) > self.response_byte_cap:
+                    raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
+                try:
+                    response = json.loads(raw)
+                except json.JSONDecodeError as error:
+                    raise RpcProtocolError(f"response was not valid JSON: {error}") from error
+                if not isinstance(response, dict):
+                    raise RpcProtocolError("response envelope must be an object")
+                # Bind and validate before another call can reuse this session.
+                # A bound RPC refusal is valid; the caller will raise RpcError.
+                try:
+                    self._unwrap_response(request["method"], request["id"], response)
+                except RpcError:
+                    pass
+                return response
             except TimeoutError as error:
                 self._close_websocket()
                 raise RpcProtocolError(f"WebSocket RPC timeout: {request.get('method')}") from error
-            except Exception as error:
+            except BaseException as error:
                 self._close_websocket()
+                if isinstance(error, RpcProtocolError) or not isinstance(error, Exception):
+                    raise
                 raise RpcProtocolError(f"WebSocket RPC failed: {error}") from error
-
-        if isinstance(message, bytes):
-            raw = message.decode("utf-8")
-        else:
-            raw = str(message)
-        if len(raw.encode("utf-8")) > self.response_byte_cap:
-            raise RpcProtocolError(f"response exceeded byte cap {self.response_byte_cap}")
-        try:
-            response = json.loads(raw)
-        except json.JSONDecodeError as error:
-            raise RpcProtocolError(f"response was not valid JSON: {error}") from error
-        if not isinstance(response, dict):
-            raise RpcProtocolError("response envelope must be an object")
-        return response
 
 
 def _hash_hex_domain(domain: str, payload: bytes) -> str:

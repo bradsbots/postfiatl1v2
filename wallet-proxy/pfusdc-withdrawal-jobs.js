@@ -49,16 +49,47 @@ function normalizeRequest(body, assetId) {
         amount_atoms: String(body?.amount_atoms || '').trim(),
         asset_id: String(body?.asset_id || '').trim().toLowerCase(),
     };
+    // amount_atoms is hashed into job_id, passed to the worker and compared with
+    // its summary as text, so only the canonical decimal spelling is accepted.
+    // BigInt() alone would also take 0x/0o/0b prefixes, a leading + and leading
+    // zeros, giving one burn several job_ids.
+    // A JSON number above Number.MAX_SAFE_INTEGER has already been rounded by
+    // JSON.parse (9007199254740993 arrives as 9007199254740992), so numbers are
+    // accepted only while they are safe integers; larger amounts must be strings.
+    const rawAmount = body?.amount_atoms;
+    const amountNumberExact = typeof rawAmount !== 'number' || Number.isSafeInteger(rawAmount);
+    const amountSyntaxValid = amountNumberExact && /^[1-9][0-9]{0,19}$/.test(request.amount_atoms);
     let amount = 0n;
-    try { amount = BigInt(request.amount_atoms); } catch (_) { /* rejected below */ }
+    if (amountSyntaxValid) amount = BigInt(request.amount_atoms);
     if (!PFTL_TX_RE.test(request.burn_tx_id) || !PFTL_RE.test(request.owner)
         || !EVM_RE.test(request.ethereum_recipient) || request.asset_id !== assetId
-        || amount <= 0n || amount > ((1n << 64n) - 1n)) {
+        || !amountSyntaxValid || amount <= 0n || amount > ((1n << 64n) - 1n)) {
         throw Object.assign(new Error('Invalid pfUSDC withdrawal relay request.'), {
             code: 'pfusdc_withdrawal_request_invalid',
         });
     }
     return request;
+}
+
+// pre-#101 jobs: before #101 the proxy stored amount_atoms as any trimmed
+// spelling BigInt() parses in 1..2^64-1 (0100, +100, 0x64, ...) and hashed that
+// spelling into job_id. normalizeRequest now refuses those spellings, so read()
+// falls back to this check for files the proxy itself wrote: the request is
+// taken exactly as stored (job_id, the worker argument and the summary check
+// stay bound to it) and only under the pre-#101 amount rule. New requests still
+// go through normalizeRequest only.
+function storedRequest(stored, assetId) {
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return null;
+    const keys = Object.keys(stored);
+    if (keys.length !== REQUEST_FIELDS.size
+        || keys.some(key => !REQUEST_FIELDS.has(key) || typeof stored[key] !== 'string')) return null;
+    const { burn_tx_id, owner, ethereum_recipient, amount_atoms, asset_id } = stored;
+    if (!PFTL_TX_RE.test(burn_tx_id) || !PFTL_RE.test(owner) || !EVM_RE.test(ethereum_recipient)
+        || asset_id !== assetId || amount_atoms !== amount_atoms.trim()) return null;
+    let amount = 0n;
+    try { amount = BigInt(amount_atoms); } catch (_) { return null; }
+    if (amount <= 0n || amount > ((1n << 64n) - 1n)) return null;
+    return { burn_tx_id, owner, ethereum_recipient, amount_atoms, asset_id };
 }
 
 function jobId(request) {
@@ -119,8 +150,11 @@ function create(runtime = {}, options = {}) {
         if (!HASH_RE.test(String(id || '')) || !fs.existsSync(fileFor(id))) return null;
         try {
             const job = JSON.parse(fs.readFileSync(fileFor(id), 'utf8'));
-            const request = normalizeRequest(job?.request, assetId);
-            if (job?.schema !== 'postfiat-pfusdc-wallet-withdrawal-job-v1'
+            let request = null;
+            try { request = normalizeRequest(job?.request, assetId); } catch (_) {
+                request = storedRequest(job?.request, assetId);
+            }
+            if (!request || job?.schema !== 'postfiat-pfusdc-wallet-withdrawal-job-v1'
                 || job?.job_id !== id || jobId(request) !== id || !JOB_STATUS.has(job?.status)
                 || !Number.isSafeInteger(job?.created_at_unix) || job.created_at_unix <= 0
                 || !Number.isSafeInteger(job?.updated_at_unix) || job.updated_at_unix <= 0

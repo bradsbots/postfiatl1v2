@@ -1,0 +1,32 @@
+{
+  "name": "canary-verify-state-signed",
+  "command": [
+    "/home/postfiatchad/.cache/release-repair-20260928/binaries/candidate-1",
+    "verify-state",
+    "--data-dir",
+    "/home/postfiatchad/.cache/release-repair-20260928/canary-backup/signed-import"
+  ],
+  "cwd": "/home/postfiatchad/.cache/release-repair-20260928/canary-backup",
+  "started_at": "2026-09-28T06:18:40.016825+00:00",
+  "status": "PASS",
+  "stdout": "logs/canary-verify-state-signed.stdout",
+  "stderr": "logs/canary-verify-state-signed.stderr",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 24771,
+  "exit_code": 0,
+  "completed_at": "2026-09-28T06:21:57.097644+00:00",
+  "elapsed_seconds": 197.1,
+  "minimum_available_memory_observed_bytes": 18024779776
+}

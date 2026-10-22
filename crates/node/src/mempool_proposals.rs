@@ -4,7 +4,7 @@ use super::*;
 pub fn transfer(options: TransferOptions) -> io::Result<Receipt> {
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let signed = build_signed_transfer(
         &genesis,
         &ledger,
@@ -25,7 +25,7 @@ pub fn transfer(options: TransferOptions) -> io::Result<Receipt> {
 pub fn create_transfer_batch(options: BatchTransferOptions) -> io::Result<TransactionBatch> {
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let signed = build_signed_transfer(
         &genesis,
         &ledger,
@@ -45,7 +45,7 @@ pub fn create_transfer_batch(options: BatchTransferOptions) -> io::Result<Transa
 pub fn submit_transfer_to_mempool(options: TransferOptions) -> io::Result<MempoolEntry> {
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let key_file = read_transfer_key_file(&options.data_dir, options.key_file)?;
     let sender = ledger.account(&key_file.address).ok_or_else(|| {
         io::Error::new(
@@ -178,7 +178,7 @@ fn admit_signed_transfer_to_mempool(
             "signed transfer chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -330,7 +330,7 @@ fn admit_signed_payment_v2_to_mempool(
             "signed payment_v2 chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -488,7 +488,7 @@ fn admit_signed_asset_transaction_to_mempool(
             "signed asset transaction chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let shielded = store.read_shielded()?;
     let orchard_balances = shielded
         .orchard
@@ -685,7 +685,7 @@ pub(super) fn admit_signed_atomic_swap_to_mempool(
         ));
     }
 
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let tx_id = atomic_swap_transaction_tx_id(&signed);
     if mempool_has_tx_id(&mempool, &tx_id) {
@@ -733,6 +733,17 @@ pub(super) fn admit_signed_atomic_swap_to_mempool(
     Ok(entry)
 }
 
+/// True when `receipt` is the accepted outcome block execution emits for the
+/// FastLane primary `operation` (deposit, anchor, control, ...).
+pub fn fastlane_primary_receipt_is_success(
+    operation: &postfiat_types::FastLanePrimaryOperationV1,
+    receipt: &postfiat_types::Receipt,
+) -> bool {
+    receipt.accepted
+        && postfiat_execution::fastlane_primary::fastlane_primary_accepted_receipt_codes(operation)
+            .contains(&receipt.code.as_str())
+}
+
 pub fn admit_fastlane_primary_to_mempool(
     data_dir: &Path,
     transaction: postfiat_types::FastLanePrimaryTransactionV1,
@@ -751,7 +762,7 @@ pub fn admit_fastlane_primary_to_mempool(
     }
     let store = NodeStore::new(data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let shielded = store.read_shielded()?;
     let mempool = store.read_mempool()?;
     if mempool.len() >= MAX_MEMPOOL_PENDING_TRANSACTIONS {
@@ -852,7 +863,7 @@ fn admit_signed_escrow_transaction_to_mempool(
             "signed escrow transaction chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -1005,7 +1016,7 @@ fn admit_signed_nft_transaction_to_mempool(
             "signed nft transaction chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -1068,7 +1079,7 @@ fn admit_signed_offer_transaction_to_mempool(
             "signed offer transaction chain domain does not match local node",
         ));
     }
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -1496,7 +1507,7 @@ pub fn reconcile_terminal_mempool_entries(data_dir: &Path) -> io::Result<usize> 
 pub fn verify_mempool(options: NodeOptions) -> io::Result<MempoolVerificationReport> {
     let store = NodeStore::new(options.data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let shielded = store.read_shielded()?;
     let mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
@@ -2257,49 +2268,78 @@ pub(super) fn enforce_mempool_state_limits(mempool: &MempoolState) -> io::Result
     Ok(())
 }
 
+/// The id of the pending transaction that verification and batch selection
+/// process last: the tail entry of the last non-empty family in execution
+/// order (transfers, payments_v2, asset, atomic swap, FastLane primary,
+/// escrow, NFT, offer). It is a position in that order, not a wall-clock
+/// admission time: families keep no common arrival order.
 fn mempool_latest_tx_id(mempool: &MempoolState) -> String {
-    mempool
-        .pending_offer_transactions
-        .last()
-        .map(|entry| entry.tx_id.clone())
-        .or_else(|| {
-            mempool
-                .pending_nft_transactions
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| {
-            mempool
-                .pending_escrow_transactions
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| {
-            mempool
-                .pending_atomic_swaps
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| {
-            mempool
-                .pending_fastlane_primary
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| {
-            mempool
-                .pending_asset_transactions
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| {
-            mempool
-                .pending_payment_v2
-                .last()
-                .map(|entry| entry.tx_id.clone())
-        })
-        .or_else(|| mempool.pending.last().map(|entry| entry.tx_id.clone()))
-        .unwrap_or_default()
+    latest_tx_id_in_execution_order(MempoolFamilyTails {
+        transfers: mempool.pending.last().map(|entry| entry.tx_id.as_str()),
+        payments_v2: mempool
+            .pending_payment_v2
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        asset: mempool
+            .pending_asset_transactions
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        atomic_swap: mempool
+            .pending_atomic_swaps
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        fastlane_primary: mempool
+            .pending_fastlane_primary
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        escrow: mempool
+            .pending_escrow_transactions
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        nft: mempool
+            .pending_nft_transactions
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+        offer: mempool
+            .pending_offer_transactions
+            .last()
+            .map(|entry| entry.tx_id.as_str()),
+    })
+    .map(str::to_string)
+    .unwrap_or_default()
+}
+
+/// Tail transaction ids per pending family, named by family.
+#[derive(Default)]
+struct MempoolFamilyTails<'a> {
+    transfers: Option<&'a str>,
+    payments_v2: Option<&'a str>,
+    asset: Option<&'a str>,
+    atomic_swap: Option<&'a str>,
+    fastlane_primary: Option<&'a str>,
+    escrow: Option<&'a str>,
+    nft: Option<&'a str>,
+    offer: Option<&'a str>,
+}
+
+/// The last tail in execution order. (MPL-02: atomic swaps were consulted
+/// after FastLane primary transactions although verification and selection
+/// process FastLane after atomic swaps, so a pool holding one of each
+/// reported the swap.)
+fn latest_tx_id_in_execution_order(tails: MempoolFamilyTails<'_>) -> Option<&str> {
+    [
+        tails.offer,
+        tails.nft,
+        tails.escrow,
+        tails.fastlane_primary,
+        tails.atomic_swap,
+        tails.asset,
+        tails.payments_v2,
+        tails.transfers,
+    ]
+    .into_iter()
+    .flatten()
+    .next()
 }
 
 fn asset_transaction_amount(transaction: &SignedAssetTransaction) -> u64 {
@@ -2344,7 +2384,7 @@ pub fn create_mempool_batch(options: MempoolBatchOptions) -> io::Result<Transact
 
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let mut mempool = store.read_mempool()?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
@@ -2614,7 +2654,7 @@ pub fn create_signed_asset_transaction_batch(
 
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
-    let ledger = store.read_ledger()?;
+    let ledger = read_fastpay_ledger(&store)?;
     let block_height = next_block_height_from_chain_tip(&store, &genesis)?;
     let asset_execution_compatibility = asset_execution_compatibility_from_store(&store)?;
     let mut dry_run_ledger = ledger;
@@ -2696,6 +2736,7 @@ fn propose_batch_with_optional_required_parent(
     let stage_start = std::time::Instant::now();
     let store = NodeStore::new(&options.data_dir);
     let legacy_work_before = store.work_counters();
+    let opens_before = postfiat_storage::transactional::transactional_open_counts();
     let transactional_work_store = (store.storage_backend_mode()?.is_transactional()
         && store.transactional_storage_configured()?)
     .then(|| store.transactional_store())
@@ -2811,7 +2852,11 @@ fn propose_batch_with_optional_required_parent(
         .map(|(transactional, before)| transactional.work_counters().saturating_delta(before));
     let legacy_work = legacy_work_delta(store.work_counters(), legacy_work_before);
     timings.transactional_work = transactional_work;
-    timings.storage_work = Some(storage_work_report(transactional_work, legacy_work));
+    timings.storage_work = Some(storage_work_report(
+        transactional_work,
+        legacy_work,
+        opens_before,
+    ));
     timings.total_ms = node_timing_elapsed_ms(total_start);
     Ok(BatchProposalWithTimingsReport { proposal, timings })
 }
@@ -2951,7 +2996,7 @@ fn build_transparent_batch_proposal(
     supplied_fastpay_effects: Option<&[postfiat_types::FastPayVersionFenceV1]>,
 ) -> io::Result<BlockProposalFile> {
     let genesis = store.read_genesis()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let mut governance = store.read_governance()?;
     let batch = read_batch_file(batch_file)?;
     let batch_domain = mempool_batch_domain(&genesis);
@@ -3030,7 +3075,7 @@ fn build_governance_batch_proposal(
     supplied_fastpay_effects: Option<&[postfiat_types::FastPayVersionFenceV1]>,
 ) -> io::Result<BlockProposalFile> {
     let genesis = store.read_genesis()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let mut governance = store.read_governance()?;
     let batch = read_governance_action_batch_file(batch_file)?;
     verify_governance_action_batch_id(&genesis, &batch)?;
@@ -3113,7 +3158,7 @@ fn build_shielded_batch_proposal_with_timings(
     timings.read_genesis_ms = node_timing_elapsed_ms(stage_start);
 
     let stage_start = std::time::Instant::now();
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     timings.read_ledger_ms = node_timing_elapsed_ms(stage_start);
 
     let stage_start = std::time::Instant::now();
@@ -3231,7 +3276,7 @@ fn build_bridge_batch_proposal(
     supplied_fastpay_effects: Option<&[postfiat_types::FastPayVersionFenceV1]>,
 ) -> io::Result<BlockProposalFile> {
     let genesis = store.read_genesis()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let mut governance = store.read_governance()?;
     let shielded = store.read_shielded()?;
     let mut bridge = store.read_bridge()?;
@@ -3294,6 +3339,51 @@ fn build_bridge_batch_proposal(
 #[cfg(test)]
 mod burn5_tests {
     use super::*;
+
+    #[test]
+    fn latest_tx_id_follows_execution_order() {
+        // MPL-02: FastLane primary is processed after atomic swaps, so with
+        // both present the FastLane tail is the latest.
+        let both = MempoolFamilyTails {
+            atomic_swap: Some("swap-9"),
+            fastlane_primary: Some("fastlane-3"),
+            ..MempoolFamilyTails::default()
+        };
+        assert_eq!(latest_tx_id_in_execution_order(both), Some("fastlane-3"));
+        let swap_only = MempoolFamilyTails {
+            atomic_swap: Some("swap-9"),
+            ..MempoolFamilyTails::default()
+        };
+        assert_eq!(latest_tx_id_in_execution_order(swap_only), Some("swap-9"));
+        // Later families still win over both.
+        let with_escrow = MempoolFamilyTails {
+            transfers: Some("transfer-1"),
+            atomic_swap: Some("swap-9"),
+            fastlane_primary: Some("fastlane-3"),
+            escrow: Some("escrow-2"),
+            ..MempoolFamilyTails::default()
+        };
+        assert_eq!(
+            latest_tx_id_in_execution_order(with_escrow),
+            Some("escrow-2")
+        );
+        // Full precedence, last family first.
+        let all = MempoolFamilyTails {
+            transfers: Some("t"),
+            payments_v2: Some("p"),
+            asset: Some("a"),
+            atomic_swap: Some("s"),
+            fastlane_primary: Some("f"),
+            escrow: Some("e"),
+            nft: Some("n"),
+            offer: Some("o"),
+        };
+        assert_eq!(latest_tx_id_in_execution_order(all), Some("o"));
+        assert_eq!(
+            latest_tx_id_in_execution_order(MempoolFamilyTails::default()),
+            None
+        );
+    }
 
     // Quota guards inspect only sender identities, so these fixtures do not
     // carry signatures and are never submitted to an execution path.

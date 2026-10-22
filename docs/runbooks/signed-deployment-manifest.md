@@ -67,6 +67,11 @@ arguments; the transport unit always prewarms both shielded verifiers before
 publishing readiness. Both units verify the signed manifest and the actual
 runtime binary, topology, and circuit metadata in `ExecStartPre`.
 
+The RPC unit passes `--max-requests 100000` with `Restart=always` and
+`RestartSec=1`. At that budget `rpc-serve` stops accepting, finishes in-flight
+connections, prints its end-of-run report while the port is still bound, and
+exits 0; systemd starts it again about a second later.
+
 Treat the generated units as the canonical release artifacts. Do not layer
 historical host-specific drop-ins over them: a needed setting belongs in this
 generator and its regression test, followed by a newly signed release.
@@ -144,7 +149,10 @@ POSTFIAT_DEPLOYMENT_BINARY=/usr/local/bin/postfiat-node
 POSTFIAT_DEPLOYMENT_TOPOLOGY=/etc/postfiat/topology.json
 POSTFIAT_DEPLOYMENT_SWAP_CIRCUIT_METADATA=/etc/postfiat/swap.metadata.json
 POSTFIAT_DEPLOYMENT_PRIVATE_EGRESS_CIRCUIT_METADATA=/etc/postfiat/private-egress.metadata.json
+POSTFIAT_DEPLOYMENT_VERIFIED_RECORD=/var/lib/postfiat/validator-N/readiness/rpc.deployment-verified.json
 ```
+
+The transport unit uses `transport.deployment-verified.json` for the record path.
 
 Before either service starts, its unit runs:
 
@@ -166,6 +174,13 @@ the runtime binary, topology, and both circuit-metadata files. If a configured
 file cannot be read, either artifact group is partial, or the configured
 binding names another node, status fails instead of silently omitting
 deployment identity.
+
+`deployment_manifest_verified` is `true` only when the prestart
+`deployment-manifest-verify` wrote the record at
+`POSTFIAT_DEPLOYMENT_VERIFIED_RECORD` for these exact manifest bytes and the
+signed validity window still covers the current time. A failed check deletes the
+record. A missing, stale or unreadable record reports `false` without failing
+`status`.
 
 StakeHub's scored profile sets `require_signed_deployment_manifest=true` and
 names the trusted publisher key plus the local unit, environment, topology,

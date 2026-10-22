@@ -3,5 +3,11 @@ set -euo pipefail
 
 DATA_DIR="${DATA_DIR:-.postfiat/node0}"
 
-cargo run -p postfiat-node -- run --data-dir "$DATA_DIR"
+if [ ! -d "$DATA_DIR" ]; then
+  echo "node data dir does not exist: $DATA_DIR" >&2
+  echo "run scripts/node-init first or set DATA_DIR to an initialized node directory" >&2
+  exit 2
+fi
 
+cargo run -p postfiat-node --bin postfiat-node -- run --unsafe-devnet-json-storage \
+  --data-dir "$DATA_DIR"

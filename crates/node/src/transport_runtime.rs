@@ -1,40 +1,7 @@
 use super::*;
 
-static TRANSPORT_VALIDATOR_SHUTDOWN_REQUESTED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-#[cfg(unix)]
-extern "C" fn transport_validator_signal_handler(_: libc::c_int) {
-    TRANSPORT_VALIDATOR_SHUTDOWN_REQUESTED.store(true, Ordering::Release);
-}
-
-#[cfg(unix)]
-fn install_transport_validator_signal_handlers() -> Result<(), String> {
-    // The command owns its process. A handler only flips an atomic flag; the
-    // nonblocking accept loop performs all cleanup in normal Rust code.
-    unsafe {
-        if libc::signal(
-            libc::SIGTERM,
-            transport_validator_signal_handler as *const () as libc::sighandler_t,
-        ) == libc::SIG_ERR
-            || libc::signal(
-                libc::SIGINT,
-                transport_validator_signal_handler as *const () as libc::sighandler_t,
-            ) == libc::SIG_ERR
-        {
-            return Err(format!(
-                "transport validator signal handler install failed: {}",
-                std::io::Error::last_os_error()
-            ));
-        }
-    }
-    Ok(())
-}
-
-#[cfg(not(unix))]
-fn install_transport_validator_signal_handlers() -> Result<(), String> {
-    Ok(())
-}
+mod signals;
+use signals::{install_transport_validator_signal_handlers, TRANSPORT_VALIDATOR_SHUTDOWN_REQUESTED};
 
 fn accept_transport_validator_connection(
     listener: &TcpListener,
@@ -1153,6 +1120,9 @@ fn handle_transport_validator_connection(
     require_signed_proposal: bool,
 ) -> Result<(), String> {
     let mut handled_request_count = 0u64;
+    // One store open per request (STO-07): the lease spans the request and the
+    // next status read, and is released before blocking on the connection.
+    let mut store_lease = None;
     loop {
         if handled_request_count >= TRANSPORT_VALIDATOR_MAX_REQUESTS_PER_CONNECTION {
             break;
@@ -1164,6 +1134,7 @@ fn handle_transport_validator_connection(
             format!("transport validator service connection status failed: {error}")
         })?;
         validate_status_matches_topology(&local_status, &topology)?;
+        drop(store_lease.take());
         let read_start = Instant::now();
         let line = match read_transport_line(&stream, "transport validator service read") {
             Ok(line) => line,
@@ -1206,6 +1177,7 @@ fn handle_transport_validator_connection(
         handled_request_count = handled_request_count.saturating_add(1);
         let transport_read_ms = monotonic_elapsed_ms(read_start);
         let kind = transport_envelope_schema(&line).unwrap_or_else(|_| "unknown".to_string());
+        store_lease = postfiat_node::hold_transactional_store(&data_dir)?;
         match kind.as_str() {
             TRANSPORT_BATCH_SCHEMA => match handle_transport_batch_service_line(
                 &mut stream,
@@ -2862,6 +2834,8 @@ pub(super) fn transport_peer_certified_batch_round(
         ));
     }
     let shielded_verifier_prewarm = prewarm_shielded_verifier_cache("peer certified batch round")?;
+    // One store open per round (STO-07); closed when the round returns.
+    let _store_lease = postfiat_node::hold_transactional_store(&options.data_dir)?;
     let setup_start = Instant::now();
     std::fs::create_dir_all(&options.artifact_dir).map_err(|error| {
         format!(

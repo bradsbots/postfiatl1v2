@@ -58,6 +58,66 @@ The vault-bridge path is the PFTL primitive behind source-labeled pfUSDC:
 The detailed bridge profile is tracked in the source tree at
 `docs/specs/vault-bridge-navcoin-profile.md`.
 
+## Ethereum relays on the validator hosts
+
+Each validator host runs three loopback Ethereum JSON-RPC relays:
+
+| Port | Upstream | How it runs |
+|---|---|---|
+| `127.0.0.1:28701` | `https://ethereum-rpc.publicnode.com` | The enabled unit `navcoin-ethereum-rpc-28701.service`, on all six hosts |
+| `127.0.0.1:28702` | `https://eth.drpc.org` | The enabled unit `navcoin-ethereum-rpc-28702.service`, on all six hosts |
+| `127.0.0.1:28703` | `https://eth.drpc.org` | The enabled unit `navcoin-ethereum-rpc-28703.service`, on all six hosts |
+
+All three run `/opt/postfiat/route-tools/navcoin-20260907/https-jsonrpc-loopback-proxy.py
+--attempts 3` from enabled units in `/etc/systemd/system` that restart on boot.
+
+Since 2026-10-01, 28701 refuses archive reads: `eth_getCode` at a historical block
+returns HTTP 403, "Archive requests require a personal token". Plain block reads
+still succeed. `ethereum-checkpoint-vote-sign` makes such archive reads, so
+`scripts/a666-mainnet-return-import.sh` and
+`scripts/a666-mainnet-record-destination-consume.sh` default to 28703. Set
+`A666_VALIDATOR_ETHEREUM_RPC` to override the default. The observed relay state is
+recorded in
+[Current State](../status/chain-state-current.md#2026-10-16-archive-relay-runs-as-a-systemd-unit).
+
+## FastSwap control certificates
+
+`ActivateCommittee` (admit the next FastSwap and Ethereum bridge committee
+epoch) and `StopPrepare` (fence one FastSwap policy epoch) need a control
+certificate from the active FastSwap committee: a quorum of ML-DSA-65 votes
+under `FASTLANE_CONTROL_CONTEXT_V1` over the committee domain (chain ID,
+genesis hash, protocol version, epoch, root) and the action digest. The
+`ActivateCommittee` digest binds the new committee's domain and root and the
+final checkpoint ID; the `StopPrepare` digest binds the committee epoch,
+policy epoch and finalized height. Each validator signs from its own key
+file, as with `ethereum-checkpoint-vote-sign`:
+
+```bash
+# One node: build the unsigned message (refuses unless the epoch is active + 1,
+# the root matches the active registry keys, and a drained final checkpoint is anchored).
+postfiat-node fastswap-control-prepare --data-dir DIR --kind activate-committee \
+  --epoch 2 --committee-root HEX --control-file activate-2.json
+postfiat-node fastswap-control-prepare --data-dir DIR --kind stop-prepare \
+  --policy-epoch N --control-file stop-prepare-N.json
+# Each signer, on its own host: one vote.
+postfiat-node fastswap-control-vote-sign --data-dir DIR --control-file activate-2.json \
+  --validator validator-N --validator-key-file DIR/validator_keys.json --vote-file vote-N.json
+# Anyone: check quorum and signatures, write the certificate.
+postfiat-node fastswap-control-assemble --data-dir DIR --control-file activate-2.json \
+  --vote-files vote-0.json,...,vote-4.json --certificate-file activate-2.certificate.json
+```
+
+`vote-sign` refuses a key that does not match the active committee and a
+message the ledger would not admit. It keeps one record per (committee epoch,
+kind, target epoch) under `fastswap-control-signing/`, next to
+`ethereum-checkpoint-signing/`, and refuses a second different message;
+re-signing the same message returns the recorded vote. `assemble` runs the
+certificate through `execute_fastlane_control` on a copy of the ledger before
+writing it. The certificate is the `Control` operation of
+`mempool_submit_fastlane_primary_finality`. The final drained checkpoint is not
+signed with `ethereum-checkpoint-vote-sign`, which signs Ethereum checkpoints;
+its votes come from the FastSwap service request `fastswap_checkpoint_status`.
+
 ## Python modules
 
 Python source under `python/postfiat_rpc/` mirrors the NAV operation builders and

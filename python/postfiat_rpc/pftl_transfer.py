@@ -7,7 +7,7 @@ import json
 import os
 import sys
 from dataclasses import asdict, is_dataclass
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, DecimalException, localcontext
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -29,11 +29,22 @@ PFTL_PRECISION = Decimal("1000000")
 def pft_to_atoms(value: str) -> int:
     try:
         amount = Decimal(value.strip())
-    except (AttributeError, InvalidOperation) as error:
+    except (AttributeError, DecimalException) as error:
         raise ValueError("amount must be a decimal PFTL value") from error
+    if not amount.is_finite():
+        raise ValueError("amount must be a finite decimal PFTL value")
     if amount <= 0:
         raise ValueError("amount must be positive")
-    atoms_decimal = amount * PFTL_PRECISION
+    with localcontext() as ctx:
+        # Exact: the product's coefficient has at most len(digits) + 7 digits,
+        # so it is never rounded to the default 28 before the 6-decimal check.
+        ctx.prec = max(ctx.prec, len(amount.as_tuple().digits) + len(PFTL_PRECISION.as_tuple().digits))
+        try:
+            atoms_decimal = amount * PFTL_PRECISION
+        except DecimalException as error:
+            # Decimal() parses any exponent, but scaling one beyond the context's
+            # Emax (e.g. "1e400000000") raises decimal.Overflow.
+            raise ValueError("amount exponent is out of decimal range") from error
     if atoms_decimal != atoms_decimal.to_integral_value():
         raise ValueError("amount has more than 6 decimal places")
     atoms = int(atoms_decimal)
@@ -102,6 +113,44 @@ def transfer_report(action: str, amount_atoms: int, result: Any) -> dict[str, An
         "tx_id": body.get("tx_id") if isinstance(body, dict) else None,
         "result": body,
     }
+
+
+def finality_warning(report: dict[str, Any]) -> str | None:
+    """Return the stderr warning for a --poll-finality report, or None.
+
+    A poll that times out is a reported outcome (``finality_timeout`` in the
+    result), not a failure: stdout and the exit code stay as they are. The
+    warning only tells an operator that the transfer may still finalize, so
+    it must be polled rather than resubmitted.
+    """
+    body = report.get("result")
+    if not isinstance(body, dict):
+        body = {}
+    tx_id = body.get("tx_id")
+    if not isinstance(tx_id, str) or not tx_id:
+        return (
+            "warning: finality not polled: submit returned no tx_id; the transfer "
+            "may still finalize - check the account, do not resubmit"
+        )
+    if body.get("finalized") is True and body.get("finality_timeout") is not True:
+        return None
+    # Escape control characters so an RPC-supplied tx_id cannot split the line.
+    shown = tx_id.encode("unicode_escape").decode("ascii")
+    return (
+        "warning: finality not observed before --poll-timeout-seconds; "
+        f"transaction {shown} may still finalize - poll it, do not resubmit"
+    )
+
+
+def warn_if_finality_not_observed(report: dict[str, Any]) -> None:
+    message = finality_warning(report)
+    if message is None:
+        return
+    try:
+        print(message, file=sys.stderr)
+    except (OSError, ValueError):
+        # An unusable stderr must not change the stdout report or exit code.
+        pass
 
 
 def run_faucet(args: argparse.Namespace) -> dict[str, Any]:
@@ -182,6 +231,9 @@ def run_send(args: argparse.Namespace) -> dict[str, Any]:
             poll_timeout_seconds=args.poll_timeout_seconds,
             poll_interval_seconds=args.poll_interval_seconds,
         )
+        report = transfer_report("send", amount_atoms, result)
+        warn_if_finality_not_observed(report)
+        return report
     else:
         result = send_pft(
             client,

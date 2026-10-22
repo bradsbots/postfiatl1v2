@@ -355,6 +355,63 @@ publication. Raw output contains disposable key material; only
 verifier accepts its binary identities, ten phases, restart receipts, clone
 roots, backups, and unchanged Consensus/Cobalt boundaries.
 
+## Exact replay evidence
+
+`run_replay_evidence.py` replays recorded history offline from a clean checkout
+of the binary's source. The default mode takes the legacy pre-activation pair
+(`--quarantine-dir` at 915, `--authenticated-history-dir` at 924). A signed
+post-activation export (for example the height-1123 canary) uses the
+signed-archive mode:
+
+```bash
+python3 benchmarks/storage-scaling/run_replay_evidence.py \
+  --node-bin /FROZEN/release/postfiat-node \
+  --signed-archive-dir /PATH/backup-signed \
+  --trusted-publisher-file /PATH/snapshot-publisher.public.json \
+  --expected-height 1123 --expected-tip FULL_TIP --expected-root FULL_ROOT \
+  --output-dir /explicit/disposable/replay-1123 \
+  --expected-source-revision FULL_BINARY_SOURCE_COMMIT
+```
+
+A frozen release binary predates this mode, so its source commit must only be
+an ancestor of the clean checkout; the receipt records both commits. It refuses an archive without `snapshot.signed-manifest.json`, a publisher
+other than the trusted file's, and expected values that differ from the signed
+manifest. On a scratch copy it runs the signed import,
+`verify-finalized-checkpoint` and the full `verify-state` replay. Height, tip
+and root must match at each step. The archive tree hash (`tree_sha256`) must be
+unchanged afterwards. The receipt `receipts/height-N.json` binds the binary,
+manifest, trusted key and archive hashes and each step's output in `steps/`.
+
+One legacy pre-activation data directory (for example a height-924 copy) uses
+the legacy-source mode, with the same source-revision rule:
+
+```bash
+python3 benchmarks/storage-scaling/run_replay_evidence.py \
+  --node-bin /FROZEN/release/postfiat-node \
+  --legacy-source-dir /SCRATCH/validator-0 \
+  --recorded-manifest /PATH/storage-migration-manifest.json \
+  --expected-height 924 --expected-tip FULL_TIP --expected-root FULL_ROOT \
+  --output-dir /explicit/disposable/replay-924 \
+  --expected-source-revision FULL_BINARY_SOURCE_COMMIT
+```
+
+It refuses a source with `transactional_generation.json` (past storage
+activation) and expected values that differ from the source `chain_tip.json`
+or the recorded migration manifest. It runs the pair mode's legacy replay
+(`receipts/height-N.json`), then an independent `--verify-only` while hashing
+the scratch clone and rebuilt store before and after. Counts, roots and the
+ordered-history accumulator must equal the recorded manifest; the source tree
+hash must be unchanged. `replay-report.json` binds the receipt and
+`verify-only.json`.
+
+In every mode, the receipts, reports, steps and `verify-only.json` carry no host
+paths. A path under a declared root is written as `<scratch>/…`, `<source>/…`
+or `<output>/…`, and a declared input file is written as its label
+(`<node-bin>`, `<trusted-publisher-file>`, `<recorded-manifest>`). Any other
+absolute path, or the home directory, makes the run fail. The absolute roots go
+only to `local-paths.private.json`. No report references that file, so it is
+never bound into a packet.
+
 ## Offline rollback and tamper qualification
 
 Build the current source and a distinct compatible ancestor as release
@@ -413,6 +470,27 @@ python3 benchmarks/storage-scaling/package_packet.py \
   --tamper-report /explicit/disposable/storage-tamper/tamper-report.json \
   --migration-report /PATH/migration-report.json
 ```
+
+The height-915 quarantine archive is lost; its approved replacement is the
+signed validator-1 canary at height 1123 (manifest `d957141e…`). To bind it,
+pass the legacy-source report (`--legacy-source-dir` mode) as `--replay-report`
+and add the signed-archive receipt:
+
+```bash
+  --replay-report /PATH/replay-924/replay-report.json \
+  --replacement-archive-receipt /PATH/replay-1123/receipts/height-1123.json
+```
+
+The packet then holds `replay/height-924.json` and, byte for byte in the
+harness layout, `replay/signed-archive-1123/receipts/height-1123.json` with its
+four step outputs. `artifacts/replay.json` has no `quarantine_archive_blocks`;
+its `quarantine_archive_replacement` block names 915 → 1123, the manifest hash,
+the reason and the receipt. The verifier accepts only that height and manifest
+hash, on the packet's binary and source. It checks the tree and trusted-key
+hashes, the step outputs by hash and against the receipt's height, tip and
+root, and the 924 receipt as in the pair. Its report records the replacement and
+its reason under `quarantine_archive_replacement`. The 915+924 pair is verified
+as before.
 
 All paths above are operator procedures, not deployment authorization. Do not
 probe, restart, or mutate the live fleet from this harness. Do not publish

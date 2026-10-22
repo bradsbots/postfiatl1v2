@@ -424,15 +424,19 @@ def validate_nav_binding(
     return nav_per_unit, circulating_supply, verified_assets
 
 
-def selected_source_custody(
-    route: dict[str, Any], identities: dict[str, Any], *, for_issue: bool = False
-) -> dict[str, Any]:
-    """Consume the node's existing rows, which live outside the route ledger hash."""
+def source_custody_rows(
+    route: dict[str, Any], identities: dict[str, Any]
+) -> list[dict[str, Any]]:
+    """Validate the node's custody rows, which live outside the route ledger hash.
+
+    The node omits an empty reservation_escrows map; only that absence is read as
+    empty. Every other field must be present, and returned rows are normalized copies.
+    """
     rows = route.get("source_settlement_custody")
     if not isinstance(rows, list):
         raise DemoError("route status is missing source_settlement_custody rows")
     seen: set[str] = set()
-    selected = None
+    normalized = []
     principal_total = spread_total = 0
     for row in rows:
         if not isinstance(row, dict) or row.get("route_id") != identities["route_id"]:
@@ -449,19 +453,29 @@ def selected_source_custody(
         spread_total += spread
         if not isinstance(row.get("enabled_for_issue"), bool):
             raise DemoError("source custody enabled_for_issue must be boolean")
-        escrows = row.get("reservation_escrows")
+        escrows = row.get("reservation_escrows", {})
         if not isinstance(escrows, dict):
             raise DemoError("source custody reservation_escrows must be an object")
         for reservation, amount in escrows.items():
             if not HASH48_RE.fullmatch(reservation):
                 raise DemoError("source custody reservation ID is malformed")
             require_nonnegative_int(amount, "source reservation escrow")
-        if asset == identities["settlement_source_asset_id"]:
-            selected = row
+        normalized.append(dict(row, reservation_escrows=dict(escrows)))
     if principal_total > route_counter(route, "settlement_reserve_atoms"):
         raise DemoError("source custody principal exceeds the aggregate reserve")
     if spread_total > route_counter(route, "non_nav_spread_atoms"):
         raise DemoError("source custody spread exceeds the aggregate spread")
+    return normalized
+
+
+def selected_source_custody(
+    route: dict[str, Any], identities: dict[str, Any], *, for_issue: bool = False
+) -> dict[str, Any]:
+    selected = next(
+        (row for row in source_custody_rows(route, identities)
+         if row["asset_id"] == identities["settlement_source_asset_id"]),
+        None,
+    )
     if selected is None:
         raise DemoError("selected source series has no custody row on this route")
     if for_issue and selected["enabled_for_issue"] is not True:
@@ -475,8 +489,8 @@ def verify_source_custody_delta(
 ) -> None:
     selected_source_custody(before, identities)
     selected_source_custody(after, identities)
-    prior = {row["asset_id"]: row for row in before["source_settlement_custody"]}
-    following = {row["asset_id"]: row for row in after["source_settlement_custody"]}
+    prior = {row["asset_id"]: row for row in source_custody_rows(before, identities)}
+    following = {row["asset_id"]: row for row in source_custody_rows(after, identities)}
     if set(prior) != set(following):
         raise DemoError("source custody membership changed during the operation")
     for asset, row in prior.items():

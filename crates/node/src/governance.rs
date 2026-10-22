@@ -485,6 +485,31 @@ pub fn create_fastpay_recovery_governance_bootstrap(
             "FastPay recovery payload domain does not match genesis",
         ));
     }
+    let batch = unsigned_fastpay_recovery_governance_batch(
+        &genesis,
+        payload,
+        options.validators,
+        options.support,
+        options.veto_until_height,
+    )?;
+    write_amendment_file(
+        &options.amendment_file,
+        &batch.fastpay_recovery_bootstraps[0].amendment,
+    )?;
+    write_governance_action_batch_file(&options.batch_file, &batch)?;
+    Ok(batch)
+}
+
+/// Builds the unsigned governance batch that carries a FastPay recovery
+/// payload. Validator authorizations are added later by
+/// `governance-authorization-sign` and the `-assemble` command.
+pub(crate) fn unsigned_fastpay_recovery_governance_batch(
+    genesis: &Genesis,
+    payload: postfiat_types::FastPayRecoveryGovernancePayloadV1,
+    validators: Vec<String>,
+    support: Vec<String>,
+    veto_until_height: u64,
+) -> io::Result<GovernanceActionBatch> {
     let kind = format!(
         "{}{}",
         postfiat_types::FASTPAY_RECOVERY_GOVERNANCE_KIND_PREFIX_V1,
@@ -492,32 +517,29 @@ pub fn create_fastpay_recovery_governance_bootstrap(
             .payload_id()
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?
     );
-    let domain = cobalt_domain(&genesis);
-    let config = EssentialSubsetConfig::all_of(options.validators);
+    let domain = cobalt_domain(genesis);
+    let config = EssentialSubsetConfig::all_of(validators);
     let amendment = ratify_governance_amendment_with_lifecycle(
         &domain,
         &config,
         &kind,
         postfiat_types::FASTPAY_RECOVERY_GOVERNANCE_VERSION_V1,
-        options.support,
+        support,
         GovernanceAmendmentLifecycle {
             // The payload hash binds the future feature activation. The
             // governance action itself must be committable before that height.
             activation_height: 0,
-            veto_until_height: options.veto_until_height,
+            veto_until_height,
             paused: false,
         },
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
-    write_amendment_file(&options.amendment_file, &amendment)?;
     let bootstrap = postfiat_types::FastPayRecoveryGovernanceBootstrapV1 { amendment, payload };
     bootstrap
         .validate_payload_binding()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let batch =
-        build_governance_action_batch_with_fastpay_recovery_bootstrap(&genesis, bootstrap)?;
-    verify_governance_action_batch_id(&genesis, &batch)?;
-    write_governance_action_batch_file(&options.batch_file, &batch)?;
+    let batch = build_governance_action_batch_with_fastpay_recovery_bootstrap(genesis, bootstrap)?;
+    verify_governance_action_batch_id(genesis, &batch)?;
     Ok(batch)
 }
 
@@ -552,6 +574,35 @@ pub fn assemble_signed_fastpay_recovery_governance_bootstrap(
     Ok(batch)
 }
 
+fn decode_tier4_finality_bootstrap(
+    raw: Option<&str>,
+) -> io::Result<(
+    Option<postfiat_types::EthereumArbitrumFinalityStateV2>,
+    Option<postfiat_types::PfUsdcArcFinalityStateV1>,
+)> {
+    let Some(raw) = raw else {
+        return Ok((None, None));
+    };
+    let value: serde_json::Value = serde_json::from_str(raw)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    match value.get("schema").and_then(serde_json::Value::as_str) {
+        Some(postfiat_types::ETHEREUM_ARBITRUM_FINALITY_STATE_SCHEMA_V2) => {
+            let state = serde_json::from_value(value)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            Ok((Some(state), None))
+        }
+        Some(postfiat_types::PFUSDC_ARC_FINALITY_STATE_SCHEMA_V1) => {
+            let state = serde_json::from_value(value)
+                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+            Ok((None, Some(state)))
+        }
+        _ => Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "unsupported Tier-4 finality bootstrap schema",
+        )),
+    }
+}
+
 pub fn create_vault_bridge_route_profile_governance(
     options: VaultBridgeRouteProfileGovernanceOptions,
 ) -> io::Result<GovernanceActionBatch> {
@@ -563,7 +614,17 @@ pub fn create_vault_bridge_route_profile_governance(
     profile
         .validate()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    let kind = postfiat_types::vault_bridge_route_amendment_kind(&profile)
+    let finality_bootstrap_raw = options
+        .tier4_finality_bootstrap_file
+        .as_ref()
+        .map(|path| read_bounded_json_text_file(path, "Tier-4 finality bootstrap"))
+        .transpose()?;
+    let (tier4_finality_bootstrap, arc_finality_bootstrap) =
+        decode_tier4_finality_bootstrap(finality_bootstrap_raw.as_deref())?;
+    let kind = match arc_finality_bootstrap.as_ref() {
+        Some(state) => postfiat_types::vault_bridge_arc_route_amendment_kind_v2(&profile, state),
+        None => postfiat_types::vault_bridge_route_amendment_kind(&profile),
+    }
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let domain = cobalt_domain(&genesis);
     let config = EssentialSubsetConfig::all_of(options.validators);
@@ -581,20 +642,16 @@ pub fn create_vault_bridge_route_profile_governance(
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     write_amendment_file(&options.amendment_file, &amendment)?;
-    let tier4_finality_bootstrap = options
-        .tier4_finality_bootstrap_file
-        .as_ref()
-        .map(|path| {
-            let raw = read_bounded_json_text_file(path, "Tier-4 finality bootstrap")?;
-            serde_json::from_str::<postfiat_types::EthereumArbitrumFinalityStateV2>(&raw)
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
-        })
-        .transpose()?;
     let activation = postfiat_types::VaultBridgeRouteProfileActivationV1 {
-        schema: postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V1.to_string(),
+        schema: if arc_finality_bootstrap.is_some() {
+            postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V2
+        } else {
+            postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V1
+        }.to_string(),
         profile,
         amendment,
         tier4_finality_bootstrap,
+        arc_finality_bootstrap,
     };
     let batch = build_governance_action_batch_with_vault_bridge_route_profile_activation(
         &genesis,
@@ -616,20 +673,25 @@ pub fn assemble_signed_vault_bridge_route_profile_governance(
     let profile = serde_json::from_str::<postfiat_types::VaultBridgeRouteProfileV1>(&raw)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     let amendment = read_amendment_file(&options.signed_amendment_file)?;
-    let tier4_finality_bootstrap = options
+    let finality_bootstrap_raw = options
         .tier4_finality_bootstrap_file
         .as_ref()
         .map(|path| {
-            let raw = read_bounded_json_text_file(path, "Tier-4 finality bootstrap")?;
-            serde_json::from_str::<postfiat_types::EthereumArbitrumFinalityStateV2>(&raw)
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+            read_bounded_json_text_file(path, "Tier-4 finality bootstrap")
         })
         .transpose()?;
+    let (tier4_finality_bootstrap, arc_finality_bootstrap) =
+        decode_tier4_finality_bootstrap(finality_bootstrap_raw.as_deref())?;
     let activation = postfiat_types::VaultBridgeRouteProfileActivationV1 {
-        schema: postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V1.to_string(),
+        schema: if arc_finality_bootstrap.is_some() {
+            postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V2
+        } else {
+            postfiat_types::VAULT_BRIDGE_ROUTE_PROFILE_ACTIVATION_SCHEMA_V1
+        }.to_string(),
         profile,
         amendment,
         tier4_finality_bootstrap,
+        arc_finality_bootstrap,
     };
     let batch = build_governance_action_batch_with_vault_bridge_route_profile_activation(
         &genesis,
@@ -2325,6 +2387,17 @@ pub fn create_governance_genesis_bundle(
 pub fn verify_governance_genesis_bundle(
     options: GovernanceGenesisVerifyOptions,
 ) -> io::Result<GovernanceGenesisVerifyReport> {
+    verify_governance_genesis_bundle_snapshot(options).map(|(report, _)| report)
+}
+
+/// Verifies one read of the bundle and returns its operator manifest
+/// references, so callers never pair the report with a later file read.
+pub fn verify_governance_genesis_bundle_snapshot(
+    options: GovernanceGenesisVerifyOptions,
+) -> io::Result<(
+    GovernanceGenesisVerifyReport,
+    Vec<GovernanceGenesisOperatorManifestRef>,
+)> {
     let store = NodeStore::new(&options.data_dir);
     let genesis = store.read_genesis()?;
     let expected_genesis_hash = genesis_hash(&genesis);
@@ -2419,7 +2492,7 @@ pub fn verify_governance_genesis_bundle(
         validate_governance_genesis_manifest_ref(&manifest, manifest_ref)?;
     }
 
-    Ok(GovernanceGenesisVerifyReport {
+    let report = GovernanceGenesisVerifyReport {
         schema: GOVERNANCE_GENESIS_VERIFY_REPORT_SCHEMA.to_string(),
         verified: true,
         bundle_file: options.bundle_file.display().to_string(),
@@ -2434,7 +2507,8 @@ pub fn verify_governance_genesis_bundle(
         registry_root: bundle.registry_root,
         operator_manifest_count: bundle.operator_manifests.len(),
         operator_manifests_verified: true,
-    })
+    };
+    Ok((report, bundle.operator_manifests))
 }
 
 pub fn apply_governance_batch(options: ApplyBatchOptions) -> io::Result<Vec<Receipt>> {
@@ -2468,7 +2542,7 @@ fn apply_governance_batch_internal(
     verify_governance_action_batch_id(&genesis, &batch)?;
 
     let mut governance = store.read_governance()?;
-    let mut ledger = store.read_ledger()?;
+    let mut ledger = read_fastpay_ledger(&store)?;
     let shielded = store.read_shielded()?;
     let bridge = store.read_bridge()?;
     let chain_tip = read_chain_tip_or_reconstruct_for_genesis(&store, &genesis)?;

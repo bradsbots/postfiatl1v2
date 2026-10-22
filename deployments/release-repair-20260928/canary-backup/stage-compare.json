@@ -1,0 +1,11 @@
+{
+ "compared": "stage rootfs vs combined-fastpay-20260925 stage after release-id substitution",
+ "counts": {
+  "DIFFERS": 2,
+  "IDENTICAL_AFTER_RELEASE_ID": 34
+ },
+ "differs": [
+  "etc/postfiat/releases/combined-fastpay-20260928/deployment-manifest.json",
+  "opt/postfiat/releases/combined-fastpay-20260928/postfiat-node"
+ ]
+}

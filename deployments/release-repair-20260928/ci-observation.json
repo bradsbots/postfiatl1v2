@@ -1,0 +1,6 @@
+{
+  "observed_at": "2026-09-28T05:55:36.850898+00:00",
+  "command": "gh run list --branch release/combined-fastpay-20260928 --limit 10",
+  "runs": [],
+  "note": "rust-ci, docs-build and product-security-ci run only on pushes to main and on pull requests; no CI verdict exists for this branch tip"
+}

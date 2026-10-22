@@ -14,6 +14,7 @@ import hashlib
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from typing import Any
@@ -96,6 +97,69 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+LOCAL_PATHS_FILE = "local-paths.private.json"
+
+
+class PathRedactor:
+    """Writes evidence JSON with every host path replaced by a labelled root.
+
+    A path under a declared root becomes ``<label>/relative/path`` (for example
+    ``<scratch>/transactional-924``); a declared file becomes its label. Any
+    other absolute path, or the home directory, refuses the write. The absolute
+    roots go only to ``LOCAL_PATHS_FILE``, which no report references.
+    """
+
+    def __init__(self) -> None:
+        self.roots: dict[str, Path] = {}
+        self.files: dict[str, Path] = {}
+
+    def root(self, label: str, path: Path) -> "PathRedactor":
+        self.roots[label] = path
+        return self
+
+    def file(self, label: str, path: Path) -> "PathRedactor":
+        self.files[label] = path
+        return self
+
+    def _replacements(self) -> list[tuple[str, str]]:
+        pairs: set[tuple[str, str]] = set()
+        for label, path in self.files.items():
+            for variant in {str(path), str(path.resolve())}:
+                pairs.add((variant, f"<{label}>"))
+        for label, path in self.roots.items():
+            for variant in {str(path), str(path.resolve())}:
+                pairs.add((variant, f"<{label}>"))
+        return sorted(pairs, key=lambda pair: len(pair[0]), reverse=True)
+
+    def redact(self, value: Any, field: str = "") -> Any:
+        if isinstance(value, dict):
+            return {key: self.redact(item, f"{field}.{key}") for key, item in value.items()}
+        if isinstance(value, list):
+            return [self.redact(item, f"{field}[]") for item in value]
+        if not isinstance(value, str):
+            return value
+        for absolute, label in self._replacements():
+            value = value.replace(absolute, label)
+        home = str(Path.home())
+        if value.startswith("/") or (home not in {"", "/"} and home in value):
+            raise RuntimeError(f"evidence output would carry a host path at {field.lstrip('.')}")
+        return value
+
+    def write(self, path: Path, value: Any) -> None:
+        write_json(path, self.redact(value))
+
+    def write_local_paths(self, output: Path) -> None:
+        write_json(
+            output / LOCAL_PATHS_FILE,
+            {
+                "schema": "postfiat-storage-replay-local-paths-v1",
+                "note": "Host-local paths of this run; never bind this file into a packet.",
+                "roots": {f"<{label}>": str(path) for label, path in self.roots.items()},
+                "files": {f"<{label}>": str(path) for label, path in self.files.items()},
+            },
+        )
+
+
 def git_revision() -> str:
     return subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -170,7 +234,12 @@ def replay_source(
     receipt_path: Path,
     revision: str,
     source_tree_digest: str,
+    redactor: PathRedactor | None = None,
 ) -> dict[str, str]:
+    if redactor is None:
+        redactor = PathRedactor().root("scratch", scratch).root("source", source).file(
+            "node-bin", node_bin
+        )
     clone = scratch / f"source-{height}"
     rebuild = scratch / f"transactional-{height}"
     shutil.copytree(source, clone, copy_function=shutil.copy2)
@@ -356,7 +425,7 @@ def replay_source(
         "offline": True,
         "network_contacted": False,
     }
-    write_json(receipt_path, receipt)
+    redactor.write(receipt_path, receipt)
     return {
         "path": receipt_path.relative_to(receipt_path.parent.parent).as_posix(),
         "sha256": sha256(receipt_path),
@@ -416,8 +485,12 @@ def main() -> int:
 
     references: list[dict[str, str]] = []
     receipts: dict[int, dict[str, Any]] = {}
+    redactor = PathRedactor().root("output", output).file("node-bin", node_bin)
+    for height, source in sources.items():
+        redactor.root(f"source-{height}", source)
     with tempfile.TemporaryDirectory(prefix="postfiat-storage-replay-") as temporary:
         scratch = Path(temporary)
+        redactor.root("scratch", scratch)
         for height, source_kind in REQUIRED_SOURCES.items():
             receipt_path = receipts_dir / f"height-{height}.json"
             references.append(
@@ -430,6 +503,7 @@ def main() -> int:
                     receipt_path=receipt_path,
                     revision=revision,
                     source_tree_digest=source_digests[height],
+                    redactor=redactor,
                 )
             )
             receipts[height] = read_json(receipt_path)
@@ -460,11 +534,466 @@ def main() -> int:
         "network_contacted": False,
     }
     report_path = output / "replay-report.json"
-    write_json(report_path, report)
+    redactor.write(report_path, report)
+    redactor.write_local_paths(output)
     print(f"storage-scaling-replay=PASS")
     print(f"report={report_path}")
     return 0
 
 
+SIGNED_MANIFEST_FILE = "snapshot.signed-manifest.json"
+SIGNED_ARCHIVE_STEPS = (
+    "snapshot-import-signed-finalized-checkpoint",
+    "status",
+    "verify-finalized-checkpoint",
+    "verify-state",
+)
+
+
+def signed_archive_replay(
+    *,
+    node_bin: Path,
+    archive: Path,
+    trusted_publisher_file: Path,
+    expected_height: int,
+    expected_tip: str,
+    expected_root: str,
+    output: Path,
+    revision: str,
+    harness_revision: str = "",
+) -> dict[str, str]:
+    """Replay a signed post-activation export on a scratch copy.
+
+    Signed import, finalized-checkpoint verification and the full verify-state
+    replay run with ``node_bin``; the archive itself is only read and hashed.
+    """
+    validate_regular_tree(archive, "signed archive")
+    manifest_path = archive / SIGNED_MANIFEST_FILE
+    if not manifest_path.is_file():
+        raise ValueError(f"source is not a signed archive: {SIGNED_MANIFEST_FILE} missing")
+    signed = read_json(manifest_path)
+    inner = signed.get("manifest")
+    if (
+        signed.get("schema") != "postfiat.signed_snapshot_manifest.v1"
+        or not signed.get("signature_hex")
+        or not isinstance(inner, dict)
+    ):
+        raise ValueError("source is not a signed archive: malformed signed manifest")
+    if (
+        inner.get("chain_id") != CONTROLLED_CHAIN_ID
+        or inner.get("genesis_hash") != CONTROLLED_GENESIS_HASH
+    ):
+        raise ValueError("signed archive is not the controlled chain")
+    for label, want, have in (
+        ("height", expected_height, inner.get("block_height")),
+        ("tip", expected_tip, inner.get("block_tip_hash")),
+        ("root", expected_root, inner.get("state_root")),
+    ):
+        if want != have:
+            raise ValueError(f"expected {label} does not match the signed manifest")
+    trusted = read_json(trusted_publisher_file)
+    if trusted.get("publisher") != signed.get("publisher"):
+        raise ValueError("trusted publisher file does not name the manifest publisher")
+    if output.exists():
+        raise ValueError(f"refusing to overwrite output directory: {output}")
+    if output.is_relative_to(archive) or archive.is_relative_to(output):
+        raise ValueError("signed archive and output directory must be disjoint")
+
+    source_tree_digest = tree_sha256(archive)
+    output.mkdir(parents=True)
+    steps_dir = output / "steps"
+    steps: dict[str, dict[str, str]] = {}
+    results: dict[str, dict[str, Any]] = {}
+    redactor = (
+        PathRedactor()
+        .root("source", archive)
+        .root("output", output)
+        .file("node-bin", node_bin)
+        .file("trusted-publisher-file", trusted_publisher_file)
+    )
+
+    def step(name: str, *arguments: str) -> dict[str, Any]:
+        value = run_json([str(node_bin), name, *arguments])
+        path = steps_dir / f"{name}.json"
+        redactor.write(path, value)
+        steps[name] = {"path": path.relative_to(output).as_posix(), "sha256": sha256(path)}
+        results[name] = value
+        return value
+
+    with tempfile.TemporaryDirectory(prefix="postfiat-signed-archive-replay-") as temporary:
+        scratch = Path(temporary)
+        redactor.root("scratch", scratch)
+        copy = scratch / "archive"
+        data = scratch / "data"
+        shutil.copytree(archive, copy, copy_function=shutil.copy2)
+        step(
+            SIGNED_ARCHIVE_STEPS[0],
+            "--data-dir", str(data),
+            "--snapshot-dir", str(copy),
+            "--trusted-publisher-key-file", str(trusted_publisher_file),
+            "--node-id", str(inner.get("node_id", "")),
+        )
+        status = step("status", "--data-dir", str(data), "--expect-height", str(expected_height))
+        checkpoint = step("verify-finalized-checkpoint", "--data-dir", str(data))
+        state = step("verify-state", "--data-dir", str(data))
+
+    if status.get("build_git_revision") != revision[:8]:
+        raise RuntimeError("replay binary is not built from the requested source")
+    if status.get("build_profile") != "release":
+        raise RuntimeError("replay binary is not a release build")
+    block_log = state.get("block_log")
+    if (
+        checkpoint.get("verified") is not True
+        or state.get("verified") is not True
+        or not isinstance(block_log, dict)
+        or block_log.get("verified") is not True
+    ):
+        raise RuntimeError("signed archive replay is not verified")
+    observed = {
+        "status": (
+            status.get("block_height"),
+            status.get("block_tip_hash"),
+            status.get("state_root"),
+        ),
+        "verify-finalized-checkpoint": (
+            checkpoint.get("checkpoint_height"),
+            checkpoint.get("checkpoint_block_hash"),
+            checkpoint.get("checkpoint_state_root"),
+        ),
+        "verify-state": (
+            block_log.get("block_count"),
+            block_log.get("tip_hash"),
+            block_log.get("state_root"),
+        ),
+    }
+    for name, (height, tip, root) in observed.items():
+        if height != expected_height:
+            raise RuntimeError(f"{name} height {height} differs from the expected height")
+        if tip != expected_tip:
+            raise RuntimeError(f"{name} tip hash differs from the expected tip")
+        if root != expected_root:
+            raise RuntimeError(f"{name} state root differs from the expected root")
+    source_tree_after = tree_sha256(archive)
+    if source_tree_after != source_tree_digest:
+        raise RuntimeError("signed archive changed during replay")
+
+    storage = status.get("storage") if isinstance(status.get("storage"), dict) else {}
+    receipt: dict[str, Any] = {
+        "schema": "postfiat-storage-signed-archive-replay-receipt-v1",
+        "source_height": expected_height,
+        "source_kind": "signed_archive",
+        "block_count": expected_height,
+        "commitment_version": storage.get("commitment_version"),
+        "storage_activation_height": storage.get("scheduled_activation_height"),
+        "exact_replay": True,
+        "full_replay_passed": True,
+        "tip_hash": expected_tip,
+        "state_root": expected_root,
+        "matched": {"height": True, "tip": True, "root": True},
+        "verdict": "PASS",
+        "chain_id": status.get("chain_id"),
+        "genesis_hash": status.get("genesis_hash"),
+        "protocol_version": status.get("protocol_version"),
+        "node_id": inner.get("node_id"),
+        "publisher": signed.get("publisher"),
+        "signed_manifest_sha256": sha256(manifest_path),
+        "trusted_publisher_file_sha256": sha256(trusted_publisher_file),
+        "source_tree_sha256": source_tree_digest,
+        "source_tree_sha256_after": source_tree_after,
+        "steps": steps,
+        "source_revision": revision,
+        "harness_revision": harness_revision,
+        "node_binary_sha256": sha256(node_bin),
+        "node_binary_build": {
+            "git_revision": status["build_git_revision"],
+            "profile": status["build_profile"],
+        },
+        "offline": True,
+        "network_contacted": False,
+    }
+    receipt_path = output / "receipts" / f"height-{expected_height}.json"
+    redactor.write(receipt_path, receipt)
+    redactor.write_local_paths(output)
+    return {
+        "path": receipt_path.relative_to(output).as_posix(),
+        "sha256": sha256(receipt_path),
+    }
+
+
+def signed_archive_main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Replay one signed post-activation archive offline."
+    )
+    parser.add_argument("--node-bin", type=Path, required=True)
+    parser.add_argument("--signed-archive-dir", type=Path, required=True)
+    parser.add_argument("--trusted-publisher-file", type=Path, required=True)
+    parser.add_argument("--expected-height", type=int, required=True)
+    parser.add_argument("--expected-tip", required=True)
+    parser.add_argument("--expected-root", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-revision", required=True)
+    args = parser.parse_args()
+
+    paths = (
+        args.node_bin.expanduser(),
+        args.signed_archive_dir.expanduser(),
+        args.trusted_publisher_file.expanduser(),
+        args.output_dir.expanduser(),
+    )
+    if any(path.is_symlink() for path in paths):
+        raise ValueError("binary, archive, publisher and output paths must not be symlinks")
+    node_bin, archive, trusted, output = (path.resolve() for path in paths)
+    if not node_bin.is_file() or node_bin.parent.name != "release":
+        raise ValueError("--node-bin must identify a regular target/release binary")
+    # A frozen release binary predates this mode: --expected-source-revision
+    # names the binary's source, which must be in this checkout's history.
+    revision = args.expected_source_revision
+    if len(revision) != 40 or subprocess.run(
+        ["git", "merge-base", "--is-ancestor", revision, "HEAD"], cwd=REPO
+    ).returncode != 0:
+        raise ValueError("--expected-source-revision is not an ancestor of HEAD")
+    if not git_clean():
+        raise ValueError("replay evidence requires a clean checkout")
+    reference = signed_archive_replay(
+        node_bin=node_bin,
+        archive=archive,
+        trusted_publisher_file=trusted,
+        expected_height=args.expected_height,
+        expected_tip=args.expected_tip,
+        expected_root=args.expected_root,
+        output=output,
+        revision=revision,
+        harness_revision=git_revision(),
+    )
+    print("storage-signed-archive-replay=PASS")
+    print(f"receipt={output / reference['path']}")
+    print(f"receipt_sha256={reference['sha256']}")
+    return 0
+
+
+LEGACY_TIP_FILE = "chain_tip.json"
+TRANSACTIONAL_MARKER = "transactional_generation.json"
+RECORDED_MANIFEST_FIELDS = (
+    "block_count",
+    "receipt_count",
+    "archive_count",
+    "ordered_batch_count",
+    "blocks_root",
+    "receipts_root",
+    "archive_root",
+    "ordered_batches_root",
+    "ordered_history_accumulator",
+    "current_state_root",
+)
+
+
+def legacy_source_replay(
+    *,
+    node_bin: Path,
+    source: Path,
+    expected_height: int,
+    expected_tip: str,
+    expected_root: str,
+    recorded_manifest: Path,
+    output: Path,
+    revision: str,
+    harness_revision: str = "",
+) -> dict[str, str]:
+    """Replay one legacy pre-activation data directory with the pair-mode path.
+
+    ``replay_source`` runs on a scratch copy; an independent ``--verify-only``
+    then re-checks the rebuilt store while both scratch trees are hashed.
+    """
+    validate_regular_tree(source, "legacy source")
+    if (source / TRANSACTIONAL_MARKER).exists():
+        raise ValueError(f"legacy source is past storage activation: {TRANSACTIONAL_MARKER}")
+    tip_path = source / LEGACY_TIP_FILE
+    if not tip_path.is_file():
+        raise ValueError(f"source is not a legacy data directory: {LEGACY_TIP_FILE} missing")
+    # The node appends a MAC line after the JSON object; read the object only.
+    tip, _ = json.JSONDecoder().raw_decode(tip_path.read_text(encoding="utf-8"))
+    if not isinstance(tip, dict):
+        raise ValueError(f"expected a JSON object: {LEGACY_TIP_FILE}")
+    recorded = read_json(recorded_manifest)
+    recorded_tip = recorded.get("source_tip") if isinstance(recorded.get("source_tip"), dict) else {}
+    for record, label in ((tip, "source chain tip"), (recorded, "recorded manifest")):
+        if (
+            record.get("chain_id") != CONTROLLED_CHAIN_ID
+            or record.get("genesis_hash") != CONTROLLED_GENESIS_HASH
+        ):
+            raise ValueError(f"{label} is not the controlled chain")
+    for label, want, have, noted in (
+        ("height", expected_height, tip.get("height"), recorded_tip.get("height")),
+        ("tip", expected_tip, tip.get("block_hash"), recorded_tip.get("block_hash")),
+        ("root", expected_root, tip.get("state_root"), recorded_tip.get("state_root")),
+    ):
+        if want != have:
+            raise ValueError(f"expected {label} does not match the source chain tip")
+        if want != noted:
+            raise ValueError(f"expected {label} does not match the recorded manifest")
+    if output.exists():
+        raise ValueError(f"refusing to overwrite output directory: {output}")
+    if output.is_relative_to(source) or source.is_relative_to(output):
+        raise ValueError("legacy source and output directory must be disjoint")
+
+    source_tree_digest = tree_sha256(source)
+    output.mkdir(parents=True)
+    receipt_path = output / "receipts" / f"height-{expected_height}.json"
+    receipt_path.parent.mkdir()
+    redactor = (
+        PathRedactor()
+        .root("source", source)
+        .root("output", output)
+        .file("node-bin", node_bin)
+        .file("recorded-manifest", recorded_manifest)
+    )
+    with tempfile.TemporaryDirectory(prefix="postfiat-legacy-replay-") as temporary:
+        scratch = Path(temporary)
+        redactor.root("scratch", scratch)
+        reference = replay_source(
+            node_bin=node_bin,
+            source=source,
+            height=expected_height,
+            source_kind=REQUIRED_SOURCES[924],
+            scratch=scratch,
+            receipt_path=receipt_path,
+            revision=revision,
+            source_tree_digest=source_tree_digest,
+            redactor=redactor,
+        )
+        clone = scratch / f"source-{expected_height}"
+        target = scratch / f"transactional-{expected_height}"
+        before = (tree_sha256(clone), tree_sha256(target))
+        verified = run_json(
+            [
+                str(node_bin),
+                "storage-rebuild-transactional",
+                "--data-dir", str(clone),
+                "--output-dir", str(target),
+                "--expected-tip", expected_tip,
+                "--expected-state-root", expected_root,
+                "--verify-only",
+                "--offline-confirmed",
+            ]
+        )
+        after = (tree_sha256(clone), tree_sha256(target))
+    if before != after:
+        raise RuntimeError("scratch trees changed during the independent --verify-only")
+    receipt = read_json(receipt_path)
+    if (
+        verified.get("verify_only") is not True
+        or verified.get("published") is not False
+        or verified.get("migration_packet_root") != receipt["migration_packet_root"]
+    ):
+        raise RuntimeError("independent --verify-only did not verify the rebuilt store")
+    if (receipt["source_height"], receipt["tip_hash"], receipt["state_root"]) != (
+        expected_height,
+        expected_tip,
+        expected_root,
+    ):
+        raise RuntimeError("replay identity differs from the expected values")
+    for field in RECORDED_MANIFEST_FIELDS:
+        if receipt.get(field) != recorded.get(field):
+            raise RuntimeError(f"replay {field} differs from the recorded manifest")
+    source_tree_after = tree_sha256(source)
+    if source_tree_after != source_tree_digest:
+        raise RuntimeError("legacy source changed during replay")
+
+    verify_path = output / "verify-only.json"
+    redactor.write(verify_path, verified)
+    report = {
+        "schema": "postfiat-storage-legacy-replay-v1",
+        "verdict": "PASS",
+        "source_height": expected_height,
+        "tip_hash": expected_tip,
+        "state_root": expected_root,
+        "chain_id": receipt["chain_id"],
+        "genesis_hash": receipt["genesis_hash"],
+        "commitment_mode": receipt["commitment_mode"],
+        "ordered_history_accumulator": receipt["ordered_history_accumulator"],
+        "matched": {
+            "chain": True,
+            "height": True,
+            "tip": True,
+            "root": True,
+            **{field: True for field in RECORDED_MANIFEST_FIELDS},
+        },
+        "recorded_manifest_sha256": sha256(recorded_manifest),
+        "independent_verify_only": {
+            "output": {"path": "verify-only.json", "sha256": sha256(verify_path)},
+            "clone_tree_sha256_before": before[0],
+            "clone_tree_sha256_after": after[0],
+            "target_tree_sha256_before": before[1],
+            "target_tree_sha256_after": after[1],
+        },
+        "receipts": [reference],
+        "source_tree_sha256": source_tree_digest,
+        "source_tree_sha256_after": source_tree_after,
+        "source_revision": revision,
+        "harness_revision": harness_revision,
+        "node_binary_sha256": receipt["node_binary_sha256"],
+        "node_binary_build": receipt["node_binary_build"],
+        "offline": True,
+        "network_contacted": False,
+    }
+    report_path = output / "replay-report.json"
+    redactor.write(report_path, report)
+    redactor.write_local_paths(output)
+    return {"path": "replay-report.json", "sha256": sha256(report_path)}
+
+
+def legacy_source_main() -> int:
+    parser = argparse.ArgumentParser(
+        description="Replay one legacy pre-activation data directory offline."
+    )
+    parser.add_argument("--node-bin", type=Path, required=True)
+    parser.add_argument("--legacy-source-dir", type=Path, required=True)
+    parser.add_argument("--recorded-manifest", type=Path, required=True)
+    parser.add_argument("--expected-height", type=int, required=True)
+    parser.add_argument("--expected-tip", required=True)
+    parser.add_argument("--expected-root", required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--expected-source-revision", required=True)
+    args = parser.parse_args()
+
+    paths = (
+        args.node_bin.expanduser(),
+        args.legacy_source_dir.expanduser(),
+        args.recorded_manifest.expanduser(),
+        args.output_dir.expanduser(),
+    )
+    if any(path.is_symlink() for path in paths):
+        raise ValueError("binary, source, manifest and output paths must not be symlinks")
+    node_bin, source, recorded, output = (path.resolve() for path in paths)
+    if not node_bin.is_file() or node_bin.parent.name != "release":
+        raise ValueError("--node-bin must identify a regular target/release binary")
+    revision = args.expected_source_revision
+    if len(revision) != 40 or subprocess.run(
+        ["git", "merge-base", "--is-ancestor", revision, "HEAD"], cwd=REPO
+    ).returncode != 0:
+        raise ValueError("--expected-source-revision is not an ancestor of HEAD")
+    if not git_clean():
+        raise ValueError("replay evidence requires a clean checkout")
+    reference = legacy_source_replay(
+        node_bin=node_bin,
+        source=source,
+        expected_height=args.expected_height,
+        expected_tip=args.expected_tip,
+        expected_root=args.expected_root,
+        recorded_manifest=recorded,
+        output=output,
+        revision=revision,
+        harness_revision=git_revision(),
+    )
+    print("storage-legacy-replay=PASS")
+    print(f"report={output / reference['path']}")
+    print(f"report_sha256={reference['sha256']}")
+    return 0
+
+
 if __name__ == "__main__":
+    if "--signed-archive-dir" in sys.argv[1:]:
+        raise SystemExit(signed_archive_main())
+    if "--legacy-source-dir" in sys.argv[1:]:
+        raise SystemExit(legacy_source_main())
     raise SystemExit(main())

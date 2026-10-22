@@ -1,0 +1,48 @@
+{
+  "name": "fix-reproduce-first",
+  "command": [
+    "cargo",
+    "test",
+    "--locked",
+    "-p",
+    "postfiat-node",
+    "--lib",
+    "fastpay_non_signer_view_zero_proposer_anchors_held_effect",
+    "--",
+    "--test-threads=2"
+  ],
+  "cwd": "/home/postfiatchad/.cache/qualify-20260928",
+  "started_at": "2026-09-28T06:06:24.830919+00:00",
+  "status": "PASS",
+  "stdout": "logs/fix-reproduce-first.stdout",
+  "stderr": "logs/fix-reproduce-first.stderr",
+  "environment_overrides": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_TERM_COLOR": "never",
+    "TMPDIR": "/home/postfiatchad/.cache/release-repair-20260928/tmp",
+    "RUST_TEST_THREADS": "2",
+    "RAYON_NUM_THREADS": "2",
+    "OMP_NUM_THREADS": "2",
+    "MALLOC_ARENA_MAX": "2",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "CARGO_TARGET_DIR": "/home/postfiatchad/.cache/release-repair-20260918/test-target",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "2",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+  },
+  "address_space_limit_bytes": 21474836480,
+  "minimum_available_memory_bytes": 4294967296,
+  "pid": 4163001,
+  "exit_code": 0,
+  "completed_at": "2026-09-28T06:13:47.008364+00:00",
+  "elapsed_seconds": 442.2,
+  "minimum_available_memory_observed_bytes": 18713780224,
+  "purpose": "fix: validator-5 (non-signer) proposes at view 0 right after a FastPay payment; the block certifies at view 0 with the effect anchored; identical tip, root and ledger on all six",
+  "tests_passed": 1,
+  "tests_failed": 0,
+  "tests_ignored": 0,
+  "tests_run": [
+    "tests::fastpay_non_signer_anchor::fastpay_non_signer_view_zero_proposer_anchors_held_effect"
+  ]
+}

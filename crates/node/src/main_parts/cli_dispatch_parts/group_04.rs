@@ -1078,6 +1078,76 @@ fn run_cli_group_04(command: &str, flags: &[String]) -> Result<(), String> {
             );
             Ok(())
         }
+        "fastpay-committee-prepare" => {
+            let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
+            let optional_height = |flag: &str| {
+                flag_value(flags, flag)
+                    .map(|value| value.parse::<u64>())
+                    .transpose()
+                    .map_err(|_| format!("{flag} must be a u64"))
+            };
+            let prepared =
+                postfiat_node::fastpay_committee_prepare(postfiat_node::FastPayCommitteePrepareOptions {
+                    data_dir: PathBuf::from(data_dir),
+                    registry_file: flag_value(flags, "--registry-file").map(PathBuf::from),
+                    valid_from_height: optional_height("--valid-from")?,
+                    new_orders_through_height: optional_height("--new-orders-through")?,
+                })
+                .map_err(|error| format!("fastpay-committee-prepare refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&prepared).map_err(|error| {
+                    format!("FastPay committee preparation serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
+        "fastswap-store-migrate" => {
+            // Offline only: both validator units must be stopped first (the
+            // store lock check below cannot see a unit that has not opened it).
+            let data_dir = flag_value(flags, "--data-dir").ok_or("missing --data-dir")?;
+            let options = postfiat_storage::fastswap_store::FastSwapStoreMigrationOptions {
+                dry_run: flag_present(flags, "--dry-run"),
+                backup_directory: flag_value(flags, "--backup-dir").map(PathBuf::from),
+            };
+            let report = postfiat_storage::fastswap_store::migrate_legacy_fastswap_store(
+                &Path::new(data_dir).join("fastswap-v1"),
+                &options,
+            )
+            .map_err(|error| format!("fastswap-store-migrate refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|error| {
+                    format!("FastSwap migration report serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
+        "fastswap-committee-migrate" => {
+            // Offline only: both validator units must be stopped first.
+            let data_dir = flag_value(flags, "--data-dir").ok_or("missing --data-dir")?;
+            let options = crate::fastswap_service::FastSwapCommitteeMigrationOptions {
+                data_dir: PathBuf::from(data_dir),
+                committee_file: PathBuf::from(
+                    flag_value(flags, "--committee-file").ok_or("missing --committee-file")?,
+                ),
+                anchor_file: PathBuf::from(
+                    flag_value(flags, "--anchor-file").ok_or("missing --anchor-file")?,
+                ),
+                backup_directory: flag_value(flags, "--backup-dir").map(PathBuf::from),
+                validator_id: flag_value(flags, "--validator-id").map(str::to_owned),
+                dry_run: flag_present(flags, "--dry-run"),
+            };
+            let report = crate::fastswap_service::fastswap_committee_migrate(&options)
+                .map_err(|error| format!("fastswap-committee-migrate refused: {error}"))?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&report).map_err(|error| {
+                    format!("FastSwap committee migration report serialization failed: {error}")
+                })?
+            );
+            Ok(())
+        }
         "vault-bridge-route-profile-governance" => {
             let data_dir = flag_value(flags, "--data-dir").unwrap_or(DEFAULT_DATA_DIR);
             let validators =

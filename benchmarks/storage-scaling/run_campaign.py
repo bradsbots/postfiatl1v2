@@ -51,8 +51,16 @@ PERSISTENT_ADVANCE_REPORT_SCHEMA = (
 )
 BATCH_BUILD_REPORT_SCHEMA = "postfiat-storage-corpus-batch-build-report-v1"
 QUALIFICATION_TIMEOUT_MS = 900_000
-MAX_PROPOSAL_PAGE_READS_PER_ROUND = 64
-MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND = 64
+# Re-derived 2026-10-20 for 8644f0af (STO-07 fix): an open handle reuses its validated
+# pointer binding, so the per-lookup pointer read of f0013c29 is gone; the extra
+# read_fastpay_ledger lookups of d8f65885/943c4ca7 remain. Observed per round in the
+# 8644f0af G2 and all 250 G4 rounds at heights 50 and 5,000: proposal 37, validator
+# reconstruction 43, apply 42 reads, 8 writes. Each bound keeps its headroom over the
+# d0ae79f3 figures (29/35/34 under 64), rounded up to a multiple of 16: proposal
+# 37 x 64/29 -> 96 (also covers reconstruction, 43 x 64/35 -> 80); apply 42 x 64/34 -> 80;
+# writes unchanged at 8. The G2 rollback binary 0fa55d0b reads 74/80/79, inside these.
+MAX_PROPOSAL_PAGE_READS_PER_ROUND = 96
+MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND = 80
 MAX_APPLY_PAGE_WRITES_PER_VALIDATOR_ROUND = 32
 MATERIAL_STAGE_PATHS = {
     "proposal_ms": ("round_timings", "proposal_ms"),
@@ -698,6 +706,9 @@ TRANSACTIONAL_COUNTER_FIELDS = [
     "full_history_bytes_read",
     "durable_commit_micros",
 ]
+# redb opens and closes inside each measured stage (STO-07). Optional so a
+# binary that predates the counter still runs; the window then records None.
+DATABASE_OPEN_FIELDS = ["database_opens", "database_closes"]
 LEGACY_COUNTER_FIELDS = [
     "jsonl_append_calls",
     "checkpoint_bytes_read",
@@ -747,6 +758,9 @@ def storage_work_from_report(
         raise RuntimeError("benchmark report omitted iterations")
     transactional_totals = {field: 0 for field in TRANSACTIONAL_COUNTER_FIELDS}
     legacy_totals = {field: 0 for field in LEGACY_COUNTER_FIELDS}
+    database_open_totals: dict[str, int | None] = {
+        field: 0 for field in DATABASE_OPEN_FIELDS
+    }
     full_history_records_read = 0
     full_history_bytes_read = 0
     remote_latest: dict[str, dict[str, Any]] = {}
@@ -763,6 +777,15 @@ def storage_work_from_report(
             raise RuntimeError(f"{stage} reported invalid full-history work")
         full_history_records_read += records
         full_history_bytes_read += byte_count
+        for field in DATABASE_OPEN_FIELDS:
+            value = work.get(field)
+            total = database_open_totals[field]
+            if value is None or total is None:
+                database_open_totals[field] = None
+            elif int(value) < 0:
+                raise RuntimeError(f"{stage} storage telemetry was negative: {field}")
+            else:
+                database_open_totals[field] = total + int(value)
         legacy = work.get("legacy")
         if not isinstance(legacy, dict):
             raise RuntimeError(f"{stage} omitted legacy storage counters")
@@ -866,6 +889,7 @@ def storage_work_from_report(
     totals["legacy"] = legacy_totals
     totals["full_history_records_read"] = full_history_records_read
     totals["full_history_bytes_read"] = full_history_bytes_read
+    totals.update(database_open_totals)
     totals["fsync_count"] = (
         transactional_totals["committed_write_transactions"]
         if selected_transactional
@@ -1666,6 +1690,8 @@ def run_rounds(
             "bytes_written": resource["validator_write_bytes"],
             "page_reads": counters.get("page_reads"),
             "page_writes": counters.get("page_writes"),
+            "database_opens": counters.get("database_opens"),
+            "database_closes": counters.get("database_closes"),
             "fsync_count": counters.get("fsync_count"),
             "fsync_micros": counters.get("durable_commit_micros"),
             "sample_count": resource["sample_count"],
@@ -2185,6 +2211,8 @@ def run_persistent_advance(
             "bytes_written": resource["validator_write_bytes"],
             "page_reads": counters.get("page_reads"),
             "page_writes": counters.get("page_writes"),
+            "database_opens": counters.get("database_opens"),
+            "database_closes": counters.get("database_closes"),
             "fsync_count": counters.get("fsync_count"),
             "fsync_micros": counters.get("durable_commit_micros"),
             "sample_count": resource["sample_count"],

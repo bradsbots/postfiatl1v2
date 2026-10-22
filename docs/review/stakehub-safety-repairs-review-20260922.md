@@ -67,7 +67,7 @@ closure by disabling a feature. It does not mean production qualification.
 | SH-05 — implicit Ethereum RPC | P2 | **Yes** | Explicit endpoint required and used for reads/submissions; identity observations retained. |
 | SH-06 — irreversible referrer signer | P2 | **Yes** | Handler disabled before master-account retrieval or SDK action. |
 | SH-07 — sixteen external archive paths | P2 | **Yes** | Explicit cross-repository dependency disposition satisfies the original alternative; no self-contained verification claimed. |
-| SH-08 — contradictory archive/publication claim | P2 | **Partially** | Factual correction present; manager retention/publication decision still deferred. |
+| SH-08 — contradictory archive/publication claim | P2 | **Partially** | Factual correction present; retention decided 2026-10-02 as option (a) in StakeHub `52eb686` ([proposal][sh-archive-decision]); Q1 (custody) stays open. |
 | SH-11 — unbound shielding success | P2 | **Yes** | Exact accepted runner summary required; uncertain/legacy journals stop for reconciliation. |
 | SH-12 — height mistaken for route activation | P2 | **Yes** | Exact accepted runner summary and selected-profile binding required; new resume regression R2 remains. |
 | SH-09 — venue float rounding | P3 | **Yes** | Unsafe amounts rejected against the installed SDK conversion paths. |
@@ -188,7 +188,11 @@ The historical 190-file inventory and secret scan were not rerun in this review.
 **Condition:** rely on the earlier assertion that recovery artifacts are outside
 Git, or treat a clean scan as permission to publish them. **Observed:** the
 README correctly says the archive is committed and rejects that inference;
-retention/publication is still explicitly deferred. **Expected:** factual
+retention/publication was deferred at review time and decided on 2026-10-02 as
+option (a) in StakeHub `52eb686`: the archive stays in the private repository as
+historical evidence and moves to a private evidence store before the repository
+or its docs site becomes public; Q1 stays open
+([proposal][sh-archive-decision]). **Expected:** factual
 correction and a reconciled publication/retention decision. **Remaining failure
 condition:** publication proceeds without the manager's recorded disposition.
 **Suggested change:** record that decision and supersede the contradictory
@@ -382,3 +386,5 @@ Before live funds are considered:
 
 This is a completed offline review with a Task Node skip, not an operational
 qualification or a rewarded Task Node task. Implementation stops at the findings.
+
+[sh-archive-decision]: https://github.com/postfiatorg/StakeHub/blob/master/docs/review/custody-and-archive-decision-proposal-20260923.md

@@ -1,6 +1,8 @@
 # Storage Scaling: Time-Budgeted Qualification and Release Gates
 
-**Status:** Active — no deployment-eligible candidate. Candidate `d0ae79f3` passed G4 but failed the exact height-924 G6 continuation. Successor `10dd9f20` repaired that defect and passed the existing clone runner, but the first live canary proved the runner was not deployment-exact: it omitted concurrent transport and RPC access to one transactional database and did not prove exact old-binary/data rollback. The canary was rolled back, both candidates are **DO NOT DEPLOY**, G5 still lacks the height-915 quarantine input, and public testnet remains blocked.
+**Status (2026-10-20):** Active. G4 **PASSED** on 2026-08-30 for build `d0ae79f3` (seventh one-shot run; consensus ratio 1.0581, wallet 1.0623; see the [model-floor G4 plan](model-floor-g4-campaign-plan.md)). A later build of that line has run on all six validators since 2026-08-31 (`storage-lease-af9b83c3`, [deploy receipt](https://github.com/postfiatorg/postfiatl1v2/blob/main/deployments/storage-lease-20260831/deploy-receipt.json)); the deployed release `fastlane-cap-20261014` (source `8bed9b90`, deployed 2026-10-15) descends from it. Remaining: G3/G5 (`OFFLINE QUALIFIED`). The height-915 archive is lost, and I propose the signed height-1123 canary archive as its replacement. I am the height-924 custodian and one read-only copy is approved; that replay passed on 2026-10-22 with the STO-07 release ([G3](#g3-exact-replay)). G6 needs fresh copies and a separate decision. G4 regression on `8644f0af` (2026-10-20): **PASS** — STO-07 fixed on main; the fix ships with the next release; G3 (height-924 replay with our custody copy, the 915 replacement) can start after that release ([result](g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix); attempt 2 on `29824ed7` was blocked by the regression since `f0013c29`). Sections below record the qualification history through 2026-08-30; their "next step" text (`ff2b3532`/`48a94425`, no deployment-eligible candidate) is superseded by this header.
+
+**Status (2026-10-22):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. A4 did not assemble a packet: no single source and binary covers G2–G4 and the G3 replays, and the verifier still requires the lost height-915 archive. The missing inputs and their owners are listed under [G5](#g5-offline-qualification-packet). G1, G2 and G4 now also PASS on the deployed binary `eea96ba6…` (source `86706699`), the replays' binary ([attempt 4](g4-regression-deployed-release-20261019.md#result-2026-10-22-attempt-4-deployed-binary)).
 
 **Decision date:** 2026-08-27
 
@@ -128,7 +130,8 @@ work idling.
 | Which storage implementation? | Transactional `redb`. | Decided | Freeze and qualify this candidate; do not restart candidate research. |
 | Which performance campaign? | Selected `redb` at heights 50 and 5,000; same-binary legacy control at height 50. Build height 1→5,000 once, freeze it, then apply the four-hour budget to the unchanged 5+5+5 measurement matrix. | Decided by operator on 2026-08-28 | Do not rebuild inside the measurement clock or run the superseded three-lane/five-height matrix. |
 | How does the selected lane move between high-height chunks? | By a content-hashed prepared transactional fleet and one persistent setup-only batch loop, not by exporting full history or restarting a process per block. | Decided; remediation smoke passes, fresh evidence required | Bind the separate canonical batch-builder binary, raw batches, certificates, every round, and the before/after fleet digests. Keep the portable snapshot only for the shared height-50 legacy control, and keep measured windows on the unchanged measurement path. |
-| Is one height-924 validator directory needed? | Yes, for exact replay only. | Authorization and custodian still required | Finish G1, G2, the height-915 part of G3, and G4 without waiting for it. |
+| Is one height-924 validator directory needed? | Yes, for exact replay only. | Custodian: me; one read-only copy approved by the other lane (2026-10-20) | Both copies' release-stage manifests verified on 2026-10-21; no signed manifest covers the height-924 data ([G3](#g3-exact-replay)). Replay PASS 2026-10-22 ([G3](#g3-exact-replay)). |
+| What replaces the lost height-915 archive? | The signed validator-1 canary archive at height 1123 (my proposal, [G3](#g3-exact-replay)). | 915 recorded as lost (2026-10-20) | Replay the 1123 archive in its place. |
 | Are six validator directories needed now? | No. They are needed only for G6 immediately before a deployment decision. | Deferred | Spend no time collecting or rehearsing six clones during offline qualification. |
 | May this plan touch the controlled devnet? | No. | Not authorized | No fleet query, copy, service action, deployment, or mutation. |
 | What follows storage? | Dynamic UNL supplies proposal content inside the DGA/Cobalt envelope; Option C is the evidence sequence. | Direction recorded; implementation deferred | Keep its milestone deferred until the storage boundary in G7. |
@@ -159,12 +162,12 @@ Both defects were diagnosed from the campaign's own raw rounds and fixed on
 
 These fixes are implemented and locally verified but **not frozen, not
 evidence-bound, and not campaign-proven**. G3 still independently requires
-corrected replay and authorized height-924 input. The four tracks are:
+corrected replay and the height-924 replay (input approved 2026-10-20). The four tracks are:
 
 | Order | Track | Start condition | Finish condition | Operator input |
 | ---: | --- | --- | --- | --- |
 | 1 | Local qualification | **Remediation implemented, unfrozen:** the [remediated G4 plan](remediated-g4-qualification-campaign-plan.md) failure is fixed at `ff2b3532`/`48a94425`; freeze, G1/G2 refresh, prepared-input rebind, and a new reviewed campaign plan are the remaining start conditions | A separately frozen and authorized campaign passes the unchanged latency/correctness, work, and timing gates | No run is authorized. Authorize the freeze/evidence cycle and then a new campaign plan; the devnet remains out of scope. |
-| 2 | Exact height-924 replay | A custodian names one complete quiescent directory and separately authorizes a read-only copy | G3 replay and mutation sentinels pass and enter the packet | Name the custodian and authorize the copy. Do not wait idle for this input. |
+| 2 | Exact height-924 replay | A custodian names one complete quiescent directory and separately authorizes a read-only copy | G3 replay and mutation sentinels pass and enter the packet | Done 2026-10-20: I am the custodian; one read-only copy is approved. Replay PASS 2026-10-22; packet binding remains (A4). |
 | 3 | Pre-deployment rehearsal | G5 is `OFFLINE QUALIFIED` and controlled-devnet deployment is actually the next decision | G6 passes on six distinct stopped copies | Separately authorize six copies and then make a separate deploy/no-deploy decision. |
 | 4 | Dynamic UNL milestone | G5 closes, or the decision owner explicitly changes priority | A separately activated governance plan exists | No choice is open now: the DGA/Cobalt envelope and Option C are the recorded direction. |
 
@@ -173,7 +176,7 @@ The dependency chain is:
 ```text
 local:     fixes ff2b3532/48a94425 (done) -> new freeze/evidence -> new authorized G4 --------+
                                                                                               +-> complete G5 -> OFFLINE QUALIFIED
-external:  corrected height-915 + authorized height-924 G3 -------------------------------+
+external:  height-1123 canary (915 lost) + approved height-924 copy G3 -------------------+
 
 OFFLINE QUALIFIED -> separate deployment decision -> G6
 ```
@@ -270,9 +273,9 @@ independent local gates continue.
 | G0 — campaign control | **PASS** | None; do not rerun the old campaign. | Reopen only if checkpoint/resume itself changes. |
 | G1 — candidate freeze | **PASS FOR CLOSED FAILED LINEAGE** | Preserve source `a92bb085`, binary `902773…e182`, G1 `ed66a6…0190`, runner `a3c7bea9`, helper `ad70ca…014a`, prepared input `c9fb32…da42`, and rehash receipt `6848d4…bb58`. | Any remediation changes the candidate and requires a new freeze; this historical pass authorizes nothing. |
 | G2 — safety | **EAGER-INDEX LOCAL PASS / PACKET BINDING PENDING** | Preserve manifest `dd300b…d170`, rollback `9c3231…e8a5`, tamper `6b63fe…46e0`, and stale-generation receipt `db78c8…563f`; raw output remains private. | Redaction-safe repository packet binding remains open; another candidate change requires another refresh. |
-| G3 — exact replay | **HEIGHT 924 REBUILD/VERIFY PASS / ROLLBACK CLAIM INVALIDATED / HEIGHT 915 INPUT OPEN** | Preserve the receipts and re-supply the height-915 archive. Treat writable source-head upgrades as part of the rollback surface. | Do not claim offline qualification until the source is non-mutating or every mutation is rollback-compatible and the missing replay receipt passes. |
-| G4 — scaling | **HISTORICAL PASS FOR `d0ae79f3` ONLY** | Preserve report `e2cff9cd…999f`, checkpoint `f05dca53…cc3c`, and private output. | It does not qualify a future database-owner architecture or successor binary. |
-| G5 — offline packet | **BLOCKED BY HEIGHT 915 AND DEPLOYMENT-TOPOLOGY DEFECT** | Do not package private validator material or describe either candidate as qualified. | A successor needs the missing replay input, repeated affected gates, redaction-safe packet binding, and the offline verifier. |
+| G3 — exact replay | **HEIGHT 924 REBUILD/VERIFY PASS / ROLLBACK CLAIM INVALIDATED / HEIGHT 915 INPUT LOST, 1123 REPLACEMENT PROPOSED** | Preserve the receipts. The height-915 archive is lost (2026-10-20); replay the signed height-1123 canary archive in its place. Treat writable source-head upgrades as part of the rollback surface. | Do not claim offline qualification until the source is non-mutating or every mutation is rollback-compatible and the missing replay receipt passes. |
+| G4 — scaling | **PASS FOR `d0ae79f3` (2026-08-30); REGRESSION PASS FOR `8644f0af` (2026-10-20)** | Preserve reports `e2cff9cd…999f` and `d1e9b39c…0ac0`, checkpoints `f05dca53…cc3c` and `0b6608e3…ec11`, and private output. | The 2026-10-20 pass covers the `8644f0af` code line only. The deployed `8bed9b90` keeps STO-07 until the next release. A later database-owner architecture or successor binary needs its own run. |
+| G5 — offline packet | **BLOCKED BY THE REPLAY INPUTS (915 LOST, 1123 PROPOSED; 924 AFTER STO-07) AND DEPLOYMENT-TOPOLOGY DEFECT** | Do not package private validator material or describe either candidate as qualified. | A successor needs the missing replay input, repeated affected gates, redaction-safe packet binding, and the offline verifier. |
 | G6 — six-clone rehearsal | **OLD RUNNER PASS INVALIDATED / LIVE CANARY ROLLED BACK (2026-08-30)** | Preserve both private runs and redaction-safe receipts; repair the authoritative-writer boundary and the gate before another attempt. | The replacement gate must run exact signed systemd units, concurrent transport/RPC, RPC-to-finality, and exact `8cc7d15e` binary-plus-data rollback. |
 | G7 — Dynamic UNL handoff | **DIRECTION RECORDED / IMPLEMENTATION DEFERRED** | Preserve the recorded architecture decision only. | Spend no implementation time before the stated storage boundary or a new operator priority decision. |
 
@@ -476,31 +479,165 @@ synthetic fixtures.
 - [x] Publish or regenerate a verifier-bound report for the exact 915-block
       quarantine replay from the pinned source; an operator-reported digest
       without the report does not close this item.
-- [ ] Name the authorized custodian of one complete, quiescent height-924
-      validator data directory.
-- [ ] Obtain separate authorization for the read-only copy; this plan does not
-      grant fleet access.
-- [ ] Hash the source tree before use, preserve it read-only, and perform all
-      replay work on a scratch copy.
-- [ ] Replay through exact height 924 and match the recorded chain, height, tip,
-      state root, blocks, receipts, archive, ordered history, and pre-activation
-      state commitments.
-- [ ] Run independent `--verify-only` against the result and prove both source
-      and target directory hashes remain unchanged.
-- [ ] Bind the redaction-safe replay report and verifier output into the packet
-      checksum manifest.
 
-**Exit:** both the 915 archive and real height-924 history replay exactly. If no
-authorized height-924 directory is available, record `WAITING_FOR_AUTHORIZED_INPUT`;
-continue other local gates, but do not claim offline qualification or deployment
-readiness.
+**Height 915 (2026-10-20).** The quarantine archive is lost: the other lane
+found nothing matching it on its host and answered "record it as lost"
+([answer (h)](../../handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md)).
+The receipt below is the only record of that replay. As the replacement replay
+input I propose the newest signed canary archive: validator-1 at height 1123,
+manifest `d957141e68a29f8cf690aec9f9193ec0631fede0fad95a2329f4cf3a8b21189a`
+([packet `deployments/fastlane-cap-20261014/`](https://github.com/postfiatorg/postfiatl1v2/tree/6b4fa4b0596fecbdad663d9cddf902ae7b56d8b7/deployments/fastlane-cap-20261014),
+`RELEASE-ID.txt`, `observed/rollout-record.json`). Reasons:
+
+- It is signed, and its manifest hash is pinned in the packet, so its identity
+  is checked before use; the 915 archive had only a receipt.
+- It is already proven: on 2026-10-15 it was re-imported, checkpoint-verified
+  and fully replayed to the same root.
+- The expected result is on record and was six-way agreed before the rollout:
+  height 1123, tip `bafcc6ef…`, root `942d1fc2…`.
+- It is the newest real history, covering the 915 and 924 ranges and everything
+  since, on the lineage the fleet runs.
+- Limit: it comes from the transactional store the fleet has run since
+  2026-08-31, so it does not exercise the legacy-format import. The 924 copies
+  below keep that part.
+
+**1123 archive check (2026-10-21).** The export is on the work server at
+`~/.postfiat/deployments/fastlane-cap-20261014/evidence/pre-rollout-backup/backup-signed/`
+(22 files, 247,991,712 bytes); its `snapshot.signed-manifest.json` hashes to
+`d957141e…`. Signature: **PASS**. `snapshot-import-signed-finalized-checkpoint`
+of the deployed executable (`b1b3dbb1…`) imported a scratch copy against the
+trusted publisher file
+`~/.postfiat/deployments/cobalt-activation-8694b99d/snapshot-keys/snapshot-publisher.public.json`
+(SHA-256 `adb52f49…`, publisher `pf4ebb800c5a…`, as pinned in
+`deployments/release-repair-20260925/canary-backup-1036/result.json`) and
+reported height 1123, tip `bafcc6ef…`, root `942d1fc2…`. The same import of a
+copy with one manifest field changed failed on the signature.
+
+Source-tree SHA-256:
+`724389ad583b36aa979b1497a8377babd724fa389686a2ee41765441f0934ee0`.
+Method: `tree_sha256` in `benchmarks/storage-scaling/run_replay_evidence.py`
+over `backup-signed/`, the function the replay harness applies to its sources:
+paths sorted; per entry a type tag, path length and path, plus size and
+contents for files. The scratch copy hashed the same, and the archive hashed
+the same after the import.
+
+- [x] Replay the 1123 archive with the frozen successor binary on a scratch
+      copy; match height, tip and root; bind the receipt (2026-10-21).
+
+**1123 replay (2026-10-21): PASS with the harness.** Method:
+`run_replay_evidence.py --signed-archive-dir` (added in `2ebc7b13`; the
+915/924 pair mode is unchanged). On a scratch copy it runs the signed import,
+`verify-finalized-checkpoint` and the full `verify-state` replay, checks
+height, tip and root at each step, and hashes the archive before and after.
+Binary: release `store-handle-20261021`
+(`eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36`, source
+`86706699`, with the STO-07 fix). Result: 1123, tip `bafcc6ef…`, root
+`942d1fc2…`, equal to the signed manifest. The store is transactional
+(commitment v2, activation height 930). Archive tree hash `724389ad…` before
+and after. Receipt (work server, not in git):
+`~/.cache/g3-1123-replay-20261021/receipts/height-1123-harness/receipts/height-1123.json`,
+SHA-256 `c172d31e6169d37e3fbee416596f4603f5f38bbfc74fb8d307602e6ce26112b2`.
+It replaces the interim by-hand receipt (`height-1123-interim.json`,
+`dbef984a…`).
+
+**Height 924 (2026-10-20).** I am the custodian; the other lane approved one
+read-only copy (same answer). The six stopped copies of 2026-08-30 are on the
+work server (top-level `ls` only, 2026-10-20):
+
+| Path | Size | Contents |
+| --- | ---: | --- |
+| `~/.postfiat/deployments/storage-rollout-d0ae79f3` | 28 GB | `g6-sources/`, `g6-private/`, `g6-rehearsal-20260830-v1/`, `stage/`; per-validator probes before and after G6; `read-only-fleet-preflight.json`; `manifest-create.stdout`. `manifest-signature-verify.json` is a copy of the manifest (15,367 B), not a verdict; `manifest-verify-validator-0.json` is empty. |
+| `~/.postfiat/deployments/storage-rollout-10dd9f20` | 26 GB | `g6-rehearsal-20260830-v3/`, `stage/`. No verify file. Its `six-clone-migration-report.json` records PASS at 924, 925 and 928 and `all_certified_sends_verified=false` at 932. |
+
+**Manifest check (2026-10-21).** Each copy holds one signed manifest, a
+deployment manifest of its release stage. Both verify with
+`deployment-manifest-verify` of the deployed executable (`b1b3dbb1…`) against
+the `deployment.public.json` staged beside them (SHA-256 `270a20da…`, publisher
+`pfba2ba95720…`, ML-DSA-65); the same check of a copy with one field changed
+failed.
+
+| Copy | Manifest (under `stage/rootfs/etc/postfiat/releases/`) | SHA-256 | Verdict |
+| --- | --- | --- | --- |
+| `storage-rollout-d0ae79f3` | `storage-d0ae79f3-20260830/deployment-manifest.json` | `55f4822d9a21fae08c0c1ddad666612eeea9b74b4dea71191230f50f3c9e952b` | **PASS**; binary, topology, both circuit metadata files and 24 unit and environment files present and matching |
+| `storage-rollout-10dd9f20` | `storage-10dd9f20-20260830/deployment-manifest.json` | `97c6518ed2c0d3d3080fb6cf20dcc030af396dc7d436eed927564b82859242d4` | **PASS**; the same 28 files present and matching |
+
+The top-level `manifest-create.stdout` and `manifest-signature-verify.json` of
+the first copy are byte-identical to its manifest; the verifier prints the
+manifest on success. Limits: these manifests bind the release stages (builds
+`d0ae79f3` and `10dd9f20`), not the validator data. No signed manifest covers
+the height-924 directories; the source-tree hash below will be their only identity.
+The publisher key is not pinned in the repository. The verifier checked the
+binary, topology and circuit files; the unit and environment files were
+compared by SHA-256 outside it, because its per-validator check reads host
+`/etc/systemd` paths.
+
+- [x] Name the authorized custodian of one complete, quiescent height-924
+      validator data directory: me, on the work server (2026-10-20).
+- [x] Obtain separate authorization for the read-only copy: approved by the
+      other lane, one copy (2026-10-20).
+- [x] Verify both copies' manifest signatures before any use (2026-10-21,
+      both PASS; release-stage manifests only, see above).
+- [x] Hash the source tree before use, preserve it read-only, and perform all
+      replay work on a scratch copy (2026-10-22).
+- [x] After STO-07 is fixed, replay through exact height 924 and match the recorded chain, height, tip,
+      state root, blocks, receipts, archive, ordered history, and pre-activation
+      state commitments (2026-10-22, PASS).
+- [x] Run independent `--verify-only` against the result and prove both source
+      and target directory hashes remain unchanged (2026-10-22, PASS).
+- [ ] Bind the redaction-safe replay report and verifier output into the packet
+      checksum manifest (A4). 2026-10-22: not bound; see [G5](#g5-offline-qualification-packet).
+
+**924 replay (2026-10-22): PASS with the harness.** Copy: `storage-rollout-10dd9f20`,
+`g6-rehearsal-20260830-v3/backups/validator-0`. Its own record names the tip
+and root: `six-clone-migration-report.json` (PASS, 2026-08-30) gives source
+height 924, tip `ebeb0e1e…`, root `0854bc47…` (as the in-repo
+[stop receipt](https://github.com/postfiatorg/postfiatl1v2/blob/main/benchmarks/storage-scaling/devnet-rollout/stop-receipt-20260830.json)),
+validator-0 source tree `13ffe388…`, and the height-924 migration manifest
+`generations/initial-migration/validator-0/storage-migration-manifest.json`
+(SHA-256 `4119fb33…`). The `d0ae79f3` copy's G6 run failed and wrote no report;
+its `g6-sources/validator-0` hashes the same.
+
+- Method: `run_replay_evidence.py --legacy-source-dir` (`e8a962cd`) on a
+  `cp -a` scratch copy. It refuses a source past activation and expected values
+  that differ from `chain_tip.json` or the recorded manifest, runs the pair
+  mode's `replay_source()` (status, six `verify-*`, transactional rebuild and its
+  `--verify-only`), then the node's `storage-rebuild-transactional --verify-only`
+  once more while hashing the scratch clone and rebuilt store.
+- Result: 924, tip, root, commitment v1. Blocks 924, receipts 972, archive 924,
+  ordered batches 924, their four roots, ordered history `8d38f779…` and
+  current state `f4f15d34…` equal the recorded manifest; the rebuilt manifest is
+  byte-identical to it (packet root `6a6b53ea…`, 4,714 canonical records).
+- `--verify-only`: PASS; clone `e9609b24…` and target `53fd150f…` unchanged.
+- Source tree `13ffe388…` before the copy, before and after the replay, and on
+  the original copy afterwards. Scratch copy deleted.
+- Binary `eea96ba6…` (`store-handle-20261021`, source `86706699`). Receipts
+  (work server, not in git) under `~/.cache/g3-924-replay-20261022/receipts/`.
+  They come from the redacted re-run with harness `325afbdb`, which writes no host
+  paths (2026-10-22, 12:52–13:06Z, PASS: 924, tip `ebeb0e1e…`, root `0854bc47…`,
+  every recorded field matched, source tree `13ffe388…` before and after, scratch
+  deleted). Files in `height-924-harness-redacted/`:
+  - `replay-report.json`, SHA-256
+    `fa071f84d1646eeb164d410dbd207737e4b8b6b4796c080e662f6bcabf8e0f0a`;
+  - `receipts/height-924.json` `fa643375b4f0e240778df9bd3b1b406cde5959f460fb2ae1c95600438a1d6cbc`,
+    byte-identical to the first run's;
+  - `verify-only.json` `10dc53980065ad18a59eee24beecfc81afe2aaeb42adb82a6707d692ee589ea2`;
+  - `../height-924-harness-redacted.SHA256SUMS.txt`.
+
+  The superseded first runs remain beside it: `height-924-harness/`, whose
+  `verify-only.json` (`196394c9…`) held four home-directory paths, and
+  `run-1-prerebase-2c91066b/`. The 1123 receipt (`c172d31e…`) and its steps
+  never held a host path, so the 1123 replay was not re-run.
+
+**Exit:** both the replacement 1123 archive and real height-924 history replay
+exactly. Until then, continue other local gates, but do not claim offline
+qualification or deployment readiness.
 
 The local height-915 replay passed from an immutable source tree SHA-256
 `276ea5dc9c43e42a36235b520cffd1d9a15eed842fa9a683b04024933b769403`.
 Its receipt SHA-256 is
 `7de050bf57c4d348f992aec11964a3b369546c7b6888e9e6a289dcf137d1680d`.
-No height-924 source exists locally, and this plan does not authorize obtaining
-one from the controlled devnet.
+The height-924 source is the work-server copies above; no devnet access is
+needed.
 
 ## G4 — time-budgeted scaling qualification
 
@@ -1050,6 +1187,87 @@ does and does not authorize.
       boundaries.
 - [ ] Record `OFFLINE QUALIFIED` only after every G0–G5 item passes.
 
+**Packet attempt (2026-10-22, A4): not assembled; no box above passes.**
+`package_packet.py` could not be run to completion, so nothing under
+`~/.cache/storage-packet-20261022/` (work server, not in git) is a packet.
+That directory holds the input inventory `input-inventory.json` (SHA-256
+`456090cc681b924da6938a98afdf33adebc0b701eb0ca2e748438c76f63078c0`).
+`python -m postfiat_rpc.storage_scaling verify` fails closed on it
+(`packet entry is not a regular file: SHA256SUMS.txt`), and `serve` refuses
+it with the same error. The 53 packager and verifier tests pass.
+
+| Input on this server | Source / node binary | SHA-256 |
+| --- | --- | --- |
+| G4 August pass, small records (`~/.cache/g4-passing-run-records-20261020/…-v1.tar.zst`) | `d0ae79f3` / `9e82d928…` | `55a3acf3…` (its `campaign-report.json` `e2cff9cd…`) |
+| G4 regression PASS (`~/repos/postfiat-storage-g4-regression-20261020/campaign-report.json`) | `8644f0af` / `d1799edb…` | `d1e9b39c…` |
+| Same pipeline (`~/.cache/storage-g4-20261019/`): G1 tests, G2 tamper, G2 rollback, logs | `8644f0af` / `d1799edb…` | `f9dea2d3…`, `410e8478…`, `83340ab9…` |
+| 924 replay report, receipt, `verify-only.json` (`~/.cache/g3-924-replay-20261022/`) | `86706699` / `eea96ba6…` | `9e5e8f0f…`, `fa643375…`, `196394c9…` |
+| 1123 replay receipt (`~/.cache/g3-1123-replay-20261021/`) | `86706699` / `eea96ba6…` | `c172d31e…` |
+| G2 of the August line (`~/repos/postfiat-storage-sweep-cap-g2-d0ae79f3/`): tamper, rollback, safety manifest | `d0ae79f3` | tamper `a7d016d2…` |
+| Six-clone migration report: only `storage-rollout-10dd9f20` (G6 rehearsal) | `10dd9f20` / `0cc664a3…` | `2a65034e…` |
+
+Which G4 to bind: the packet binds exactly one performance report. It must
+have the packet's source and node binary, so it cannot bind both runs. The
+2026-10-20 regression run is the only one whose G1, G2 and G4 come from a
+single pipeline on one binary. The August pass has its G2 here, but its full
+38 GB run was deleted and only its small records remain. Neither candidate has
+a migration report or replays on its binary.
+
+What the packet still lacks:
+
+- [x] One candidate for G2–G4 and G3. This is the G1 exit rule above, and the
+      verifier (`storage_scaling.py:506-508`) and the packager
+      (`package_packet.py:612,623`) enforce it. The replays ran on
+      `86706699`/`eea96ba6…`; G1, G2 and G4 ran on `8644f0af`/`d1799edb…`.
+      **Post Fiat decides** among three options: re-run the two replays and a
+      migration rehearsal on `d1799edb…`; re-run G1, G2, G4 and the migration
+      rehearsal on `eea96ba6…`; or allow a lineage packet, which needs a
+      verifier change. This lane runs the chosen option. **Decided
+      2026-10-22:** the second option; see the decision below. **Done 2026-10-22:**
+      G1, G2 and G4 PASS on `eea96ba6…`/`86706699` (attempt 4, campaign report
+      `7aa8d72c…`), the binary of both replays. The migration rehearsal on that
+      binary is the separate item below.
+- [x] Accept the 1123 replacement (done 2026-10-22, commit "Accept a signed
+      post-activation archive replay as the replacement for the lost height-915
+      input in the storage packet"). `package_packet.py
+      --replacement-archive-receipt` binds the signed-archive receipt and its
+      step outputs byte for byte, plus the 924 receipt from the legacy-source
+      report. `artifacts/replay.json` then carries `quarantine_archive_replacement`
+      instead of `quarantine_archive_blocks`. The verifier accepts only height
+      1123 with manifest `d957141e…` on the packet's binary and source. It
+      re-checks the step outputs by hash and against the receipt, and reports the
+      replacement with its reason. The 915+924 pair path is unchanged. On the real
+      receipts (`c172d31e…`, `fa643375…`) the replay section verifies.
+- [ ] A six-clone migration report and its incompatible binary for the chosen
+      candidate (`run_migration_rehearsal.py`). None exists for `8644f0af`,
+      `86706699` or `d0ae79f3`. The incompatible binary of the `10dd9f20`
+      report (`b5e408bb…`) is not on disk. Owner: this lane; the rehearsal
+      needs authorization.
+- [x] Redaction: `verify-only.json` contained four host-local paths, which the
+      packet scan rejects. Done 2026-10-22 (`325afbdb`): in all three modes the
+      harness writes paths as `<scratch>/…`, `<source>/…`, `<output>/…` or a
+      file label, and fails on any other absolute path. Absolute roots go only to
+      `local-paths.private.json`, which no report references. The re-run 924
+      receipts (G3) pass the packet's redaction patterns.
+- [ ] Other open boxes count against `OFFLINE QUALIFIED`: G2's last box, and
+      G4D's three, which are pre-pass history. Owner: this lane, to close them
+      or record them as superseded.
+
+**Decision (2026-10-22): one build for everything.** G1, G2 and G4 are re-run
+on the deployed binary `eea96ba6…` (source `86706699`, the running release
+`store-handle-20261021`) as attempt 4 of the
+[regression campaign](g4-regression-deployed-release-20261019.md), started
+today on the work server. The 924 and 1123 replays already stand on that
+binary. The remaining gaps follow in order:
+
+| Order | Step | Owner | Estimate |
+| ---: | --- | --- | --- |
+| 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | **done 2026-10-22, PASS** |
+| 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
+| 3 | Six-clone migration rehearsal on the same binary | ours | 0.5–1 d |
+| 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | **done 2026-10-22** (`325afbdb`) |
+| 5 | Assemble the packet and run the offline verifier | ours | 0.25 d |
+
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
 deployment and public testnet remain blocked.
 
@@ -1110,7 +1328,8 @@ Validator-1 was rolled back and the final all-six probe was healthy; see
       deployment-exact gate with the signed systemd units, both service start
       orders, RPC-to-finality, and exact deployed-binary/data rollback.
 - [ ] Freeze a new successor and repeat every affected gate, including the G3
-      height-915 input, G4, G5, replacement G6, and a new written canary decision.
+      replacement input (height-1123 canary; 915 is lost), G4, G5, replacement
+      G6, and a new written canary decision.
 
 **Exit:** passing G6 makes deployment eligible for a separate decision; it does
 not deploy anything.
@@ -1151,10 +1370,11 @@ not deploy anything.
    that covers both failures: the empty-directory vote-lock marker sequence
    and the selected height-ratio tail. Require exact node-owner and portable
    restore fixtures, then refresh every affected source/binary/input binding.
-6. Run a remediated height-915 replay only under a separately bounded action
-   using the exact then-current frozen binary. Close height 924 only after a
-   custodian and separate read-only copy authorization exist; do not wait idle
-   for it.
+6. Run the replacement replay (the signed height-1123 canary archive; the 915
+   archive is lost) only under a separately bounded action using the exact
+   then-current frozen binary. Height 924: the custodian (me) and the copy
+   approval exist since 2026-10-20; verify both copies' manifest signatures,
+   then replay after STO-07 is fixed.
 7. Record `OFFLINE QUALIFIED` only after remediated G3, a separately authorized
    passing G4, redaction-safe packet binding, and the complete offline verifier
    pass.
