@@ -97,6 +97,69 @@ def read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+LOCAL_PATHS_FILE = "local-paths.private.json"
+
+
+class PathRedactor:
+    """Writes evidence JSON with every host path replaced by a labelled root.
+
+    A path under a declared root becomes ``<label>/relative/path`` (for example
+    ``<scratch>/transactional-924``); a declared file becomes its label. Any
+    other absolute path, or the home directory, refuses the write. The absolute
+    roots go only to ``LOCAL_PATHS_FILE``, which no report references.
+    """
+
+    def __init__(self) -> None:
+        self.roots: dict[str, Path] = {}
+        self.files: dict[str, Path] = {}
+
+    def root(self, label: str, path: Path) -> "PathRedactor":
+        self.roots[label] = path
+        return self
+
+    def file(self, label: str, path: Path) -> "PathRedactor":
+        self.files[label] = path
+        return self
+
+    def _replacements(self) -> list[tuple[str, str]]:
+        pairs: set[tuple[str, str]] = set()
+        for label, path in self.files.items():
+            for variant in {str(path), str(path.resolve())}:
+                pairs.add((variant, f"<{label}>"))
+        for label, path in self.roots.items():
+            for variant in {str(path), str(path.resolve())}:
+                pairs.add((variant, f"<{label}>"))
+        return sorted(pairs, key=lambda pair: len(pair[0]), reverse=True)
+
+    def redact(self, value: Any, field: str = "") -> Any:
+        if isinstance(value, dict):
+            return {key: self.redact(item, f"{field}.{key}") for key, item in value.items()}
+        if isinstance(value, list):
+            return [self.redact(item, f"{field}[]") for item in value]
+        if not isinstance(value, str):
+            return value
+        for absolute, label in self._replacements():
+            value = value.replace(absolute, label)
+        home = str(Path.home())
+        if value.startswith("/") or (home not in {"", "/"} and home in value):
+            raise RuntimeError(f"evidence output would carry a host path at {field.lstrip('.')}")
+        return value
+
+    def write(self, path: Path, value: Any) -> None:
+        write_json(path, self.redact(value))
+
+    def write_local_paths(self, output: Path) -> None:
+        write_json(
+            output / LOCAL_PATHS_FILE,
+            {
+                "schema": "postfiat-storage-replay-local-paths-v1",
+                "note": "Host-local paths of this run; never bind this file into a packet.",
+                "roots": {f"<{label}>": str(path) for label, path in self.roots.items()},
+                "files": {f"<{label}>": str(path) for label, path in self.files.items()},
+            },
+        )
+
+
 def git_revision() -> str:
     return subprocess.run(
         ["git", "rev-parse", "HEAD"],
@@ -171,7 +234,12 @@ def replay_source(
     receipt_path: Path,
     revision: str,
     source_tree_digest: str,
+    redactor: PathRedactor | None = None,
 ) -> dict[str, str]:
+    if redactor is None:
+        redactor = PathRedactor().root("scratch", scratch).root("source", source).file(
+            "node-bin", node_bin
+        )
     clone = scratch / f"source-{height}"
     rebuild = scratch / f"transactional-{height}"
     shutil.copytree(source, clone, copy_function=shutil.copy2)
@@ -357,7 +425,7 @@ def replay_source(
         "offline": True,
         "network_contacted": False,
     }
-    write_json(receipt_path, receipt)
+    redactor.write(receipt_path, receipt)
     return {
         "path": receipt_path.relative_to(receipt_path.parent.parent).as_posix(),
         "sha256": sha256(receipt_path),
@@ -417,8 +485,12 @@ def main() -> int:
 
     references: list[dict[str, str]] = []
     receipts: dict[int, dict[str, Any]] = {}
+    redactor = PathRedactor().root("output", output).file("node-bin", node_bin)
+    for height, source in sources.items():
+        redactor.root(f"source-{height}", source)
     with tempfile.TemporaryDirectory(prefix="postfiat-storage-replay-") as temporary:
         scratch = Path(temporary)
+        redactor.root("scratch", scratch)
         for height, source_kind in REQUIRED_SOURCES.items():
             receipt_path = receipts_dir / f"height-{height}.json"
             references.append(
@@ -431,6 +503,7 @@ def main() -> int:
                     receipt_path=receipt_path,
                     revision=revision,
                     source_tree_digest=source_digests[height],
+                    redactor=redactor,
                 )
             )
             receipts[height] = read_json(receipt_path)
@@ -461,7 +534,8 @@ def main() -> int:
         "network_contacted": False,
     }
     report_path = output / "replay-report.json"
-    write_json(report_path, report)
+    redactor.write(report_path, report)
+    redactor.write_local_paths(output)
     print(f"storage-scaling-replay=PASS")
     print(f"report={report_path}")
     return 0
@@ -530,17 +604,25 @@ def signed_archive_replay(
     steps_dir = output / "steps"
     steps: dict[str, dict[str, str]] = {}
     results: dict[str, dict[str, Any]] = {}
+    redactor = (
+        PathRedactor()
+        .root("source", archive)
+        .root("output", output)
+        .file("node-bin", node_bin)
+        .file("trusted-publisher-file", trusted_publisher_file)
+    )
 
     def step(name: str, *arguments: str) -> dict[str, Any]:
         value = run_json([str(node_bin), name, *arguments])
         path = steps_dir / f"{name}.json"
-        write_json(path, value)
+        redactor.write(path, value)
         steps[name] = {"path": path.relative_to(output).as_posix(), "sha256": sha256(path)}
         results[name] = value
         return value
 
     with tempfile.TemporaryDirectory(prefix="postfiat-signed-archive-replay-") as temporary:
         scratch = Path(temporary)
+        redactor.root("scratch", scratch)
         copy = scratch / "archive"
         data = scratch / "data"
         shutil.copytree(archive, copy, copy_function=shutil.copy2)
@@ -630,7 +712,8 @@ def signed_archive_replay(
         "network_contacted": False,
     }
     receipt_path = output / "receipts" / f"height-{expected_height}.json"
-    write_json(receipt_path, receipt)
+    redactor.write(receipt_path, receipt)
+    redactor.write_local_paths(output)
     return {
         "path": receipt_path.relative_to(output).as_posix(),
         "sha256": sha256(receipt_path),
@@ -757,8 +840,16 @@ def legacy_source_replay(
     output.mkdir(parents=True)
     receipt_path = output / "receipts" / f"height-{expected_height}.json"
     receipt_path.parent.mkdir()
+    redactor = (
+        PathRedactor()
+        .root("source", source)
+        .root("output", output)
+        .file("node-bin", node_bin)
+        .file("recorded-manifest", recorded_manifest)
+    )
     with tempfile.TemporaryDirectory(prefix="postfiat-legacy-replay-") as temporary:
         scratch = Path(temporary)
+        redactor.root("scratch", scratch)
         reference = replay_source(
             node_bin=node_bin,
             source=source,
@@ -768,6 +859,7 @@ def legacy_source_replay(
             receipt_path=receipt_path,
             revision=revision,
             source_tree_digest=source_tree_digest,
+            redactor=redactor,
         )
         clone = scratch / f"source-{expected_height}"
         target = scratch / f"transactional-{expected_height}"
@@ -808,7 +900,7 @@ def legacy_source_replay(
         raise RuntimeError("legacy source changed during replay")
 
     verify_path = output / "verify-only.json"
-    write_json(verify_path, verified)
+    redactor.write(verify_path, verified)
     report = {
         "schema": "postfiat-storage-legacy-replay-v1",
         "verdict": "PASS",
@@ -845,7 +937,8 @@ def legacy_source_replay(
         "network_contacted": False,
     }
     report_path = output / "replay-report.json"
-    write_json(report_path, report)
+    redactor.write(report_path, report)
+    redactor.write_local_paths(output)
     return {"path": "replay-report.json", "sha256": sha256(report_path)}
 
 

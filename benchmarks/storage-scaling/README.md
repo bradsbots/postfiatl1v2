@@ -404,6 +404,14 @@ ordered-history accumulator must equal the recorded manifest; the source tree
 hash must be unchanged. `replay-report.json` binds the receipt and
 `verify-only.json`.
 
+In every mode, the receipts, reports, steps and `verify-only.json` carry no host
+paths. A path under a declared root is written as `<scratch>/…`, `<source>/…`
+or `<output>/…`, and a declared input file is written as its label
+(`<node-bin>`, `<trusted-publisher-file>`, `<recorded-manifest>`). Any other
+absolute path, or the home directory, makes the run fail. The absolute roots go
+only to `local-paths.private.json`. No report references that file, so it is
+never bound into a packet.
+
 ## Offline rollback and tamper qualification
 
 Build the current source and a distinct compatible ancestor as release

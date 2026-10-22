@@ -56,7 +56,15 @@ class FakeNode:
             "protocol_version": 1,
         }
         if name == "snapshot-import-signed-finalized-checkpoint":
-            return {**identity, "block_height": HEIGHT}
+            return {
+                **identity,
+                "block_height": HEIGHT,
+                "data_dir": command[command.index("--data-dir") + 1],
+                "snapshot_dir": command[command.index("--snapshot-dir") + 1],
+                "trusted_publisher_key_file": command[
+                    command.index("--trusted-publisher-key-file") + 1
+                ],
+            }
         if name == "status":
             return {
                 **identity,
@@ -197,6 +205,28 @@ class SignedArchiveReplayTests(unittest.TestCase):
         self.assertEqual(receipt["harness_revision"], "f" * 40)
         self.assertFalse(receipt["network_contacted"])
 
+    def test_signed_archive_outputs_carry_no_host_paths(self) -> None:
+        home = self.root / "home"
+        home.mkdir()
+        with mock.patch.object(tempfile, "tempdir", str(home)), mock.patch.object(
+            Path, "home", lambda: home
+        ):
+            self._replay(FakeNode())
+        self.assertEqual(
+            _files_containing(self.output, str(self.root), skip=HARNESS.LOCAL_PATHS_FILE), []
+        )
+        step = json.loads(
+            (self.output / "steps" / "snapshot-import-signed-finalized-checkpoint.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(step["data_dir"], "<scratch>/data")
+        self.assertEqual(step["snapshot_dir"], "<scratch>/archive")
+        self.assertEqual(step["trusted_publisher_key_file"], "<trusted-publisher-file>")
+        local = json.loads((self.output / HARNESS.LOCAL_PATHS_FILE).read_text(encoding="utf-8"))
+        self.assertEqual(local["roots"]["<source>"], str(self.archive.resolve()))
+        self.assertTrue(local["roots"]["<scratch>"].startswith(str(home)))
+
     def test_refuses_unsigned_archive(self) -> None:
         (self.archive / "snapshot.signed-manifest.json").unlink()
         node = FakeNode()
@@ -275,6 +305,14 @@ def _legacy_manifest(roots: dict[str, str]) -> dict[str, Any]:
     }
 
 
+def _files_containing(root: Path, needle: str, *, skip: str) -> list[str]:
+    return sorted(
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*")
+        if path.is_file() and path.name != skip and needle in path.read_text(encoding="utf-8")
+    )
+
+
 class FakeLegacyNode:
     """Answers the legacy pair-mode commands for one pre-activation source."""
 
@@ -284,7 +322,9 @@ class FakeLegacyNode:
         commitment: str = "postfiat.replicated_state.v1",
         roots: dict[str, str] | None = None,
         verify_only_writes: bool = False,
+        extra: dict[str, Any] | None = None,
     ) -> None:
+        self.extra = extra or {}
         self.commitment = commitment
         self.roots = roots or RECORDED_ROOTS
         self.verify_only_writes = verify_only_writes
@@ -305,6 +345,7 @@ class FakeLegacyNode:
             output.mkdir(parents=True)
             export.write_text("{}\n", encoding="utf-8")
             manifest = _legacy_manifest(self.roots)
+            manifest["logical_store_report"]["store_dir"] = str(output)
             manifest["migration_packet_root"] = HARNESS.migration_packet_root(manifest)
             self.packet_root = manifest["migration_packet_root"]
             path = output / "storage-migration-manifest.json"
@@ -324,6 +365,9 @@ class FakeLegacyNode:
             "migration_packet_root": self.packet_root,
             "canonical_export_file": str(export),
             "canonical_export_receipt": receipt,
+            "manifest_file": str(output / "storage-migration-manifest.json"),
+            "output_dir": str(output),
+            **self.extra,
         }
 
     def __call__(self, command: list[str]) -> dict[str, Any]:
@@ -433,6 +477,60 @@ class LegacySourceReplayTests(unittest.TestCase):
         self.assertEqual(receipt["source_tree_sha256"], before)
         self.assertEqual(report["harness_revision"], "f" * 40)
         self.assertFalse(report["network_contacted"])
+
+    def test_legacy_outputs_carry_no_host_paths(self) -> None:
+        home = self.root / "home"
+        home.mkdir()
+        with mock.patch.object(tempfile, "tempdir", str(home)), mock.patch.object(
+            Path, "home", lambda: home
+        ):
+            self._replay(FakeLegacyNode())
+        self.assertEqual(
+            _files_containing(self.output, str(self.root), skip=HARNESS.LOCAL_PATHS_FILE), []
+        )
+        verify = json.loads((self.output / "verify-only.json").read_text(encoding="utf-8"))
+        self.assertEqual(
+            verify["canonical_export_file"], "<scratch>/transactional-924/canonical-history.jsonl"
+        )
+        self.assertEqual(verify["output_dir"], "<scratch>/transactional-924")
+        receipt = json.loads(
+            (self.output / "receipts" / "height-924.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(receipt["logical_store_report"]["store_dir"], "<scratch>/transactional-924")
+        local = json.loads((self.output / HARNESS.LOCAL_PATHS_FILE).read_text(encoding="utf-8"))
+        self.assertEqual(local["roots"]["<source>"], str(self.source.resolve()))
+        self.assertTrue(local["roots"]["<scratch>"].startswith(str(home)))
+        report = json.loads((self.output / "replay-report.json").read_text(encoding="utf-8"))
+        self.assertNotIn(HARNESS.LOCAL_PATHS_FILE, json.dumps(report))
+
+    def test_legacy_refuses_an_output_path_outside_the_declared_roots(self) -> None:
+        node = FakeLegacyNode(extra={"log_file": "/var/log/postfiat/node.log"})
+        with self.assertRaisesRegex(RuntimeError, "host path"):
+            self._replay(node)
+        self.assertFalse((self.output / "replay-report.json").exists())
+
+    def test_pair_mode_receipt_carries_no_host_paths(self) -> None:
+        home = self.root / "home"
+        scratch = home / "scratch"
+        scratch.mkdir(parents=True)
+        receipt_path = self.output / "receipts" / "height-924.json"
+        with mock.patch.object(HARNESS, "run_json", FakeLegacyNode()), mock.patch.object(
+            HARNESS, "run_checked", lambda command: None
+        ), mock.patch.object(Path, "home", lambda: home):
+            HARNESS.replay_source(
+                node_bin=self.node_bin,
+                source=self.source,
+                height=LEGACY_HEIGHT,
+                source_kind="authenticated_history",
+                scratch=scratch,
+                receipt_path=receipt_path,
+                revision=REVISION,
+                source_tree_digest=HARNESS.tree_sha256(self.source),
+            )
+        text = receipt_path.read_text(encoding="utf-8")
+        self.assertNotIn(str(self.root), text)
+        receipt = json.loads(text)
+        self.assertEqual(receipt["logical_store_report"]["store_dir"], "<scratch>/transactional-924")
 
     def test_legacy_refuses_source_past_storage_activation(self) -> None:
         _write_json(self.source / "transactional_generation.json", {"generation": 1})
