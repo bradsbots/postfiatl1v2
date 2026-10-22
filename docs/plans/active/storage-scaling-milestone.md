@@ -611,12 +611,22 @@ its `g6-sources/validator-0` hashes the same.
 - Source tree `13ffe388…` before the copy, before and after the replay, and on
   the original copy afterwards. Scratch copy deleted.
 - Binary `eea96ba6…` (`store-handle-20261021`, source `86706699`). Receipts
-  (work server, not in git) under `~/.cache/g3-924-replay-20261022/receipts/`:
-  `height-924-harness/replay-report.json`, SHA-256
-  `9e5e8f0f8c071006c73d99906828af9bcfa434838abfc746a4c134efbd7c6a92`; receipt
-  `height-924-harness/receipts/height-924.json` `fa643375…`;
-  `verify-only.json` `196394c9…`; `SHA256SUMS`. A first run at the pre-rebase
-  commit `2c91066b` (same harness file) also passed (`run-1-prerebase-2c91066b/`).
+  (work server, not in git) under `~/.cache/g3-924-replay-20261022/receipts/`.
+  They come from the redacted re-run with harness `325afbdb`, which writes no host
+  paths (2026-10-22, 12:52–13:06Z, PASS: 924, tip `ebeb0e1e…`, root `0854bc47…`,
+  every recorded field matched, source tree `13ffe388…` before and after, scratch
+  deleted). Files in `height-924-harness-redacted/`:
+  - `replay-report.json`, SHA-256
+    `fa071f84d1646eeb164d410dbd207737e4b8b6b4796c080e662f6bcabf8e0f0a`;
+  - `receipts/height-924.json` `fa643375b4f0e240778df9bd3b1b406cde5959f460fb2ae1c95600438a1d6cbc`,
+    byte-identical to the first run's;
+  - `verify-only.json` `10dc53980065ad18a59eee24beecfc81afe2aaeb42adb82a6707d692ee589ea2`;
+  - `../height-924-harness-redacted.SHA256SUMS.txt`.
+
+  The superseded first runs remain beside it: `height-924-harness/`, whose
+  `verify-only.json` (`196394c9…`) held four home-directory paths, and
+  `run-1-prerebase-2c91066b/`. The 1123 receipt (`c172d31e…`) and its steps
+  never held a host path, so the 1123 replay was not re-run.
 
 **Exit:** both the replacement 1123 archive and real height-924 history replay
 exactly. Until then, continue other local gates, but do not claim offline
@@ -1233,10 +1243,12 @@ What the packet still lacks:
       `86706699` or `d0ae79f3`. The incompatible binary of the `10dd9f20`
       report (`b5e408bb…`) is not on disk. Owner: this lane; the rehearsal
       needs authorization.
-- [ ] Redaction: `verify-only.json` contains four host-local paths, which the
-      packet scan rejects. Bind its hashes through the 924 report's
-      `independent_verify_only` block or a redacted copy. Owner: this lane, at
-      packaging.
+- [x] Redaction: `verify-only.json` contained four host-local paths, which the
+      packet scan rejects. Done 2026-10-22 (`325afbdb`): in all three modes the
+      harness writes paths as `<scratch>/…`, `<source>/…`, `<output>/…` or a
+      file label, and fails on any other absolute path. Absolute roots go only to
+      `local-paths.private.json`, which no report references. The re-run 924
+      receipts (G3) pass the packet's redaction patterns.
 - [ ] Other open boxes count against `OFFLINE QUALIFIED`: G2's last box, and
       G4D's three, which are pre-pass history. Owner: this lane, to close them
       or record them as superseded.
@@ -1253,7 +1265,7 @@ binary. The remaining gaps follow in order:
 | 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | **done 2026-10-22, PASS** |
 | 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
 | 3 | Six-clone migration rehearsal on the same binary | ours | 0.5–1 d |
-| 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | 0.25 d |
+| 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | **done 2026-10-22** (`325afbdb`) |
 | 5 | Assemble the packet and run the offline verifier | ours | 0.25 d |
 
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
