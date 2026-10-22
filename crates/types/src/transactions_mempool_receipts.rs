@@ -396,6 +396,128 @@ impl IssuedPaymentOperation {
     }
 }
 
+/// Issued-asset payment with the same memo envelope as `payment_v2`, so a
+/// holder can attribute an issued-asset deposit to an account that requires
+/// memos. The memo-less `issued_payment` encoding is left untouched.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IssuedPaymentV2Operation {
+    pub from: String,
+    pub to: String,
+    pub issuer: String,
+    pub asset_id: String,
+    pub amount: u64,
+    #[serde(default)]
+    pub memos: Vec<PaymentMemo>,
+}
+
+impl IssuedPaymentV2Operation {
+    /// The value-moving part, executed by the same issued-payment rules.
+    pub fn payment(&self) -> IssuedPaymentOperation {
+        IssuedPaymentOperation {
+            from: self.from.clone(),
+            to: self.to.clone(),
+            issuer: self.issuer.clone(),
+            asset_id: self.asset_id.clone(),
+            amount: self.amount,
+        }
+    }
+
+    pub fn memo_bytes(&self) -> usize {
+        self.memos
+            .iter()
+            .map(PaymentMemo::byte_len)
+            .fold(0usize, usize::saturating_add)
+    }
+
+    pub fn validate(&self) -> Result<(), String> {
+        self.payment().validate()?;
+        if self.memos.len() > MAX_PAYMENT_MEMOS {
+            return Err(format!(
+                "issued_payment_v2 memos must not exceed {MAX_PAYMENT_MEMOS} entries"
+            ));
+        }
+        for memo in &self.memos {
+            memo.validate()?;
+        }
+        if self.memo_bytes() > MAX_PAYMENT_MEMO_TOTAL_BYTES {
+            return Err(format!(
+                "issued_payment_v2 memo bytes must not exceed {MAX_PAYMENT_MEMO_TOTAL_BYTES}"
+            ));
+        }
+        Ok(())
+    }
+
+    fn signing_bytes(&self) -> Vec<u8> {
+        let mut out = self.payment().signing_bytes();
+        out.extend_from_slice(format!("memo_count={}\n", self.memos.len()).as_bytes());
+        for (index, memo) in self.memos.iter().enumerate() {
+            out.extend_from_slice(
+                format!(
+                    "memo[{index}].type_bytes={}\nmemo[{index}].type={}\nmemo[{index}].format_bytes={}\nmemo[{index}].format={}\nmemo[{index}].data_bytes={}\nmemo[{index}].data={}\n",
+                    hex_encoded_byte_len(&memo.memo_type),
+                    memo.memo_type,
+                    hex_encoded_byte_len(&memo.memo_format),
+                    memo.memo_format,
+                    hex_encoded_byte_len(&memo.memo_data),
+                    memo.memo_data
+                )
+                .as_bytes(),
+            );
+        }
+        out
+    }
+}
+
+/// Owner-signed account settings change. `set_flags` and `clear_flags` are
+/// disjoint masks over `ACCOUNT_ALLOWED_FLAGS`; the only flag today is
+/// `ACCOUNT_FLAG_REQUIRE_MEMO`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountSetOperation {
+    pub account: String,
+    #[serde(default)]
+    pub set_flags: u32,
+    #[serde(default)]
+    pub clear_flags: u32,
+}
+
+impl AccountSetOperation {
+    pub fn validate(&self) -> Result<(), String> {
+        validate_text_field("account_set.account", &self.account)?;
+        if self.set_flags & !ACCOUNT_ALLOWED_FLAGS != 0 {
+            return Err(format!(
+                "account_set.set_flags contains unsupported bits {:#010x}",
+                self.set_flags & !ACCOUNT_ALLOWED_FLAGS
+            ));
+        }
+        if self.clear_flags & !ACCOUNT_ALLOWED_FLAGS != 0 {
+            return Err(format!(
+                "account_set.clear_flags contains unsupported bits {:#010x}",
+                self.clear_flags & !ACCOUNT_ALLOWED_FLAGS
+            ));
+        }
+        if self.set_flags & self.clear_flags != 0 {
+            return Err("account_set.set_flags and clear_flags must be disjoint".to_string());
+        }
+        if self.set_flags | self.clear_flags == 0 {
+            return Err("account_set must set or clear at least one flag".to_string());
+        }
+        Ok(())
+    }
+
+    /// Flags after applying this change to `current`.
+    pub fn apply_to(&self, current: u32) -> u32 {
+        (current | self.set_flags) & !self.clear_flags
+    }
+
+    fn signing_bytes(&self) -> Vec<u8> {
+        format!(
+            "account={}\nset_flags={}\nclear_flags={}\n",
+            self.account, self.set_flags, self.clear_flags
+        )
+        .into_bytes()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AssetBurnOperation {
     pub owner: String,
@@ -3535,6 +3657,10 @@ pub enum AssetTransactionOperation {
     TrustSet(TrustSetOperation),
     #[serde(rename = "issued_payment")]
     IssuedPayment(IssuedPaymentOperation),
+    #[serde(rename = "issued_payment_v2")]
+    IssuedPaymentV2(IssuedPaymentV2Operation),
+    #[serde(rename = "account_set")]
+    AccountSet(AccountSetOperation),
     #[serde(rename = "asset_burn")]
     AssetBurn(AssetBurnOperation),
     #[serde(rename = "asset_clawback")]
@@ -3657,6 +3783,10 @@ impl<'de> Deserialize<'de> for AssetTransactionOperation {
             "asset_create" => decode_operation!(AssetCreateOperation, AssetCreate),
             "trust_set" => decode_operation!(TrustSetOperation, TrustSet),
             "issued_payment" => decode_operation!(IssuedPaymentOperation, IssuedPayment),
+            "issued_payment_v2" => {
+                decode_operation!(IssuedPaymentV2Operation, IssuedPaymentV2)
+            }
+            "account_set" => decode_operation!(AccountSetOperation, AccountSet),
             "asset_burn" => decode_operation!(AssetBurnOperation, AssetBurn),
             "asset_clawback" => decode_operation!(AssetClawbackOperation, AssetClawback),
             "nav_asset_register" => {
@@ -3816,6 +3946,8 @@ impl AssetTransactionOperation {
             Self::AssetCreate(_) => ASSET_CREATE_TRANSACTION_KIND,
             Self::TrustSet(_) => TRUST_SET_TRANSACTION_KIND,
             Self::IssuedPayment(_) => ISSUED_PAYMENT_TRANSACTION_KIND,
+            Self::IssuedPaymentV2(_) => ISSUED_PAYMENT_V2_TRANSACTION_KIND,
+            Self::AccountSet(_) => ACCOUNT_SET_TRANSACTION_KIND,
             Self::AssetBurn(_) => ASSET_BURN_TRANSACTION_KIND,
             Self::AssetClawback(_) => ASSET_CLAWBACK_TRANSACTION_KIND,
             Self::NavAssetRegister(_) => NAV_ASSET_REGISTER_TRANSACTION_KIND,
@@ -3893,6 +4025,8 @@ impl AssetTransactionOperation {
             Self::AssetCreate(operation) => operation.validate(),
             Self::TrustSet(operation) => operation.validate(),
             Self::IssuedPayment(operation) => operation.validate(),
+            Self::IssuedPaymentV2(operation) => operation.validate(),
+            Self::AccountSet(operation) => operation.validate(),
             Self::AssetBurn(operation) => operation.validate(),
             Self::AssetClawback(operation) => operation.validate(),
             Self::NavAssetRegister(operation) => operation.validate(),
@@ -3958,6 +4092,8 @@ impl AssetTransactionOperation {
             Self::AssetCreate(operation) => operation.issuer == source,
             Self::TrustSet(operation) => operation.account == source || operation.issuer == source,
             Self::IssuedPayment(operation) => operation.from == source,
+            Self::IssuedPaymentV2(operation) => operation.from == source,
+            Self::AccountSet(operation) => operation.account == source,
             Self::AssetBurn(operation) => operation.owner == source,
             Self::AssetClawback(operation) => operation.issuer == source,
             Self::NavAssetRegister(operation) => operation.issuer == source,
@@ -4030,6 +4166,10 @@ impl AssetTransactionOperation {
             Self::AssetCreate(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
             Self::TrustSet(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
             Self::IssuedPayment(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
+            Self::IssuedPaymentV2(operation) => {
+                bytes.extend_from_slice(&operation.signing_bytes())
+            }
+            Self::AccountSet(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
             Self::AssetBurn(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
             Self::AssetClawback(operation) => bytes.extend_from_slice(&operation.signing_bytes()),
             Self::NavAssetRegister(operation) => {
@@ -5646,6 +5786,18 @@ impl MempoolState {
     }
 }
 
+/// Receipt code prefix for a fee-claimed rejection (XRPL `tec` class): the
+/// transaction was in a certified block, was validly signed, used the
+/// expected sequence and could pay its fee while keeping the account reserve,
+/// but its effect failed. The receipt is `accepted: false`, the fee in
+/// `fee_charged`/`fee_burned` was debited and burned, the sender's sequence
+/// advanced, and nothing else changed. The suffix is the effect-level
+/// rejection code, e.g. `tec_insufficient_funds`.
+pub const RECEIPT_CODE_FEE_CLAIMED_PREFIX: &str = "tec_";
+/// Effect-level rejection of a covered payment to an account whose
+/// `ACCOUNT_FLAG_REQUIRE_MEMO` is set when the payment carries no memo.
+pub const RECEIPT_CODE_DESTINATION_MEMO_REQUIRED: &str = "destination_memo_required";
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Receipt {
     pub tx_id: String,
@@ -5746,6 +5898,12 @@ impl Receipt {
             offer_fills: Vec::new(),
             atomic_swap_legs: None,
         }
+    }
+
+    /// True for a rejected receipt whose fee was claimed (see
+    /// `RECEIPT_CODE_FEE_CLAIMED_PREFIX`).
+    pub fn is_fee_claimed(&self) -> bool {
+        !self.accepted && self.code.starts_with(RECEIPT_CODE_FEE_CLAIMED_PREFIX)
     }
 
     pub fn with_code(mut self, code: impl Into<String>) -> Self {

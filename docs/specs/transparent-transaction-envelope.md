@@ -124,6 +124,13 @@ Replay controls currently implemented:
 - duplicate pending sender sequences are rejected at mempool admission;
 - ledger sequence rules reject non-next sender sequences at execution.
 
+None of these rejections is charged. After the governed
+`rejected_tx_fee_activation_height`, a transfer that passes every check above
+and can pay its fee while keeping the account reserve, but whose effect fails
+(for example `insufficient_funds` for the amount), pays its fee (burned),
+consumes its sequence, and returns `tec_<reason>`; see
+[Custody And Exchange](../wallets/custody-and-exchange.md#rejected-transactions-pay-their-fee).
+
 The v1 transparent envelope does not include an expiry field. Adding expiry,
 memo, multi-operation payloads, batching fields, or alternative fee semantics
 must create a versioned envelope change instead of silently extending

@@ -18,6 +18,7 @@ mod tests {
     mod fastpay_commitment_versions;
     mod orchard_transfer_escrow;
     mod replicated_state_activation;
+    mod rejected_fee_require_memo;
     mod lifecycle_checkpoint_tests;
     mod private_primary_replay_gate_tests;
     mod recipient_format_activation;

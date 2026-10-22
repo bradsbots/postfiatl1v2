@@ -55,6 +55,8 @@ from postfiat_rpc.wallet import (
     revoke_asset_trustline_authorization,
     send_issued_asset,
     send_payment,
+    set_account_flags,
+    set_require_memo,
     send_fastpay,
     send_pft,
     send_pft_and_poll_finality,
@@ -2805,6 +2807,85 @@ class WalletHelperTests(unittest.TestCase):
         self.assertFalse(caps["mempool_submit_enabled"])
         self.assertEqual(caps["block_height"], 50)
 
+
+class RequireMemoWalletTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.client = PostFiatRpcClient("127.0.0.1:1234")
+        self.wallet = TransparentWallet(
+            chain_id="postfiat-local",
+            account_index=0,
+            address="pf-exchange",
+            public_key_hex="00",
+            key_file=Path("wallet.key.json"),
+            backup_file=Path("wallet.backup.json"),
+            key_report={},
+        )
+        self.asset_id = _issued_asset_id("postfiat-local", "pf-issuer", "USD", 1)
+
+    def submitted_operation(self, call: mock.MagicMock) -> dict[str, object]:
+        return call.call_args.kwargs["operation"]
+
+    def test_set_require_memo_builds_owner_account_set(self) -> None:
+        with mock.patch.object(wallet_module, "submit_asset_transaction") as call:
+            set_require_memo(self.client, wallet=self.wallet, enabled=True, sequence=4)
+        self.assertEqual(
+            self.submitted_operation(call),
+            {"operation": "account_set", "account": "pf-exchange", "set_flags": 1, "clear_flags": 0},
+        )
+        self.assertEqual(call.call_args.kwargs["sequence"], 4)
+        with mock.patch.object(wallet_module, "submit_asset_transaction") as call:
+            set_require_memo(self.client, wallet=self.wallet, enabled=False)
+        self.assertEqual(self.submitted_operation(call)["clear_flags"], 1)
+        self.assertEqual(self.submitted_operation(call)["set_flags"], 0)
+
+    def test_set_account_flags_rejects_unsupported_overlapping_or_empty_masks(self) -> None:
+        for set_flags, clear_flags in ((0, 0), (2, 0), (0, 1 << 31), (1, 1), (-1, 0)):
+            with self.subTest(set_flags=set_flags, clear_flags=clear_flags):
+                with self.assertRaises(ValueError):
+                    set_account_flags(
+                        self.client, wallet=self.wallet, set_flags=set_flags, clear_flags=clear_flags
+                    )
+
+    def test_send_issued_asset_uses_issued_payment_v2_only_with_a_memo(self) -> None:
+        with mock.patch.object(wallet_module, "submit_asset_transaction") as call:
+            send_issued_asset(
+                self.client,
+                wallet=self.wallet,
+                to_address="pf-holder",
+                issuer="pf-issuer",
+                asset_id=self.asset_id,
+                amount=5,
+            )
+        self.assertEqual(self.submitted_operation(call)["operation"], "issued_payment")
+        self.assertNotIn("memos", self.submitted_operation(call))
+        with mock.patch.object(wallet_module, "submit_asset_transaction") as call:
+            send_issued_asset(
+                self.client,
+                wallet=self.wallet,
+                to_address="pf-holder",
+                issuer="pf-issuer",
+                asset_id=self.asset_id,
+                amount=5,
+                memo_data="637573742d3432",
+            )
+        operation = self.submitted_operation(call)
+        self.assertEqual(operation["operation"], "issued_payment_v2")
+        self.assertEqual(
+            operation["memos"],
+            [{"memo_type": "", "memo_format": "", "memo_data": "637573742d3432"}],
+        )
+        for bad in ("XYZ", "abc", "AB"):
+            with self.subTest(memo_data=bad):
+                with self.assertRaises(ValueError):
+                    send_issued_asset(
+                        self.client,
+                        wallet=self.wallet,
+                        to_address="pf-holder",
+                        issuer="pf-issuer",
+                        asset_id=self.asset_id,
+                        amount=5,
+                        memo_data=bad,
+                    )
 
 class NavcoinBridgeClientMethodTests(unittest.TestCase):
     """Tests for public PFTL-to-Uniswap NAVCoin bridge read helpers."""

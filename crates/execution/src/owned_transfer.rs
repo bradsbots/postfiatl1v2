@@ -1001,6 +1001,7 @@ mod owned_transfer_tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         // wrap: 100 balance -> 100 owned object
         let obj = wrap_to_owned(&mut ledger, "alice", "alicepk".into(), 100, "PFT".into(), "obj1".into()).expect("wrap");
@@ -1022,6 +1023,7 @@ mod owned_transfer_tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         for asset in ["pfUSDC", "a651", "pft", ""] {
             assert_eq!(
@@ -1043,6 +1045,7 @@ mod owned_transfer_tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         ledger
             .owned_objects
@@ -1088,6 +1091,7 @@ mod owned_transfer_tests {
             balance: u64::MAX,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         ledger
             .owned_objects
@@ -1110,6 +1114,7 @@ mod owned_transfer_tests {
             balance: u64::MAX,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         ledger
             .owned_objects
@@ -1155,6 +1160,7 @@ mod owned_transfer_tests {
             balance: 10,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         });
         // insufficient balance
         assert_eq!(

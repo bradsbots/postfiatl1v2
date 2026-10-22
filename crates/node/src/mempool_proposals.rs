@@ -229,7 +229,13 @@ fn admit_signed_transfer_to_mempool(
     }
     let mut dry_run_ledger = ledger.clone();
     for pending in &mempool.pending {
-        let pending_receipt = execute_transfer(&genesis, &mut dry_run_ledger, &pending.transfer);
+        let pending_receipt = execute_transfer_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -240,7 +246,13 @@ fn admit_signed_transfer_to_mempool(
             ));
         }
     }
-    let dry_run_receipt = execute_transfer(&genesis, &mut dry_run_ledger, &signed);
+    let dry_run_receipt = execute_transfer_with_compatibility(
+        &genesis,
+        &mut dry_run_ledger,
+        &signed,
+        block_height,
+        asset_execution_compatibility,
+    );
     if !dry_run_receipt.accepted {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -251,7 +263,13 @@ fn admit_signed_transfer_to_mempool(
         ));
     }
     for pending in &mempool.pending_payment_v2 {
-        let pending_receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &pending.payment);
+        let pending_receipt = execute_payment_v2_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -382,7 +400,13 @@ fn admit_signed_payment_v2_to_mempool(
     }
     let mut dry_run_ledger = ledger.clone();
     for pending in &mempool.pending {
-        let pending_receipt = execute_transfer(&genesis, &mut dry_run_ledger, &pending.transfer);
+        let pending_receipt = execute_transfer_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -394,7 +418,13 @@ fn admit_signed_payment_v2_to_mempool(
         }
     }
     for pending in &mempool.pending_payment_v2 {
-        let pending_receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &pending.payment);
+        let pending_receipt = execute_payment_v2_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -405,7 +435,13 @@ fn admit_signed_payment_v2_to_mempool(
             ));
         }
     }
-    let dry_run_receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &signed);
+    let dry_run_receipt = execute_payment_v2_with_compatibility(
+        &genesis,
+        &mut dry_run_ledger,
+        &signed,
+        block_height,
+        asset_execution_compatibility,
+    );
     if !dry_run_receipt.accepted {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -544,7 +580,13 @@ fn admit_signed_asset_transaction_to_mempool(
     }
     let mut dry_run_ledger = ledger.clone();
     for pending in &mempool.pending {
-        let pending_receipt = execute_transfer(&genesis, &mut dry_run_ledger, &pending.transfer);
+        let pending_receipt = execute_transfer_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -556,7 +598,13 @@ fn admit_signed_asset_transaction_to_mempool(
         }
     }
     for pending in &mempool.pending_payment_v2 {
-        let pending_receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &pending.payment);
+        let pending_receipt = execute_payment_v2_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -917,7 +965,13 @@ fn admit_signed_escrow_transaction_to_mempool(
     }
     let mut dry_run_ledger = ledger.clone();
     for pending in &mempool.pending {
-        let pending_receipt = execute_transfer(&genesis, &mut dry_run_ledger, &pending.transfer);
+        let pending_receipt = execute_transfer_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -929,7 +983,13 @@ fn admit_signed_escrow_transaction_to_mempool(
         }
     }
     for pending in &mempool.pending_payment_v2 {
-        let pending_receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &pending.payment);
+        let pending_receipt = execute_payment_v2_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !pending_receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -1251,7 +1311,13 @@ pub(super) fn ledger_after_executable_mempool(
     asset_execution_compatibility: AssetExecutionCompatibility,
 ) -> io::Result<LedgerState> {
     for pending in &mempool.pending {
-        let receipt = execute_transfer(genesis, &mut ledger, &pending.transfer);
+        let receipt = execute_transfer_with_compatibility(
+            genesis,
+            &mut ledger,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -1263,7 +1329,13 @@ pub(super) fn ledger_after_executable_mempool(
         }
     }
     for pending in &mempool.pending_payment_v2 {
-        let receipt = execute_payment_v2(genesis, &mut ledger, &pending.payment);
+        let receipt = execute_payment_v2_with_compatibility(
+            genesis,
+            &mut ledger,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -1385,7 +1457,13 @@ fn apply_pending_atomic_and_fastlane(
     // no-candidate prefix independently so those two cases are not conflated.
     let mut without_candidate = base_ledger.clone();
     for pending in &mempool.pending {
-        let receipt = execute_transfer(genesis, &mut without_candidate, &pending.transfer);
+        let receipt = execute_transfer_with_compatibility(
+            genesis,
+            &mut without_candidate,
+            &pending.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -1397,7 +1475,13 @@ fn apply_pending_atomic_and_fastlane(
         }
     }
     for pending in &mempool.pending_payment_v2 {
-        let receipt = execute_payment_v2(genesis, &mut without_candidate, &pending.payment);
+        let receipt = execute_payment_v2_with_compatibility(
+            genesis,
+            &mut without_candidate,
+            &pending.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -1603,7 +1687,13 @@ pub(super) fn verify_mempool_state(
                 ),
             ));
         }
-        let receipt = execute_transfer(genesis, &mut dry_run_ledger, &entry.transfer);
+        let receipt = execute_transfer_with_compatibility(
+            genesis,
+            &mut dry_run_ledger,
+            &entry.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -1658,7 +1748,13 @@ pub(super) fn verify_mempool_state(
                 ),
             ));
         }
-        let receipt = execute_payment_v2(genesis, &mut dry_run_ledger, &entry.payment);
+        let receipt = execute_payment_v2_with_compatibility(
+            genesis,
+            &mut dry_run_ledger,
+            &entry.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if !receipt.accepted {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -2450,7 +2546,13 @@ pub fn create_mempool_batch(options: MempoolBatchOptions) -> io::Result<Transact
             remaining.push(entry);
             continue;
         }
-        let receipt = execute_transfer(&genesis, &mut dry_run_ledger, &entry.transfer);
+        let receipt = execute_transfer_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &entry.transfer,
+            block_height,
+            asset_execution_compatibility,
+        );
         if receipt.accepted {
             transactions.push(entry.transfer);
         }
@@ -2461,7 +2563,13 @@ pub fn create_mempool_batch(options: MempoolBatchOptions) -> io::Result<Transact
             remaining_payments_v2.push(entry);
             continue;
         }
-        let receipt = execute_payment_v2(&genesis, &mut dry_run_ledger, &entry.payment);
+        let receipt = execute_payment_v2_with_compatibility(
+            &genesis,
+            &mut dry_run_ledger,
+            &entry.payment,
+            block_height,
+            asset_execution_compatibility,
+        );
         if receipt.accepted {
             payments_v2.push(entry.payment);
         }

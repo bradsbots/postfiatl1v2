@@ -2398,14 +2398,28 @@ class PostFiatRpcClient:
                 trustline_frozen = (
                     operation.get("frozen") if isinstance(operation.get("frozen"), bool) else None
                 )
-            elif op_kind == "issued_payment":
+            elif op_kind in ("issued_payment", "issued_payment_v2"):
                 sender = operation.get("from")
                 recipient = operation.get("to")
                 amount = operation.get("amount")
+            elif op_kind == "account_set":
+                recipient = operation.get("account")
             elif op_kind == "asset_burn":
                 sender = operation.get("owner")
                 recipient = operation.get("issuer")
                 amount = operation.get("amount")
+            asset_memo_count: int | None = None
+            asset_memo_bytes: int | None = None
+            asset_memos = operation.get("memos")
+            if op_kind == "issued_payment_v2" and isinstance(asset_memos, list):
+                asset_memo_count = len(asset_memos)
+                asset_memo_bytes = sum(
+                    len(memo.get(key)) // 2
+                    for memo in asset_memos
+                    if isinstance(memo, dict)
+                    for key in ("memo_type", "memo_format", "memo_data")
+                    if isinstance(memo.get(key), str)
+                )
             if sender != address and recipient != address:
                 continue
             index = offset + asset_index
@@ -2431,8 +2445,8 @@ class PostFiatRpcClient:
                         else None
                     ),
                     memo_hash=None,
-                    memo_count=None,
-                    memo_bytes=None,
+                    memo_count=asset_memo_count,
+                    memo_bytes=asset_memo_bytes,
                     asset_id=asset_id if isinstance(asset_id, str) else None,
                     issuer=issuer if isinstance(issuer, str) else None,
                     trustline_authorized=trustline_authorized,

@@ -67,7 +67,7 @@ launch config digests.
 | `mempool_submit_signed_transfer` | Submit signed native PFT transfer. |
 | `mempool_submit_signed_payment_v2` | Submit signed native PFT payment with memos. |
 | `asset_fee_quote` | Quote issued-asset and TrustSet-style transactions. |
-| `mempool_submit_signed_asset_transaction` | Submit signed asset create, TrustSet, issued payment, or clawback. |
+| `mempool_submit_signed_asset_transaction` | Submit signed asset create, TrustSet, issued payment (`issued_payment`, or `issued_payment_v2` with memos), clawback, or `account_set` (owner account flags). |
 | `escrow_fee_quote` | Quote escrow create, finish, or cancel. |
 | `mempool_submit_signed_escrow_transaction` | Submit signed escrow transaction. |
 | `nft_fee_quote` | Quote NFT mint, transfer, or burn. |
@@ -87,6 +87,13 @@ Signed submit methods reject a destination address that is not a canonical
 `noncanonical_recipient_address`; see
 [Addresses And Checksums](../wallets/address-format.md). The `account` result
 adds `address_checksummed`, the display form of `address`.
+
+Receipts from these submissions use `accepted: true` with code `accepted` (or
+an offer fill code) when applied. A rejected receipt whose code starts with
+`tec_` was fee-claimed: its fee was burned and its sequence consumed, nothing
+else changed. `account` returns `flags` (`1` = require memo) only when set.
+Both behaviours are governed; see
+[Custody And Exchange](../wallets/custody-and-exchange.md#fees).
 
 ## FastPay Wallet Methods
 

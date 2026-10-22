@@ -58,17 +58,14 @@ account, and then watched by address.
 ## Deposit Address Model
 
 Use unique transparent addresses per customer, subaccount, or deposit intent.
-Do not use a shared omnibus address for customer deposits in v0.
-
-The plain transfer envelope (`postfiat.transfer.v1`) has no memo or tag field.
-A signed `payment_v2` payment can carry up to four memos, each with a type,
-format and data field, at most 256 data bytes per memo and 512 memo bytes in
-total (`PaymentMemo` and `UnsignedPaymentV2` in
-[`crates/types/src/transactions_mempool_receipts.rs`](../../crates/types/src/transactions_mempool_receipts.rs);
-limits in [`crates/types/src/core_chain.rs`](../../crates/types/src/core_chain.rs)).
-A sender can still choose a plain transfer without a memo, and `account_tx`
-returns only a memo hash, count and byte length, not the memo contents. Account
-history alone therefore cannot attribute deposits to an omnibus address.
+`transparent_transfer` has no memo field. A shared omnibus address is safe only
+after the governed `require_memo_activation_height`: set the account's
+require-memo flag with `account_set`, and the ledger then rejects incoming
+`transparent_transfer`, `issued_payment`, and memo-less `payment_v2` or
+`issued_payment_v2` with `destination_memo_required`, so every deposit that
+lands carries a memo for attribution. Escrow, atomic swap, offer, NFT, bridge
+and FastPay credits are not covered. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#deposit-attribution-with-required-memos).
 
 A deposit registry entry should include at minimum:
 
@@ -139,6 +136,12 @@ Withdrawals are signed from the custody address using the SDK quote-bound flow:
 
 The SDK rejects quote sender, recipient, amount, and explicit-sequence mismatches
 against the request, plus chain-id mismatches with the wallet backup.
+
+After the governed `rejected_tx_fee_activation_height`, a withdrawal included in
+a block but rejected for an effect-level reason returns a `tec_<reason>`
+receipt: the fee was burned and the sequence consumed, no amount moved. Re-sign
+with the next sequence instead of resubmitting the same transaction. See
+[Custody And Exchange](../wallets/custody-and-exchange.md#rejected-transactions-pay-their-fee).
 
 ## Watch-Only Constraints
 

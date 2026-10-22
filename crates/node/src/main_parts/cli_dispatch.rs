@@ -290,7 +290,9 @@ use postfiat_types::{
     GOVERNANCE_KIND_ORCHARD_AWARE_BRIDGE_CLAIM_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_PFUSDC_SOURCE_SERIES_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+    GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT,
+    GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT,
     GOVERNANCE_KIND_VAULT_BRIDGE_ROUTE_AUTHORITY_ACTIVATION_HEIGHT,
 };
@@ -475,6 +477,8 @@ fn run_cli(args: Vec<String>) -> Result<(), String> {
         | "ratify-bridge-verification-activation-height"
         | "ratify-vault-bridge-route-authority-activation-height"
         | "ratify-atomic-swap-activation-height"
+        | "ratify-rejected-tx-fee-activation-height"
+        | "ratify-require-memo-activation-height"
         | "ratify-orchard-aware-bridge-claim-activation-height"
         | "ratify-pfusdc-source-series-activation-height"
         | "ratify-replicated-state-v2-activation-height"

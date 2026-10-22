@@ -34,6 +34,15 @@ pub const VAULT_BRIDGE_ROUTE_PROFILE_RECORD_SCHEMA_V1: &str =
     "postfiat.vault_bridge.route_profile_record.v1";
 pub const GOVERNANCE_KIND_ATOMIC_SWAP_ACTIVATION_HEIGHT: &str =
     "atomic_swap_activation_height";
+/// Height from which an authenticated, correctly sequenced transaction that a
+/// certified transparent block rejects for an effect-level reason still pays
+/// its fee (burned) and consumes its sequence (`tec_` receipt codes).
+pub const GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT: &str =
+    "rejected_tx_fee_activation_height";
+/// Height from which the `account_set` require-memo flag, `issued_payment_v2`
+/// and the destination-memo check on covered payments are active.
+pub const GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT: &str =
+    "require_memo_activation_height";
 pub const GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT: &str =
     "replicated_state_v2_activation_height";
 pub const GOVERNANCE_KIND_BRIDGE_EXIT_ROOT_ACTIVATION_HEIGHT: &str =
@@ -1536,6 +1545,25 @@ impl GovernanceState {
             .map(|amendment| u64::from(amendment.value))
     }
 
+    /// Latest committed amendment wins, exactly like the atomic-swap gate, so
+    /// governance can postpone the rule before it takes effect.
+    pub fn rejected_tx_fee_activation_height(&self) -> Option<u64> {
+        self.amendments
+            .iter()
+            .rev()
+            .find(|amendment| amendment.kind == GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT)
+            .map(|amendment| u64::from(amendment.value))
+    }
+
+    /// Latest committed amendment wins, exactly like the atomic-swap gate.
+    pub fn require_memo_activation_height(&self) -> Option<u64> {
+        self.amendments
+            .iter()
+            .rev()
+            .find(|amendment| amendment.kind == GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT)
+            .map(|amendment| u64::from(amendment.value))
+    }
+
     pub fn replicated_state_v2_activation_height(&self) -> Option<u64> {
         self.amendments
             .iter()
@@ -2220,6 +2248,27 @@ mod shielded_bridge_governance_tests {
             governance.pfusdc_source_series_activation_height(),
             Some(910)
         );
+    }
+
+    #[test]
+    fn rejected_tx_fee_and_require_memo_activation_heights_are_independent_and_latest_wins() {
+        let mut governance = GovernanceState::new(6);
+        assert_eq!(governance.rejected_tx_fee_activation_height(), None);
+        assert_eq!(governance.require_memo_activation_height(), None);
+        governance.apply(amendment(GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT, 700));
+        assert_eq!(governance.rejected_tx_fee_activation_height(), Some(700));
+        assert_eq!(governance.require_memo_activation_height(), None);
+        governance.apply(amendment(GOVERNANCE_KIND_REQUIRE_MEMO_ACTIVATION_HEIGHT, 710));
+        governance.apply(amendment(GOVERNANCE_KIND_ATOMIC_SWAP_ACTIVATION_HEIGHT, 5));
+        governance.apply(amendment(GOVERNANCE_KIND_REJECTED_TX_FEE_ACTIVATION_HEIGHT, 900));
+        assert_eq!(governance.rejected_tx_fee_activation_height(), Some(900));
+        assert_eq!(governance.require_memo_activation_height(), Some(710));
+        assert_eq!(governance.atomic_swap_activation_height(), Some(5));
+        // Neither kind materializes a GovernanceState field, so the committed
+        // governance encoding only changes through the ordered amendment log.
+        let encoded = serde_json::to_value(&governance).expect("serialize governance");
+        assert!(encoded.get("rejected_tx_fee_activation_height").is_none());
+        assert!(encoded.get("require_memo_activation_height").is_none());
     }
 
     #[test]

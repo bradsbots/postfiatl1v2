@@ -1961,6 +1961,12 @@ pub(super) fn append_account(bytes: &mut Vec<u8>, prefix: &str, account: &Accoun
         &format!("{prefix}.public_key_hex"),
         &account.public_key_hex,
     );
+    // Flags are committed only when nonzero, so every account that never ran
+    // `account_set` (all accounts before require-memo activation) encodes
+    // byte-for-byte as before and historical state roots are unchanged.
+    if account.flags != 0 {
+        append_canonical_u32(bytes, &format!("{prefix}.flags"), account.flags);
+    }
 }
 
 pub(super) fn append_asset_definition(bytes: &mut Vec<u8>, prefix: &str, asset: &AssetDefinition) {
@@ -4889,6 +4895,41 @@ mod source_settlement_commitment_tests {
             .insert("aa".repeat(48), 10);
         assert_ne!(encoded(&ledger), approved);
         ledger.pftl_uniswap_source_custody.clear();
+        assert_eq!(encoded(&ledger), legacy);
+    }
+}
+
+#[cfg(test)]
+mod account_flags_commitment_tests {
+    use super::*;
+
+    fn encoded(ledger: &LedgerState) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        append_ledger_state(
+            &mut bytes, ledger, true, true, false, false, true, false, false,
+        )
+        .unwrap();
+        bytes
+    }
+
+    #[test]
+    fn zero_account_flags_preserve_legacy_bytes_and_set_flags_are_committed() {
+        let mut ledger = LedgerState::new(vec![Account::new("pf-exchange", 100, None)]);
+        let legacy = encoded(&ledger);
+        let legacy_text = String::from_utf8(legacy.clone()).unwrap();
+        assert!(!legacy_text.contains("flags"));
+        assert!(!serde_json::to_string(&ledger.accounts[0])
+            .unwrap()
+            .contains("flags"));
+
+        ledger.accounts[0].flags = postfiat_types::ACCOUNT_FLAG_REQUIRE_MEMO;
+        let flagged = encoded(&ledger);
+        assert_ne!(flagged, legacy);
+        assert!(String::from_utf8(flagged)
+            .unwrap()
+            .contains("ledger.account.flags=1\n"));
+
+        ledger.accounts[0].flags = 0;
         assert_eq!(encoded(&ledger), legacy);
     }
 }

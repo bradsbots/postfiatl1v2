@@ -509,6 +509,7 @@ mod tests {
             balance: 100,
             sequence: 0,
             public_key_hex: Some(bytes_to_hex(&owner.public_key)),
+            flags: 0,
         }]);
         ledger.fastswap_committees.push(committee);
         ledger.fast_lane_asset_rules.push(rule.clone());
@@ -571,6 +572,7 @@ mod tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         }]);
         let deposit = OwnedDepositV1 {
             domain: FastSwapChainDomainV1 {
@@ -640,6 +642,7 @@ mod tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         }]);
         ledger.owned_objects = vec![
             OwnedObject {
@@ -705,6 +708,7 @@ mod tests {
             balance: 100,
             sequence: 0,
             public_key_hex: None,
+            flags: 0,
         }]);
         let deposit = OwnedDepositV1 {
             domain: FastSwapChainDomainV1 {

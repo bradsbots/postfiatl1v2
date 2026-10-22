@@ -1823,6 +1823,27 @@
     }
 
     #[test]
+    fn account_response_accepts_only_supported_nonzero_flags() {
+        let account = |flags: Option<u64>| {
+            let mut result = json!({"address": "pf1-test", "balance": 10, "sequence": 1});
+            if let Some(flags) = flags {
+                result["flags"] = json!(flags);
+            }
+            success_response("account-1", &result, vec![]).expect("account response")
+        };
+        validate_response_kind(&account(None), RpcResponseKind::Account)
+            .expect("account without flags");
+        validate_response_kind(&account(Some(1)), RpcResponseKind::Account)
+            .expect("require-memo flag");
+        for flags in [0, 2, 1 << 31] {
+            assert!(matches!(
+                validate_response_kind(&account(Some(flags)), RpcResponseKind::Account),
+                Err(RpcResponseValidationError::InvalidResult { field, .. }) if field == "flags"
+            ));
+        }
+    }
+
+    #[test]
     fn read_response_validation_rejects_bad_shapes_and_private_key_leaks() {
         let hex96 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
         let other_hex96 = "111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111";

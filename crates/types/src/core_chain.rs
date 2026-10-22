@@ -17,6 +17,12 @@ pub const PAYMENT_V2_TRANSACTION_KIND: &str = "payment_v2";
 pub const ASSET_CREATE_TRANSACTION_KIND: &str = "asset_create";
 pub const TRUST_SET_TRANSACTION_KIND: &str = "trust_set";
 pub const ISSUED_PAYMENT_TRANSACTION_KIND: &str = "issued_payment";
+/// Issued-asset payment carrying `payment_v2`-style memos. Active from the
+/// `require_memo_activation_height` governance gate.
+pub const ISSUED_PAYMENT_V2_TRANSACTION_KIND: &str = "issued_payment_v2";
+/// Owner-signed account settings change (set/clear account flags). Active
+/// from the `require_memo_activation_height` governance gate.
+pub const ACCOUNT_SET_TRANSACTION_KIND: &str = "account_set";
 pub const ASSET_BURN_TRANSACTION_KIND: &str = "asset_burn";
 pub const OWNED_TRANSFER_TRANSACTION_KIND: &str = "owned_transfer";
 pub const ASSET_CLAWBACK_TRANSACTION_KIND: &str = "asset_clawback";

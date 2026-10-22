@@ -43,6 +43,13 @@ NFT_COLLECTION_ALLOWED_FLAGS = (
     NFT_COLLECTION_FLAG_TRANSFER_LOCKED | NFT_COLLECTION_FLAG_BURN_LOCKED
 )
 TRUSTLINE_STATE_EXPANSION_FEE = 10
+# Account flags set and cleared with an owner-signed `account_set` transaction
+# (active from the `require_memo_activation_height` governance gate).
+ACCOUNT_FLAG_REQUIRE_MEMO = 0x0000_0001
+ACCOUNT_ALLOWED_FLAGS = ACCOUNT_FLAG_REQUIRE_MEMO
+MAX_PAYMENT_MEMO_TYPE_BYTES = 64
+MAX_PAYMENT_MEMO_FORMAT_BYTES = 64
+MAX_PAYMENT_MEMO_DATA_BYTES = 256
 FASTPAY_OWNED_OBJECT_LOOKUP_LIMIT = 2048
 FASTPAY_SEND_JOURNAL_SCHEMA = "postfiat-fastpay-send-journal-v1"
 
@@ -1728,12 +1735,21 @@ def send_issued_asset(
     issuer: str,
     asset_id: str,
     amount: int,
+    memo_type: str | None = None,
+    memo_format: str | None = None,
+    memo_data: str | None = None,
     work_dir: str | Path | None = None,
     sequence: int | None = None,
     finalize_data_dir: str | Path | None = None,
     validator_data_dirs: Sequence[str | Path] | None = None,
 ) -> AssetTransactionResult:
-    """Send an issued asset from the wallet address to another account."""
+    """Send an issued asset from the wallet address to another account.
+
+    Memo fields are lowercase hex, as for ``send_pft``. When any is given the
+    payment is an ``issued_payment_v2`` carrying one memo, which an account
+    with the require-memo flag needs to receive the deposit; otherwise it is
+    the memo-less ``issued_payment``.
+    """
 
     if not to_address:
         raise ValueError("to_address is required")
@@ -1742,22 +1758,81 @@ def send_issued_asset(
     _validate_asset_id(asset_id)
     if amount < 1:
         raise ValueError("amount must be positive")
+    operation: dict[str, Any] = {
+        "operation": "issued_payment",
+        "from": wallet.address,
+        "to": to_address,
+        "issuer": issuer,
+        "asset_id": asset_id,
+        "amount": amount,
+    }
+    memo = _payment_memo(memo_type, memo_format, memo_data)
+    if memo is not None:
+        operation["operation"] = "issued_payment_v2"
+        operation["memos"] = [memo]
     return submit_asset_transaction(
         client,
         wallet=wallet,
-        operation={
-            "operation": "issued_payment",
-            "from": wallet.address,
-            "to": to_address,
-            "issuer": issuer,
-            "asset_id": asset_id,
-            "amount": amount,
-        },
+        operation=operation,
         work_dir=work_dir,
         sequence=sequence,
         finalize_data_dir=finalize_data_dir,
         validator_data_dirs=validator_data_dirs,
         asset_id=asset_id,
+    )
+
+
+def set_account_flags(
+    client: PostFiatRpcClient,
+    *,
+    wallet: TransparentWallet,
+    set_flags: int = 0,
+    clear_flags: int = 0,
+    work_dir: str | Path | None = None,
+    sequence: int | None = None,
+    finalize_data_dir: str | Path | None = None,
+    validator_data_dirs: Sequence[str | Path] | None = None,
+) -> AssetTransactionResult:
+    """Set and/or clear owner account flags with a signed ``account_set``."""
+
+    for name, value in (("set_flags", set_flags), ("clear_flags", clear_flags)):
+        if not isinstance(value, int) or value < 0 or value & ~ACCOUNT_ALLOWED_FLAGS:
+            raise ValueError(f"{name} must only contain supported account flags")
+    if set_flags & clear_flags:
+        raise ValueError("set_flags and clear_flags must be disjoint")
+    if not set_flags | clear_flags:
+        raise ValueError("set or clear at least one account flag")
+    return submit_asset_transaction(
+        client,
+        wallet=wallet,
+        operation={
+            "operation": "account_set",
+            "account": wallet.address,
+            "set_flags": set_flags,
+            "clear_flags": clear_flags,
+        },
+        work_dir=work_dir,
+        sequence=sequence,
+        finalize_data_dir=finalize_data_dir,
+        validator_data_dirs=validator_data_dirs,
+    )
+
+
+def set_require_memo(
+    client: PostFiatRpcClient,
+    *,
+    wallet: TransparentWallet,
+    enabled: bool,
+    **kwargs: Any,
+) -> AssetTransactionResult:
+    """Require (or stop requiring) a memo on incoming payments to the wallet."""
+
+    if enabled:
+        return set_account_flags(
+            client, wallet=wallet, set_flags=ACCOUNT_FLAG_REQUIRE_MEMO, **kwargs
+        )
+    return set_account_flags(
+        client, wallet=wallet, clear_flags=ACCOUNT_FLAG_REQUIRE_MEMO, **kwargs
     )
 
 
@@ -2899,6 +2974,9 @@ def send_token(
     issuer: str,
     asset_id: str,
     value: int,
+    memo_type: str | None = None,
+    memo_format: str | None = None,
+    memo_data: str | None = None,
     work_dir: str | Path | None = None,
     sequence: int | None = None,
     finalize_data_dir: str | Path | None = None,
@@ -2913,6 +2991,9 @@ def send_token(
         issuer=issuer,
         asset_id=asset_id,
         amount=value,
+        memo_type=memo_type,
+        memo_format=memo_format,
+        memo_data=memo_data,
         work_dir=work_dir,
         sequence=sequence,
         finalize_data_dir=finalize_data_dir,
@@ -3471,6 +3552,26 @@ def _validate_asset_code(code: str) -> None:
         raise ValueError("code must be nonempty without leading, trailing, or control whitespace")
     if len(code.encode("utf-8")) > MAX_ISSUED_ASSET_CODE_BYTES:
         raise ValueError(f"code must not exceed {MAX_ISSUED_ASSET_CODE_BYTES} bytes")
+
+
+def _payment_memo(
+    memo_type: str | None, memo_format: str | None, memo_data: str | None
+) -> dict[str, str] | None:
+    fields = (
+        ("memo_type", memo_type or "", MAX_PAYMENT_MEMO_TYPE_BYTES),
+        ("memo_format", memo_format or "", MAX_PAYMENT_MEMO_FORMAT_BYTES),
+        ("memo_data", memo_data or "", MAX_PAYMENT_MEMO_DATA_BYTES),
+    )
+    if not any(value for _, value, _ in fields):
+        return None
+    for name, value, max_bytes in fields:
+        if (
+            len(value) % 2
+            or len(value) > max_bytes * 2
+            or any(char not in "0123456789abcdef" for char in value)
+        ):
+            raise ValueError(f"{name} must be lowercase hex of at most {max_bytes} bytes")
+    return {name: value for name, value, _ in fields}
 
 
 def _validate_asset_id(asset_id: str) -> None:

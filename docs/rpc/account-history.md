@@ -166,6 +166,12 @@ numbers rows after a block's swaps and FastLane primary transactions so
 (`python/tests/test_account_tx_fallback.py`,
 `python/tests/test_account_tx_exchange_rows.py`).
 
+Every row keeps its receipt's `accepted` flag and `receipt_code`. A row whose
+`receipt_code` starts with `tec_` was rejected but fee-claimed: `fee` left
+`from` and `sequence` was consumed, while `amount` did not move.
+`issued_payment_v2` rows carry `memo_count`, `memo_bytes` and the same
+`memo_hash` digest as `payment_v2`.
+
 `truncated` is `true` when a matching row was omitted. The archive scan (used
 when no index is usable; `index_used: false`) and the Python fallback read at
 most `limit` blocks. If the height range holds more blocks than that, the

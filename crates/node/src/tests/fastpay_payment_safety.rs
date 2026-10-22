@@ -200,6 +200,7 @@ fn unsigned_wrap_owned_rejects_every_asset_without_mutation() {
         balance: 100,
         sequence: 0,
         public_key_hex: None,
+        flags: 0,
     });
     NodeStore::new(&data_dir).write_ledger(&ledger).expect("write ledger");
     let object_id = "ab".repeat(32);
@@ -236,6 +237,7 @@ fn concurrent_unsigned_wrap_requests_all_reject_without_mutation() {
         balance: 1_000,
         sequence: 0,
         public_key_hex: None,
+        flags: 0,
     });
     NodeStore::new(&data_dir)
         .write_ledger(&ledger)

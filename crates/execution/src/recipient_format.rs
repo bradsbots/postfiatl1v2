@@ -28,6 +28,9 @@ pub fn asset_transaction_destination_addresses(
         AssetTransactionOperation::IssuedPayment(operation) => {
             vec![("issued_payment.to", operation.to.as_str())]
         }
+        AssetTransactionOperation::IssuedPaymentV2(operation) => {
+            vec![("issued_payment_v2.to", operation.to.as_str())]
+        }
         AssetTransactionOperation::NavMintAtNav(operation) => {
             vec![("nav_mint_at_nav.to", operation.to.as_str())]
         }
@@ -128,42 +131,6 @@ fn destination_address_excerpt(value: &str) -> String {
         excerpt.push_str("...");
     }
     excerpt
-}
-
-/// Executes a transfer with the governed recipient-format rule.
-pub fn execute_transfer_with_compatibility(
-    genesis: &Genesis,
-    ledger: &mut LedgerState,
-    transfer: &SignedTransfer,
-    block_height: u64,
-    compatibility: AssetExecutionCompatibility,
-) -> Receipt {
-    if compatibility.recipient_format_active(block_height) && transfer.validate().is_ok() {
-        if let Some((code, message)) =
-            destination_address_rejection(&transfer_destination_addresses(transfer))
-        {
-            return Receipt::rejected(transfer_tx_id(transfer), code, message);
-        }
-    }
-    execute_transfer(genesis, ledger, transfer)
-}
-
-/// Executes a `payment_v2` with the governed recipient-format rule.
-pub fn execute_payment_v2_with_compatibility(
-    genesis: &Genesis,
-    ledger: &mut LedgerState,
-    payment: &SignedPaymentV2,
-    block_height: u64,
-    compatibility: AssetExecutionCompatibility,
-) -> Receipt {
-    if compatibility.recipient_format_active(block_height) && payment.validate().is_ok() {
-        if let Some((code, message)) =
-            destination_address_rejection(&payment_v2_destination_addresses(payment))
-        {
-            return Receipt::rejected(payment_v2_tx_id(payment), code, message);
-        }
-    }
-    execute_payment_v2(genesis, ledger, payment)
 }
 
 /// Executes an escrow transaction with the governed recipient-format rule.
