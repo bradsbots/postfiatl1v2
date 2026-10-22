@@ -42,8 +42,8 @@ fn two_transfer_chain(label: &str) -> (PathBuf, String, String) {
     .expect("run once");
     let mut pending = Vec::new();
     for to in [
-        "pfrecipient000000000000000000000000000001",
-        "pfrecipient000000000000000000000000000002",
+        "pf0000000000000000000000000000000000000001",
+        "pf0000000000000000000000000000000000000002",
     ] {
         pending.push(
             submit_transfer_to_mempool(TransferOptions {

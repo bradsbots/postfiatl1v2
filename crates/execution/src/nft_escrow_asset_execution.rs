@@ -627,6 +627,9 @@ pub struct AssetExecutionCompatibility {
     pub atomic_swap_activation_height: Option<u64>,
     pub atomic_swap_paused: bool,
     pub yolo_target_activation_height: Option<u64>,
+    /// Height from which destination address fields must be canonical PFTL
+    /// addresses. `None` keeps historical behavior.
+    pub recipient_format_activation_height: Option<u64>,
 }
 
 impl AssetExecutionCompatibility {
@@ -652,6 +655,7 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: Some(0),
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
         }
     }
 
@@ -672,6 +676,7 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
         }
     }
 
@@ -692,6 +697,7 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
         }
     }
 
@@ -712,6 +718,7 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
         }
     }
 
@@ -732,6 +739,7 @@ impl AssetExecutionCompatibility {
             atomic_swap_activation_height: None,
             atomic_swap_paused: false,
             yolo_target_activation_height: None,
+            recipient_format_activation_height: None,
         }
     }
 
@@ -813,6 +821,19 @@ impl AssetExecutionCompatibility {
     pub const fn with_atomic_swap_paused(mut self, paused: bool) -> Self {
         self.atomic_swap_paused = paused;
         self
+    }
+
+    pub const fn with_recipient_format_activation_height(
+        mut self,
+        activation_height: Option<u64>,
+    ) -> Self {
+        self.recipient_format_activation_height = activation_height;
+        self
+    }
+
+    pub fn recipient_format_active(&self, block_height: u64) -> bool {
+        self.recipient_format_activation_height
+            .is_some_and(|activation_height| block_height >= activation_height)
     }
 }
 

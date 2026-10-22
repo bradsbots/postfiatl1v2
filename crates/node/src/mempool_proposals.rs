@@ -160,6 +160,33 @@ pub fn submit_signed_offer_transaction_json_to_mempool(
     admit_signed_offer_transaction_to_mempool(&options.data_dir, signed)
 }
 
+/// Stable RPC error code carried by a destination-address admission error,
+/// if the error message contains one.
+pub fn recipient_address_error_code(message: &str) -> Option<&'static str> {
+    [
+        postfiat_crypto_provider::INVALID_RECIPIENT_CHECKSUM_CODE,
+        postfiat_crypto_provider::NONCANONICAL_RECIPIENT_ADDRESS_CODE,
+        postfiat_crypto_provider::INVALID_RECIPIENT_ADDRESS_CODE,
+    ]
+    .into_iter()
+    .find(|code| message.contains(&format!("{code}: ")))
+}
+
+/// Admission-time destination address rule. This is a local policy check
+/// that applies immediately on upgrade; block execution applies the same rule
+/// only from the governed recipient-format activation height.
+pub(super) fn ensure_destination_addresses_admissible(
+    fields: &[(&'static str, &str)],
+) -> io::Result<()> {
+    match destination_address_rejection(fields) {
+        Some((code, message)) => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("{code}: {message}"),
+        )),
+        None => Ok(()),
+    }
+}
+
 fn admit_signed_transfer_to_mempool(
     data_dir: &Path,
     signed: SignedTransfer,
@@ -167,6 +194,7 @@ fn admit_signed_transfer_to_mempool(
     signed
         .validate()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    ensure_destination_addresses_admissible(&transfer_destination_addresses(&signed))?;
     let store = NodeStore::new(data_dir);
     let genesis = store.read_genesis()?;
     if signed.unsigned.chain_id != genesis.chain_id
@@ -319,6 +347,7 @@ fn admit_signed_payment_v2_to_mempool(
     signed
         .validate()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    ensure_destination_addresses_admissible(&payment_v2_destination_addresses(&signed))?;
     let store = NodeStore::new(data_dir);
     let genesis = store.read_genesis()?;
     if signed.unsigned.chain_id != genesis.chain_id
@@ -479,6 +508,7 @@ fn admit_signed_asset_transaction_to_mempool(
             !asset_execution_compatibility.bridge_verification_rules_active(block_height),
         )
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    ensure_destination_addresses_admissible(&asset_transaction_destination_addresses(&signed))?;
     if signed.unsigned.chain_id != genesis.chain_id
         || signed.unsigned.genesis_hash != genesis_hash(&genesis)
         || signed.unsigned.protocol_version != genesis.protocol_version
@@ -852,6 +882,7 @@ fn admit_signed_escrow_transaction_to_mempool(
     signed
         .validate()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    ensure_destination_addresses_admissible(&escrow_transaction_destination_addresses(&signed))?;
     let store = NodeStore::new(data_dir);
     let genesis = store.read_genesis()?;
     if signed.unsigned.chain_id != genesis.chain_id
@@ -1005,6 +1036,7 @@ fn admit_signed_nft_transaction_to_mempool(
     signed
         .validate()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    ensure_destination_addresses_admissible(&nft_transaction_destination_addresses(&signed))?;
     let store = NodeStore::new(data_dir);
     let genesis = store.read_genesis()?;
     if signed.unsigned.chain_id != genesis.chain_id

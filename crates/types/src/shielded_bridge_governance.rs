@@ -40,6 +40,11 @@ pub const GOVERNANCE_KIND_BRIDGE_EXIT_ROOT_ACTIVATION_HEIGHT: &str =
     "bridge_exit_root_activation_height";
 pub const GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT: &str =
     "shielded_atomic_batch_activation_height";
+/// First block height at which execution rejects transactions whose
+/// destination address fields are not canonical PFTL addresses. Absent by
+/// default, so historical blocks replay unchanged.
+pub const GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT: &str =
+    "recipient_format_activation_height";
 pub const GOVERNANCE_KIND_STORAGE_COMMITMENT_ACTIVATION: &str =
     "storage_commitment_activation";
 pub const GOVERNANCE_KIND_STORAGE_COMMITMENT_CANCELLATION: &str =
@@ -1562,6 +1567,19 @@ impl GovernanceState {
             .map(|amendment| u64::from(amendment.value))
             .min()
     }
+
+    /// The earliest unpaused scheduled height wins, so a later amendment
+    /// cannot postpone or disable the rule once it is scheduled.
+    pub fn recipient_format_activation_height(&self) -> Option<u64> {
+        self.amendments
+            .iter()
+            .filter(|amendment| {
+                amendment.kind == GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT
+                    && !amendment.paused
+            })
+            .map(|amendment| u64::from(amendment.value))
+            .min()
+    }
 }
 
 pub fn vault_bridge_route_amendment_prefix(asset_id: &str) -> String {
@@ -2279,6 +2297,31 @@ mod shielded_bridge_governance_tests {
             governance.shielded_atomic_batch_activation_height(),
             Some(500)
         );
+    }
+
+    #[test]
+    fn recipient_format_activation_is_absent_for_legacy_and_cannot_be_postponed() {
+        let mut governance = GovernanceState::new(6);
+        assert_eq!(governance.recipient_format_activation_height(), None);
+        let legacy = serde_json::to_value(&governance).expect("serialize legacy governance");
+        assert!(!legacy
+            .to_string()
+            .contains(GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT));
+
+        governance.apply(amendment(
+            GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+            800,
+        ));
+        governance.apply(amendment(
+            GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+            900,
+        ));
+        assert_eq!(governance.recipient_format_activation_height(), Some(800));
+
+        let mut paused = amendment(GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT, 700);
+        paused.paused = true;
+        governance.apply(paused);
+        assert_eq!(governance.recipient_format_activation_height(), Some(800));
     }
 
     #[test]

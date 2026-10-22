@@ -3,11 +3,32 @@ use super::*;
 const RPC_TX_NOT_FOUND_ERROR_PREFIX: &str = "postfiat-rpc-dispatch-error-v1:rpc_tx_not_found:";
 
 pub(super) fn rpc_dispatch_error_response_parts(error: &str) -> (&'static str, &str) {
-    error
-        .strip_prefix(RPC_TX_NOT_FOUND_ERROR_PREFIX)
-        .map_or(("rpc_error", error), |message| {
-            ("rpc_tx_not_found", message)
-        })
+    if let Some(message) = error.strip_prefix(RPC_TX_NOT_FOUND_ERROR_PREFIX) {
+        return ("rpc_tx_not_found", message);
+    }
+    if let Some(code) = postfiat_node::recipient_address_error_code(error) {
+        return (code, error);
+    }
+    ("rpc_error", error)
+}
+
+/// `account` RPC result: the account fields unchanged, plus the additive
+/// display field `address_checksummed` when `address` is canonical.
+pub(super) fn account_rpc_result(
+    account: &postfiat_types::Account,
+) -> Result<serde_json::Value, String> {
+    let mut result = serde_json::to_value(account)
+        .map_err(|error| format!("rpc account serialization failed: {error}"))?;
+    let checksummed = postfiat_crypto_provider::is_canonical_address(&account.address)
+        .then(|| postfiat_crypto_provider::checksum_address(&account.address).ok())
+        .flatten();
+    if let (Some(object), Some(checksummed)) = (result.as_object_mut(), checksummed) {
+        object.insert(
+            "address_checksummed".to_string(),
+            serde_json::Value::String(checksummed),
+        );
+    }
+    Ok(result)
 }
 
 pub(super) fn rpc_tx_finality_error(error: std::io::Error) -> String {
@@ -215,9 +236,10 @@ pub(super) fn run_rpc(flags: &[String]) -> Result<(), String> {
             let address = flag_value(flags, "--address").ok_or("missing --address")?;
             let account = account(NodeOptions { data_dir }, address)
                 .map_err(|error| format!("rpc account failed: {error}"))?;
+            let result = account_rpc_result(&account)?;
             print_rpc_success(
                 id,
-                &account,
+                &result,
                 vec![RpcEvent::new(
                     "account",
                     account.address.clone(),

@@ -1333,6 +1333,11 @@
         assert_eq!(identity.account_index, 2);
         assert!(identity.private_key_material_redacted);
         assert!(identity.address.starts_with("pf"));
+        assert_eq!(
+            identity.address_checksummed,
+            postfiat_crypto_provider::checksum_address(&identity.address).expect("checksum")
+        );
+        assert_eq!(identity.address_checksummed.to_ascii_lowercase(), identity.address);
 
         let restored_identity = wallet_identity_from_backup(&backup).expect("restored identity");
         assert_eq!(restored_identity, identity);
@@ -1340,7 +1345,7 @@
         let quote_request = transfer_fee_quote_request(
             "fee-quote-1",
             identity.address.clone(),
-            "pf1-recipient",
+            "pf0000000000000000000000000000000000000001",
             25,
             Some(7),
         );
@@ -1352,7 +1357,7 @@
                 "genesis_hash": hex96,
                 "protocol_version": 1,
                 "from": identity.address,
-                "to": "pf1-recipient",
+                "to": "pf0000000000000000000000000000000000000001",
                 "amount": 25,
                 "sequence": 7,
                 "sequence_source": "explicit",
@@ -1395,6 +1400,30 @@
         assert_eq!(signed.algorithm_id, ML_DSA_65_ALGORITHM);
         assert_eq!(signed.public_key_hex, restored_identity.public_key_hex);
         signed.validate().expect("signed transfer validates");
+        for (to, code) in [
+            ("pf1-recipient", "invalid_recipient_address"),
+            (identity.address_checksummed.as_str(), "noncanonical_recipient_address"),
+        ] {
+            let error = wallet_sign_transfer_from_fields(
+                &backup,
+                WalletSignTransferFields {
+                    chain_id: quote_summary.chain_id.clone(),
+                    genesis_hash: quote_summary.genesis_hash.clone(),
+                    protocol_version: quote_summary.protocol_version,
+                    to: to.to_string(),
+                    amount: 25,
+                    fee: 32,
+                    sequence: 7,
+                },
+            )
+            .expect_err("wallet signed a non-canonical recipient");
+            assert!(
+                error
+                    .to_string()
+                    .contains(&format!("wallet refuses to sign: {code}: transfer.to")),
+                "{error}"
+            );
+        }
 
         let public_key = crypto_hex_to_bytes(&signed.public_key_hex).expect("public key bytes");
         let signature = crypto_hex_to_bytes(&signed.signature_hex).expect("signature bytes");
@@ -1493,7 +1522,7 @@
                 "operation": {
                     "operation": ESCROW_CREATE_TRANSACTION_KIND,
                     "owner": restored_identity.address.as_str(),
-                    "recipient": "pf1-recipient",
+                    "recipient": "pf0000000000000000000000000000000000000001",
                     "asset_id": "PFT",
                     "amount": 20,
                     "condition": "secret",
@@ -1570,7 +1599,7 @@
                     "issuer": restored_identity.address.as_str(),
                     "collection_id": "wallet-sdk-collection",
                     "serial": 1,
-                    "owner": "pf1-owner",
+                    "owner": "pf0000000000000000000000000000000000000002",
                     "metadata_hash": "ab".repeat(32),
                     "metadata_uri": "ipfs://postfiat-nft",
                     "flags": NFT_FLAG_TRANSFERABLE,
@@ -1728,7 +1757,7 @@
                 chain_id: "postfiat-other-chain".to_string(),
                 genesis_hash: hex96.to_string(),
                 protocol_version: 1,
-                to: "pf1-recipient".to_string(),
+                to: "pf0000000000000000000000000000000000000001".to_string(),
                 amount: 25,
                 fee: 32,
                 sequence: 7,

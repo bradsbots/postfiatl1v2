@@ -728,6 +728,7 @@ fn print_usage() {
   postfiat-node ratify-orchard-aware-bridge-claim-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
   postfiat-node ratify-pfusdc-source-series-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
   postfiat-node ratify-shielded-atomic-batch-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
+  postfiat-node ratify-recipient-format-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
   postfiat-node ratify-vault-bridge-route-authority-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
   postfiat-node ratify-replicated-state-v2-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH
   postfiat-node ratify-bridge-exit-root-activation-height [--data-dir PATH] --validators CSV [--support CSV] --height H [--activation-height H] [--veto-until-height H] [--paused] --amendment-file PATH

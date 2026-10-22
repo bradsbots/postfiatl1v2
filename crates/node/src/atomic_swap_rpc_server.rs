@@ -1,9 +1,65 @@
+/// Rejects a signed submission with a malformed destination address before
+/// any mempool lock or finality round is taken. Unparseable payloads fall
+/// through so the normal path reports the parse error.
+fn rpc_serve_destination_address_rejection(
+    request: &RpcRequest,
+) -> Option<(&'static str, String)> {
+    fn parse<T: serde::de::DeserializeOwned>(
+        params: &serde_json::Map<String, serde_json::Value>,
+        key: &str,
+    ) -> Option<T> {
+        serde_json::from_str(params.get(key)?.as_str()?).ok()
+    }
+    let params = request.params.as_object()?;
+    match request.method.as_str() {
+        "mempool_submit_signed_transfer" | "mempool_submit_signed_transfer_finality" => {
+            let signed: postfiat_types::SignedTransfer = parse(params, "signed_transfer_json")?;
+            postfiat_execution::destination_address_rejection(
+                &postfiat_execution::transfer_destination_addresses(&signed),
+            )
+        }
+        "mempool_submit_signed_payment_v2" | "mempool_submit_signed_payment_v2_finality" => {
+            let signed: postfiat_types::SignedPaymentV2 = parse(params, "signed_payment_v2_json")?;
+            postfiat_execution::destination_address_rejection(
+                &postfiat_execution::payment_v2_destination_addresses(&signed),
+            )
+        }
+        "mempool_submit_signed_asset_transaction"
+        | "mempool_submit_signed_asset_transaction_finality" => {
+            let signed: postfiat_types::SignedAssetTransaction =
+                parse(params, "signed_asset_transaction_json")?;
+            postfiat_execution::destination_address_rejection(
+                &postfiat_execution::asset_transaction_destination_addresses(&signed),
+            )
+        }
+        "mempool_submit_signed_escrow_transaction"
+        | "mempool_submit_signed_escrow_transaction_finality" => {
+            let signed: postfiat_types::SignedEscrowTransaction =
+                parse(params, "signed_escrow_transaction_json")?;
+            postfiat_execution::destination_address_rejection(
+                &postfiat_execution::escrow_transaction_destination_addresses(&signed),
+            )
+        }
+        "mempool_submit_signed_nft_transaction" => {
+            let signed: postfiat_types::SignedNftTransaction =
+                parse(params, "signed_nft_transaction_json")?;
+            postfiat_execution::destination_address_rejection(
+                &postfiat_execution::nft_transaction_destination_addresses(&signed),
+            )
+        }
+        _ => None,
+    }
+}
+
 fn run_serialized_rpc_mempool_submit(
     request_index: u64,
     request: &RpcRequest,
     raw_request: &str,
     context: &RpcServeConnectionContext,
 ) -> RpcResponse {
+    if let Some((code, message)) = rpc_serve_destination_address_rejection(request) {
+        return rpc_serve_error_response(&request.id, code, &message);
+    }
     let _mutation_guard = match context.mempool_mutation_lock.try_lock() {
         Ok(guard) => guard,
         Err(std::sync::TryLockError::WouldBlock) => {

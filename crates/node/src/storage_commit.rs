@@ -1385,6 +1385,7 @@ pub(super) fn wallet_key_report(
         account_index: backup.account_index,
         key_role: backup.key_role.clone(),
         address: key_file.address.clone(),
+        address_checksummed: postfiat_crypto_provider::display_address(&key_file.address),
         public_key_hex: key_file.public_key_hex.clone(),
         key_file: key_file_path.display().to_string(),
         backup_file: backup_file_path.map(|path| path.display().to_string()),

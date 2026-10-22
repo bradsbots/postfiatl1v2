@@ -3242,6 +3242,33 @@
     }
 
     #[test]
+    fn ratifies_recipient_format_activation_height_and_rejects_zero() {
+        let domain = test_domain();
+        let config = EssentialSubsetConfig::all_of(vec![
+            "validator-0".to_string(),
+            "validator-1".to_string(),
+        ]);
+        let support = vec!["validator-0".to_string(), "validator-1".to_string()];
+        let activation = ratify_governance_amendment(
+            &domain,
+            &config,
+            GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+            4_096,
+            support.clone(),
+        )
+        .expect("ratify recipient format activation");
+        verify_governance_amendment(&domain, &activation).expect("verify activation");
+        assert!(ratify_governance_amendment(
+            &domain,
+            &config,
+            GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT,
+            0,
+            support,
+        )
+        .is_err());
+    }
+
+    #[test]
     fn governance_amendment_lifecycle_metadata_is_bound() {
         let domain = test_domain();
         let config = EssentialSubsetConfig::all_of(vec![

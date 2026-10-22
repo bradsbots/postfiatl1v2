@@ -268,6 +268,9 @@ pub struct WalletKeyReport {
     pub account_index: u32,
     pub key_role: String,
     pub address: String,
+    /// Checksummed display form of `address`; `address` stays canonical.
+    #[serde(default)]
+    pub address_checksummed: String,
     pub public_key_hex: String,
     pub key_file: String,
     pub backup_file: Option<String>,

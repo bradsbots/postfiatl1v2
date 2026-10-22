@@ -5356,7 +5356,7 @@
             &ledger,
             &data_dir,
             None,
-            "pfexternalsigned0000000000000000000".to_string(),
+            "pfe000000000000000000000000000000000000001".to_string(),
             ACCOUNT_RESERVE,
         )
         .expect("build signed transfer");
@@ -5434,7 +5434,7 @@
         let quote = transfer_fee_quote(TransferFeeQuoteOptions {
             data_dir: data_dir.clone(),
             from: key_file.address.clone(),
-            to: "pfpaymentv2recipient0000000000000001".to_string(),
+            to: "pfa000000000000000000000000000000000000002".to_string(),
             amount: ACCOUNT_RESERVE,
             sequence: None,
             memo_type: Some(memo.memo_type.clone()),

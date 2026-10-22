@@ -153,6 +153,7 @@ nav:
           - Recovery Phrase Design: wallets/recovery-phrase-design.md
           - Shielded Wallet: wallets/shielded-wallet.md
           - Custody And Exchange: wallets/custody-and-exchange.md
+      - Addresses And Checksums: wallets/address-format.md
   - Privacy:
       - Overview: privacy/overview.md
       - Orchard/Halo2: privacy/orchard-halo2.md

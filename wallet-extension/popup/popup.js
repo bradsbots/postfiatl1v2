@@ -1,6 +1,7 @@
 import { RpcClient } from '../lib/rpc-client.js';
 import { MIN_PASSPHRASE_LENGTH, keystore } from '../lib/keystore.js';
 import { assertTransferQuoteMatchesIntent } from '../lib/tx-builder.js';
+import { displayAddress, parseAddress } from '../lib/address.js';
 import * as wasmMod from '../wasm/postfiat_wallet_wasm.js';
 
 let rpc = null;
@@ -41,7 +42,7 @@ async function init() {
     showView('noWallet');
   } else {
     walletAddress = wallet.metadata?.address;
-    document.getElementById('lockedAddress').textContent = walletAddress || '...';
+    document.getElementById('lockedAddress').textContent = walletAddress ? displayAddress(walletAddress) : '...';
     showView('locked');
   }
 
@@ -97,7 +98,9 @@ function showView(name) {
 
 function showWalletView() {
   showView('wallet');
-  document.getElementById('walletAddress').textContent = walletAddress;
+  // Show the checksummed form; the canonical lowercase form is what is
+  // stored, copied and signed.
+  document.getElementById('walletAddress').textContent = displayAddress(walletAddress);
   loadBalance();
 }
 
@@ -134,7 +137,7 @@ document.getElementById('createBtn').addEventListener('click', async () => {
     const seed = wasmMod.random_master_seed();
     const result = wasmMod.wallet_keygen(chainId, seed, 0);
     document.getElementById('seedText').textContent = seed;
-    document.getElementById('newWalletAddress').textContent = result.address;
+    document.getElementById('newWalletAddress').textContent = displayAddress(result.address);
     document.getElementById('seedDisplay').classList.remove('hidden');
     // Keep in module scope only — NOT window global
     pendingSeed = seed;
@@ -205,7 +208,7 @@ document.getElementById('importBtn').addEventListener('click', async () => {
   // Clear sensitive fields
   document.getElementById('importSeed').value = '';
   document.getElementById('createPassphrase').value = '';
-  alert('Wallet imported!\nAddress: ' + result.address);
+  alert('Wallet imported!\nAddress: ' + displayAddress(result.address));
   showWalletView();
 });
 
@@ -268,16 +271,30 @@ document.getElementById('sendBtn').addEventListener('click', () => {
   document.getElementById('sendSuccess').textContent = '';
 });
 
+// Accepts the lowercase or the checksummed form and returns the canonical
+// lowercase address that is quoted and signed, or null after showing why.
+function readRecipient(err) {
+  let to;
+  try {
+    to = parseAddress(document.getElementById('sendTo').value.trim());
+  } catch (e) {
+    err.textContent = 'Invalid recipient address: ' + e.message;
+    return null;
+  }
+  if (!to.startsWith('pf') || to.length !== 42 || !/^pf[0-9a-f]{40}$/.test(to)) {
+    err.textContent = 'Invalid recipient address (must be pf + 40 hex chars)';
+    return null;
+  }
+  return to;
+}
+
 document.getElementById('quoteBtn').addEventListener('click', async () => {
-  const to = document.getElementById('sendTo').value.trim();
   const amount = parseInt(document.getElementById('sendAmount').value);
   const err = document.getElementById('sendError');
   err.textContent = '';
 
-  if (!to || !to.startsWith('pf') || to.length !== 42 || !/^pf[0-9a-f]{40}$/.test(to)) {
-    err.textContent = 'Invalid recipient address (must be pf + 40 hex chars)';
-    return;
-  }
+  const to = readRecipient(err);
+  if (!to) return;
   if (!amount || amount <= 0) {
     err.textContent = 'Amount must be a positive integer';
     return;
@@ -301,18 +318,15 @@ document.getElementById('quoteBtn').addEventListener('click', async () => {
 });
 
 document.getElementById('confirmSendBtn').addEventListener('click', async () => {
-  const to = document.getElementById('sendTo').value.trim();
   const amount = parseInt(document.getElementById('sendAmount').value);
   const err = document.getElementById('sendError');
   const success = document.getElementById('sendSuccess');
   err.textContent = '';
   success.textContent = '';
+  const to = readRecipient(err);
 
   // Validate inputs before attempting send
-  if (!to || !to.startsWith('pf') || to.length !== 42 || !/^pf[0-9a-f]{40}$/.test(to)) {
-    err.textContent = 'Invalid recipient address (must be pf + 40 hex chars)';
-    return;
-  }
+  if (!to) return;
   if (!amount || amount <= 0) {
     err.textContent = 'Amount must be a positive integer';
     return;
@@ -414,7 +428,7 @@ document.getElementById('historyBtn').addEventListener('click', async () => {
     }
     document.getElementById('txList').innerHTML = rows.map(function(r) {
       var isIn = r.recipient === walletAddress;
-      var counterparty = isIn ? (r.sender || '?') : (r.recipient || '?');
+      var counterparty = displayAddress(isIn ? (r.sender || '?') : (r.recipient || '?'));
       var amt = r.amount || 0;
       return '<div class="tx-item"><span class="from">H:' + escapeHtml(r.block_height || '?') + ' ' + escapeHtml(counterparty.slice(0, 12)) + '...</span><span class="amt ' + (isIn ? 'in' : 'out') + '">' + (isIn ? '+' : '-') + escapeHtml(amt) + '</span></div>';
     }).join('');
@@ -546,10 +560,10 @@ document.getElementById('importBackupFile').addEventListener('change', async (e)
       chainId: typeof data.metadata.chainId === 'string' ? data.metadata.chainId : 'postfiat-wan-devnet'
     };
     await keystore.saveWallet(cleanBlob, cleanMeta);
-    document.getElementById('settingsSuccess').textContent = 'Backup imported! Address: ' + cleanMeta.address;
+    document.getElementById('settingsSuccess').textContent = 'Backup imported! Address: ' + displayAddress(cleanMeta.address);
     document.getElementById('settingsError').textContent = '';
     walletAddress = cleanMeta.address;
-    document.getElementById('lockedAddress').textContent = walletAddress;
+    document.getElementById('lockedAddress').textContent = displayAddress(walletAddress);
     // Lock the wallet — user must unlock with their passphrase to use it
     clearSensitiveMemory();
     chrome.runtime.sendMessage({ type: 'lock' });

@@ -2229,4 +2229,179 @@ mod rpc_serve_request_tests {
         );
         let _ = fs::remove_dir_all(root);
     }
+
+    fn recipient_format_rpc_signed_transfer_json(to: &str) -> String {
+        let unsigned = postfiat_types::UnsignedTransfer {
+            chain_id: "postfiat-local".to_string(),
+            genesis_hash: "ab".repeat(48),
+            protocol_version: 1,
+            address_namespace: postfiat_types::ADDRESS_NAMESPACE.to_string(),
+            transaction_kind: postfiat_types::TRANSFER_TRANSACTION_KIND.to_string(),
+            signature_algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+            from: "pf0000000000000000000000000000000000000009".to_string(),
+            to: to.to_string(),
+            amount: 25,
+            fee: 64,
+            sequence: 1,
+        };
+        serde_json::to_string(&postfiat_types::SignedTransfer {
+            unsigned,
+            algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+            public_key_hex: "cd".repeat(16),
+            signature_hex: "ef".repeat(16),
+        })
+        .expect("signed transfer json")
+    }
+
+    #[test]
+    fn signed_submit_rpc_rejects_malformed_recipients_with_typed_codes() {
+        let root = env::temp_dir().join(format!(
+            "postfiat-recipient-format-rpc-{}-{}",
+            process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        init(InitOptions {
+            data_dir: root.clone(),
+            chain_id: "postfiat-local".to_string(),
+            node_id: "validator-0".to_string(),
+            validator_count: 1,
+        })
+        .expect("initialize recipient format RPC fixture");
+        // The finality submit path requires the file to exist at startup; the
+        // destination precheck rejects before any finality round reads it.
+        fs::write(root.join("topology.json"), "{}").expect("write placeholder topology");
+        let valid = "pfb385030ad80e5f7a59ec93b71f11055e9ccb9230";
+        let checksummed = "pfb385030Ad80e5F7a59EC93b71f11055E9cCb9230";
+        let wrong_checksum = "pfB385030Ad80e5F7a59EC93b71f11055E9cCb9230";
+        let cases = [
+            (
+                "mempool_submit_signed_transfer",
+                "pfrecipient",
+                "invalid_recipient_address",
+            ),
+            (
+                "mempool_submit_signed_transfer_finality",
+                checksummed,
+                "noncanonical_recipient_address",
+            ),
+            (
+                "mempool_submit_signed_transfer",
+                wrong_checksum,
+                "invalid_recipient_checksum",
+            ),
+        ];
+        let rpc_port = TcpListener::bind(("127.0.0.1", 0))
+            .expect("reserve recipient format RPC port")
+            .local_addr()
+            .expect("recipient format RPC address")
+            .port();
+        let ready_file = root.join("readiness/recipient-format-rpc.json");
+        let server_root = root.clone();
+        let max_requests = cases.len();
+        let server = std::thread::spawn(move || {
+            rpc_serve(RpcServeOptions {
+                data_dir: server_root.clone(),
+                spool_dir: server_root.join("runtime/rpc-spool"),
+                ready_file: server_root.join("readiness/recipient-format-rpc.json"),
+                bind_host: "127.0.0.1".to_string(),
+                port: rpc_port,
+                max_requests,
+                timeout_ms: 10_000,
+                child_timeout_ms: 10_000,
+                event_log: None,
+                allow_mempool_submit: true,
+                allow_mempool_submit_finality: true,
+                allow_orchard_batch_create: false,
+                owned_lane_enabled: false,
+                finality_topology_file: server_root.join("topology.json"),
+                finality_key_file: server_root.join(VALIDATOR_KEYS_FILE),
+                finality_proposal_key_file: None,
+                finality_artifact_root: server_root.join("finality-artifacts"),
+                finality_timeout_ms: 10_000,
+                finality_send_retries: 0,
+                finality_retry_backoff_ms: 0,
+                finality_quorum_early_full_propagation: false,
+                max_mempool_submit_per_peer: 8,
+                max_mempool_submit_total: 32,
+                max_orchard_batch_create_per_peer: 2,
+                max_orchard_batch_create_total: 8,
+                max_orchard_batch_create_concurrent: 1,
+                max_child_dispatch_concurrent: 8,
+                max_child_dispatch_per_peer: 4,
+                keep_alive: false,
+            })
+            .expect("serve recipient format loopback RPC")
+        });
+        for _ in 0..200 {
+            if ready_file.is_file() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert!(ready_file.is_file(), "recipient format RPC did not become ready");
+
+        for (index, (method, to, expected_code)) in cases.iter().enumerate() {
+            let response = send_loopback_rpc(
+                rpc_port,
+                &RpcRequest::empty(format!("recipient-format-{index}"), *method)
+                    .with_param("signed_transfer_json", recipient_format_rpc_signed_transfer_json(to))
+                    .expect("signed transfer param"),
+            );
+            assert!(!response.ok, "{method} {to}: {response:?}");
+            let error = response.error.expect("typed RPC error");
+            assert_eq!(error.code, *expected_code, "{method} {to}: {}", error.message);
+            assert!(error.message.contains("transfer.to"), "{}", error.message);
+        }
+        server.join().expect("join recipient format RPC");
+        let mempool = NodeStore::new(&root).read_mempool().expect("mempool");
+        assert!(mempool.pending.is_empty(), "rejected transfers must not be stored");
+
+        // The local CLI RPC path maps the admission error to the same codes.
+        for (to, expected_code) in [
+            ("pfrecipient", "invalid_recipient_address"),
+            (checksummed, "noncanonical_recipient_address"),
+            (wrong_checksum, "invalid_recipient_checksum"),
+        ] {
+            let error = postfiat_node::submit_signed_transfer_json_to_mempool(
+                SignedTransferJsonSubmitOptions {
+                    data_dir: root.clone(),
+                    signed_transfer_json: recipient_format_rpc_signed_transfer_json(to),
+                },
+            )
+            .expect_err("malformed recipient admitted");
+            let message = format!("rpc mempool_submit_signed_transfer failed: {error}");
+            let (code, _) = rpc_dispatch::rpc_dispatch_error_response_parts(&message);
+            assert_eq!(code, expected_code, "{message}");
+        }
+        assert!(postfiat_node::recipient_address_error_code(valid).is_none());
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn account_rpc_result_adds_checksummed_display_without_changing_fields() {
+        let account = postfiat_types::Account::new(
+            "pfb385030ad80e5f7a59ec93b71f11055e9ccb9230",
+            42,
+            None,
+        );
+        let result = rpc_dispatch::account_rpc_result(&account).expect("account result");
+        let legacy = serde_json::to_value(&account).expect("legacy account json");
+        for (key, value) in legacy.as_object().expect("legacy object") {
+            assert_eq!(result.get(key), Some(value), "{key}");
+        }
+        assert_eq!(
+            result["address_checksummed"],
+            "pfb385030Ad80e5F7a59EC93b71f11055E9cCb9230"
+        );
+        assert_eq!(result.as_object().expect("object").len(), legacy.as_object().expect("object").len() + 1);
+
+        for key in ["pfrecipient", "pfB385030Ad80e5F7a59EC93b71f11055E9cCb9230"] {
+            let result = rpc_dispatch::account_rpc_result(&postfiat_types::Account::new(key, 0, None))
+                .expect("account result");
+            assert!(result.get("address_checksummed").is_none(), "{key}");
+        }
+    }
 }

@@ -13,7 +13,16 @@ history indexing is complete.
 
 PostFiat transparent accounts are address-key accounts:
 
-- an address is derived from an ML-DSA public key;
+- an address is derived from an ML-DSA public key and is canonically
+  `pf` + 40 lowercase hex characters;
+- every destination address in a signed transaction must be canonical: nodes
+  reject other values at RPC submission and mempool admission
+  (`invalid_recipient_address`, `invalid_recipient_checksum`,
+  `noncanonical_recipient_address`), and at execution from the governed
+  `recipient_format_activation_height`;
+- wallets may display and parse an optional mixed-case checksum, specified in
+  `docs/wallets/address-format.md` with vectors in
+  `docs/fixtures/addresses/pftl-address-vectors-v1.json`;
 - a funded recipient account may exist before its public key is bound on-chain;
 - the first spend from that account must carry the ML-DSA public key and a
   valid signature from that key;

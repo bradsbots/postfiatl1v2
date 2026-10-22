@@ -75,10 +75,22 @@ pub(super) fn execute_transparent_batch_with_orchard(
 ) -> Vec<Receipt> {
     let mut receipts = Vec::with_capacity(batch.transaction_count());
     for transfer in &batch.transactions {
-        receipts.push(execute_transfer(genesis, ledger, transfer));
+        receipts.push(execute_transfer_with_compatibility(
+            genesis,
+            ledger,
+            transfer,
+            block_height,
+            asset_execution_compatibility,
+        ));
     }
     for payment in &batch.payments_v2 {
-        receipts.push(execute_payment_v2(genesis, ledger, payment));
+        receipts.push(execute_payment_v2_with_compatibility(
+            genesis,
+            ledger,
+            payment,
+            block_height,
+            asset_execution_compatibility,
+        ));
     }
     for transaction in &batch.asset_transactions {
         receipts.push(
@@ -113,15 +125,22 @@ pub(super) fn execute_transparent_batch_with_orchard(
         ));
     }
     for transaction in &batch.escrow_transactions {
-        receipts.push(execute_escrow_transaction(
+        receipts.push(execute_escrow_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
             block_height,
+            asset_execution_compatibility,
         ));
     }
     for transaction in &batch.nft_transactions {
-        receipts.push(execute_nft_transaction(genesis, ledger, transaction));
+        receipts.push(execute_nft_transaction_with_compatibility(
+            genesis,
+            ledger,
+            transaction,
+            block_height,
+            asset_execution_compatibility,
+        ));
     }
     for transaction in &batch.offer_transactions {
         receipts.push(execute_offer_transaction(
@@ -412,6 +431,7 @@ pub(super) fn asset_execution_compatibility_for_genesis_and_governance(
         ))
         .with_yolo_target_activation_height(governance.yolo_target_activation_height())
         .with_atomic_swap_paused(governance.atomic_swap_paused)
+        .with_recipient_format_activation_height(governance.recipient_format_activation_height())
 }
 
 pub(super) fn asset_execution_compatibility_with_chain_activation(
@@ -434,6 +454,7 @@ pub(super) fn asset_execution_compatibility_with_chain_activation(
         ))
         .with_yolo_target_activation_height(governance.yolo_target_activation_height())
         .with_atomic_swap_paused(governance.atomic_swap_paused)
+        .with_recipient_format_activation_height(governance.recipient_format_activation_height())
 }
 
 pub(super) fn ensure_atomic_swap_batch_allowed(
@@ -487,10 +508,22 @@ pub(super) fn execute_transparent_batch_for_archive_replay(
 
     let mut receipts = Vec::with_capacity(batch.transaction_count());
     for transfer in &batch.transactions {
-        receipts.push(execute_transfer(genesis, ledger, transfer));
+        receipts.push(execute_transfer_with_compatibility(
+            genesis,
+            ledger,
+            transfer,
+            block.header.height,
+            compatibility,
+        ));
     }
     for payment in &batch.payments_v2 {
-        receipts.push(execute_payment_v2(genesis, ledger, payment));
+        receipts.push(execute_payment_v2_with_compatibility(
+            genesis,
+            ledger,
+            payment,
+            block.header.height,
+            compatibility,
+        ));
     }
     for transaction in &batch.asset_transactions {
         let receipt_index = receipts.len();
@@ -522,15 +555,22 @@ pub(super) fn execute_transparent_batch_for_archive_replay(
         ));
     }
     for transaction in &batch.escrow_transactions {
-        receipts.push(execute_escrow_transaction(
+        receipts.push(execute_escrow_transaction_with_compatibility(
             genesis,
             ledger,
             transaction,
             block.header.height,
+            compatibility,
         ));
     }
     for transaction in &batch.nft_transactions {
-        receipts.push(execute_nft_transaction(genesis, ledger, transaction));
+        receipts.push(execute_nft_transaction_with_compatibility(
+            genesis,
+            ledger,
+            transaction,
+            block.header.height,
+            compatibility,
+        ));
     }
     for transaction in &batch.offer_transactions {
         receipts.push(execute_offer_transaction(
@@ -1790,6 +1830,15 @@ pub(super) fn governance_amendment_lifecycle_rejection(
                 .to_string(),
         ));
     }
+    if amendment.kind == GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT
+        && u64::from(amendment.value) <= block_height
+    {
+        return Some((
+            "invalid_recipient_format_activation_height",
+            "recipient-format activation must be scheduled strictly after the amendment block"
+                .to_string(),
+        ));
+    }
     if amendment.kind == GOVERNANCE_KIND_ORCHARD_AWARE_BRIDGE_CLAIM_ACTIVATION_HEIGHT
         && u64::from(amendment.value) <= block_height
     {
@@ -1951,6 +2000,10 @@ pub(super) fn governance_amendment_current_value(governance: &GovernanceState, k
             .shielded_atomic_batch_activation_height()
             .and_then(|height| u32::try_from(height).ok())
             .unwrap_or(0),
+        GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT => governance
+            .recipient_format_activation_height()
+            .and_then(|height| u32::try_from(height).ok())
+            .unwrap_or(0),
         _ => 0,
     }
 }
@@ -1972,6 +2025,7 @@ fn governance_amendment_has_materialized_current_value(kind: &str) -> bool {
             | GOVERNANCE_KIND_REPLICATED_STATE_V2_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_BRIDGE_EXIT_ROOT_ACTIVATION_HEIGHT
             | GOVERNANCE_KIND_SHIELDED_ATOMIC_BATCH_ACTIVATION_HEIGHT
+            | GOVERNANCE_KIND_RECIPIENT_FORMAT_ACTIVATION_HEIGHT
     )
 }
 

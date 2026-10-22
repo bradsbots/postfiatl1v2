@@ -13,6 +13,17 @@ Custody and exchange support has two tracks:
 - receipt/finality verification;
 - account history and reconciliation.
 
+## Addresses
+
+- Signed transactions and on-chain state use only the canonical lowercase
+  address, `pf` + 40 hex characters.
+- Wallets may display and accept an optional mixed-case checksum.
+- Nodes reject malformed destination addresses at RPC submission and mempool
+  admission, and at execution from a governed activation height.
+
+The format, checksum algorithm, error codes and test vectors are in
+[Addresses And Checksums](address-format.md).
+
 ## Shielded Track
 
 - receive/view key management;
