@@ -473,7 +473,8 @@ A NAVCoin is an issued asset with a floating net asset value, not a
 stablecoin. NAV is haircut-weighted holdings minus liabilities, divided by
 valid supply
 ([NAVCoins](../../navcoins/index.md), [whitepaper](../../whitepaper.md)).
-New supply can be issued only after an on-chain reserve-proof verification
+New supply can be issued only against a finalized reserve record, checked by
+the verifier the asset's profile sets
 ([reserve primitives](../../navcoins/reserve-primitives.md)).
 
 The [open reserve-proof kit](../../../tools/nav-reserve-proof/README.md) uses

@@ -36,7 +36,7 @@ There is no mainnet. The code has not been externally audited
 
 1. **The repository is the source of truth.** Record the commit you review
    (`git rev-parse HEAD`) at the top of your report. This guide's line
-   numbers refer to `ac7a49822`, the head of `main` on 2026-10-22. If your commit differs,
+   numbers refer to `ac7a49822`, the head of `main` on the morning of 2026-10-22. The five later commits on `main` (through `a2516a1b8`) change storage-evidence tooling, plans and handoffs only, not `crates/`, `third_party/` or Cargo files, so code line references still hold. If your commit differs,
    re-locate each reference with `grep -n` before you cite it.
 2. **Cite `file:line` for every claim.** Use paths relative to the
    repository root. For a range, cite the first and last line. A claim with

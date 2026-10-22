@@ -2,7 +2,7 @@
 
 Scores for [the integration plan](integration-plan.md). This record is not part of the scored text.
 
-Every gate ran the harness `score` with `--gate full --runs 5 --force --temperature 0 --max-tokens 8000`. The prompt was `Rate this document on a scale of 1-100. Output the score and your reasoning.` Run groups: `coinbase-integration-plan-20261022-r1` to `-r6`.
+Every gate ran the harness `score` with `--gate full --runs 5 --force --temperature 0 --max-tokens 8000`. The prompt was `Rate this document on a scale of 1-100. Output the score and your reasoning.` Run groups: `coinbase-integration-plan-20261022-r1` to `-r7`.
 
 | Gate | Document SHA-256 | `gpt-6-astra` | `claude-fable-5.1` | `glm-5.3` | Average |
 | --- | --- | --- | --- | --- | ---: |
@@ -11,7 +11,8 @@ Every gate ran the harness `score` with `--gate full --runs 5 --force --temperat
 | r3, improvement rewrite | `1713e627…` | 86, 86, 85, 86, 87 | 89, 83, 86, 87, 84 | 89, 92, 89, 90, 88 | 87.13 |
 | r4, network wording | `8ee4d7f6…` | 86, 86, 87, 86, 86 | 85, 86, 87, 87, 86 | 88, 88, 88, 88, 88 | 86.80 |
 | r5, custody wording | `0c6dc28c…` | 85, 85, 86, 85, 84 | 85, 86, 87, 85, 86 | 88, 88, 88, 88, 88 | 86.27 |
-| r6, red-team corrections | `7537578c…` | 87, 87, 86, 86, 86 | 86, 86, 84, 84, 86 | 88, 86, 88, 92, 88 | **86.67** |
+| r6, red-team corrections | `7537578c…` | 87, 87, 86, 86, 86 | 86, 86, 84, 84, 86 | 88, 86, 88, 92, 88 | 86.67 |
+| r7, second adversarial review | `14a49cfb…` | 87, 86, 86, 87, 87 | 86, 87, 86, 87, 87 | 92, 88, 88, 88, 88 | **87.33** |
 
 - **r1** passed the 86/100 gate.
 - **r2** corrected a factual error: r1 said exchanges could tag deposits with memos today, but `account_tx` returns only a hash of a payment's memos. The correction scored 85.33, below the gate.
@@ -37,7 +38,8 @@ Every gate ran the harness `score` with `--gate full --runs 5 --force --temperat
   - one certificate is the protocol's finality rule, and Coinbase sets its own confirmation count;
   - a wrapped PFT is described as reusing existing components, with no contract yet;
   - a fourth compliance point covers deposits that come straight out of the shielded pool.
+- **r7** applies the second adversarial review. NAVCoin issuance is "against a finalized reserve record, checked by the verifier the asset's profile sets", not "after an on-chain reserve-proof verification".
 
-The plan is locked at r6. Any later edit must be re-scored before it replaces this version.
+The plan is locked at r7. Any later edit must be re-scored before it replaces this version.
 
 Raw scores and model responses are outside Git in `~/repos/pastedocs/.coinbase-integration-plan-20261022/`.
