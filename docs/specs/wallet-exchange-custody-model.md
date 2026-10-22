@@ -2,6 +2,7 @@
 
 Status: controlled-testnet model v0
 Date: 2026-05-21
+Updated: 2026-10-22 (payment memos, account history and code references)
 
 This document specifies the minimum exchange/custody model for transparent
 ML-DSA accounts in controlled testnet. It is a product and operations boundary,
@@ -22,10 +23,13 @@ PostFiat transparent accounts are address-key accounts:
 
 Code references:
 
-- account public key field: `crates/types/src/lib.rs`;
-- first-spend key binding and later key mismatch rejection:
-  `crates/execution/src/lib.rs`;
-- SDK identity and quote-bound signing: `crates/rpc_sdk/src/lib.rs`.
+- account public key field: `Account::public_key_hex` in
+  [`crates/types/src/account_owned_asset_types.rs`](../../crates/types/src/account_owned_asset_types.rs);
+- first-spend key binding and later key mismatch rejection: `execute_transfer`
+  in [`crates/execution/src/entrypoints.rs`](../../crates/execution/src/entrypoints.rs);
+- SDK identity and quote-bound signing: `wallet_identity_from_backup` and
+  `wallet_sign_transfer_from_quote` in
+  [`crates/rpc_sdk/src/wallet_sdk.rs`](../../crates/rpc_sdk/src/wallet_sdk.rs).
 
 ## What Does Not Carry Over From BIP32
 
@@ -45,8 +49,17 @@ account, and then watched by address.
 ## Deposit Address Model
 
 Use unique transparent addresses per customer, subaccount, or deposit intent.
-Do not use a shared omnibus address for customer deposits in v0 because the
-transparent transfer envelope has no memo/tag field.
+Do not use a shared omnibus address for customer deposits in v0.
+
+The plain transfer envelope (`postfiat.transfer.v1`) has no memo or tag field.
+A signed `payment_v2` payment can carry up to four memos, each with a type,
+format and data field, at most 256 data bytes per memo and 512 memo bytes in
+total (`PaymentMemo` and `UnsignedPaymentV2` in
+[`crates/types/src/transactions_mempool_receipts.rs`](../../crates/types/src/transactions_mempool_receipts.rs);
+limits in [`crates/types/src/core_chain.rs`](../../crates/types/src/core_chain.rs)).
+A sender can still choose a plain transfer without a memo, and `account_tx`
+returns only a memo hash, count and byte length, not the memo contents. Account
+history alone therefore cannot attribute deposits to an omnibus address.
 
 A deposit registry entry should include at minimum:
 
@@ -72,8 +85,9 @@ private key material.
 
 ## Deposit Detection
 
-Controlled-testnet v0 supports address balance polling and tx/finality
-verification. It does not yet provide a production account-history indexer.
+Controlled-testnet v0 supports address balance polling, tx/finality
+verification and account history: `account_tx` reads a disk-backed per-account
+index ([account history](../rpc/account-history.md)).
 
 Minimum viable attribution flow:
 
@@ -81,15 +95,25 @@ Minimum viable attribution flow:
 2. Persist the address-to-customer mapping before showing the address.
 3. Poll `account` for the assigned address.
 4. When balance increases, reconcile the delta against the customer mapping.
-5. If the inbound transaction id is known from the sender or an indexer, query
+5. Find the inbound transaction id with `account_tx` (or from the sender), query
    `tx` and require a confirmed finality summary before crediting.
 6. For controlled testnet, require conservative confirmation policy: credit
    only after finality RPC validation succeeds against an allowed endpoint.
 
-Known gap: without account-history indexing, a watcher that only sees a balance
-delta cannot independently list every inbound transaction by address. The
-controlled-testnet model is acceptable for assigned-address pilots, but
-exchange-grade production needs account history or an indexer role.
+Known gaps in account history:
+
+- `account_tx` indexes only transparent batches. A shielded withdrawal that
+  credits a transparent address is applied in a shielded batch, so it raises the
+  balance but has no row in that address's history. A balance increase without
+  a matching row can be such a withdrawal.
+- `payment_v2` rows carry `memo_hash`, `memo_count` and `memo_bytes`, not the
+  memo contents.
+
+Code: `append_account_tx_index_block`, `build_account_tx_index` and
+`account_tx_rows_for_transparent_block` in
+[`crates/node/src/block_finality.rs`](../../crates/node/src/block_finality.rs).
+The controlled-testnet model is acceptable for assigned-address pilots, but
+exchange-grade production needs history that covers these cases.
 
 ## Withdrawal Model
 
@@ -157,7 +181,8 @@ For the first controlled testnet, the exchange/custody model is credible when:
 
 ## Remaining Production Work
 
-- Account-history indexer or archive-backed deposit scanner.
+- Account history that covers shielded withdrawals into transparent accounts
+  and exposes memo contents for attribution.
 - Hardware-wallet or external signer interface for ML-DSA.
 - Formal backup encryption and recovery standard.
 - BIP39 mnemonic create/import implementation and custody recovery policy.
