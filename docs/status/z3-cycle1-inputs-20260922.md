@@ -166,6 +166,14 @@ Hash/embedded-byte comparisons completed at **2026-09-22T09:50:48.724549Z**, usi
 
 **Re-check, 2026-10-22.** The retained Arc egress file in the row above and in `EGRESS_ELF` (`~/.cache/release-repair-20260916/arc-identity-20260902/pfusdc-egress-program`) is no longer on this server: the directory is gone, and none of the 185 egress-named files under `~/.cache` and `~/repos` has SHA-256 `8b0f266a…`. Cycle 1 needs it restored, or the `arc-v2-20260902` guest rebuilt with the SP1 Docker build (no Docker on this server).
 
+**Search, 2026-10-22: found in Git, no file copy anywhere.** The program is committed in this repository. Commit `65df4263` (2026-09-02, "fix: pin reproducible Arc proof identities") is the `retained_commit` that `programs/pfusdc-egress/releases.json` names for `arc-v2-20260902`. At `programs/pfusdc-egress/elf/pfusdc-egress-program` it holds Git blob `e76a553e…`: 5,183,608 bytes, SHA-256 `8b0f266a035a432ef3c0e4233672d8a15b913cefd4c85ff07f91f008601bb744`, an exact match. It is the only commit with that blob, and it is an ancestor of `main`. The same blob, at the same commit, is in `postfiatl1v2-private-archive-20260717`. Restore it with `git show 65df4263:programs/pfusdc-egress/elf/pfusdc-egress-program > "$EGRESS_ELF"`, then check the SHA-256. Its vkey `0x0036cbe7…` was not recomputed here because SP1 was not run.
+
+Places searched, matching by size and SHA-256, not by name:
+
+- **This server:** all of `~/.postfiat`, including its 18 deployment folders (`arc-current-v2-a699d560`, `arc-gate-931`, `registry-fix-291d1eb1`, `storage-*`, `cobalt-*`; there is no `release-repair-*`), plus `~/.cache`, `~/repos` and `/tmp`. No file of 5,183,608 bytes exists there (some `/tmp` directories of other users were unreadable). None of the 50 tarballs under `~/.postfiat`, `~/.cache` and `/tmp` has a member of that size. `/opt` and `/var/lib/postfiat` do not exist here.
+- **The six validators** (read-only `find` and `sha256sum` over `/opt/postfiat`, `/var/lib/postfiat` and `/root`): no file of that size. The name-filtered hits are all egress witness or certificate JSON files: 8 on `64.176.220.75`, 35 on `66.42.48.39`, 1 on `149.28.63.106`, none on `95.179.184.122`, `95.179.179.206` and `45.32.110.170`.
+- **Git:** the full history of `postfiatl1v2` (the tracked tip carries the pfETH program `0ea4dbab…`) and all 151 refs of the private archive (branches, including `backup/20261020/*`, and pull refs; 29,866 trees). No `arc-identity-20260902` folder exists in either.
+
 ## Fresh fleet observations
 
 Only `status`, `server_info`, and `mempool_status` were sent as newline-delimited `postfiat-local-rpc-v1` requests through SSH `-W` to each loopback port. Each reported its own distinct validator ID. All six returned **running, height 1020, mempool 0**, chain `postfiat-wan-devnet-2`, protocol 1, and these identical finalized values:
