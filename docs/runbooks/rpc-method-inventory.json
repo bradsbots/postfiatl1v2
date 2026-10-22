@@ -19,7 +19,7 @@
   },
   "gaps": [
     {
-      "description": "account_tx index refreshes automatically after ordered commits using the rebuilt JSON cache; incremental append/update and a disk-backed store remain scale follow-ups.",
+      "description": "account_tx index is an operator cache with incremental append and disk-backed shards, built by account-tx-index-build; ordered commit does not refresh it, so serving nodes must run the build (and once after an index schema upgrade).",
       "id": "account_tx_index_incremental_store",
       "severity": "scale_follow_up"
     },
@@ -34,10 +34,10 @@
       "severity": "authenticated_protocol_surface"
     }
   ],
-  "generated_utc": "2026-10-15T00:56:22Z",
+  "generated_utc": "2026-10-22T15:55:56Z",
   "git": {
-    "dirty": false,
-    "revision": "a60061af87faa0d5cdcb7be6cfef22252a9430c8"
+    "dirty": true,
+    "revision": "a2516a1b8e7da088bd27136cc9c7df218e821d41"
   },
   "methods": [
     {
@@ -135,7 +135,7 @@
       "controlled_write_allowed_when_enabled": false,
       "method": "account_tx",
       "node_dispatch": true,
-      "notes": "XRP-like bounded transparent account transaction history read; uses rebuilt index when current",
+      "notes": "XRP-like bounded account transaction history read (transparent rows with payment_v2 memo contents, shielded-withdrawal credits); uses rebuilt index when current",
       "owned_lane_allowed_when_enabled": false,
       "posture": "read_only_public",
       "privacy_alpha_allowed_when_enabled": false,
@@ -2205,7 +2205,7 @@
       "controlled_write_allowed_when_enabled": false,
       "method": "tx",
       "node_dispatch": true,
-      "notes": "transaction finality lookup",
+      "notes": "transaction finality lookup with the transaction's account_tx rows, including payment_v2 memo contents",
       "owned_lane_allowed_when_enabled": false,
       "posture": "read_only_public",
       "privacy_alpha_allowed_when_enabled": false,
@@ -2444,7 +2444,7 @@
         "python account_tx",
         "python account_tx_index_status"
       ],
-      "notes": "Server-side bounded account_tx exists for transparent history and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data.",
+      "notes": "Server-side bounded account_tx exists for transparent history, payment_v2 memo contents, and shielded-withdrawal credits, and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data.",
       "state": "covered"
     }
   ]

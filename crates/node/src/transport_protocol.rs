@@ -1680,6 +1680,7 @@ pub(super) fn transport_hot_finality_reports(
                 block_count: local_state.block_height,
                 tip_hash: local_state.block_tip_hash.clone(),
                 tip_state_root: local_state.state_root.clone(),
+                transaction_rows: Vec::new(),
             })
         })
         .collect()

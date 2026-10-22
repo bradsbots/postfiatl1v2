@@ -270,10 +270,12 @@ The CLI writes `postfiat-rpc-query-v1` JSON reports under
 
 ## Account History Index
 
-Ordered block commit refreshes the index on a best-effort basis. The hot path
-appends a cache whose tip is still a known ancestor of the local tip and falls
-back to full retained-history rebuild when the cache cannot be safely
-extended. Reads prefer the disk-backed shard index when
+Ordered block commit does not refresh the index; `account-tx-index-build`
+does. The build appends to a cache whose tip is still a known ancestor of the
+local tip and falls back to full retained-history rebuild when the cache
+cannot be safely extended. After upgrading to v2 index rows (memo contents and
+shielded withdrawals), run the build once to backfill them; see
+`docs/runbooks/account-tx-index.md`. Reads prefer the disk-backed shard index when
 `account_tx_index_meta.json` is current. Account-history readiness is now
 aggregate-or-disk: the aggregate `account_tx_index.json` can be absent without
 an operator warning when `account_tx_index_meta.json` and per-account disk

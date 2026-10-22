@@ -28,12 +28,12 @@ POSTURE_NOTES = {
     "metrics": "public node metrics read",
     "ledger": "XRP-like latest ledger alias with bounded block sample",
     "account": "XRP-like transparent account read",
-    "account_tx": "XRP-like bounded transparent account transaction history read; uses rebuilt index when current",
+    "account_tx": "XRP-like bounded account transaction history read (transparent rows with payment_v2 memo contents, shielded-withdrawal credits); uses rebuilt index when current",
     "account_tx_index_status": "read-only account_tx index freshness/status report",
     "fee": "XRP-like fee policy read",
     "transfer_fee_quote": "transparent wallet quote read",
     "receipts": "bounded receipt lookup",
-    "tx": "transaction finality lookup",
+    "tx": "transaction finality lookup with the transaction's account_tx rows, including payment_v2 memo contents",
     "blocks": "bounded block query; node/Rust SDK/Python support from_height",
     "validators": "active validator registry read",
     "manifests": "operator manifest read",
@@ -232,7 +232,7 @@ XRP_LIKE_REQUIREMENTS = [
             "python account_tx",
             "python account_tx_index_status",
         ],
-        "notes": "Server-side bounded account_tx exists for transparent history and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data.",
+        "notes": "Server-side bounded account_tx exists for transparent history, payment_v2 memo contents, and shielded-withdrawal credits, and uses a rebuilt account_tx index when current, with scan fallback for absent or stale index data.",
     },
 ]
 
@@ -485,7 +485,7 @@ def build_inventory() -> dict[str, Any]:
         {
             "id": "account_tx_index_incremental_store",
             "severity": "scale_follow_up",
-            "description": "account_tx index refreshes automatically after ordered commits using the rebuilt JSON cache; incremental append/update and a disk-backed store remain scale follow-ups.",
+            "description": "account_tx index is an operator cache with incremental append and disk-backed shards, built by account-tx-index-build; ordered commit does not refresh it, so serving nodes must run the build (and once after an index schema upgrade).",
         },
         {
             "id": "public_write_edge_not_default",

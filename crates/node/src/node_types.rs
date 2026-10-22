@@ -3626,6 +3626,31 @@ pub struct TxFinalityReport {
     pub block_count: u64,
     pub tip_hash: String,
     pub tip_state_root: String,
+    /// The `account_tx` rows for this transaction, decoded from the stored
+    /// block's archived batch (one row per account-affecting leg). Read-only
+    /// RPC decoration: it is not part of `proof_id` or any consensus hash, and
+    /// it is omitted when the archived batch is unavailable.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transaction_rows: Vec<AccountTxRow>,
+}
+
+/// One signed `payment_v2` memo as returned by `tx` and `account_tx`.
+///
+/// `memo_type`, `memo_format` and `memo_data` are the signed lowercase-hex
+/// fields exactly as stored in the block (empty when the signer left the field
+/// out). Each `*_text` field is the same bytes decoded as UTF-8 and is present
+/// only when the field is nonempty and valid UTF-8.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PaymentMemoView {
+    pub memo_type: String,
+    pub memo_format: String,
+    pub memo_data: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memo_type_text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memo_format_text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memo_data_text: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -3669,6 +3694,10 @@ pub struct AccountTxRow {
     pub memo_count: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub memo_bytes: Option<u64>,
+    /// Memo contents for `payment_v2` rows (an empty list when the payment
+    /// carries no memos); absent for every other transaction kind.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub memos: Option<Vec<PaymentMemoView>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_id: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
