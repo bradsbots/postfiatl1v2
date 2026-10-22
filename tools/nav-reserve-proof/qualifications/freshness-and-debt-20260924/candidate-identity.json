@@ -1,0 +1,44 @@
+{
+  "schema": "postfiat.reserve_program_identity_candidate.v1",
+  "status": "candidate_not_registered",
+  "identity_role": "a666_public_reserve_successor_candidate",
+  "sp1_version": "6.3.1",
+  "source_commit": "16d41b5ddd9a3a19921c8304dd1e658ba1f0a721",
+  "source_commit_pinned_on": "2026-10-22",
+  "guest_features": [
+    "a666-public-adapters-v2"
+  ],
+  "repairs": [
+    "N1 NEAR receipt age bounded below the certified head",
+    "A1 Aave borrowing bits outside the governed debt positions rejected",
+    "B1 duplicate committee public keys rejected",
+    "M1 duplicate (source_domain, reserve_owner_commitment) manifest entries rejected"
+  ],
+  "elf_sha256": "b64b7666eabf1b251029877a842b5722f041f6a296a1156c715548a05d28dcd5",
+  "program_vkey": "0x00d28f47f2bd541eb5dba2336d735a6c8132eed9c4c07ce5d13339b3344339bf",
+  "reproduction_count": 2,
+  "reproduction_result": "byte_identical",
+  "built_on": "2026-10-22",
+  "policy_values": {
+    "near-receipt-policy.json": {
+      "max_receipt_age_ns": 1800000000000,
+      "max_receipt_age_blocks": 3000
+    },
+    "aave-arbitrum-policy.json": {
+      "user_config_mapping_slot_index": 53
+    }
+  },
+  "source_manifest": "tools/nav-reserve-proof/manifests/a666/source-manifest-public-successor.json",
+  "source_manifest_hash": "122a4327e049bfe3e4361e73efc9b11ea724fe6191fc2d2a0f25518ebc253a63a5edfa27ebad25d13455c3d45179382d",
+  "valuation_policy_hash": "350eaee0a1ca12ba51637781ba52661b8685f868657a7c5e7d07c31b2899869c",
+  "profile_registration": "tools/nav-reserve-proof/manifests/a666/profile-registration-public-successor.json",
+  "profile_id": "bfb599f2bf7b9fa7541c1205df3e80dc8249f296dd930a8a932e7e1d15f37b5fc6030c2f9c4097dd458afc8690a4be92",
+  "build_commands": [
+    "git -C \"$repo_root\" archive 16d41b5ddd9a3a19921c8304dd1e658ba1f0a721 | tar -x -C \"$workspace\"",
+    "cd \"$workspace/tools/nav-reserve-proof/programs/reserve-proof-guest\"",
+    "cargo prove build --docker --tag v6.3.1 --locked --features a666-public-adapters-v2 --workspace-directory \"$workspace\" --output-directory \"$out\"",
+    "sha256sum \"$out/postfiat-reserve-proof-guest\"",
+    "cargo run --locked --release --manifest-path \"$workspace/tools/nav-reserve-proof/Cargo.toml\" -p postfiat-reserve-proof --features sp1 -- program-info --elf \"$out/postfiat-reserve-proof-guest\""
+  ],
+  "note": "Built twice on 2026-10-22 with the pinned SP1 6.3.1 Docker image from a git archive of source_commit; both ELFs are byte-identical and program-info reports the vkey above. The manifests/a666 policies carry the successor proposal's values, and CI rebuilds the source manifest from them. Do not write this build into elf/ or edit program-identity.json or a666-successor-program-identity.json. Not registered: registration is an A666 issuer transaction through governance, after the epoch re-qualification and the migration gates."
+}

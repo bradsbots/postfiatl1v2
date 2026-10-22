@@ -7,6 +7,7 @@
   "oracle_address": "0xb56c2f0b653b2e0b10c9b928c8580ac5df02c7c7",
   "oracle_code_hash": "0xe9b8d7ac606312698d9b24a55f8d479d196482542f5553dc78887cfa305df8aa",
   "reserve_mapping_slot_index": 52,
+  "user_config_mapping_slot_index": 53,
   "oracle_sources_slot_index": 0,
   "chainlink_proxy_phase_slot_index": 2,
   "chainlink_hot_vars_slot_index": 13,

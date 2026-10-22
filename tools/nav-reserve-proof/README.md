@@ -68,14 +68,20 @@ The committed `program-identity.json` pins the immutable legacy reference's
 source commit, ELF SHA-256, and SP1 program vkey. CI rebuilds that exact public
 source commit, not the evolving successor checkout. Any guest rebuild used for
 the legacy registration must match both values. The distinct
-`a666-successor-program-identity.json` pins the completed public-adapter guest,
-and `manifests/a666/source-manifest-public-successor.json` plus
-`manifests/a666/profile-registration-public-successor.json` publish the exact
-manifest and profile it commits to. CI validates those bindings and rebuilds
-the successor ELF/vkey from its pinned source commit. Publication and
-reproducibility do not activate the profile; live registration remains behind
-the qualification and controlled-migration gates. The legacy identity is never
-rewritten in place.
+`a666-successor-program-identity.json` pins the completed public-adapter guest.
+Its exact manifest and profile registration are frozen in
+`qualifications/a666-public-successor-20260802`, and CI replays that
+qualification with the host commit pinned there in `replay-host.json`.
+`qualifications/freshness-and-debt-20260924/candidate-identity.json` pins the
+unregistered successor candidate with the N1, A1, B1 and M1 repairs. Its inputs
+are the tracked `manifests/a666` policies;
+`manifests/a666/source-manifest-public-successor.json` and
+`manifests/a666/profile-registration-public-successor.json` are their derived
+manifest and registration. CI rebuilds that manifest from the typed policies
+(`scripts/check-a666-successor-source-manifest`) and rebuilds each guest
+ELF/vkey from its pinned source commit. Publication and reproducibility do not
+activate a profile; live registration remains behind the qualification and
+controlled-migration gates. No identity is ever rewritten in place.
 
 ## Build and test
 

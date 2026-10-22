@@ -185,6 +185,7 @@ jobs:
           scripts/check-a666-evm-spot-valuation-policy
           scripts/check-a666-monero-policies
           scripts/check-a666-near-solana-valuation-policies
+          scripts/check-a666-successor-source-manifest
       - name: Rebuild the public Solana stake reader deterministically
         run: |
           cargo install solana-verify --version 0.5.1 --locked
@@ -229,9 +230,15 @@ jobs:
         run: |
           export PATH="$HOME/.sp1/bin:$PATH"
           identity="$GITHUB_WORKSPACE/tools/nav-reserve-proof/a666-successor-program-identity.json"
-          manifest="$GITHUB_WORKSPACE/tools/nav-reserve-proof/manifests/a666/source-manifest-public-successor.json"
-          registration="$GITHUB_WORKSPACE/tools/nav-reserve-proof/manifests/a666/profile-registration-public-successor.json"
-          host_manifest="$GITHUB_WORKSPACE/tools/nav-reserve-proof/Cargo.toml"
+          qualification="$GITHUB_WORKSPACE/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802"
+          # This identity's manifest and registration are frozen in its
+          # qualification. Later sources carry the freshness-and-debt types,
+          # which reject its inputs by design, so the host is built from the
+          # replay-host commit pinned beside them. The witness and public
+          # values below are checked byte for byte.
+          manifest="$qualification/manifest.json"
+          registration="$qualification/profile-registration.json"
+          host_source="$(jq -r .source_commit "$qualification/replay-host.json")"
           expected_sha="$(jq -r .elf_sha256 "$identity")"
           expected_vkey="$(jq -r .program_vkey "$identity")"
           expected_source="$(jq -r .source_commit "$identity")"
@@ -239,10 +246,25 @@ jobs:
           expected_policy="$(jq -r .valuation_policy_hash "$identity")"
           expected_profile="$(jq -r .profile_id "$identity")"
 
-          cargo run --locked --release \
-            --manifest-path "$host_manifest" \
-            -p postfiat-reserve-proof --features sp1 -- \
-            manifest validate "$manifest" \
+          test "$(git cat-file -t "$expected_source")" = commit
+          test "$(git cat-file -t "$host_source")" = commit
+          successor_workspace="$(mktemp -d)"
+          git -C "$GITHUB_WORKSPACE" archive "$expected_source" | \
+            tar -x -C "$successor_workspace"
+          host_workspace="$(mktemp -d)"
+          git -C "$GITHUB_WORKSPACE" archive "$host_source" | \
+            tar -x -C "$host_workspace"
+          # Share the kit's target directory so identical dependencies are
+          # reused, then copy the pinned host out before any later build.
+          CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/tools/nav-reserve-proof/target}" \
+            cargo build --locked --release \
+            --manifest-path "$host_workspace/tools/nav-reserve-proof/Cargo.toml" \
+            -p postfiat-reserve-proof --features sp1
+          host="$(mktemp -d)/postfiat-reserve-proof"
+          cp "${CARGO_TARGET_DIR:-$GITHUB_WORKSPACE/tools/nav-reserve-proof/target}/release/postfiat-reserve-proof" \
+            "$host"
+
+          "$host" manifest validate "$manifest" \
             > /tmp/a666-public-manifest-validation.json
           jq -e --arg manifest "$expected_manifest" \
             '.valid == true and .source_count == 6 and .source_manifest_hash == $manifest' \
@@ -250,19 +272,12 @@ jobs:
           jq -e --arg manifest "$expected_manifest" --arg policy "$expected_policy" \
             '.source_manifest_hash == $manifest and .valuation_policy_hash == $policy and .allow_controlled_sources == false' \
             "$registration"
-          cargo run --locked --release \
-            --manifest-path "$host_manifest" \
-            -p postfiat-reserve-proof --features sp1 -- \
-            profile derive --registration "$registration" \
+          "$host" profile derive --registration "$registration" \
             --output /tmp/a666-public-derived-profile.json
           jq -e --arg profile "$expected_profile" --arg vkey "$expected_vkey" \
             '.profile.profile_id == $profile and .profile.sp1_program_vkey == $vkey' \
             /tmp/a666-public-derived-profile.json
 
-          test "$(git cat-file -t "$expected_source")" = commit
-          successor_workspace="$(mktemp -d)"
-          git -C "$GITHUB_WORKSPACE" archive "$expected_source" | \
-            tar -x -C "$successor_workspace"
           rebuild_dir="$(mktemp -d)"
           cd "$successor_workspace/tools/nav-reserve-proof/programs/reserve-proof-guest"
           cargo prove build --docker --tag v6.3.1 --locked \
@@ -277,25 +292,18 @@ jobs:
               "$expected_sha" "$actual_sha" >&2
             exit 1
           fi
-          cargo run --locked --release \
-            --manifest-path "$host_manifest" \
-            -p postfiat-reserve-proof --features sp1 -- \
-            program-info --elf "$rebuilt_elf" \
+          "$host" program-info --elf "$rebuilt_elf" \
             > /tmp/a666-public-successor-program-info.json
           jq -e --arg sha "$expected_sha" --arg vkey "$expected_vkey" \
             '.elf_sha256 == $sha and .program_vkey == $vkey' \
             /tmp/a666-public-successor-program-info.json
 
-          qualification="$GITHUB_WORKSPACE/tools/nav-reserve-proof/qualifications/a666-public-successor-20260802"
           expected_results="$qualification/expected-results.json"
           for epoch in 7 8; do
             epoch_run="$(mktemp -d)"
             evidence="$GITHUB_WORKSPACE/docs/evidence/a666-public-reserve-product-20260803/qualification/epoch-$epoch"
             if [[ -f "$evidence/proof.bin" ]]; then
-              cargo run --locked --release \
-                --manifest-path "$host_manifest" \
-                -p postfiat-reserve-proof --features sp1 -- \
-                verify --proof "$evidence/proof.bin" --elf "$rebuilt_elf"
+              "$host" verify --proof "$evidence/proof.bin" --elf "$rebuilt_elf"
             elif [[ "$epoch" == 7 ]]; then
               # The independently verified proof is recorded at 651bfa62 and
               # was deliberately removed from the public tree at de115b54.
@@ -314,31 +322,19 @@ jobs:
             else
               echo "Archived epoch-$epoch proof is not in the reduced public tree; rebuilding its pinned public values instead."
             fi
-            cargo run --locked --release \
-              --manifest-path "$host_manifest" \
-              -p postfiat-reserve-proof --features sp1 -- \
-              observe \
+            "$host" observe \
               --manifest "$qualification/manifest.json" \
               --context "$qualification/epoch-$epoch/context.json" \
               --input-dir "$qualification/epoch-$epoch/inputs" \
               --output "$epoch_run/observations.json"
-            cargo run --locked --release \
-              --manifest-path "$host_manifest" \
-              -p postfiat-reserve-proof --features sp1 -- \
-              witness build \
+            "$host" witness build \
               --input "$epoch_run/observations.json" \
               --output "$epoch_run/witness.cbor"
-            cargo run --locked --release \
-              --manifest-path "$host_manifest" \
-              -p postfiat-reserve-proof --features sp1 -- \
-              execute \
+            "$host" execute \
               --witness "$epoch_run/witness.cbor" \
               --elf "$rebuilt_elf" \
               --output "$epoch_run/public-values.bin"
-            cargo run --locked --release \
-              --manifest-path "$host_manifest" \
-              -p postfiat-reserve-proof --features sp1 -- \
-              verify --public-values "$epoch_run/public-values.bin" \
+            "$host" verify --public-values "$epoch_run/public-values.bin" \
               > "$epoch_run/decoded-public-values.json"
 
             expected_witness="$(jq -r --argjson epoch "$epoch" \
@@ -379,6 +375,72 @@ jobs:
             ' "$epoch_run/decoded-public-values.json"
           done
 
+      - name: Verify and rebuild the A666 freshness-and-debt successor candidate
+        working-directory: tools/nav-reserve-proof/programs/reserve-proof-guest
+        run: |
+          export PATH="$HOME/.sp1/bin:$PATH"
+          identity="$GITHUB_WORKSPACE/tools/nav-reserve-proof/qualifications/freshness-and-debt-20260924/candidate-identity.json"
+          host_manifest="$GITHUB_WORKSPACE/tools/nav-reserve-proof/Cargo.toml"
+          jq -e '
+            .status == "candidate_not_registered" and
+            .guest_features == ["a666-public-adapters-v2"] and
+            .reproduction_count == 2 and .reproduction_result == "byte_identical"
+          ' "$identity"
+          manifest="$GITHUB_WORKSPACE/$(jq -r .source_manifest "$identity")"
+          registration="$GITHUB_WORKSPACE/$(jq -r .profile_registration "$identity")"
+          expected_sha="$(jq -r .elf_sha256 "$identity")"
+          expected_vkey="$(jq -r .program_vkey "$identity")"
+          expected_source="$(jq -r .source_commit "$identity")"
+          expected_manifest="$(jq -r .source_manifest_hash "$identity")"
+          expected_policy="$(jq -r .valuation_policy_hash "$identity")"
+          expected_profile="$(jq -r .profile_id "$identity")"
+
+          cargo run --locked --release \
+            --manifest-path "$host_manifest" \
+            -p postfiat-reserve-proof --features sp1 -- \
+            manifest validate "$manifest" \
+            > /tmp/a666-candidate-manifest-validation.json
+          jq -e --arg manifest "$expected_manifest" \
+            '.valid == true and .source_count == 6 and .source_manifest_hash == $manifest' \
+            /tmp/a666-candidate-manifest-validation.json
+          jq -e --arg manifest "$expected_manifest" --arg policy "$expected_policy" --arg vkey "$expected_vkey" \
+            '.source_manifest_hash == $manifest and .valuation_policy_hash == $policy and .sp1_program_vkey == $vkey and .allow_controlled_sources == false' \
+            "$registration"
+          cargo run --locked --release \
+            --manifest-path "$host_manifest" \
+            -p postfiat-reserve-proof --features sp1 -- \
+            profile derive --registration "$registration" \
+            --output /tmp/a666-candidate-derived-profile.json
+          jq -e --arg profile "$expected_profile" --arg vkey "$expected_vkey" \
+            '.profile.profile_id == $profile and .profile.sp1_program_vkey == $vkey' \
+            /tmp/a666-candidate-derived-profile.json
+
+          test "$(git cat-file -t "$expected_source")" = commit
+          candidate_workspace="$(mktemp -d)"
+          git -C "$GITHUB_WORKSPACE" archive "$expected_source" | \
+            tar -x -C "$candidate_workspace"
+          rebuild_dir="$(mktemp -d)"
+          cd "$candidate_workspace/tools/nav-reserve-proof/programs/reserve-proof-guest"
+          cargo prove build --docker --tag v6.3.1 --locked \
+            --features a666-public-adapters-v2 \
+            --workspace-directory "$candidate_workspace" \
+            --output-directory "$rebuild_dir"
+          rebuilt_elf="$rebuild_dir/postfiat-reserve-proof-guest"
+          test -s "$rebuilt_elf"
+          actual_sha="$(sha256sum "$rebuilt_elf" | cut -d' ' -f1)"
+          if [[ "$actual_sha" != "$expected_sha" ]]; then
+            printf 'A666 candidate ELF SHA mismatch: expected %s, got %s\n' \
+              "$expected_sha" "$actual_sha" >&2
+            exit 1
+          fi
+          cargo run --locked --release \
+            --manifest-path "$host_manifest" \
+            -p postfiat-reserve-proof --features sp1 -- \
+            program-info --elf "$rebuilt_elf" \
+            > /tmp/a666-candidate-program-info.json
+          jq -e --arg sha "$expected_sha" --arg vkey "$expected_vkey" \
+            '.elf_sha256 == $sha and .program_vkey == $vkey' \
+            /tmp/a666-candidate-program-info.json
   evm-contracts:
     runs-on: ubuntu-latest
     steps:

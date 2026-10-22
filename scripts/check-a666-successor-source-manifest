@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+"""Rebuild the A666 successor source manifest from its tracked typed policies.
+
+The builder derives every owner, quantity, valuation and haircut commitment
+itself. The committed manifest must be its byte-identical output, so no
+commitment in it can be pasted by hand.
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+KIT = ROOT / "tools/nav-reserve-proof"
+POLICIES = KIT / "manifests/a666"
+MANIFEST = POLICIES / "source-manifest-public-successor.json"
+# The public A666 reserve owner on Arbitrum, Ethereum and HyperEVM. The other
+# owners are fields of their typed policies.
+EVM_RESERVE_OWNER = "0x1455bd7fbfbf92a171ef36025e13959e3b0ad8c0"
+FRESHNESS = {"max_age_blocks": 20, "max_observation_span_blocks": 8}
+
+
+def policy(name: str) -> dict:
+    return json.loads((POLICIES / name).read_text(encoding="utf-8"))
+
+
+def build_input() -> dict:
+    committee = policy("checkpoint-committee.json")
+    aave = policy("aave-arbitrum-policy.json")
+    near = policy("near-receipt-policy.json")
+    solana = policy("solana-stake-reader-policy.json")
+    monero = policy("monero-reserve-policy.json")
+    evm_owner = {"kind": "evm_address", "address": EVM_RESERVE_OWNER}
+    same = {"kind": "same_as_quantity"}
+
+    def chainlink(name: str) -> dict:
+        return {"kind": "evm_chainlink", "policy": policy(name), "committee": committee}
+
+    def source(source_id: str, position: str, owner: dict, quantity: dict, valuation: dict):
+        return {
+            "source_id": source_id,
+            "asset_or_position_id": position,
+            "reserve_owner": owner,
+            "quantity_verifier": quantity,
+            "valuation_verifier": valuation,
+            "freshness_policy": FRESHNESS,
+            "liability_treatment": "asset",
+        }
+
+    return {
+        "schema": "postfiat.reserve_manifest_build.v1",
+        "valuation_policy": policy("portfolio-valuation-policy.json"),
+        "sources": [
+            source(
+                "aave-arbitrum", aave["aggregate_position_id"], evm_owner,
+                {"kind": "aave_v3", "policy": aave, "committee": committee}, same,
+            ),
+            source(
+                "ethereum-spot", "multi-chain-spot-aggregate", evm_owner,
+                {"kind": "evm_spot", "policy": policy("evm-spot-policy.json"),
+                 "committees": [committee]},
+                chainlink("evm-spot-chainlink-valuation-policy.json"),
+            ),
+            source(
+                "hyperliquid", "aggregate-spot-and-cash", evm_owner,
+                {"kind": "hyperliquid_receipt", "policy": policy("hyperliquid-policy.json"),
+                 "committee": committee},
+                same,
+            ),
+            source(
+                "near-stake", near["position_id"],
+                {"kind": "near_account", "account_id": near["reader_account_id"]},
+                {"kind": "near_receipt", "policy": near, "committee": committee},
+                chainlink("near-chainlink-valuation-policy.json"),
+            ),
+            source(
+                "solana-stake", solana["position_set_id"],
+                {"kind": "solana_wallet", "wallet_pubkey": solana["wallet_pubkey"]},
+                {"kind": "solana_stake_reader", "policy": solana, "committee": committee},
+                chainlink("solana-chainlink-valuation-policy.json"),
+            ),
+            source(
+                "xmr-reserve", monero["position_id"],
+                {"kind": "monero_address",
+                 "spend_public_key": monero["address_spend_public_key"],
+                 "view_public_key": monero["address_view_public_key"]},
+                {"kind": "monero_reserve", "policy": monero, "committee": committee},
+                chainlink("monero-chainlink-valuation-policy.json"),
+            ),
+        ],
+    }
+
+
+def main() -> None:
+    with tempfile.TemporaryDirectory() as work:
+        build = Path(work) / "manifest-build.json"
+        output = Path(work) / "manifest.json"
+        build.write_text(json.dumps(build_input()), encoding="utf-8")
+        subprocess.run(
+            [
+                "cargo", "+1.95.0", "run", "--quiet",
+                "--manifest-path", str(KIT / "Cargo.toml"),
+                "-p", "postfiat-reserve-proof", "--",
+                "manifest", "build", "--input", str(build), "--output", str(output),
+            ],
+            check=True, stdout=subprocess.DEVNULL,
+        )
+        if output.read_bytes() != MANIFEST.read_bytes():
+            sys.exit(
+                f"{MANIFEST.relative_to(ROOT)} is not the builder output of the "
+                "tracked A666 policies; regenerate it"
+            )
+    print("A666 successor source manifest is the builder output of its tracked policies")
+
+
+if __name__ == "__main__":
+    main()
