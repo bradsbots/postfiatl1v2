@@ -2473,6 +2473,7 @@ fn latest_tx_id_in_execution_order(tails: MempoolFamilyTails<'_>) -> Option<&str
 fn asset_transaction_amount(transaction: &SignedAssetTransaction) -> u64 {
     match &transaction.unsigned.operation {
         AssetTransactionOperation::IssuedPayment(operation) => operation.amount,
+        AssetTransactionOperation::IssuedPaymentV2(operation) => operation.amount,
         AssetTransactionOperation::AssetBurn(operation) => operation.amount,
         AssetTransactionOperation::AssetClawback(operation) => operation.amount,
         _ => 0,
@@ -3523,6 +3524,53 @@ mod burn5_tests {
             latest_tx_id_in_execution_order(MempoolFamilyTails::default()),
             None
         );
+    }
+
+    // XR-02 (exchange-readiness review 2026-10-23): `verify_mempool` counts a
+    // pending `issued_payment_v2` amount exactly like an `issued_payment`.
+    #[test]
+    fn verify_mempool_amount_counts_issued_payment_v2_like_issued_payment() {
+        let payment = postfiat_types::IssuedPaymentOperation {
+            from: format!("pf{}", "1".repeat(40)),
+            to: format!("pf{}", "2".repeat(40)),
+            issuer: format!("pf{}", "3".repeat(40)),
+            asset_id: "ab".repeat(48),
+            amount: 77,
+        };
+        let asset_transaction = |kind: &str, operation| SignedAssetTransaction {
+            unsigned: postfiat_types::UnsignedAssetTransaction {
+                chain_id: "amount-test".to_string(),
+                genesis_hash: String::new(),
+                protocol_version: 1,
+                address_namespace: ADDRESS_NAMESPACE.to_string(),
+                transaction_kind: kind.to_string(),
+                signature_algorithm_id: String::new(),
+                source: payment.from.clone(),
+                fee: 1,
+                sequence: 1,
+                operation,
+            },
+            algorithm_id: String::new(),
+            public_key_hex: String::new(),
+            signature_hex: String::new(),
+        };
+        let v1 = asset_transaction(
+            postfiat_types::ISSUED_PAYMENT_TRANSACTION_KIND,
+            AssetTransactionOperation::IssuedPayment(payment.clone()),
+        );
+        let v2 = asset_transaction(
+            postfiat_types::ISSUED_PAYMENT_V2_TRANSACTION_KIND,
+            AssetTransactionOperation::IssuedPaymentV2(postfiat_types::IssuedPaymentV2Operation {
+                from: payment.from.clone(),
+                to: payment.to.clone(),
+                issuer: payment.issuer.clone(),
+                asset_id: payment.asset_id.clone(),
+                amount: payment.amount,
+                memos: Vec::new(),
+            }),
+        );
+        assert_eq!(asset_transaction_amount(&v1), 77);
+        assert_eq!(asset_transaction_amount(&v2), 77);
     }
 
     // Quota guards inspect only sender identities, so these fixtures do not

@@ -415,6 +415,10 @@ fn orchard_deposit_amount_for_apply(
             "Orchard deposit action fee must be zero",
         )));
     }
+    // XR-01: `FEE_COLLECTOR_ADDRESS` is a 41-character sink, not a canonical
+    // PFTL address. The funding transfer is never a mempool destination and
+    // executes below through plain `execute_transfer`; see the pin test
+    // `orchard_deposit_funding_transfer_stays_on_plain_execute_transfer`.
     if payload.funding_transfer.unsigned.to != FEE_COLLECTOR_ADDRESS {
         return Ok(Err(Receipt::rejected(
             orchard_action_receipt_id(
@@ -744,6 +748,10 @@ fn apply_verified_orchard_deposit_action_to_state(
     }
 
     let mut trial_ledger = ledger.clone();
+    // XR-01: keep this on plain `execute_transfer`. The governed wrappers
+    // (`execute_transfer_with_compatibility`, `claim_rejected_transfer_fee`)
+    // would refuse the non-canonical sink from
+    // `recipient_format_activation_height` and reject every Orchard deposit.
     let funding_receipt = execute_transfer(genesis, &mut trial_ledger, &payload.funding_transfer);
     if !funding_receipt.accepted {
         return Ok(Receipt::rejected(

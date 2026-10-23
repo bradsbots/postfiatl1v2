@@ -11,25 +11,27 @@ The source is safe to cut, qualify and install today with all three activation h
 - The admission change that ships with the binary refuses none of the addresses the devnet uses (R3).
 - Older binaries reject the new amendment kinds and the new transaction variants. Do the full six-node rollout first, then the governance records (R1).
 
-The findings below are Low or informational. None blocks the cut. These release gates remain: the exact height-924 and current-head archive replays of the release binary, `official-mainnet-fork` on the release revision, then `account-tx-index-build` on every node after install.
+The findings below are Low or informational. None blocks the cut. XR-01 and XR-02 were fixed on main before the cut (2026-10-23). These release gates remain: the exact height-924 and current-head archive replays of the release binary, `official-mainnet-fork` on the release revision, then `account-tx-index-build` on every node after install.
 
 ## Findings
 
 Every finding below has the same four parts: condition, observed, expected, suggested change.
 
-### XR-01. Low — Orchard deposit sink is not a canonical address (latent)
+### XR-01. Low — Orchard deposit sink is not a canonical address (latent) — [x] done
 
 - **Condition:** An Orchard deposit's funding transfer must target `FEE_COLLECTOR_ADDRESS` (`crates/node/src/orchard_state_application.rs:418`). The builder signs that transfer (`crates/node/src/orchard_policy_actions.rs:812-819`).
 - **Observed:** `FEE_COLLECTOR_ADDRESS` is `pffee0…0`, 41 characters (`crates/execution/src/entrypoints.rs:151`), so `validate_canonical_address` refuses it. It still works for two reasons. The funding transfer runs through plain `execute_transfer` inside the shielded batch, live and in replay (`orchard_state_application.rs:747`). The RPC/mempool check covers only the `mempool_submit_signed_*` methods (`crates/node/src/atomic_swap_rpc_server.rs:14-50`). No Orchard deposit flow uses those methods, and the node's `build_signed_transfer` has no address check (`crates/node/src/storage_commit.rs:812`).
 - **Expected:** Orchard deposits work the same before and after `recipient_format_activation_height`.
 - **Suggested change:** No change before the release. Add a comment at `orchard_state_application.rs:747` and a regression test saying that the funding transfer must stay outside the governed recipient wrappers. Routing it through `execute_transfer_with_compatibility` would make every Orchard deposit fail after activation. A canonical sink would need its own gated migration.
+- **Done 2026-10-23:** comments at `orchard_state_application.rs:418,751`; pin test `orchard_deposit_funding_transfer_stays_on_plain_execute_transfer` (`crates/node/src/tests/recipient_format_activation.rs`).
 
-### XR-02. Low — `verify_mempool` totals omit `issued_payment_v2`
+### XR-02. Low — `verify_mempool` totals omit `issued_payment_v2` — [x] done
 
 - **Condition:** `asset_transaction_amount` (`crates/node/src/mempool_proposals.rs:2473-2480`) feeds the mempool verification `total_amount` (`:1833`).
 - **Observed:** The function matches `IssuedPayment`, `AssetBurn` and `AssetClawback`. `IssuedPaymentV2` falls to `_ => 0`.
 - **Expected:** A pending `issued_payment_v2` counts like `issued_payment`.
 - **Suggested change:** Add `AssetTransactionOperation::IssuedPaymentV2(operation) => operation.amount`. This is a read-only report, so it is not a consensus change and it can ride the next release. Every other `IssuedPayment` match handles V2: execution, recipient fields, history, `certified_asset_ops` and the source check.
+- **Done 2026-10-23:** the arm is added; the test `verify_mempool_amount_counts_issued_payment_v2_like_issued_payment` (`mempool_proposals.rs`) failed before it and passes after.
 
 ### XR-03. Info — the three gates follow different postponement rules
 

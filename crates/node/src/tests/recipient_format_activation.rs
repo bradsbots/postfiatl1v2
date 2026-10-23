@@ -359,3 +359,82 @@ fn recipient_format_rule_gates_live_execution_and_archive_replay_identically() {
         (active_receipts, active_ledger)
     );
 }
+
+// XR-01 (exchange-readiness review 2026-10-23): an Orchard deposit's funding
+// transfer targets the 41-character `FEE_COLLECTOR_ADDRESS` sink. It must stay
+// on plain `execute_transfer`, outside the governed recipient and fee-claim
+// wrappers, or every Orchard deposit fails once the recipient rule is active.
+#[test]
+fn orchard_deposit_funding_transfer_stays_on_plain_execute_transfer() {
+    assert!(!postfiat_crypto_provider::is_canonical_address(
+        FEE_COLLECTOR_ADDRESS
+    ));
+
+    let source = include_str!("../orchard_state_application.rs");
+    let source = source
+        .split("#[cfg(test)]")
+        .next()
+        .expect("non-test source")
+        .lines()
+        .filter(|line| !line.trim_start().starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(
+        source
+            .matches("execute_transfer(genesis, &mut trial_ledger, &payload.funding_transfer)")
+            .count(),
+        1,
+        "the Orchard deposit funding transfer must execute through plain execute_transfer"
+    );
+    for governed in [
+        "execute_transfer_with_compatibility",
+        "claim_rejected_transfer_fee",
+        "destination_address_rejection",
+    ] {
+        assert!(
+            !source.contains(governed),
+            "orchard_state_application.rs must not route the funding transfer through `{governed}`"
+        );
+    }
+
+    // Why the pin matters: with the rule active, the governed wrapper refuses
+    // the sink while plain execution still applies the funding transfer.
+    let genesis = Genesis::new("postfiat-local");
+    let sender_key = ml_dsa_65_keygen_from_seed(&[34u8; 32]);
+    let sender = address_from_public_key(&sender_key.public_key);
+    let sender_key_file = DevKeyFile {
+        algorithm_id: ML_DSA_65_ALGORITHM.to_string(),
+        address: sender.clone(),
+        public_key_hex: bytes_to_hex(&sender_key.public_key),
+        private_key_hex: bytes_to_hex(&sender_key.private_key),
+    };
+    let ledger = LedgerState::new(vec![
+        Account::new(sender, 10_000, Some(bytes_to_hex(&sender_key.public_key))),
+        Account::new(FEE_COLLECTOR_ADDRESS.to_string(), ACCOUNT_RESERVE, None),
+    ]);
+    let funding =
+        recipient_format_signed_transfer(&genesis, &sender_key_file, FEE_COLLECTOR_ADDRESS, 64, 1);
+    let activation = u64::from(RECIPIENT_FORMAT_NODE_ACTIVATION_HEIGHT);
+    let mut governance = GovernanceState::new(1);
+    governance.apply(recipient_format_amendment(
+        RECIPIENT_FORMAT_NODE_ACTIVATION_HEIGHT,
+    ));
+    let compatibility =
+        asset_execution_compatibility_for_genesis_and_governance(&genesis, &governance);
+
+    let mut plain_ledger = ledger.clone();
+    let plain = execute_transfer(&genesis, &mut plain_ledger, &funding);
+    assert!(plain.accepted, "{plain:?}");
+
+    let mut governed_ledger = ledger.clone();
+    let governed = execute_transfer_with_compatibility(
+        &genesis,
+        &mut governed_ledger,
+        &funding,
+        activation,
+        compatibility,
+    );
+    assert!(!governed.accepted);
+    assert_eq!(governed.code, "invalid_recipient_address");
+    assert_eq!(governed_ledger, ledger);
+}
