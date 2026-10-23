@@ -214,6 +214,60 @@ checkpoint votes stay local until someone submits an `AnchorCheckpoint`.
 Ethereum checkpoint signing follows the route's `authority_epoch`, which stays 1
 until that update.
 
+### The wallet's activation payload for the current committee
+
+A wallet's FastSwap activation file (`payload.json`, for example StakeHub's
+`~/.pft/venue/fastswap-activation/h<height>/payload.json`) carries the committee
+domain the swap service checks. A file written before the migration describes
+epoch 1. `fastswap_bootstrap_payload --committee-file` writes the payload for the
+committee an `ActivateCommittee` installed. It is offline and reads only files.
+
+- **The committee:** taken from the record's `operation.certificate.action.committee`,
+  read the same way as `fastswap-committee-migrate --committee-file`, and
+  validated against its own root.
+- **The rules and policy:** rebuilt exactly as for the bootstrap. They must equal
+  a policy the ledger governs (`fastswap_policy_snapshots`).
+- **The activation height:** must be the ledger's recorded
+  `fastswap_activation_height`.
+- **The inputs:** `--committee-file` replaces `--registry`. A validator's
+  `ledger.json` and `chain_tip.json` can be used as they are; their trailing
+  `pftmac1:` integrity line is node-keyed, so the tool reads the JSON body without
+  verifying it.
+- **Without `--committee-file`:** the tool writes the epoch-1 bootstrap payload
+  byte for byte as before.
+
+For the devnet's epoch 2 (root `72836827…`), with the July bootstrap values that
+the ledger records (activation 152, policy epoch 1, NAV epoch 3, valid through
+10000):
+
+```bash
+fastswap_bootstrap_payload \
+  --ledger ledger.json --tip chain_tip.json \
+  --committee-file 7.2-activate-committee.fastlane-primary.json \
+  --activation-height 152 --valid-through-height 10000 \
+  --asset-0-id 02c46a36eb0da3516b4d8affea8f4028ad3f36825a3e8f0e009ea9dbbbcfb3c233f6830bd5221fe2717fb6a1a7005d7b \
+  --asset-1-id de8d3d78aca83f7000632cbd3dd06edd30d105085d16eef1696f9e1707908ec9209239080d21ca1c0cecc36ca6f966b6 \
+  --price-numerator 1000000 --price-denominator 1000000 --nav-epoch 3 \
+  --market-envelope-hash f31b5e66ba4d515cb4b29793c5ee41c8c1cd704c36e916c17a2c4d4ec4eaf735cf7881027460f3debe3da4c7e87fa765 \
+  --output payload-epoch2.json
+```
+
+Expect `committee epoch=2 root=72836827…`. The committee domain's canonical-JSON
+SHA-256 is `b1c5261b…`, the value StakeHub's check 0c′ prints. Run on 2026-10-23
+against the height-1123 snapshot of the store-handle release and that release's
+`observed/bridge-activation/7.2-activate-committee.fastlane-primary.json`
+(SHA-256 `35acb2ff…`), it wrote a payload with SHA-256 `718fce15…`. Its policy
+hash is the governed `356e5cca…`, and the 0c′ line is
+`True True 2 72836827f9f3ecd3 b1c5261b…`, with an acceptance file that names
+that payload.
+
+The payload alone does not finish the switch:
+
+- `fastswap_wallet_payload` (`read_payload`) still calls `validate_payload`, which
+  accepts only committee epoch 1 (`crates/types/src/fastswap_types.rs:1519`). It
+  therefore refuses this payload until it accepts a recorded committee.
+- The wallet's `ACCEPTANCE.json` names the payload by SHA-256.
+
 ## Release and backup basis
 
 Use [the safe rollout runbook](safe-validator-rollout.md), preserving the signed
