@@ -728,6 +728,55 @@ def _verify_authenticated_history_receipt(
         _fail("replay summary disagrees with the exact height-924 receipt")
 
 
+def _verify_independent_verify_only(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    replay: Mapping[str, Any],
+) -> None:
+    """Bind the height-924 `--verify-only` output and its mutation sentinels."""
+    sentinel = _object(
+        replay.get("independent_verify_only"), "independent verify-only binding"
+    )
+    output = _bound_json(
+        packet_dir,
+        checksums,
+        _object(sentinel.get("output"), "independent verify-only output"),
+        "independent verify-only output",
+    )
+    tip = _object(output.get("source_tip"), "independent verify-only source tip")
+    if (
+        output.get("schema") != "postfiat-storage-migration-report-v1"
+        or output.get("verify_only") is not True
+        or output.get("published") is not False
+        or tip.get("height") != 924
+    ):
+        _fail("independent verify-only output is not a PASS")
+    for prefix in ("clone", "target"):
+        before = str(sentinel.get(f"{prefix}_tree_sha256_before", ""))
+        if (
+            HEX64.fullmatch(before) is None
+            or sentinel.get(f"{prefix}_tree_sha256_after") != before
+        ):
+            _fail("independent verify-only changed the clone or target tree")
+    receipts = [
+        _bound_json(packet_dir, checksums, reference, "replay receipt")
+        for reference in _list(replay.get("receipts"), "replay receipts")
+    ]
+    receipt = next(
+        (value for value in receipts if value.get("source_height") == 924), None
+    )
+    if receipt is None or (
+        tip.get("block_hash") != receipt.get("tip_hash")
+        or tip.get("state_root") != receipt.get("state_root")
+        or HEX96.fullmatch(str(output.get("migration_packet_root", ""))) is None
+        or output.get("migration_packet_root") != receipt.get("migration_packet_root")
+        or output.get("logical_store_report") != receipt.get("logical_store_report")
+        or output.get("canonical_export_receipt")
+        != receipt.get("canonical_export_receipt")
+    ):
+        _fail("independent verify-only output disagrees with the height-924 receipt")
+
+
 def _verify_replacement_replay(
     packet_dir: Path,
     checksums: Mapping[str, str],
@@ -755,6 +804,7 @@ def _verify_replacement_replay(
     _verify_authenticated_history_receipt(
         packet_dir, checksums, replay, source_revision, current_binary_digest
     )
+    _verify_independent_verify_only(packet_dir, checksums, replay)
 
     replacement = _object(
         replay.get("quarantine_archive_replacement"), "quarantine archive replacement"

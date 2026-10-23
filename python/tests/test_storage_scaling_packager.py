@@ -459,7 +459,19 @@ REPLACEMENT_MANIFEST_SHA256 = (
 BINARY = "e" * 64
 
 
-def _replacement_inputs(root: Path) -> tuple[Path, Path]:
+VERIFY_ONLY_IDENTITY = {
+    "migration_packet_root": "4" * 96,
+    "logical_store_report": {"backend": "redb", "finalized_height": 924},
+    "canonical_export_receipt": {"finalized_height": 924, "record_count": 1},
+}
+
+
+def _replacement_inputs(
+    root: Path,
+    *,
+    verify_only: bool = True,
+    verify_only_mutation: Any = None,
+) -> tuple[Path, Path]:
     """Harness outputs: the 924 legacy report and the 1123 signed-archive receipt."""
     build = {"git_revision": "86706699", "profile": "release"}
     legacy_dir = root / "legacy-924"
@@ -474,8 +486,35 @@ def _replacement_inputs(root: Path) -> tuple[Path, Path]:
             "logical_rebuild_identical": True,
             "canonical_export_identical": True,
             "node_binary_sha256": BINARY,
+            "tip_hash": "1" * 96,
+            "state_root": "2" * 96,
+            **VERIFY_ONLY_IDENTITY,
         },
     )
+    sentinel: dict[str, object] = {}
+    if verify_only:
+        output: dict[str, object] = {
+            "schema": "postfiat-storage-migration-report-v1",
+            "verify_only": True,
+            "published": False,
+            "source_tip": {"height": 924, "block_hash": "1" * 96, "state_root": "2" * 96},
+            **VERIFY_ONLY_IDENTITY,
+        }
+        if verify_only_mutation is not None:
+            verify_only_mutation(output)
+        _write_json(legacy_dir / "verify-only.json", output)
+        sentinel = {
+            "independent_verify_only": {
+                "output": {
+                    "path": "verify-only.json",
+                    "sha256": _sha256(legacy_dir / "verify-only.json"),
+                },
+                "clone_tree_sha256_before": "5" * 64,
+                "clone_tree_sha256_after": "5" * 64,
+                "target_tree_sha256_before": "6" * 64,
+                "target_tree_sha256_after": "6" * 64,
+            }
+        }
     _write_json(
         legacy_dir / "replay-report.json",
         {
@@ -491,6 +530,7 @@ def _replacement_inputs(root: Path) -> tuple[Path, Path]:
             "source_revision": "86706699" + "0" * 32,
             "node_binary_sha256": BINARY,
             "node_binary_build": build,
+            **sentinel,
         },
     )
     archive_dir = root / "signed-1123"
@@ -552,6 +592,44 @@ class ReplacementReplayPackagingTests(unittest.TestCase):
                 self.assertEqual(
                     _sha256(copied), _sha256(archive.parent.parent / "steps" / f"{name}.json")
                 )
+
+    def test_copy_replacement_replay_binds_verify_only_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root)
+            packet = root / "packet"
+            destination = PACKAGER.copy_replacement_replay(packet, legacy, archive, BINARY)
+
+            replay = json.loads(destination.read_text(encoding="utf-8"))
+            bound = replay["independent_verify_only"]
+            source = legacy.parent / "verify-only.json"
+            self.assertEqual(
+                bound["output"],
+                {"path": "replay/height-924-verify-only.json", "sha256": _sha256(source)},
+            )
+            self.assertEqual(
+                _sha256(packet / "replay" / "height-924-verify-only.json"), _sha256(source)
+            )
+            self.assertEqual(bound["clone_tree_sha256_after"], "5" * 64)
+            self.assertEqual(bound["target_tree_sha256_after"], "6" * 64)
+
+    def test_copy_replacement_replay_requires_verify_only_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            legacy, archive = _replacement_inputs(root, verify_only=False)
+            with self.assertRaisesRegex(ValueError, "independent verify-only"):
+                PACKAGER.copy_replacement_replay(root / "packet", legacy, archive, BINARY)
+
+    def test_copy_replacement_replay_rejects_verify_only_identity_split(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+
+            def other_root(output: dict[str, object]) -> None:
+                output["migration_packet_root"] = "7" * 96
+
+            legacy, archive = _replacement_inputs(root, verify_only_mutation=other_root)
+            with self.assertRaisesRegex(ValueError, "disagrees with the height-924 receipt"):
+                PACKAGER.copy_replacement_replay(root / "packet", legacy, archive, BINARY)
 
     def test_copy_replacement_replay_rejects_another_binary(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

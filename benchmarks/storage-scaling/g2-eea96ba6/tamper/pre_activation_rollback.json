@@ -1,0 +1,20 @@
+{
+  "name": "pre_activation_rollback",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_commitment_activation_cancelled",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_new_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "c1f4f49ed201ccd583b88f1e28a30b4bbec414ffce482a56517e05e33b3babe6",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "existing_chain_storage_activation_can_cancel_only_before_cutover"
+    }
+  ]
+}

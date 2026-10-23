@@ -1,0 +1,45 @@
+{
+  "checks": {
+    "rollback_binary": true,
+    "rollback_current_binary": true,
+    "rollback_evidence_eligible": true,
+    "rollback_status_pass": true,
+    "six_validators_converged": true,
+    "tamper_no_uncovered_requirement": true,
+    "tamper_source_revision": true,
+    "tamper_status_pass": true
+  },
+  "gate": "g2",
+  "rollback_identities": {
+    "current_post_activation": {
+      "height": 2,
+      "state_root": "d3a615b738d3791a9cdd8e96121a96ea052e20040546aec377940b537a37ba670aaf2c6a2a2a8228a220e9a3c607acee",
+      "tip": "33a284698fc1a26e31d0b37800ed51d099247a6efd0e9ce23438064d8544d91c29d9476d5417afde8f522d517612fa07"
+    },
+    "forward_finalized": {
+      "height": 4,
+      "state_root": "713996212105bcda6bbc6d6e9c1cd304a654c75b6f16ae228c6b6c30c83075ce98764ff0f058dce0c5f8a7ef3200efb5",
+      "tip": "b886788c264dd66c46975796d38ab9bd3d8d875585c8f9a03455835fca2f6dce06708895689afba60c51c972754c7ff7"
+    },
+    "forward_resume_input": {
+      "height": 3,
+      "state_root": "c8a306f34afe654899f8c139066607e60bb2cba0f88672e54536551a3bd2decdc2027ba39ea3fe6de111d7ec94fa839b",
+      "tip": "8e016252d911ec7fd90519c0b2a04a9a933988ef0750814137973589967a83b68b85380740113dd1a13e56923bde9fe9"
+    },
+    "rollback_finalized": {
+      "height": 3,
+      "state_root": "c8a306f34afe654899f8c139066607e60bb2cba0f88672e54536551a3bd2decdc2027ba39ea3fe6de111d7ec94fa839b",
+      "tip": "8e016252d911ec7fd90519c0b2a04a9a933988ef0750814137973589967a83b68b85380740113dd1a13e56923bde9fe9"
+    },
+    "rollback_resume_input": {
+      "height": 2,
+      "state_root": "d3a615b738d3791a9cdd8e96121a96ea052e20040546aec377940b537a37ba670aaf2c6a2a2a8228a220e9a3c607acee",
+      "tip": "33a284698fc1a26e31d0b37800ed51d099247a6efd0e9ce23438064d8544d91c29d9476d5417afde8f522d517612fa07"
+    }
+  },
+  "rollback_report_sha256": "c64882e6c76c6e9848c5272ed5939d8c5cb7828a9d9ae9cb3fdffc8a1c7e0ee1",
+  "scripts": "candidate checkout source/ (86706699) benchmarks/storage-scaling, as in the passing campaign's G2",
+  "status": "PASS",
+  "tamper_report_sha256": "6eff62415a3190e19382cf6991cd2e2987c004484454ae297d1ca36d4c699b30",
+  "tamper_unique_test_count": 37
+}

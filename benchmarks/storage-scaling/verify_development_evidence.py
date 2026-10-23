@@ -17,6 +17,16 @@ EXPECTED_FILES = {
     "verify_development_evidence.py",
 }
 HEIGHTS = [50, 100, 500, 1000, 5000]
+# G2 of the deployed binary eea96ba6 (source 86706699, G4 attempt 4): the
+# redaction-safe gate, tamper and rollback reports and the 69 case receipts.
+G2_DIR = "g2-eea96ba6"
+G2_SOURCE_REVISION = "86706699f646405743385beabf609c6771a518a3"
+G2_REQUIRED_FILES = {
+    f"{G2_DIR}/gate-report.json",
+    f"{G2_DIR}/tamper-report.json",
+    f"{G2_DIR}/tamper/evidence/compatible-rollback-report.json",
+}
+G2_TAMPER_CASES = 69
 
 
 def fail(message: str) -> None:
@@ -40,9 +50,16 @@ def load_manifest() -> dict[str, str]:
         if name in entries:
             fail(f"duplicate checksum entry: {name}")
         entries[name] = digest
-    if set(entries) != EXPECTED_FILES:
+    g2_root = ROOT / G2_DIR
+    g2_files = {
+        path.relative_to(ROOT).as_posix()
+        for path in g2_root.rglob("*")
+        if path.is_file()
+    }
+    expected_files = EXPECTED_FILES | G2_REQUIRED_FILES | g2_files
+    if set(entries) != expected_files:
         fail(
-            f"checksum files differ: expected {sorted(EXPECTED_FILES)}, "
+            f"checksum files differ: expected {sorted(expected_files)}, "
             f"observed {sorted(entries)}"
         )
     for name, expected in entries.items():
@@ -55,6 +72,43 @@ def load_manifest() -> dict[str, str]:
     return entries
 
 
+def verify_g2(entries: dict[str, str]) -> None:
+    gate = json.loads((ROOT / G2_DIR / "gate-report.json").read_text(encoding="utf-8"))
+    checks = gate.get("checks")
+    rollback = f"{G2_DIR}/tamper/evidence/compatible-rollback-report.json"
+    if (
+        gate.get("gate") != "g2"
+        or gate.get("status") != "PASS"
+        or not isinstance(checks, dict)
+        or not checks
+        or not all(value is True for value in checks.values())
+        or gate.get("rollback_report_sha256") != entries[rollback]
+    ):
+        fail("G2 gate report is not a bound PASS")
+    tamper = json.loads((ROOT / G2_DIR / "tamper-report.json").read_text(encoding="utf-8"))
+    cases = tamper.get("cases")
+    if (
+        tamper.get("schema") != "postfiat-storage-scaling-tamper-matrix-v1"
+        or tamper.get("status") != "PASS"
+        or tamper.get("source_revision") != G2_SOURCE_REVISION
+        or tamper.get("coverage_complete") is not True
+        or tamper.get("uncovered_requirements") != []
+        or tamper.get("unique_test_count") != gate.get("tamper_unique_test_count")
+        or not isinstance(cases, list)
+        or len(cases) != G2_TAMPER_CASES
+    ):
+        fail("G2 tamper report is not a complete PASS")
+    for case in cases:
+        receipt = case.get("receipt") if isinstance(case, dict) else None
+        name = f"{G2_DIR}/{receipt.get('path')}" if isinstance(receipt, dict) else ""
+        if (
+            case.get("passed") is not True
+            or name not in entries
+            or entries[name] != receipt.get("sha256")
+        ):
+            fail(f"G2 tamper case receipt is unbound: {case.get('name')}")
+
+
 def require_heights(rows: list[dict[str, object]], label: str) -> None:
     observed = [row.get("height") for row in rows]
     if observed != HEIGHTS:
@@ -62,7 +116,7 @@ def require_heights(rows: list[dict[str, object]], label: str) -> None:
 
 
 def main() -> None:
-    load_manifest()
+    verify_g2(load_manifest())
     stop = json.loads(
         (ROOT / "campaign-stop-f3907ad5.json").read_text(encoding="utf-8")
     )

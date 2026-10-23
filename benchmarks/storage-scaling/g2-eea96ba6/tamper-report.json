@@ -1,0 +1,771 @@
+{
+  "cases": [
+    {
+      "name": "history_truncated",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_mac_chain_mismatch",
+      "receipt": {
+        "path": "tamper/history_truncated.json",
+        "sha256": "b2c8ca3bc7ba36185df6c5fb2ba77a236f7df0fc22eff2a05c29eb0f6729f365"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_padded",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/history_padded.json",
+        "sha256": "60625401fc6eb6cc870342bd5779d32c2f576a058428dc6fcfd63b19578e2e73"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_reordered",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_corrupt_record",
+      "receipt": {
+        "path": "tamper/history_reordered.json",
+        "sha256": "f39675c54947a067a95176dd6ab347965a2f09ea8dcc883067b14fa3a33fe498"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_modified",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_corrupt_record",
+      "receipt": {
+        "path": "tamper/history_modified.json",
+        "sha256": "6dcaa66dcdaeb26fda162ec44f5a37e682d35345cde90c654a36cacaedbf639a"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_duplicated",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/history_duplicated.json",
+        "sha256": "60aebb02fb97b9f2df206a3cb1be5c1a3418f3fffb759ce5671ce521ff172489"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_omitted",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/history_omitted.json",
+        "sha256": "43a9a9f8315c5e168879f2d52881bf988e09ed4f51f64b621d2b11220c9dfd38"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "fabricated_transition",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "transition_proof_mismatch",
+      "receipt": {
+        "path": "tamper/fabricated_transition.json",
+        "sha256": "79d28ac1cf9bb21b36495dce57b7f1198286412a9792b0f926e93edc662da50f"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_root_certificate",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "certificate_root_mismatch",
+      "receipt": {
+        "path": "tamper/wrong_root_certificate.json",
+        "sha256": "dfeef45ea2f4936835ebe2af5f01ceaf77387dcb837f9e03e15f02e1617ad26d"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "omitted_latest_update",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "required_latest_update_omitted",
+      "receipt": {
+        "path": "tamper/omitted_latest_update.json",
+        "sha256": "0cfbad0e246a578a98ff456a7cc8c3e33a953c2d392b766c04f8d3f6f60c1290"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "interrupted_catch_up",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "catch_up_resumed_from_second_honest_peer",
+      "receipt": {
+        "path": "tamper/interrupted_catch_up.json",
+        "sha256": "d8765e583067e00ad462e2b4eed68acbb69177c6550ae9905489564f801da0df"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "wrong_chain_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_ordered_commitment_mismatch",
+      "receipt": {
+        "path": "tamper/wrong_chain_domain.json",
+        "sha256": "f18f8fe1080c0ce4d2fbadc5bfabd4bdd1eb3e56df7943be36601521b67dc53b"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_genesis_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_ordered_commitment_mismatch",
+      "receipt": {
+        "path": "tamper/wrong_genesis_domain.json",
+        "sha256": "3f655ce179430f91cda12eb4a646e72be7521e7c3fc9bc2aee2403091a5aa111"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_protocol_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_ordered_commitment_mismatch",
+      "receipt": {
+        "path": "tamper/wrong_protocol_domain.json",
+        "sha256": "7dd604f65dcf1d21988aa529f99b833f0aaf0ff8a91cc813a2beaac21cf12558"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_storage_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_unsupported_schema",
+      "receipt": {
+        "path": "tamper/wrong_storage_domain.json",
+        "sha256": "cd7f20a8035428c24e73d3f3e544e4bb7bea976860e65c20c6da05a9cbdfdc0f"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_commitment_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_unsupported_schema",
+      "receipt": {
+        "path": "tamper/wrong_commitment_domain.json",
+        "sha256": "08909f5189b09077dc17be9a722fd7a60d3b7d865e5e96eb929675f6d482ce22"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_table_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/wrong_table_domain.json",
+        "sha256": "8513e7c2afe1a9748524f35041ca64c235e452a230b12f5aad6434b31cb90bb4"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "wrong_key_domain",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/wrong_key_domain.json",
+        "sha256": "0f2a18cdda1d9af24b82c849110b86b180ca4c96d3a2ad86fbed4e87519c4d98"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_checkpoint",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_head_missing",
+      "receipt": {
+        "path": "tamper/missing_checkpoint.json",
+        "sha256": "1c1af9feefb6b891f9f67ea2f77669642c079b9f1981427d2a050a31ca7c5449"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_checkpoint_log",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_log_missing",
+      "receipt": {
+        "path": "tamper/missing_checkpoint_log.json",
+        "sha256": "3bbf1a80bf04435a3f4d9534fb1141142ea291bc452f37bf7aa775056cfd57d1"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "checkpoint_log_substitution",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_head_domain_mismatch",
+      "receipt": {
+        "path": "tamper/checkpoint_log_substitution.json",
+        "sha256": "d4320ac80fc27a71f0b4d6a6f693e3ff319b762e8924d349062b135c8daa6ca8"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "stale_valid_head",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_head_rollback",
+      "receipt": {
+        "path": "tamper/stale_valid_head.json",
+        "sha256": "838ab3e3f7b1ec5a7b243f5ddcd1d43d738f271bc20a42f5e013aacb985b46ed"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "bounded_crash_suffix",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_legacy_jsonl_crash_suffix_recovered",
+      "receipt": {
+        "path": "tamper/bounded_crash_suffix.json",
+        "sha256": "630ee98f54cb841960e35c3932c0fb09eba10ce5db0ef60911ac3d8d2c699be3"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "stale_generation",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_migration_manifest_domain_mismatch",
+      "receipt": {
+        "path": "tamper/stale_generation.json",
+        "sha256": "275d7b4e0ca0156c3100041fece111a092a88d7b7222aced3054c23079e3422c"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "stale_metadata",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/stale_metadata.json",
+        "sha256": "983994a5b99fa2184b5bf92584bc0d62f3680e7f7272dd98383fecc9d8933e90"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "stale_tip",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_corrupt_record",
+      "receipt": {
+        "path": "tamper/stale_tip.json",
+        "sha256": "ceebda1f5524ba73f944f0a405968c8c5677a022592f337ea164d070dff6b268"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "stale_accumulator",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_ordered_commitment_mismatch",
+      "receipt": {
+        "path": "tamper/stale_accumulator.json",
+        "sha256": "5cb16500c2d2c44acf91089db545f06819f47919534fd5b9bd0f0a3ee338d3f9"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_table",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/missing_table.json",
+        "sha256": "9626fc5f2bf93956239a2f694edf07bfeedaae330a29efdc20d63c480ba24542"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_table",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/substituted_table.json",
+        "sha256": "eb1480fb938628c567b380b80adbae6adb50148d1743c588030d137e555b443c"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "corrupted_database_pages",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/corrupted_database_pages.json",
+        "sha256": "b951fddd853af60daf4408ce4d86d6f53255e5596d293668901796a41e22d526"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_database_page",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/missing_database_page.json",
+        "sha256": "16d654282850950f4ab2371533ff7c73f209ca68a597116c99860dce94497409"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_database_page",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/substituted_database_page.json",
+        "sha256": "f367397079ee01551b898fac02b85d3dbe18c5e330b84c25d1e9ff1c215451e5"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_generation_pointer",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_vote_blocked_ambiguous_local_state",
+      "receipt": {
+        "path": "tamper/missing_generation_pointer.json",
+        "sha256": "998435e4d3974e26be79cb6529e15dcc2184ac7ff9f28ae246c2581e3136f523"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_generation_pointer",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/substituted_generation_pointer.json",
+        "sha256": "2c27908a63c7c21783c6d6354b5830d167303beb6446599cef9606f012f093f7"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_canonical_export",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_canonical_export_missing",
+      "receipt": {
+        "path": "tamper/missing_canonical_export.json",
+        "sha256": "b449fe4c14cc491901448784c6df067daa821cc795c0c833582538008ce6897c"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "corrupted_canonical_export",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_canonical_export_integrity_failure",
+      "receipt": {
+        "path": "tamper/corrupted_canonical_export.json",
+        "sha256": "aefc7a78a113f3c025c18ce76b0a6af1cb4ecc89f8da4d53c7afa62aa4e8b051"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_canonical_export",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_canonical_export_substituted",
+      "receipt": {
+        "path": "tamper/substituted_canonical_export.json",
+        "sha256": "6780db9c952b19aa49f9e837cc04723e007ae17ef9d28b6f130275db17ac8180"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "index_without_history",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/index_without_history.json",
+        "sha256": "f30cde949dc634a009aef24611815eaf1d4acfb21f30a525d75e0210810e544d"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "history_without_index",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_corrupt_record",
+      "receipt": {
+        "path": "tamper/history_without_index.json",
+        "sha256": "93407eeaf29f5649e96fbfe3b83f3fe711c2e8f31d169f738978dd285c794c2e"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "conflicting_ordered_indexes",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_corrupt_record",
+      "receipt": {
+        "path": "tamper/conflicting_ordered_indexes.json",
+        "sha256": "9ed4f95798b2318ccf5a4337e4a46f325681758adafe4c6e7f7f643fe08ea682"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "incorrect_count",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_count_mismatch",
+      "receipt": {
+        "path": "tamper/incorrect_count.json",
+        "sha256": "ed7b157a750c83dd89203077913dae6fae827dc604e9f6955cb172a5b66fd86f"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "forged_receipt",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/forged_receipt.json",
+        "sha256": "14c2ba018ef7a4d7e402439627d8a120fa5ee8072ca987cb511ff913ea318a3b"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "forged_archive",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/forged_archive.json",
+        "sha256": "bafb89c571aa127425daa2f41009fcc9641ea13138396c5f4c059a73ff7187ea"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "forged_state",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_integrity_failure",
+      "receipt": {
+        "path": "tamper/forged_state.json",
+        "sha256": "8c0a1f530f9e6e87ea127b976f928082bc7ba436a91f6910f8fd72df32856f0c"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "forged_certificate",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "historical_replay_state_root_mismatch",
+      "receipt": {
+        "path": "tamper/forged_certificate.json",
+        "sha256": "9375311d2374edbf50159b9731f82b3e7d5a4a1ce5bc2a8ead2fdf5b989426dc"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "forged_catch_up_response",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "catch_up_response_rejected",
+      "receipt": {
+        "path": "tamper/forged_catch_up_response.json",
+        "sha256": "147aae96040c89138ceeaee6c7742542c1b7f2ec98d4a89149ac6503553060c3"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "journal_head_disagreement",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_ordered_commit_journal_disagreement",
+      "receipt": {
+        "path": "tamper/journal_head_disagreement.json",
+        "sha256": "c10593929f0eec3a083d8a39a3f5207f5d87efedcd3e66669ad28c7ba9e55f7f"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "disk_full",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/disk_full.json",
+        "sha256": "4df88d7a05770b0a4f6853b6086d29997eabb25fb6eeaa9a66b32ebcf6aae00a"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "permission_loss",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/permission_loss.json",
+        "sha256": "e5a0460875451c815e7a601f6284488f1feca7237fd04751b8a1b1bf20d552fd"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "write_failure",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/write_failure.json",
+        "sha256": "b40a14f22f912e96350a503b46d78e63501700caf4e4a4219ce4a5bc47a21b9b"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "sync_failure",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_database_error",
+      "receipt": {
+        "path": "tamper/sync_failure.json",
+        "sha256": "63b98fcdeb4f1f6c5060c4a2f062454757d661c92bdaec00af7529f9096c7722"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "process_kill_before_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_process_kill_recovered_old_tip",
+      "receipt": {
+        "path": "tamper/process_kill_before_commit.json",
+        "sha256": "c7fd3fe446e4d1e51a67b793a95084e34522a5a72a74a6fbab9a4a83a41dca47"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "process_kill_during_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_process_kill_recovered_old_tip",
+      "receipt": {
+        "path": "tamper/process_kill_during_commit.json",
+        "sha256": "2956ccf4a699d17339b3feace0876f734204015d023a61b94606562ef6684799"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "process_kill_after_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_process_kill_recovered_new_tip",
+      "receipt": {
+        "path": "tamper/process_kill_after_commit.json",
+        "sha256": "3be7a8a90065fb7538c567c39084637ac382c2368a7dea77a667eb9498841491"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "power_loss_before_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_power_loss_recovered_old_tip",
+      "receipt": {
+        "path": "tamper/power_loss_before_commit.json",
+        "sha256": "1cbb14ab578760ec4300fdb72ddba36db5810dc6acac6dec6fdde1049aa4d213"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "power_loss_during_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_power_loss_recovered_old_tip",
+      "receipt": {
+        "path": "tamper/power_loss_during_commit.json",
+        "sha256": "ba42ea81921d7c5937c16cb2395fd2b9179ac469bd60fa1e2e9da28a72f9aed8"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "power_loss_after_commit",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_power_loss_recovered_new_tip",
+      "receipt": {
+        "path": "tamper/power_loss_after_commit.json",
+        "sha256": "3cd647263bd111207f3be40f757e51cf56f625433c36394deac445133ba63206"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "restart_after_transaction_cut",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_restart_recovered_old_tip",
+      "receipt": {
+        "path": "tamper/restart_after_transaction_cut.json",
+        "sha256": "8146c583686c2bc438fb0954a9f06c8df9c885bd534e9a80229d06a67366296a"
+      },
+      "terminal_state": "recovered_old_tip"
+    },
+    {
+      "name": "restart_after_activation_journal_cut",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_restart_recovered_new_tip",
+      "receipt": {
+        "path": "tamper/restart_after_activation_journal_cut.json",
+        "sha256": "5df88d69a140f831e9c89425453c8d8eb661e66dc997cb7dcf7546e7688a16c8"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "repeated_recovery",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_repeated_recovery_idempotent",
+      "receipt": {
+        "path": "tamper/repeated_recovery.json",
+        "sha256": "c9805afa8526b6f6d8acc3d190be4acacef7ea31e9fca60a481ec31800254dd7"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "idempotent_retry",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_idempotent_retry_same_tip",
+      "receipt": {
+        "path": "tamper/idempotent_retry.json",
+        "sha256": "e22a46f2f42ade069ab2227a9be1323a268f627822c93269207a9d9013209295"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "migration_activation_cancellation_restart",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_commitment_activation_cancelled",
+      "receipt": {
+        "path": "tamper/migration_activation_cancellation_restart.json",
+        "sha256": "bbe943139a48b590b0bbb7678a7a5a0f050e70a35edf4e1994e52df748baedef"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "pre_activation_rollback",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_commitment_activation_cancelled",
+      "receipt": {
+        "path": "tamper/pre_activation_rollback.json",
+        "sha256": "5b7203e8f966751c3fce1b1c50c3f71514d8b5fca3ff64d22d396ec6208efa75"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "post_activation_restart_replay",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_transactional_restart_replayed",
+      "receipt": {
+        "path": "tamper/post_activation_restart_replay.json",
+        "sha256": "03ea1a6ca3eef2842a6dc4a9bb408540a3d7779c61913f1da669a90df36dda81"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "compatible_post_activation_software_rollback",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_compatible_rollback_resumed_same_certified_tip",
+      "receipt": {
+        "path": "tamper/compatible_post_activation_software_rollback.json",
+        "sha256": "5ea0dfef2e7f1ce1c0523235bceab4c85e5e9d03a51d404e3291cb1596385d29"
+      },
+      "terminal_state": "recovered_new_tip"
+    },
+    {
+      "name": "missing_snapshot",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_snapshot_missing",
+      "receipt": {
+        "path": "tamper/missing_snapshot.json",
+        "sha256": "bbedf22f22ba7d620d68c4758058bcb7421bbd0df735d8fb226e4b78de165465"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_snapshot",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_snapshot_integrity_failure",
+      "receipt": {
+        "path": "tamper/substituted_snapshot.json",
+        "sha256": "79e65dcc1039b11d0639bbdc2f6176865bbb75fbec11cce908ae0e03c0cb3334"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "missing_migration_manifest",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_migration_manifest_missing",
+      "receipt": {
+        "path": "tamper/missing_migration_manifest.json",
+        "sha256": "283735ac61b0b607360fb31588b11d7797a6f0887cac68f41e98cf7db8724abe"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "substituted_migration_manifest_checksum",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_migration_manifest_checksum_mismatch",
+      "receipt": {
+        "path": "tamper/substituted_migration_manifest_checksum.json",
+        "sha256": "80d96942194afc319c8d2469ebcfd1ac08c8715fec187a795d304993ef7eba64"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    },
+    {
+      "name": "tampered_snapshot",
+      "no_partial_mutation": true,
+      "passed": true,
+      "reason_code": "storage_snapshot_integrity_failure",
+      "receipt": {
+        "path": "tamper/tampered_snapshot.json",
+        "sha256": "c3a378e96deb6f8c8e47ae49c21b6cb61f69a518f9f25d432734237bd3e75ff5"
+      },
+      "terminal_state": "rejected_voting_blocked"
+    }
+  ],
+  "coverage_complete": true,
+  "network_contacted": false,
+  "offline": true,
+  "schema": "postfiat-storage-scaling-tamper-matrix-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "status": "PASS",
+  "uncovered_requirements": [],
+  "unique_test_count": 37
+}

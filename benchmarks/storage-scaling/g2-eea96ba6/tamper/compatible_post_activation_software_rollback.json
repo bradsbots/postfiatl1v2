@@ -1,0 +1,24 @@
+{
+  "name": "compatible_post_activation_software_rollback",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_compatible_rollback_resumed_same_certified_tip",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_new_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "ff66a11a2f8f6576666692650b2b9e81b51d9f1333860c9b2f19aa532384f90d",
+      "executed_test_count": 1,
+      "package": "postfiat-storage-rollback-rehearsal",
+      "report": {
+        "path": "tamper/evidence/compatible-rollback-report.json",
+        "sha256": "c64882e6c76c6e9848c5272ed5939d8c5cb7828a9d9ae9cb3fdffc8a1c7e0ee1"
+      },
+      "result": "passed",
+      "test_filter": "compatible_post_activation_software_rollback"
+    }
+  ]
+}

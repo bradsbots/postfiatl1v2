@@ -1,0 +1,20 @@
+{
+  "name": "repeated_recovery",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_repeated_recovery_idempotent",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_new_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "89f872ebf12b1dc5f7e9d3bdba338da9cffcb5f033523c556696a30d16946254",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ordered_history_v2_activation_journal_recovers_every_persist_prefix"
+    }
+  ]
+}

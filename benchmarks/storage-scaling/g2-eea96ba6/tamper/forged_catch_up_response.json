@@ -1,0 +1,34 @@
+{
+  "name": "forged_catch_up_response",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "catch_up_response_rejected",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "rejected_voting_blocked",
+  "test_receipts": [
+    {
+      "command_sha256": "11dc60cab2e6a6b4122a1aef9899102022f7ceca8d20e3874acacdb22ca1cc6b",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "catch_up_rejects_malformed_batches_without_durable_mutation"
+    },
+    {
+      "command_sha256": "ca4d44273ad3efb70d6c69fda2101169aab9b6e3adcb7397217e9e1cae6dfa8d",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "historical_external_certificate_rejects_wrong_local_parent_without_mutation"
+    },
+    {
+      "command_sha256": "ee91f1a2566e7ec80d7e9e86fa0434583f4a86b08af1c20657405a99deaeb679",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ambiguous_active_transactional_state_blocks_vote_without_mutation"
+    }
+  ]
+}

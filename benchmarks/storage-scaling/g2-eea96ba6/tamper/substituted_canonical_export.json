@@ -1,0 +1,34 @@
+{
+  "name": "substituted_canonical_export",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_canonical_export_substituted",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "rejected_voting_blocked",
+  "test_receipts": [
+    {
+      "command_sha256": "f82bb99d4b69a128df1f3befff50313988064a86dd5eff0c6f8447b594d4e0e7",
+      "executed_test_count": 1,
+      "package": "postfiat-storage",
+      "result": "passed",
+      "test_filter": "canonical_jsonl_export_rejects_missing_corrupted_and_substituted_files_without_database_mutation"
+    },
+    {
+      "command_sha256": "ea9f0efe0b3381bc2e1b8b28df0745c86b401bda5c8ca3ec18ace1ce538e4c0f",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "transactional_rebuild_replays_publishes_and_verifies_a_legacy_generation"
+    },
+    {
+      "command_sha256": "ee91f1a2566e7ec80d7e9e86fa0434583f4a86b08af1c20657405a99deaeb679",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ambiguous_active_transactional_state_blocks_vote_without_mutation"
+    }
+  ]
+}

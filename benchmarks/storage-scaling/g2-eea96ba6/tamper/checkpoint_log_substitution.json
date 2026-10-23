@@ -1,0 +1,27 @@
+{
+  "name": "checkpoint_log_substitution",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_legacy_jsonl_head_domain_mismatch",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "rejected_voting_blocked",
+  "test_receipts": [
+    {
+      "command_sha256": "98eea6f326f02f00679312107118636b72e139956fd9e4f1402f0d9e2b4eebb6",
+      "executed_test_count": 1,
+      "package": "postfiat-storage",
+      "result": "passed",
+      "test_filter": "jsonl_checkpoint_cannot_be_substituted_between_log_kinds"
+    },
+    {
+      "command_sha256": "ee91f1a2566e7ec80d7e9e86fa0434583f4a86b08af1c20657405a99deaeb679",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ambiguous_active_transactional_state_blocks_vote_without_mutation"
+    }
+  ]
+}

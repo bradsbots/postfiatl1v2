@@ -166,6 +166,53 @@ REPLAY_FLAGS = (
 )
 
 
+def copy_verify_only(
+    packet: Path,
+    legacy_report_path: Path,
+    legacy: dict[str, Any],
+    receipt: dict[str, Any],
+) -> dict[str, Any]:
+    """Copy the height-924 `--verify-only` output byte for byte and bind its sentinels."""
+    sentinel = legacy.get("independent_verify_only")
+    if not isinstance(sentinel, dict):
+        raise ValueError("legacy height-924 report omitted its independent verify-only run")
+    source = resolve_report_reference(legacy_report_path, sentinel.get("output"))
+    output = read_json(source)
+    tip = output.get("source_tip")
+    if (
+        output.get("schema") != "postfiat-storage-migration-report-v1"
+        or output.get("verify_only") is not True
+        or output.get("published") is not False
+        or not isinstance(tip, dict)
+        or tip.get("height") != 924
+    ):
+        raise ValueError("independent verify-only output is not a PASS")
+    trees: dict[str, str] = {}
+    for prefix in ("clone", "target"):
+        before = sentinel.get(f"{prefix}_tree_sha256_before")
+        if (
+            not isinstance(before, str)
+            or re.fullmatch(r"[0-9a-f]{64}", before) is None
+            or sentinel.get(f"{prefix}_tree_sha256_after") != before
+        ):
+            raise ValueError("independent verify-only changed the clone or target tree")
+        trees[f"{prefix}_tree_sha256_before"] = before
+        trees[f"{prefix}_tree_sha256_after"] = before
+    if (
+        tip.get("block_hash") != receipt.get("tip_hash")
+        or tip.get("state_root") != receipt.get("state_root")
+        or output.get("migration_packet_root") != receipt.get("migration_packet_root")
+        or output.get("logical_store_report") != receipt.get("logical_store_report")
+        or output.get("canonical_export_receipt") != receipt.get("canonical_export_receipt")
+    ):
+        raise ValueError(
+            "independent verify-only output disagrees with the height-924 receipt"
+        )
+    destination = packet / "replay" / "height-924-verify-only.json"
+    copy_file(source, destination)
+    return {"output": reference(packet, destination), **trees}
+
+
 def copy_replacement_replay(
     packet: Path,
     legacy_report_path: Path,
@@ -215,6 +262,7 @@ def copy_replacement_replay(
         raise ValueError("height-924 replay receipt is not an exact replay")
     receipt_destination = packet / "replay" / "height-924.json"
     copy_file(receipt_source, receipt_destination)
+    verify_only = copy_verify_only(packet, legacy_report_path, legacy, receipt)
 
     base = packet / "replay" / f"signed-archive-{height}"
     archive_destination = base / "receipts" / archive_receipt_path.name
@@ -240,6 +288,7 @@ def copy_replacement_replay(
         "state_root": legacy.get("state_root"),
         "ordered_history_accumulator": legacy.get("ordered_history_accumulator"),
         "receipts": [reference(packet, receipt_destination)],
+        "independent_verify_only": verify_only,
         "quarantine_archive_replacement": {
             **QUARANTINE_REPLACEMENT,
             "receipt": reference(packet, archive_destination),

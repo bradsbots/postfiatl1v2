@@ -1,0 +1,27 @@
+{
+  "name": "substituted_snapshot",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_snapshot_integrity_failure",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "rejected_voting_blocked",
+  "test_receipts": [
+    {
+      "command_sha256": "21e7788b9b89cd469ac8407c53df3d7ad25609b128d1389f4ffeefe1bb724980",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "signed_snapshot_roundtrip_rejects_tampering_and_preserves_signer_isolation"
+    },
+    {
+      "command_sha256": "ee91f1a2566e7ec80d7e9e86fa0434583f4a86b08af1c20657405a99deaeb679",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ambiguous_active_transactional_state_blocks_vote_without_mutation"
+    }
+  ]
+}

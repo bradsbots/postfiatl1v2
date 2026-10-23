@@ -1,0 +1,20 @@
+{
+  "name": "process_kill_after_commit",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_process_kill_recovered_new_tip",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_new_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "8cdba50b5facf1588e8b1310b7f87a26f8ea89f203b71fabb3ef861b3a65ebd8",
+      "executed_test_count": 1,
+      "package": "postfiat-storage",
+      "result": "passed",
+      "test_filter": "sigkill_before_during_and_after_commit_recovers_one_complete_tip"
+    }
+  ]
+}

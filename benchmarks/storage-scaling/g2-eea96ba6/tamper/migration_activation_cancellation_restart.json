@@ -1,0 +1,34 @@
+{
+  "name": "migration_activation_cancellation_restart",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_commitment_activation_cancelled",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_new_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "ea9f0efe0b3381bc2e1b8b28df0745c86b401bda5c8ca3ec18ace1ce538e4c0f",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "transactional_rebuild_replays_publishes_and_verifies_a_legacy_generation"
+    },
+    {
+      "command_sha256": "c1f4f49ed201ccd583b88f1e28a30b4bbec414ffce482a56517e05e33b3babe6",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "existing_chain_storage_activation_can_cancel_only_before_cutover"
+    },
+    {
+      "command_sha256": "89f872ebf12b1dc5f7e9d3bdba338da9cffcb5f033523c556696a30d16946254",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ordered_history_v2_activation_journal_recovers_every_persist_prefix"
+    }
+  ]
+}

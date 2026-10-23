@@ -1,0 +1,72 @@
+{
+  "campaign_id": "cobalt-e3-adversarial-recovery-v1",
+  "forged_catch_up_cases": [
+    "fabricated_transition",
+    "wrong_root_certificate",
+    "omitted_latest_update"
+  ],
+  "frozen_at": "2026-08-25T18:35:56Z",
+  "history_entry_count": 4,
+  "live_binding": {
+    "activation_source": {
+      "path": "benchmarks/cobalt-activation-live/packet/activation-status.json",
+      "sha256": "625cbe7c2a265cebea4ce43779bde10d803ca240b383b106513acac10676e18c"
+    },
+    "chain_id": "postfiat-wan-devnet-2",
+    "clone_activation_height": 917,
+    "clone_graph_version": 1,
+    "clone_previous_trust_graph_root": null,
+    "genesis_hash": "ce22ca8c932da0998b484483a09647138a30e0bf44408dd49a8d6d452787ad25521aff3ed334da07e150a7233a3e90a9",
+    "protocol_version": 1,
+    "quorum": 5,
+    "recorded_trust_graph_root": "9221316ae7f0f0e7e58d734700167f73f29aa1240377a8d61c637e7f36c5deb728203fcbb283c9f8f3398fc41d6b8b13",
+    "registry_root": "945768d593497541f59961d1ba3920560cfde7bf5037e40eb89dd5466637f221709bff05b69d2d40a36d5cff8505c37e",
+    "state_source": {
+      "path": "benchmarks/cobalt-activation-live/packet/state-verification.json",
+      "sha256": "4779c14e552533561939e12bea7d84b3a140fce5b3efd135dd6dcc95f169f99d"
+    },
+    "validators": [
+      "validator-0",
+      "validator-1",
+      "validator-2",
+      "validator-3",
+      "validator-4",
+      "validator-5"
+    ]
+  },
+  "rebound_from": {
+    "path": "benchmarks/cobalt-adversarial-verification/e3/campaign-manifest.json",
+    "policy": "same frozen cases and live binding, current source hashes",
+    "sha256": "c23320d47d631efdd74c1e5c6c541951f452a4de9b14eb583f9d888b77167fa7"
+  },
+  "schema": "postfiat-cobalt-adversarial-e3-campaign-manifest-v1",
+  "source_files": [
+    {
+      "path": "docs/governance/cobalt-adversarial-verification-research-spec.md",
+      "sha256": "798dd183d8033ead11851b68ae074dadb7b7e37b9214a5a797f8d7f91e4f3812"
+    },
+    {
+      "path": "crates/node/src/cobalt_shadow.rs",
+      "sha256": "d5fc32831f27225ce0a57ac039f0655e6109e611c802c9cdc9ac2a7be9d4dc31"
+    },
+    {
+      "path": "crates/node/src/cobalt_shadow_runtime.rs",
+      "sha256": "4f3701dbe880337d9c06c1c6da8216f456c0eb1278369e380cbd2b22ac98d0f4"
+    },
+    {
+      "path": "crates/node/src/bin/postfiat_cobalt_liveness_simulation.rs",
+      "sha256": "a86bee86a65e75a1be0cef43f68053860cc92831acb710e71b85f7edf46a19d6"
+    },
+    {
+      "path": "crates/cobalt_e3_harness/src/main.rs",
+      "sha256": "97b47ddfe956f484c038fc8ad642723c10587289ba07cf40b6e3ee606dcd62e0"
+    }
+  ],
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "tamper_cases": [
+    "truncated",
+    "padded",
+    "reordered",
+    "one_entry_modified"
+  ]
+}

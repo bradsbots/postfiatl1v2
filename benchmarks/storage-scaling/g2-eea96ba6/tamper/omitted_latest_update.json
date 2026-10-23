@@ -1,0 +1,43 @@
+{
+  "name": "omitted_latest_update",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "required_latest_update_omitted",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "rejected_voting_blocked",
+  "test_receipts": [
+    {
+      "command_sha256": "7804c6e0bce30b7da5ee75cff5a5e8f454554ce1ea9a34ddeaea1e35c3000851",
+      "executed_case_count": 48,
+      "manifest": {
+        "path": "tamper/evidence/original-e3-current-source-manifest.json",
+        "sha256": "7074d496db7f7ab93e668919d45d41d046de826e0bd56243d3793dca7863fae4"
+      },
+      "package": "postfiat-cobalt-e3-harness",
+      "report": {
+        "path": "tamper/evidence/original-e3-campaign.json",
+        "sha256": "744a1d60d6ba880f77f425240480909092bb8d7059848994ff678b4195b75136"
+      },
+      "result": "passed",
+      "test_filter": "__full_campaign__",
+      "verify_command_sha256": "09362153f9f960a89110148e40b37820814a2bd0472e31a5b283079b442c04e8"
+    },
+    {
+      "command_sha256": "11dc60cab2e6a6b4122a1aef9899102022f7ceca8d20e3874acacdb22ca1cc6b",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "catch_up_rejects_malformed_batches_without_durable_mutation"
+    },
+    {
+      "command_sha256": "ee91f1a2566e7ec80d7e9e86fa0434583f4a86b08af1c20657405a99deaeb679",
+      "executed_test_count": 1,
+      "package": "postfiat-node",
+      "result": "passed",
+      "test_filter": "ambiguous_active_transactional_state_blocks_vote_without_mutation"
+    }
+  ]
+}

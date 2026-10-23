@@ -1,0 +1,62 @@
+{
+  "activated_commitment_understood": true,
+  "all_six_converged": true,
+  "bounded_index_pages": true,
+  "chain_id": "postfiat-storage-scaling-local-v1",
+  "consensus_activation_height": 2,
+  "constant_accumulator_work": true,
+  "current_binary": {
+    "git_revision": "86706699",
+    "profile": "release",
+    "sha256": "eea96ba6761ed223047d7781663100d34efe5641d36031bd50874bd9c8b41f36",
+    "source_revision": "86706699f646405743385beabf609c6771a518a3"
+  },
+  "devnet_queried_or_mutated": false,
+  "evidence_eligible": true,
+  "forward_recovery_with_current_binary": true,
+  "identities": {
+    "current_post_activation": {
+      "height": 2,
+      "state_root": "d3a615b738d3791a9cdd8e96121a96ea052e20040546aec377940b537a37ba670aaf2c6a2a2a8228a220e9a3c607acee",
+      "tip": "33a284698fc1a26e31d0b37800ed51d099247a6efd0e9ce23438064d8544d91c29d9476d5417afde8f522d517612fa07"
+    },
+    "forward_finalized": {
+      "height": 4,
+      "state_root": "713996212105bcda6bbc6d6e9c1cd304a654c75b6f16ae228c6b6c30c83075ce98764ff0f058dce0c5f8a7ef3200efb5",
+      "tip": "b886788c264dd66c46975796d38ab9bd3d8d875585c8f9a03455835fca2f6dce06708895689afba60c51c972754c7ff7"
+    },
+    "forward_resume_input": {
+      "height": 3,
+      "state_root": "c8a306f34afe654899f8c139066607e60bb2cba0f88672e54536551a3bd2decdc2027ba39ea3fe6de111d7ec94fa839b",
+      "tip": "8e016252d911ec7fd90519c0b2a04a9a933988ef0750814137973589967a83b68b85380740113dd1a13e56923bde9fe9"
+    },
+    "rollback_finalized": {
+      "height": 3,
+      "state_root": "c8a306f34afe654899f8c139066607e60bb2cba0f88672e54536551a3bd2decdc2027ba39ea3fe6de111d7ec94fa839b",
+      "tip": "8e016252d911ec7fd90519c0b2a04a9a933988ef0750814137973589967a83b68b85380740113dd1a13e56923bde9fe9"
+    },
+    "rollback_resume_input": {
+      "height": 2,
+      "state_root": "d3a615b738d3791a9cdd8e96121a96ea052e20040546aec377940b537a37ba670aaf2c6a2a2a8228a220e9a3c607acee",
+      "tip": "33a284698fc1a26e31d0b37800ed51d099247a6efd0e9ce23438064d8544d91c29d9476d5417afde8f522d517612fa07"
+    }
+  },
+  "literal_receipts_exact": true,
+  "network_contacted": false,
+  "offline": true,
+  "post_activation_finality_with_rollback_binary": true,
+  "resumed_same_certified_tip": true,
+  "rollback_binary": {
+    "git_revision": "0fa55d0b",
+    "profile": "release",
+    "sha256": "decaa411376a125fb377a29037b6dd470afb2208a268d30a3ce8130f571b370f",
+    "source_revision": "0fa55d0b650731d8617d62284946c73f72641cb7"
+  },
+  "rollback_source_is_ancestor": true,
+  "schema": "postfiat-storage-compatible-rollback-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "status": "PASS",
+  "storage_activation_height": 1,
+  "validator_count": 6,
+  "zero_full_history_reads": true
+}

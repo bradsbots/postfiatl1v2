@@ -1,0 +1,27 @@
+{
+  "name": "permission_loss",
+  "network_contacted": false,
+  "no_partial_mutation": true,
+  "offline": true,
+  "passed": true,
+  "reason_code": "storage_database_error",
+  "schema": "postfiat-storage-tamper-receipt-v1",
+  "source_revision": "86706699f646405743385beabf609c6771a518a3",
+  "terminal_state": "recovered_old_tip",
+  "test_receipts": [
+    {
+      "command_sha256": "bcb320576fb669669c5193e8626ad339a6155db6708aa608333cf6bc3d7aa737",
+      "executed_test_count": 1,
+      "package": "postfiat-storage",
+      "result": "passed",
+      "test_filter": "dropped_transaction_at_every_logical_write_cut_exposes_only_old_tip"
+    },
+    {
+      "command_sha256": "ae9024d9319a923819b8173ccd3ec63cb37d8fbb79d319cf55d0e79d0ca8290c",
+      "executed_test_count": 1,
+      "package": "postfiat-storage",
+      "result": "passed",
+      "test_filter": "injected_disk_permission_write_and_sync_failures_preserve_the_old_tip"
+    }
+  ]
+}

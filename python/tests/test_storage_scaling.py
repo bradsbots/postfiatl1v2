@@ -2040,6 +2040,10 @@ SIGNED_ARCHIVE_STEPS = (
 def _replace_915_with_signed_archive(
     packet: Path,
     receipt_mutation: Callable[[dict[str, object]], None] | None = None,
+    *,
+    verify_only: bool = True,
+    verify_only_mutation: Callable[[dict[str, object]], None] | None = None,
+    sentinel_mutation: Callable[[dict[str, object]], None] | None = None,
 ) -> None:
     """Turn a passing pair packet into the 1123-canary replacement shape."""
     revision = "b" * 40
@@ -2129,6 +2133,45 @@ def _replace_915_with_signed_archive(
         for reference in replay["receipts"]
         if reference["path"] != "replay/height-915.json"
     ]
+    if verify_only:
+        receipt_924_path = packet / "replay" / "height-924.json"
+        receipt_924 = json.loads(receipt_924_path.read_text(encoding="utf-8"))
+        receipt_924["migration_packet_root"] = "f" * 96
+        receipt_924["logical_store_report"] = {
+            "schema": "postfiat-storage-logical-integrity-v1",
+            "backend": "redb",
+            "finalized_height": 924,
+            "block_count": 924,
+        }
+        _write_json(receipt_924_path, receipt_924)
+        replay["receipts"] = [_reference(packet, receipt_924_path)]
+        output: dict[str, object] = {
+            "schema": "postfiat-storage-migration-report-v1",
+            "verify_only": True,
+            "published": False,
+            "source_tip": {
+                "height": 924,
+                "block_hash": receipt_924["tip_hash"],
+                "state_root": receipt_924["state_root"],
+            },
+            "migration_packet_root": receipt_924["migration_packet_root"],
+            "logical_store_report": receipt_924["logical_store_report"],
+            "canonical_export_receipt": receipt_924["canonical_export_receipt"],
+        }
+        if verify_only_mutation is not None:
+            verify_only_mutation(output)
+        output_path = packet / "replay" / "height-924-verify-only.json"
+        _write_json(output_path, output)
+        sentinel: dict[str, object] = {
+            "output": _reference(packet, output_path),
+            "clone_tree_sha256_before": "1" * 64,
+            "clone_tree_sha256_after": "1" * 64,
+            "target_tree_sha256_before": "2" * 64,
+            "target_tree_sha256_after": "2" * 64,
+        }
+        if sentinel_mutation is not None:
+            sentinel_mutation(sentinel)
+        replay["independent_verify_only"] = sentinel
     replay["quarantine_archive_replacement"] = {
         "replaced_height": 915,
         "replacement_height": REPLACEMENT_HEIGHT,
@@ -3013,6 +3056,80 @@ class StorageScalingVerifierTests(unittest.TestCase):
             self.assertEqual(replacement["trusted_publisher_file_sha256"], "5" * 64)
             self.assertIn("lost", replacement["reason"])
             self.assertIn("1123", replacement["reason"])
+
+    def test_storage_scaling_packet_rejects_replacement_without_verify_only_output(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _replace_915_with_signed_archive(packet, verify_only=False)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "independent verify-only",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_changed_verify_only_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _replace_915_with_signed_archive(packet)
+            output = packet / "replay" / "height-924-verify-only.json"
+            value = json.loads(output.read_text(encoding="utf-8"))
+            value["published"] = True
+            _write_json(output, value)
+            _write_checksums(packet)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "independent verify-only output reference",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_publishing_verify_only_output(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def published(output: dict[str, object]) -> None:
+                output["published"] = True
+
+            _replace_915_with_signed_archive(packet, verify_only_mutation=published)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "independent verify-only output is not a PASS",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_verify_only_identity_split(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def other_root(output: dict[str, object]) -> None:
+                output["migration_packet_root"] = "e" * 96
+
+            _replace_915_with_signed_archive(packet, verify_only_mutation=other_root)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "independent verify-only output disagrees with the height-924 receipt",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_verify_only_tree_mutation(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def mutated(sentinel: dict[str, object]) -> None:
+                sentinel["target_tree_sha256_after"] = "3" * 64
+
+            _replace_915_with_signed_archive(packet, sentinel_mutation=mutated)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "independent verify-only changed the clone or target tree",
+            ):
+                verify_packet(packet)
 
     def test_storage_scaling_legacy_pair_report_is_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
