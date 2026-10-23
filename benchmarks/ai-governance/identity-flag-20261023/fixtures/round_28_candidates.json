@@ -1,0 +1,498 @@
+{
+ "candidates": [
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "n9LCvnbesKjbVgyWQCkGXAHsGP492hr9T9sTNKu7pCWPve5Si45m"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHB28WprRtLAhV9H6mvhsUH181K3HGgYjoKaEKq3BdtJCUxYLGUU"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHB6Zc7mhr7swksEgpwTE7Hw7SvZ9cz22T2MECMSXjBeMTeHXQB7.md",
+   "packet_sha256": "03f7f9555f5e825d3f871b62d9d318d5458c199db9ca8c2bc82dfeb998130f2b",
+   "validator_id": "nHB6Zc7mhr7swksEgpwTE7Hw7SvZ9cz22T2MECMSXjBeMTeHXQB7"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHB81SsiwsituuAUrSx2j6kho5YdY5AwQ6SZLSqEiAKhzUQVHq53"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBAToXoTH6eZtC1cMJDvjG7eRb7ufZ3GUpeisvNVT4ofruRdVvd"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHBM2nzq3pZUg8JsxvEt3G7gAAtc5Sukaef6YmvVx64uAoRK4QWM.md",
+   "packet_sha256": "1227105a2db429809861f8bd3e50878ab01071554623c893e1104280beb68e21",
+   "validator_id": "nHBM2nzq3pZUg8JsxvEt3G7gAAtc5Sukaef6YmvVx64uAoRK4QWM"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBPPh2sRYnJVRLud9mTp4292VNiFWYRkGTaE4AsqVUFLxZxMtxN"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBRLUW3tRVq1LyvSV6atV3xYbdnw6rigRi6rNwSGFCBnkTAyj3o"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBTv4UpxUn2TWcLQHkKPWtycNXkbFeggFmbXtQYRd6kq5XH2J4B"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBVTAUpHEoEctXcAWyC7nJhxUYULWKz1WZCuC1tSm2VnCxDshVS"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBWFVzxVYAVQNUFHoqnHw2SWhXKy1kKRr7oYAMFeu22rqsCLYCN"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHBYKjxjbzxRzrS3XkhpgM7KXJ25jbgPHkbAjjSCQPm8PaPS5y4v.md",
+   "packet_sha256": "19ac8aca50857ec8a05cec12f9082bcc5a8c3a20b23b242efa255448709ab085",
+   "validator_id": "nHBYKjxjbzxRzrS3XkhpgM7KXJ25jbgPHkbAjjSCQPm8PaPS5y4v"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBb2uHHY8V78qWQT3P6ADkFz4pRyEgJpA2pEqmQyTHuxXHccBzM"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHBcLEB4S6moQGrhMjJo1jbp58WL5psHY9EMDWNAtdqykUYiA1rF.md",
+   "packet_sha256": "5f5f210f80bbe16eca5a97b67b89a71a51fb112d81d2a53d2606db5b24ab1297",
+   "validator_id": "nHBcLEB4S6moQGrhMjJo1jbp58WL5psHY9EMDWNAtdqykUYiA1rF"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBcLk5r1DVTpAGK8BkBtL7DPpGgp6mmB5MfkzB23MhcAEQHKCf1"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBcnQZ9a9UjZ7hbj9zWVXZ9kTcqheUkui32YdBTpQeAsE6BxWNG"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBgZupJspDsrg7mex4Z2vBQXqoN2aTHaLgf8jGxMDPw4MWLh3J6"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHBmj7zUY2yMc9f5wgNcCuWj79BUieNmc1GG8PqiEP1tgNZZWLVM.md",
+   "packet_sha256": "55860fb339152c8d831121365ccc4086fc89fa4bf09e932dcf14b8a26368fa4e",
+   "validator_id": "nHBmj7zUY2yMc9f5wgNcCuWj79BUieNmc1GG8PqiEP1tgNZZWLVM"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBoG3rHafA3U3Yfs388GTA9z8t5ocE67qjhgb8aXkfYnDCM5CNE"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBtS3cC2UDzoSANr9nz6HrLYaDY9uYJD2zs649dkLxN6pBfLFiu"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBxQ3srN8ErMvfMgsJ3jycSSaMFyHMk5WbrJVUTXPZgNh1VdbHH"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHBxxNuWsJXkzLk332ADxt1T18N1e9BSYjekjGNVCPfV813tSdvx"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHByMXejvHJgjcGJ1f9bhcAGcFeNR6ecsDmzN4t3HkhyRHZtM6Lj.md",
+   "packet_sha256": "9721b9a71622d59bfef1bf98d848d9bdd2d72be9f74ec747d31efa6390284cab",
+   "validator_id": "nHByMXejvHJgjcGJ1f9bhcAGcFeNR6ecsDmzN4t3HkhyRHZtM6Lj"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHD3ChJfpjf9SwNxiWhUG6VKGyWLHcGaU6WKZR4JHZFWxYoLNyf2"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHD3sPmhNtVXTXrZAGhsfHRhxhzFXKHNNxemTtGFr69SRd9q88dZ"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHDDmWaS6iP8HNJ6rMGL2LupMVkVaCv3C9yaKnoQ39eQR79EUj48"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHDHCvsJi8UwHMAbkinuJhPYsG5ZR9rtmGAjJZwo8uibf8N1tz3e.md",
+   "packet_sha256": "316593dd993aed8e209ccdd540314a667abf627ec60d0ca6cf30413960b1b944",
+   "validator_id": "nHDHCvsJi8UwHMAbkinuJhPYsG5ZR9rtmGAjJZwo8uibf8N1tz3e"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHDUqGoM7KR1pgbdYBRgKpGKdFLhpnMzVbECs8RE73RGZm3Va6MJ"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHDfSHLutR7QqttAkx3AiYG2bukCdfAa3P9hrYL4yNJZQpvEpW1A.md",
+   "packet_sha256": "46a332740476c4ed5423df4bde54410371f8c6ad473162175e5948b7287bd323",
+   "validator_id": "nHDfSHLutR7QqttAkx3AiYG2bukCdfAa3P9hrYL4yNJZQpvEpW1A"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHDw5erSdzhtZ7khjHeotRywM6WyPgJp6sUSewscoqLgC6LGATzn"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHU187ZGFcGHbLPbpdTgQyN3Ehp7dJJzr8huvEpeF3EziSsWhJuR"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHU3TeyW4FPHxjoP1PoF4Ak5VMc8ABwrrzKjBww7rYA9PKdPoSCN"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHU5tRRbniyStcsTe8HbCnyREyQ9Es5KpVGvfyub6haQ5eC9hqr5"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHU74qX4tCQDSpE6zBS5PB3jybuGZJ7QMbeyLWDQRy3Lhb4DYDSR.md",
+   "packet_sha256": "59abc106fb2833e9f406f3a744cbec7276b1629df626e9748356275ca05650a9",
+   "validator_id": "nHU74qX4tCQDSpE6zBS5PB3jybuGZJ7QMbeyLWDQRy3Lhb4DYDSR"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHU8mFbfVTh1yTD5h6uyXkLSk6E9UjBqiUtXQ2tFXmPDeUv9HwLo"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUCEXpC5LhFAm1Mmf8TqrzVGt3QCuwWoW2V8PYynDpjZe8m8mHj.md",
+   "packet_sha256": "299cfce7441b02d62c10bac3afb57a1946daf4cff5ece25d3800e415b82eb97c",
+   "validator_id": "nHUCEXpC5LhFAm1Mmf8TqrzVGt3QCuwWoW2V8PYynDpjZe8m8mHj"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUSghNbHJoUbgAHsWHNb5Vu3E6YWrzGw1tYWtyTbP8WAf5v6Et1"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUUTCL2PRuNsRfcbtsSL6z4DJx4fvHNciiVcqeP1fLK8LCEf5C2"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUUXMXfPEdnKAT8u2AB89LxTWT1tWsTecDPQURoMw2XJ2WP85MK.md",
+   "packet_sha256": "c611af9c1609b1e3a48b0d8527420afff3b27f88932a589e7552742d65272aad",
+   "validator_id": "nHUUXMXfPEdnKAT8u2AB89LxTWT1tWsTecDPQURoMw2XJ2WP85MK"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUUz9WsyGPkNgEyLkuQGofh4PP2kXTq9XBjS1JiNRfFaZL8HnkH"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUVxTi8XfXjaaJppw7mLSrYDRpkDpf8H9ypzgVKxfSXShcWwAoK"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUW82415dUNULY4juLTFzoWpqZSPbrXv2uPRnijX8vuJCjNs3eY"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUWciHX8W9PgM3sQmgkRiKpkuaJjTxFSyvZce4bP4WeMz81HefX.md",
+   "packet_sha256": "acad1f71d897cd9618336e664ae4b91f006391038cdf1d52571d578ca5f346ba",
+   "validator_id": "nHUWciHX8W9PgM3sQmgkRiKpkuaJjTxFSyvZce4bP4WeMz81HefX"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUWhB3aXkJxWeRhPzBeE1Vqhz3FiGHGHfnCkJ7Ak5vrrYWaeqZh"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUXzRZk3CYqATxqjBdaKSvcmNDJLiYxkUcFiK4yVLSnzrZMBGdP"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUYXnP4KJ8nSdKkbQFfzUZrQyxbzwCUrxmW1uLmoD8XYzCYY5Qr"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUatddiVB2GN6zHHCk1gtepjANF8BdjPKuVcN6jwG2JwBYPea3k.md",
+   "packet_sha256": "605f2e34fe78f38592ce2e79ccfd6140ec41f3376146be686700c4dbde3b5c61",
+   "validator_id": "nHUatddiVB2GN6zHHCk1gtepjANF8BdjPKuVcN6jwG2JwBYPea3k"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUc7VSYA6xvFakSvuTojJQucBNukKwmtguUG2HMT9Xp9dKzkpvJ.md",
+   "packet_sha256": "e7a46167f441fe6f661d8e8b617dd2aa58b7fd52759d0a5d38495b9c1faf4342",
+   "validator_id": "nHUc7VSYA6xvFakSvuTojJQucBNukKwmtguUG2HMT9Xp9dKzkpvJ"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUdwzTWTQJzebbxcanZG2ERXikMLU9aAZa8cHtxosfiKq5N7Vd5.md",
+   "packet_sha256": "dd391f607994f54dbcc06c781e3c6ed805fd14681812c1e6946af658318e2d81",
+   "validator_id": "nHUdwzTWTQJzebbxcanZG2ERXikMLU9aAZa8cHtxosfiKq5N7Vd5"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUganJh2fSS4QxYnsAUphNo3ZKHLQ15ExX29QpAGkvu6vFajnuQ"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUhL4QzULuXt2WK5v5mvzEMZSo6wM9ZWUaaQC1eYw2qa1ATFw1c.md",
+   "packet_sha256": "e50a8ef34bc8cb273f9b95c92662d6787fad404296af6a1cf04ba9c2e1fa2e93",
+   "validator_id": "nHUhL4QzULuXt2WK5v5mvzEMZSo6wM9ZWUaaQC1eYw2qa1ATFw1c"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUif4sukXu9pJGyyBaeVMwmE8L1fJ5KJj4X4ksgTKhgjG6k96s2.md",
+   "packet_sha256": "b666341fdd12166bddc20984829a44c8fd512664a0c817abb7f73c51044d70bc",
+   "validator_id": "nHUif4sukXu9pJGyyBaeVMwmE8L1fJ5KJj4X4ksgTKhgjG6k96s2"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUkhbZe9ncdmhn6dbd5x7391ymwCS3YZEMWjysP9fSiDtau9YEe.md",
+   "packet_sha256": "6e973a910bc762eb00c0005d4db957d8100560211eae159da47a713e9f161ac8",
+   "validator_id": "nHUkhbZe9ncdmhn6dbd5x7391ymwCS3YZEMWjysP9fSiDtau9YEe"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUmoQrfBrSE3yjCtk5ZrCUTqwKCLv6t6SgK9oCuuMkoExEYxc8i"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUqwEgubPGfXqAdqLaU6xqrfcN2hSQ8YKVJu2pHraq1h7NXj1SP"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUso5gdgQnewAsk5QT1aFr897g6YLaL697iyuknmSqd7pbqz5Td.md",
+   "packet_sha256": "6bad5e69377795699e6ee15d17dbce0643299b63dde310f4961c4401d28744aa",
+   "validator_id": "nHUso5gdgQnewAsk5QT1aFr897g6YLaL697iyuknmSqd7pbqz5Td"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUudksKNfoJ9mLFPkw3aYLYoTYPxwjjAmTgAxqoLsQRASk8St8d"
+  },
+  {
+   "domain_verified": false,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUus5vM4463rd82Ws3YpcrREVrjHTBdoYgA6BdwDR3YcBiwG6hN"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": false,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUvKQbxx14GFyMaRB4vgu11x6pXrwMwX9yP5Ltgk4jp4SHbbgWA"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": null,
+   "packet_path": null,
+   "packet_sha256": null,
+   "validator_id": "nHUwdHGzvTM93oV38tMPSWZAWQ2Q6hVDS3XLQ32HPTUtcRASpayQ"
+  },
+  {
+   "domain_verified": true,
+   "incumbent": true,
+   "network": "postfiat",
+   "packet_path": "packets/postfiat/nHUzc5XzsmweRV6aNyUQJD5eRUM4TT4tVCBv5DKx6T7Buq4gn9Lr.md",
+   "packet_sha256": "58d8f42c3644a579e2d8957040e8a786aa6b5171721909ece9b678ee4b243b73",
+   "validator_id": "nHUzc5XzsmweRV6aNyUQJD5eRUM4TT4tVCBv5DKx6T7Buq4gn9Lr"
+  }
+ ],
+ "round": {
+  "input_package_hash": "87e605ea37e81fda52d58683c77c011ca02aaa70a3635f060104ce52f7b1d506",
+  "network": "testnet",
+  "round_number": 28
+ },
+ "schema": "postfiat.identity_flag.fixture.round.v1"
+}

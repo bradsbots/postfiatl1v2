@@ -437,3 +437,45 @@ there is no GPU run.
 10. **Where the artifacts live.** Lean: an l1v2 shadow artifact under the
     package until 1b ships the manifest section. The fork publishes nothing about
     flags before then.
+
+## Appendix A. Decisions of 2026-10-23
+
+Added on 2026-10-23, after the lock. AGENTS.md does not allow a specification
+that has passed the gate to be rewritten, so the decisions are recorded here
+and the text above is unchanged. The bytes above this appendix are the locked
+file of `6ba024e4` (SHA-256
+`24102687f2df5a53e77c52d169e1cd10c06523354cee36e12b1f2e9a9b4662fc`). The scored
+content hash in the status line does not cover this appendix.
+
+The operator adopted all ten leans of §11 as decisions on 2026-10-23:
+
+1. **Prompt.** A new prompt v1 asks the direction document's two questions.
+   The legitimacy prompt is never reused. Pinned file:
+   `benchmarks/ai-governance/identity-flag-20261023/prompt_v1.txt`, version
+   `postfiat.identity_flag.prompt.v1`, SHA-256
+   `e5a62a6db15443cea8dbb8b1c048309f10d4e7e87c4050b946cfb9941d443f19`.
+2. **`D` before step 3.** The interim domain-only `D`, recorded as
+   `interim_domain_only`. Switching to `entry_profile_v1` is a recorded rule change.
+3. **Absent domain evidence.** It counts as not verified. A flag still needs an
+   admissible model `flag`.
+4. **Reason codes.** `identity_not_established` and
+   `institution_domain_contradiction`.
+5. **Cited fields.** The packet's ten fixed section names, as the slugs listed in §11.
+6. **Padding divergence.** A divergent padding slot voids its batch.
+7. **Owner.** A distinct provider host owner. Independent organizations stay a
+   promotion gate.
+8. **Cadence and cost.** Every weekly round. The inference-cost owner is named in
+   the decision sheet before any GPU run.
+9. **Packet freshness.** A packet counts for a round only if it is in the packet
+   set frozen at or before the round's input freeze.
+10. **Artifacts.** They live in this repository as shadow artifacts until 1b.
+
+The model-deletion rule of §8 is confirmed as written: no flag, the standard
+profile, and the failure reported.
+
+The package also fixes two pins. The response schema
+`postfiat.identity_flag.model_response.v1` has a canonical-JSON SHA-256 of
+`2e383bc3057b1ce7f9a66f351286640470645893c57be8e2a8addc6825b8a609`. The step-3
+entry-profile module is now pinned at SHA-256
+`dd98970b92d284cace99efbc4992e1025600d04a74a045d45966576fed44c83f` (`1b317fc4`),
+in place of the `null` of §6 and §7. The rule stays `interim_domain_only`.

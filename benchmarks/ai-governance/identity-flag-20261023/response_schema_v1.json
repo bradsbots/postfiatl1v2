@@ -1,0 +1,59 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "cited_fields": {
+      "items": {
+        "enum": [
+          "activities",
+          "business_summary",
+          "claimed_domain_and_official_urls",
+          "estimated_public_profile_size",
+          "evidence",
+          "public_identity",
+          "public_x_handle",
+          "region_of_incorporation_and_operations",
+          "uncertainty_and_conflicts",
+          "validator_coordinates"
+        ],
+        "type": "string"
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "classification": {
+      "enum": [
+        "clear",
+        "flag"
+      ],
+      "type": "string"
+    },
+    "packet_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "reason_codes": {
+      "items": {
+        "enum": [
+          "identity_not_established",
+          "institution_domain_contradiction"
+        ],
+        "type": "string"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "validator_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "validator_id",
+    "packet_sha256",
+    "classification",
+    "cited_fields",
+    "reason_codes"
+  ],
+  "title": "postfiat.identity_flag.model_response.v1",
+  "type": "object"
+}

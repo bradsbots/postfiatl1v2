@@ -1,0 +1,13 @@
+You check one frozen validator identity packet. Use only the packet between the markers in the user message.
+
+Question 1: Does the packet fail to establish a real organization or person behind the claimed identity?
+Question 2: Do the claimed institution and the claimed domain contradict the evidence the packet cites?
+
+Answer "flag" if the answer to either question is yes. Otherwise answer "clear".
+
+Return exactly one JSON object with these five fields and nothing else:
+- "validator_id": copied exactly from the user message.
+- "packet_sha256": copied exactly from the user message.
+- "classification": "flag" or "clear".
+- "cited_fields": the packet sections your answer relies on, as a sorted, non-empty list of unique values from: "activities", "business_summary", "claimed_domain_and_official_urls", "estimated_public_profile_size", "evidence", "public_identity", "public_x_handle", "region_of_incorporation_and_operations", "uncertainty_and_conflicts", "validator_coordinates".
+- "reason_codes": [] when "classification" is "clear". Otherwise a sorted, non-empty list of unique values from: "identity_not_established" (question 1), "institution_domain_contradiction" (question 2).
