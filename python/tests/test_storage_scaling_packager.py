@@ -64,6 +64,36 @@ def _campaign(root: Path, *, label: str = "height-50-window-1") -> Path:
             resources = root / "raw" / lane / f"height-{height}.resources.json"
             _write_json(normalized, {"lane": lane, "height": height, "kind": "normalized"})
             _write_json(resources, {"lane": lane, "height": height, "kind": "resources"})
+            vote_lock = (
+                root / "raw" / lane / f"height-{height}.vote-lock-work.json"
+            )
+            _write_json(
+                vote_lock,
+                {
+                    "schema": "postfiat-storage-vote-lock-work-gate-v1",
+                    "passed": True,
+                },
+            )
+            certified_send = (
+                root / "raw" / lane / f"height-{height}.certified-send-work.json"
+            )
+            _write_json(
+                certified_send,
+                {
+                    "schema": "postfiat-storage-certified-send-work-gate-v1",
+                    "passed": True,
+                },
+            )
+            round_coverage = (
+                root / "raw" / lane / f"height-{height}.round-coverage.json"
+            )
+            _write_json(
+                round_coverage,
+                {
+                    "schema": "postfiat-storage-round-coverage-gate-v1",
+                    "passed": True,
+                },
+            )
             window_label = (
                 label
                 if lane == "selected-indexed" and height == 50
@@ -83,6 +113,22 @@ def _campaign(root: Path, *, label: str = "height-50-window-1") -> Path:
                             "normalized_report_sha256": _sha256(normalized),
                             "resource_samples": resources.relative_to(root).as_posix(),
                             "resource_samples_sha256": _sha256(resources),
+                            "vote_lock_work_receipt": (
+                                vote_lock.relative_to(root).as_posix()
+                            ),
+                            "vote_lock_work_receipt_sha256": _sha256(vote_lock),
+                            "certified_send_work_receipt": (
+                                certified_send.relative_to(root).as_posix()
+                            ),
+                            "certified_send_work_receipt_sha256": _sha256(
+                                certified_send
+                            ),
+                            "round_coverage_receipt": (
+                                round_coverage.relative_to(root).as_posix()
+                            ),
+                            "round_coverage_receipt_sha256": _sha256(
+                                round_coverage
+                            ),
                         }
                     ],
                 }
@@ -176,8 +222,14 @@ class StorageScalingPackagerTests(unittest.TestCase):
                     window = row["windows"][0]
                     normalized = packet / window["normalized_report"]
                     resources = packet / window["resource_samples"]
+                    vote_lock = packet / window["vote_lock_work_receipt"]
+                    certified_send = packet / window["certified_send_work_receipt"]
+                    round_coverage = packet / window["round_coverage_receipt"]
                     self.assertTrue(normalized.is_file())
                     self.assertTrue(resources.is_file())
+                    self.assertTrue(vote_lock.is_file())
+                    self.assertTrue(certified_send.is_file())
+                    self.assertTrue(round_coverage.is_file())
                     self.assertEqual(
                         _sha256(normalized),
                         window["normalized_report_sha256"],
@@ -185,6 +237,18 @@ class StorageScalingPackagerTests(unittest.TestCase):
                     self.assertEqual(
                         _sha256(resources),
                         window["resource_samples_sha256"],
+                    )
+                    self.assertEqual(
+                        _sha256(vote_lock),
+                        window["vote_lock_work_receipt_sha256"],
+                    )
+                    self.assertEqual(
+                        _sha256(certified_send),
+                        window["certified_send_work_receipt_sha256"],
+                    )
+                    self.assertEqual(
+                        _sha256(round_coverage),
+                        window["round_coverage_receipt_sha256"],
                     )
                     self.assertEqual(
                         window["signed_transfer_corpus"],
@@ -223,7 +287,10 @@ class StorageScalingPackagerTests(unittest.TestCase):
                     "signed_transfer_corpus": "/host-local/corpus.json",
                 },
             )
-            _write_json(advance_report, {"kind": "report"})
+            _write_json(
+                advance_report,
+                {"kind": "report", "config": {"topology_file": "/home/x/topology.json"}},
+            )
             manifest = {
                 "schema": PACKAGER.PREPARED_INPUT_MANIFEST_SCHEMA,
                 "candidate": {"source_revision": "a" * 40},
@@ -290,6 +357,42 @@ class StorageScalingPackagerTests(unittest.TestCase):
                 copied_receipt["signed_transfer_corpus"],
                 "$SIGNED_TRANSFER_CORPUS",
             )
+            copied_report = json.loads(
+                (packet / imported["report"]).read_text(encoding="utf-8")
+            )
+            self.assertEqual(copied_report["config"]["topology_file"], "$TOPOLOGY_FILE")
+            self.assertEqual(
+                imported["source_report_sha256"],
+                manifest["advances"][0]["report"]["sha256"],
+            )
+
+    def test_copy_performance_redacts_window_topology_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            campaign = root / "campaign"
+            campaign.mkdir()
+            source = _campaign(campaign)
+            report = json.loads(source.read_text(encoding="utf-8"))
+            window = report["lanes"]["selected-indexed"]["rows"][0]["windows"][0]
+            normalized = campaign / window["normalized_report"]
+            value = json.loads(normalized.read_text(encoding="utf-8"))
+            value["config"] = {"topology_file": "/home/x/topology.json", "validators": 6}
+            _write_json(normalized, value)
+            window["normalized_report_sha256"] = _sha256(normalized)
+            _write_json(source, report)
+            packet = root / "packet"
+
+            destination = PACKAGER.copy_performance(packet, source)
+
+            copied = json.loads(destination.read_text(encoding="utf-8"))
+            copied_window = copied["lanes"]["selected-indexed"]["rows"][0]["windows"][0]
+            copied_path = packet / copied_window["normalized_report"]
+            self.assertEqual(copied_window["normalized_report_sha256"], _sha256(copied_path))
+            self.assertEqual(
+                json.loads(copied_path.read_text(encoding="utf-8"))["config"],
+                {"topology_file": "$TOPOLOGY_FILE", "validators": 6},
+            )
+            PACKAGER.scan_redaction(packet, set())
 
     def test_copy_performance_rejects_high_height_portable_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

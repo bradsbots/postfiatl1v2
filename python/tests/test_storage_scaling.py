@@ -12,6 +12,7 @@ import postfiat_rpc.storage_scaling as storage_scaling
 
 from postfiat_rpc.storage_scaling import (
     ARTIFACT_SCHEMAS,
+    CERTIFIED_SEND_WORK_GATE_SCHEMA,
     MANIFEST_FILE,
     MATERIAL_STAGE_PATHS,
     PERFORMANCE_RESOURCE_FIELDS,
@@ -19,6 +20,9 @@ from postfiat_rpc.storage_scaling import (
     RESOURCE_SAMPLE_SCHEMA,
     RESOURCE_SAMPLE_TARGET_INTERVAL_MS,
     REQUIRED_TAMPER_CASES,
+    ROUND_COVERAGE_GATE_SCHEMA,
+    ROUND_COVERAGE_STAGE_FIELDS,
+    VOTE_LOCK_WORK_GATE_SCHEMA,
     REQUIRED_TAMPER_REASONS,
     StorageScalingVerificationError,
     serve_verified_packet,
@@ -343,11 +347,30 @@ def _passing_packet(packet: Path) -> None:
             "full_history_bytes_read": full_history_bytes,
         }
 
-    def performance_round_timings(lane_name: str) -> dict[str, object]:
+    def performance_round_timings(
+        lane_name: str,
+        iteration_index: int,
+    ) -> dict[str, object]:
         proposal_work = performance_storage_work(lane_name, apply_stage=False)
         apply_work = performance_storage_work(lane_name, apply_stage=True)
+        omitted_validator = (iteration_index - 1) % 6
         return {
+            "total_ms": 135.0,
+            "outbox_resume_node_id": "validator-0",
+            "outbox_resume_ms": 10.0,
+            "outbox_tombstones_validated": 0,
+            "outbox_files_read": 0,
+            "outbox_bytes_hashed": 0,
+            "outbox_index_files_read": 1,
+            "outbox_index_bytes_read": 128,
+            "outbox_completed_entries_enumerated": 0,
+            "outbox_jobs_compacted": 0,
+            "outbox_jobs_pruned": 0,
+            "outbox_index_migration_performed": False,
+            "shielded_verifier_prewarm": {"total_ms": 5.0},
+            "setup_ms": 10.0,
             "proposal_ms": 10.0,
+            "target_selection_ms": 10.0,
             "verification_ms": 10.0,
             "vote_requests_ms": 10.0,
             "local_vote_ms": 10.0,
@@ -364,14 +387,18 @@ def _passing_packet(packet: Path) -> None:
                     "vote_request_breakdown": {
                         "remote_handling": {
                             "block_vote_breakdown": {
+                                "vote_lock_files_examined": 3,
+                                "vote_lock_bytes_decoded": 4_096,
+                                "vote_lock_migration_performed": False,
                                 "storage_work": performance_storage_work(
                                     lane_name, apply_stage=False
-                                )
+                                ),
                             }
                         }
                     },
                 }
-                for validator in range(1, 6)
+                for validator in range(6)
+                if validator != omitted_validator
             ],
             "local_apply_breakdown": {
                 "write_commit_ms": 10.0,
@@ -385,7 +412,8 @@ def _passing_packet(packet: Path) -> None:
                         lane_name, apply_stage=True
                     ),
                 }
-                for validator in range(1, 6)
+                for validator in range(6)
+                if validator != omitted_validator
             ],
         }
 
@@ -461,6 +489,7 @@ def _passing_packet(packet: Path) -> None:
                         "iterations": [
                             {
                                 "iteration": iteration_index,
+                                "source_node": "validator-0",
                                 "round_ok": True,
                                 "receipt_accepted": True,
                                 "finality_confirmed": True,
@@ -479,7 +508,8 @@ def _passing_packet(packet: Path) -> None:
                                 "consensus_round_ms": consensus,
                                 "wallet_to_finality_ms": wallet,
                                 "round_timings": performance_round_timings(
-                                    lane_name
+                                    lane_name,
+                                    iteration_index,
                                 ),
                             }
                             for iteration_index in range(1, 51)
@@ -651,6 +681,136 @@ def _passing_packet(packet: Path) -> None:
                     "network_received_bytes": 80,
                     "network_transmitted_bytes": 90,
                 }
+                vote_lock_work = {
+                    "schema": VOTE_LOCK_WORK_GATE_SCHEMA,
+                    "passed": True,
+                    "reason_codes": [],
+                    "limits": {
+                        "migration_max_per_validator_per_window_restore": 1,
+                        "migration_allowed_validator_reservation_observation": 1,
+                        "non_migration_max_files_examined": 3,
+                        "non_migration_max_bytes_decoded": 4_096,
+                        "legacy_absent_fields_default_to_zero_false": True,
+                    },
+                    "rounds_observed": 50,
+                    "validators_observed": 6,
+                    "validators": {
+                        f"validator-{validator}": {
+                            "passed": True,
+                            "votes_observed": sum(
+                                1
+                                for iteration_index in range(1, 51)
+                                if (iteration_index - 1) % 6 != validator
+                            ),
+                            "migration_rounds": [],
+                            "max_files_examined": 3,
+                            "max_bytes_decoded": 4_096,
+                            "reason_codes": [],
+                            "violations": [],
+                        }
+                        for validator in range(6)
+                    },
+                }
+                vote_lock_path = (
+                    packet
+                    / "performance"
+                    / "vote-lock-work"
+                    / lane_name
+                    / f"height-{height}-window-{window_index + 1}.json"
+                )
+                _write_json(vote_lock_path, vote_lock_work)
+                certified_send_work = {
+                    "schema": CERTIFIED_SEND_WORK_GATE_SCHEMA,
+                    "passed": True,
+                    "reason_codes": [],
+                    "limits": {
+                        "migration_max_per_validator_per_window_restore": 1,
+                        "migration_allowed_validator_resume_observation": 1,
+                        "max_jobs_compacted_per_resume": 5,
+                        "max_jobs_pruned_per_resume": 5,
+                        "files_per_validated_tombstone": 3,
+                        "max_hashed_bytes_per_tombstone": 64 * 1024
+                        + 2 * 4 * 1024 * 1024,
+                        "max_index_files_read": 1,
+                        "max_index_bytes_read": 4 * 1024 * 1024,
+                        "max_completed_entries_enumerated": 2_048,
+                        "legacy_absent_fields_default_to_zero_false": True,
+                    },
+                    "rounds_observed": 50,
+                    "validators_observed": 1,
+                    "validators": {
+                        "validator-0": {
+                            "passed": True,
+                            "resumes_observed": 50,
+                            "migration_rounds": [],
+                            "max_tombstones_validated": 0,
+                            "max_files_read": 0,
+                            "max_bytes_hashed": 0,
+                            "max_index_files_read": 1,
+                            "max_index_bytes_read": 128,
+                            "max_completed_entries_enumerated": 0,
+                            "reason_codes": [],
+                            "violations": [],
+                        }
+                    },
+                }
+                certified_send_path = (
+                    packet
+                    / "performance"
+                    / "certified-send-work"
+                    / lane_name
+                    / f"height-{height}-window-{window_index + 1}.json"
+                )
+                _write_json(certified_send_path, certified_send_work)
+                round_coverage = {
+                    "schema": ROUND_COVERAGE_GATE_SCHEMA,
+                    "passed": True,
+                    "reason_codes": [],
+                    "tolerated_stall_rounds": [],
+                    "limits": {
+                        "max_unattributed_residual_ms": 100.0,
+                        "max_isolated_stall_residual_ms": 250.0,
+                        "max_tolerated_stall_rounds_per_window": 1,
+                        "minimum_residual_ms": -1.0,
+                        "named_stage_fields": list(ROUND_COVERAGE_STAGE_FIELDS),
+                        "shielded_verifier_prewarm_field": (
+                            "shielded_verifier_prewarm.total_ms"
+                        ),
+                        "overlapping_diagnostic_fields_excluded": [
+                            "local_vote_ms",
+                            "client_visible_finality_ms",
+                            "legacy_certificate_ms",
+                            "consensus_v2_prepare_qc_ms",
+                            "consensus_v2_precommit_votes_ms",
+                            "consensus_v2_precommit_qc_ms",
+                            "consensus_v2_commit_assembly_ms",
+                            "consensus_v2_commit_attach_write_ms",
+                        ],
+                    },
+                    "rounds_observed": 50,
+                    "max_residual_ms": 20.0,
+                    "rounds": [
+                        {
+                            "finalized_round": iteration_index,
+                            "source_node": "validator-0",
+                            "total_ms": 135.0,
+                            "named_stage_ms": 115.0,
+                            "residual_ms": 20.0,
+                            "passed": True,
+                            "tolerated_stall": False,
+                            "reason_code": None,
+                        }
+                        for iteration_index in range(1, 51)
+                    ],
+                }
+                round_coverage_path = (
+                    packet
+                    / "performance"
+                    / "round-coverage"
+                    / lane_name
+                    / f"height-{height}-window-{window_index + 1}.json"
+                )
+                _write_json(round_coverage_path, round_coverage)
                 windows.append(
                     {
                         "label": f"height-{height}-window-{window_index + 1}",
@@ -660,6 +820,31 @@ def _passing_packet(packet: Path) -> None:
                         "validators_converged": 6,
                         "literal_receipts_exact": True,
                         "backend_work_gate_pass": True,
+                        "vote_lock_work_gate_pass": True,
+                        "vote_lock_work_gate_reason_codes": [],
+                        "vote_lock_work": vote_lock_work,
+                        "vote_lock_work_receipt": (
+                            vote_lock_path.relative_to(packet).as_posix()
+                        ),
+                        "vote_lock_work_receipt_sha256": _sha256(vote_lock_path),
+                        "certified_send_work_gate_pass": True,
+                        "certified_send_work_gate_reason_codes": [],
+                        "certified_send_work": certified_send_work,
+                        "certified_send_work_receipt": (
+                            certified_send_path.relative_to(packet).as_posix()
+                        ),
+                        "certified_send_work_receipt_sha256": _sha256(
+                            certified_send_path
+                        ),
+                        "round_coverage_gate_pass": True,
+                        "round_coverage_gate_reason_codes": [],
+                        "round_coverage": round_coverage,
+                        "round_coverage_receipt": (
+                            round_coverage_path.relative_to(packet).as_posix()
+                        ),
+                        "round_coverage_receipt_sha256": _sha256(
+                            round_coverage_path
+                        ),
                         "zero_full_history_reads": full_history_records == 0
                         and full_history_bytes == 0,
                         "bounded_index_pages": lane_name != "legacy-jsonl",
@@ -1023,7 +1208,7 @@ def _passing_packet(packet: Path) -> None:
             "height_50_window_p95_median_ms": 10.0,
             "max_same_height_window_range_ms": 0.0,
             "predicted_delta_50_to_5000_ms": 0.0,
-            "material_threshold_ms": 1.0,
+            "material_threshold_ms": 5.0,
             "relative_materiality": 0.10,
             "residual_sigmas": 2.0,
             "material_positive_linear_relationship": False,
@@ -1445,6 +1630,9 @@ def _passing_packet(packet: Path) -> None:
             "ratios": performance_ratios,
             "comparison_windows_pass": True,
             "window_gates_pass": True,
+            "vote_lock_work_gates_pass": True,
+            "certified_send_work_gates_pass": True,
+            "round_coverage_gates_pass": True,
             "height_relationship_model": {
                 "schema": "postfiat-storage-height-cost-model-v2",
                 "sample_kind": "per_window_p95",
@@ -1652,6 +1840,9 @@ def _add_prepared_input_build(packet: Path) -> None:
             "paired_runner_sha256": "b" * 64,
             "selected_runner_sha256": "c" * 64,
             "shared_runner_sha256": "d" * 64,
+            "vote_lock_work_gate_schema": VOTE_LOCK_WORK_GATE_SCHEMA,
+            "certified_send_work_gate_schema": CERTIFIED_SEND_WORK_GATE_SCHEMA,
+            "round_coverage_gate_schema": ROUND_COVERAGE_GATE_SCHEMA,
         },
         "public_inputs": {
             "topology_sha256": selected["topology_sha256"],
@@ -2009,6 +2200,43 @@ class StorageScalingVerifierTests(unittest.TestCase):
             packet = self.packet_dir(temporary)
             _passing_packet(packet)
             _add_prepared_input_build(packet)
+
+            verified = verify_packet(packet)
+
+            self.assertIs(verified.report["verified"], True)
+
+    def test_storage_scaling_packet_verifies_derived_prepared_build_identity(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _add_prepared_input_build(packet)
+            manifest_path = (
+                packet / "performance" / "prepared-input" / "manifest.json"
+            )
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["prepared_by"] = {
+                "source_manifest_sha256": "f" * 64,
+                "candidate": json.loads(json.dumps(manifest["candidate"])),
+                "batch_builder": json.loads(json.dumps(manifest["batch_builder"])),
+                "runner": json.loads(json.dumps(manifest["runner"])),
+            }
+            _write_json(manifest_path, manifest)
+            performance_path = packet / "artifacts" / "performance.json"
+            performance = json.loads(performance_path.read_text(encoding="utf-8"))
+            performance["prepared_input_manifest_sha256"] = _sha256(manifest_path)
+            performance["prepared_input_build"]["prepared_by"] = manifest[
+                "prepared_by"
+            ]
+            _write_json(performance_path, performance)
+            packet_manifest_path = packet / MANIFEST_FILE
+            packet_manifest = json.loads(
+                packet_manifest_path.read_text(encoding="utf-8")
+            )
+            packet_manifest["artifacts"]["performance"]["sha256"] = _sha256(
+                performance_path
+            )
+            _write_json(packet_manifest_path, packet_manifest)
+            _write_checksums(packet)
 
             verified = verify_packet(packet)
 
@@ -2400,6 +2628,116 @@ class StorageScalingVerifierTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 StorageScalingVerificationError,
                 "transactional storage summary differs from raw stage telemetry",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_untouched_tombstone_validation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def change_outbox_work(report: dict[str, object]) -> None:
+                iterations = report["iterations"]
+                assert isinstance(iterations, list)
+                round_timings = iterations[0]["round_timings"]
+                round_timings["outbox_tombstones_validated"] = 1
+                round_timings["outbox_files_read"] = 3
+                round_timings["outbox_bytes_hashed"] = 1
+
+            _rewrite_first_selected_normalized_report(packet, change_outbox_work)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "CERTIFIED_SEND_UNTOUCHED_TOMBSTONE_VALIDATION",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_accepts_one_isolated_round_stall(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def stall_round_one(report: dict[str, object]) -> None:
+                iterations = report["iterations"]
+                assert isinstance(iterations, list)
+                iterations[0]["round_timings"]["total_ms"] += 100.0
+
+            _rewrite_first_selected_normalized_report(packet, stall_round_one)
+
+            def record_stall(performance: dict[str, object]) -> None:
+                window = performance["lanes"]["selected-indexed"]["rows"][0][
+                    "windows"
+                ][0]
+                coverage = window["round_coverage"]
+                row = coverage["rounds"][0]
+                row["total_ms"] += 100.0
+                row["residual_ms"] += 100.0
+                row["tolerated_stall"] = True
+                coverage["max_residual_ms"] = row["residual_ms"]
+                coverage["tolerated_stall_rounds"] = [1]
+                receipt_path = packet / window["round_coverage_receipt"]
+                _write_json(receipt_path, coverage)
+                window["round_coverage_receipt_sha256"] = _sha256(receipt_path)
+                performance["rows"] = performance["lanes"]["selected-indexed"]["rows"]
+
+            _rewrite_performance(packet, record_stall)
+            self.assertIs(verify_packet(packet).report["verified"], True)
+
+    def test_storage_scaling_packet_rejects_two_round_stalls_in_one_window(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def stall_two_rounds(report: dict[str, object]) -> None:
+                iterations = report["iterations"]
+                assert isinstance(iterations, list)
+                for iteration in iterations[:2]:
+                    iteration["round_timings"]["total_ms"] += 100.0
+
+            _rewrite_first_selected_normalized_report(packet, stall_two_rounds)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "ROUND_COVERAGE_RESIDUAL_EXCEEDED",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_threshold_below_materiality_floor(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def lower_threshold(performance: dict[str, object]) -> None:
+                for owner in (performance, performance["lanes"]["selected-indexed"]):
+                    stages = owner["height_relationship_model"]["stages"]
+                    stages["proposal_ms"]["material_threshold_ms"] = 1.0
+
+            _rewrite_performance(packet, lower_threshold)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "proposal_ms.material_threshold_ms differs",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_hidden_round_time(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def hide_round_time(report: dict[str, object]) -> None:
+                iterations = report["iterations"]
+                assert isinstance(iterations, list)
+                round_timings = iterations[0]["round_timings"]
+                round_timings["total_ms"] += 1_200.0
+
+            _rewrite_first_selected_normalized_report(packet, hide_round_time)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "ROUND_COVERAGE_RESIDUAL_EXCEEDED",
             ):
                 verify_packet(packet)
 

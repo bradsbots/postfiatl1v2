@@ -92,6 +92,23 @@ def copy_file(source: Path, destination: Path) -> None:
     shutil.copyfile(source, destination)
 
 
+def copy_run_report(source: Path, destination: Path) -> None:
+    """Copy a campaign run report, replacing its host-local topology path.
+
+    The runner records `config.topology_file` as an absolute path. Nothing
+    verifies that path; the topology itself is bound by `topology_sha256`.
+    """
+    report = read_json(source)
+    config = report.get("config")
+    if not isinstance(config, dict) or not isinstance(config.get("topology_file"), str):
+        copy_file(source, destination)
+        return
+    config["topology_file"] = "$TOPOLOGY_FILE"
+    if destination.exists():
+        raise ValueError(f"refusing to overwrite packet entry: {destination}")
+    write_json(destination, report)
+
+
 def resolve_campaign_file(
     campaign_root: Path,
     raw: Any,
@@ -254,6 +271,8 @@ def copy_prepared_input(
         "runner": manifest.get("runner"),
         "build": manifest.get("build"),
     }
+    if manifest.get("prepared_by") is not None:
+        expected_build["prepared_by"] = manifest.get("prepared_by")
     if (
         manifest.get("schema") != PREPARED_INPUT_MANIFEST_SCHEMA
         or report.get("prepared_input_build") != expected_build
@@ -317,7 +336,7 @@ def copy_prepared_input(
                 receipt["signed_transfer_corpus"] = "$SIGNED_TRANSFER_CORPUS"
                 write_json(destination, receipt)
             else:
-                copy_file(source, destination)
+                copy_run_report(source, destination)
             imported_advance[f"source_{field}_sha256"] = manifest_reference[
                 "sha256"
             ]
@@ -476,7 +495,7 @@ def copy_performance(packet: Path, source: Path) -> Path:
                 destination = (
                     packet / "performance" / "windows" / lane_name / f"{label}.json"
                 )
-                copy_file(raw_source, destination)
+                copy_run_report(raw_source, destination)
                 window["normalized_report"] = destination.relative_to(packet).as_posix()
                 window["normalized_report_sha256"] = sha256(destination)
                 resource_destination = (
@@ -487,6 +506,54 @@ def copy_performance(packet: Path, source: Path) -> Path:
                     resource_destination.relative_to(packet).as_posix()
                 )
                 window["resource_samples_sha256"] = sha256(resource_destination)
+                vote_lock_source = resolve_campaign_file(
+                    campaign_root,
+                    window.get("vote_lock_work_receipt"),
+                    window.get("vote_lock_work_receipt_sha256"),
+                    "performance vote-lock work receipt",
+                )
+                vote_lock_destination = (
+                    packet
+                    / "performance"
+                    / "vote-lock-work"
+                    / lane_name
+                    / f"{label}.json"
+                )
+                copy_file(vote_lock_source, vote_lock_destination)
+                window["vote_lock_work_receipt"] = (
+                    vote_lock_destination.relative_to(packet).as_posix()
+                )
+                window["vote_lock_work_receipt_sha256"] = sha256(
+                    vote_lock_destination
+                )
+                for field, directory, label_text in (
+                    (
+                        "certified_send_work_receipt",
+                        "certified-send-work",
+                        "performance certified-send work receipt",
+                    ),
+                    (
+                        "round_coverage_receipt",
+                        "round-coverage",
+                        "performance round-coverage receipt",
+                    ),
+                ):
+                    source = resolve_campaign_file(
+                        campaign_root,
+                        window.get(field),
+                        window.get(f"{field}_sha256"),
+                        label_text,
+                    )
+                    target = (
+                        packet
+                        / "performance"
+                        / directory
+                        / lane_name
+                        / f"{label}.json"
+                    )
+                    copy_file(source, target)
+                    window[field] = target.relative_to(packet).as_posix()
+                    window[f"{field}_sha256"] = sha256(target)
     report["rows"] = lanes["selected-indexed"]["rows"]
     destination = packet / "artifacts" / "performance.json"
     write_json(destination, report)

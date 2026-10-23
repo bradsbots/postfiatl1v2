@@ -44,6 +44,10 @@ MATERIAL_STAGE_PATHS = {
     "write_commit_ms": ("round_timings", "local_apply_breakdown", "write_commit_ms"),
 }
 MODEL_RELATIVE_MATERIALITY = 0.10
+# Absolute materiality floor of the campaign runner (`run_campaign.py`,
+# MODEL_MIN_MATERIAL_GROWTH_MS): growth below 5 ms is immaterial; the 1.10
+# ratio gates still bound total growth.
+MODEL_MIN_MATERIAL_GROWTH_MS = 5.0
 MODEL_RESIDUAL_SIGMAS = 2.0
 PERFORMANCE_LANES = ("selected-indexed", "legacy-jsonl")
 PERFORMANCE_LANE_HEIGHTS = {
@@ -109,6 +113,41 @@ PREPARED_BUILD_ZERO_COUNTER_FIELDS = (
     "full_history_records_read",
     "full_history_bytes_read",
 )
+VOTE_LOCK_WORK_GATE_SCHEMA = "postfiat-storage-vote-lock-work-gate-v1"
+CERTIFIED_SEND_WORK_GATE_SCHEMA = "postfiat-storage-certified-send-work-gate-v1"
+ROUND_COVERAGE_GATE_SCHEMA = "postfiat-storage-round-coverage-gate-v1"
+CERTIFIED_SEND_MAX_JOBS_COMPACTED = 5
+CERTIFIED_SEND_MAX_JOBS_PRUNED = 5
+CERTIFIED_SEND_MAX_INDEX_FILES_READ = 1
+CERTIFIED_SEND_MAX_INDEX_BYTES_READ = 4 * 1024 * 1024
+CERTIFIED_SEND_MAX_COMPLETED_ENTRIES_ENUMERATED = 2_048
+CERTIFIED_SEND_MAX_HASHED_BYTES_PER_TOMBSTONE = 64 * 1024 + 2 * 4 * 1024 * 1024
+ROUND_COVERAGE_MAX_RESIDUAL_MS = 100.0
+# The runner tolerates one isolated stall per window: a round with residual
+# in (100, 250] ms passes only when it is the window's sole such round.
+ROUND_COVERAGE_MAX_ISOLATED_STALL_MS = 250.0
+ROUND_COVERAGE_MAX_STALL_ROUNDS_PER_WINDOW = 1
+ROUND_COVERAGE_STAGE_FIELDS = (
+    "outbox_resume_ms",
+    "setup_ms",
+    "proposal_ms",
+    "target_selection_ms",
+    "vote_requests_ms",
+    "certificate_ms",
+    "local_apply_ms",
+    "post_apply_status_ms",
+    "local_commit_publish_ms",
+    "certified_sends_ms",
+    "verification_ms",
+)
+VOTE_LOCK_MAX_FILES_EXAMINED = 3
+VOTE_LOCK_MAX_BYTES_DECODED = 4_096
+VOTE_LOCK_REASON_MIGRATION_REPEATED = "VOTE_LOCK_MIGRATION_REPEATED"
+VOTE_LOCK_REASON_MIGRATION_LATE = (
+    "VOTE_LOCK_MIGRATION_AFTER_FIRST_VALIDATOR_RESERVATION"
+)
+VOTE_LOCK_REASON_FILES_EXCEEDED = "VOTE_LOCK_FILES_EXAMINED_EXCEEDED"
+VOTE_LOCK_REASON_BYTES_EXCEEDED = "VOTE_LOCK_BYTES_DECODED_EXCEEDED"
 PERFORMANCE_QUALIFICATION_TIMEOUT_MS = 900_000
 MAX_PROPOSAL_PAGE_READS_PER_ROUND = 64
 MAX_APPLY_PAGE_READS_PER_VALIDATOR_ROUND = 64
@@ -309,6 +348,16 @@ def _bool(value: Any, label: str) -> bool:
     if value is not True:
         _fail(f"{label} must be true")
     return True
+
+
+def _number(value: Any, label: str) -> float:
+    if (
+        not isinstance(value, (int, float))
+        or isinstance(value, bool)
+        or not math.isfinite(float(value))
+    ):
+        _fail(f"{label} must be a finite number")
+    return float(value)
 
 
 def _bounded_read(path: Path) -> bytes:
@@ -986,6 +1035,7 @@ def _verify_height_relationship_models(
             baseline * MODEL_RELATIVE_MATERIALITY,
             linear["residual_rmse_ms"] * MODEL_RESIDUAL_SIGMAS,
             same_height_variance_allowance,
+            MODEL_MIN_MATERIAL_GROWTH_MS,
         )
         material_positive = (
             linear["slope"] > 0 and predicted_delta > material_threshold
@@ -1067,6 +1117,459 @@ def _verify_performance_fleet(
         _fail(f"{label} did not converge")
     _, tip, state_root = next(iter(identities))
     return tip, state_root
+
+
+def _recompute_vote_lock_work(
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> dict[str, Any]:
+    iterations = _list(raw.get("iterations"), "performance vote-lock iterations")
+    validators: dict[str, dict[str, Any]] = {}
+    for round_number, iteration_value in enumerate(iterations, start=1):
+        iteration = _object(iteration_value, "performance vote-lock iteration")
+        round_timings = _object(
+            iteration.get("round_timings"),
+            "performance vote-lock round timings",
+        )
+        targets = _list(
+            round_timings.get("vote_request_targets"),
+            "performance vote-lock targets",
+        )
+        if len(targets) != 5:
+            _fail(f"performance lane {lane_name} vote-lock target count differs")
+        observed_this_round: set[str] = set()
+        for target_value in targets:
+            target = _object(target_value, "performance vote-lock target")
+            node_id = str(target.get("target", ""))
+            if (
+                node_id not in {f"validator-{index}" for index in range(6)}
+                or node_id in observed_this_round
+                or target.get("result") != "ok"
+            ):
+                _fail(
+                    f"performance lane {lane_name} vote-lock target identity differs"
+                )
+            observed_this_round.add(node_id)
+            request = _object(
+                target.get("vote_request_breakdown"),
+                "performance vote-lock request",
+            )
+            remote = _object(
+                request.get("remote_handling"),
+                "performance remote vote-lock handling",
+            )
+            timing = _object(
+                remote.get("block_vote_breakdown"),
+                "performance block-vote timing",
+            )
+            files_examined = timing.get("vote_lock_files_examined", 0)
+            bytes_decoded = timing.get("vote_lock_bytes_decoded", 0)
+            migration_performed = timing.get(
+                "vote_lock_migration_performed",
+                False,
+            )
+            if (
+                not isinstance(files_examined, int)
+                or isinstance(files_examined, bool)
+                or files_examined < 0
+                or not isinstance(bytes_decoded, int)
+                or isinstance(bytes_decoded, bool)
+                or bytes_decoded < 0
+                or not isinstance(migration_performed, bool)
+            ):
+                _fail(f"performance lane {lane_name} vote-lock telemetry is invalid")
+            summary = validators.setdefault(
+                node_id,
+                {
+                    "votes_observed": 0,
+                    "migration_rounds": [],
+                    "max_files_examined": 0,
+                    "max_bytes_decoded": 0,
+                },
+            )
+            summary["votes_observed"] += 1
+            summary["max_files_examined"] = max(
+                int(summary["max_files_examined"]),
+                files_examined,
+            )
+            summary["max_bytes_decoded"] = max(
+                int(summary["max_bytes_decoded"]),
+                bytes_decoded,
+            )
+            if migration_performed:
+                summary["migration_rounds"].append(round_number)
+                if len(summary["migration_rounds"]) > 1:
+                    _fail(
+                        f"{VOTE_LOCK_REASON_MIGRATION_REPEATED}: "
+                        f"performance lane {lane_name}"
+                    )
+                if int(summary["votes_observed"]) != 1:
+                    _fail(
+                        f"{VOTE_LOCK_REASON_MIGRATION_LATE}: "
+                        f"performance lane {lane_name}"
+                    )
+            else:
+                if files_examined > VOTE_LOCK_MAX_FILES_EXAMINED:
+                    _fail(
+                        f"{VOTE_LOCK_REASON_FILES_EXCEEDED}: "
+                        f"performance lane {lane_name}"
+                    )
+                if bytes_decoded > VOTE_LOCK_MAX_BYTES_DECODED:
+                    _fail(
+                        f"{VOTE_LOCK_REASON_BYTES_EXCEEDED}: "
+                        f"performance lane {lane_name}"
+                    )
+
+    if (
+        len(iterations) != 50
+        or sorted(validators) != [f"validator-{index}" for index in range(6)]
+    ):
+        _fail(f"performance lane {lane_name} vote-lock coverage is incomplete")
+    public_validators = {
+        node_id: {
+            "passed": True,
+            "votes_observed": int(summary["votes_observed"]),
+            "migration_rounds": list(summary["migration_rounds"]),
+            "max_files_examined": int(summary["max_files_examined"]),
+            "max_bytes_decoded": int(summary["max_bytes_decoded"]),
+            "reason_codes": [],
+            "violations": [],
+        }
+        for node_id, summary in sorted(validators.items())
+    }
+    return {
+        "schema": VOTE_LOCK_WORK_GATE_SCHEMA,
+        "passed": True,
+        "reason_codes": [],
+        "limits": {
+            "migration_max_per_validator_per_window_restore": 1,
+            "migration_allowed_validator_reservation_observation": 1,
+            "non_migration_max_files_examined": VOTE_LOCK_MAX_FILES_EXAMINED,
+            "non_migration_max_bytes_decoded": VOTE_LOCK_MAX_BYTES_DECODED,
+            "legacy_absent_fields_default_to_zero_false": True,
+        },
+        "rounds_observed": len(iterations),
+        "validators_observed": len(public_validators),
+        "validators": public_validators,
+    }
+
+
+def _verify_vote_lock_work(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    window: Mapping[str, Any],
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> None:
+    expected = _recompute_vote_lock_work(raw, lane_name)
+    receipt = _bound_json(
+        packet_dir,
+        checksums,
+        {
+            "path": window.get("vote_lock_work_receipt"),
+            "sha256": window.get("vote_lock_work_receipt_sha256"),
+        },
+        f"performance lane {lane_name} vote-lock work receipt",
+    )
+    if (
+        window.get("vote_lock_work_gate_pass") is not True
+        or window.get("vote_lock_work_gate_reason_codes") != []
+        or window.get("vote_lock_work") != expected
+        or receipt != expected
+    ):
+        _fail(f"performance lane {lane_name} vote-lock gate summary differs")
+
+
+def _recompute_certified_send_work(
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> dict[str, Any]:
+    iterations = _list(raw.get("iterations"), "performance certified-send iterations")
+    validators: dict[str, dict[str, Any]] = {}
+    fields = (
+        "outbox_tombstones_validated",
+        "outbox_files_read",
+        "outbox_bytes_hashed",
+        "outbox_index_files_read",
+        "outbox_index_bytes_read",
+        "outbox_completed_entries_enumerated",
+        "outbox_jobs_compacted",
+        "outbox_jobs_pruned",
+    )
+    for round_number, iteration_value in enumerate(iterations, start=1):
+        iteration = _object(iteration_value, "performance certified-send iteration")
+        timings = _object(
+            iteration.get("round_timings"),
+            "performance certified-send round timings",
+        )
+        node_id = str(timings.get("outbox_resume_node_id", ""))
+        if node_id not in {f"validator-{index}" for index in range(6)}:
+            _fail(f"performance lane {lane_name} resume validator identity differs")
+        values: dict[str, int] = {}
+        for field in fields:
+            value = timings.get(field, 0)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                _fail(f"performance lane {lane_name} certified-send telemetry is invalid")
+            values[field] = value
+        migration = timings.get("outbox_index_migration_performed", False)
+        if not isinstance(migration, bool):
+            _fail(f"performance lane {lane_name} certified-send migration is invalid")
+        summary = validators.setdefault(
+            node_id,
+            {
+                "resumes_observed": 0,
+                "migration_rounds": [],
+                "max_tombstones_validated": 0,
+                "max_files_read": 0,
+                "max_bytes_hashed": 0,
+                "max_index_files_read": 0,
+                "max_index_bytes_read": 0,
+                "max_completed_entries_enumerated": 0,
+            },
+        )
+        summary["resumes_observed"] += 1
+        validated = values["outbox_tombstones_validated"]
+        files_read = values["outbox_files_read"]
+        bytes_hashed = values["outbox_bytes_hashed"]
+        index_files = values["outbox_index_files_read"]
+        index_bytes = values["outbox_index_bytes_read"]
+        enumerated = values["outbox_completed_entries_enumerated"]
+        compacted = values["outbox_jobs_compacted"]
+        pruned = values["outbox_jobs_pruned"]
+        summary["max_tombstones_validated"] = max(
+            int(summary["max_tombstones_validated"]), validated
+        )
+        summary["max_files_read"] = max(int(summary["max_files_read"]), files_read)
+        summary["max_bytes_hashed"] = max(
+            int(summary["max_bytes_hashed"]), bytes_hashed
+        )
+        summary["max_index_files_read"] = max(
+            int(summary["max_index_files_read"]), index_files
+        )
+        summary["max_index_bytes_read"] = max(
+            int(summary["max_index_bytes_read"]), index_bytes
+        )
+        summary["max_completed_entries_enumerated"] = max(
+            int(summary["max_completed_entries_enumerated"]), enumerated
+        )
+        if migration:
+            summary["migration_rounds"].append(round_number)
+            if len(summary["migration_rounds"]) > 1:
+                _fail(
+                    f"CERTIFIED_SEND_INDEX_MIGRATION_REPEATED: performance lane {lane_name}"
+                )
+            if int(summary["resumes_observed"]) != 1:
+                _fail(
+                    "CERTIFIED_SEND_INDEX_MIGRATION_AFTER_FIRST_VALIDATOR_RESUME: "
+                    f"performance lane {lane_name}"
+                )
+        elif validated != compacted + pruned:
+            _fail(
+                f"CERTIFIED_SEND_UNTOUCHED_TOMBSTONE_VALIDATION: performance lane {lane_name}"
+            )
+        if migration and validated != enumerated + compacted + pruned:
+            _fail(
+                f"CERTIFIED_SEND_UNTOUCHED_TOMBSTONE_VALIDATION: performance lane {lane_name}"
+            )
+        if (
+            compacted > CERTIFIED_SEND_MAX_JOBS_COMPACTED
+            or pruned > CERTIFIED_SEND_MAX_JOBS_PRUNED
+        ):
+            _fail(
+                f"CERTIFIED_SEND_UNTOUCHED_TOMBSTONE_VALIDATION: performance lane {lane_name}"
+            )
+        if files_read != validated * 3:
+            _fail(f"CERTIFIED_SEND_FILES_READ_EXCEEDED: performance lane {lane_name}")
+        if bytes_hashed > validated * CERTIFIED_SEND_MAX_HASHED_BYTES_PER_TOMBSTONE:
+            _fail(f"CERTIFIED_SEND_BYTES_HASHED_EXCEEDED: performance lane {lane_name}")
+        if (
+            index_files > CERTIFIED_SEND_MAX_INDEX_FILES_READ
+            or index_bytes > CERTIFIED_SEND_MAX_INDEX_BYTES_READ
+            or enumerated > CERTIFIED_SEND_MAX_COMPLETED_ENTRIES_ENUMERATED
+            or (not migration and enumerated != 0)
+            or (index_files == 0) != (index_bytes == 0)
+        ):
+            _fail(f"CERTIFIED_SEND_INDEX_WORK_EXCEEDED: performance lane {lane_name}")
+
+    if len(iterations) != 50 or not validators:
+        _fail(f"performance lane {lane_name} certified-send coverage is incomplete")
+    public_validators = {
+        node_id: {
+            "passed": True,
+            "resumes_observed": int(summary["resumes_observed"]),
+            "migration_rounds": list(summary["migration_rounds"]),
+            "max_tombstones_validated": int(summary["max_tombstones_validated"]),
+            "max_files_read": int(summary["max_files_read"]),
+            "max_bytes_hashed": int(summary["max_bytes_hashed"]),
+            "max_index_files_read": int(summary["max_index_files_read"]),
+            "max_index_bytes_read": int(summary["max_index_bytes_read"]),
+            "max_completed_entries_enumerated": int(
+                summary["max_completed_entries_enumerated"]
+            ),
+            "reason_codes": [],
+            "violations": [],
+        }
+        for node_id, summary in sorted(validators.items())
+    }
+    return {
+        "schema": CERTIFIED_SEND_WORK_GATE_SCHEMA,
+        "passed": True,
+        "reason_codes": [],
+        "limits": {
+            "migration_max_per_validator_per_window_restore": 1,
+            "migration_allowed_validator_resume_observation": 1,
+            "max_jobs_compacted_per_resume": CERTIFIED_SEND_MAX_JOBS_COMPACTED,
+            "max_jobs_pruned_per_resume": CERTIFIED_SEND_MAX_JOBS_PRUNED,
+            "files_per_validated_tombstone": 3,
+            "max_hashed_bytes_per_tombstone": CERTIFIED_SEND_MAX_HASHED_BYTES_PER_TOMBSTONE,
+            "max_index_files_read": CERTIFIED_SEND_MAX_INDEX_FILES_READ,
+            "max_index_bytes_read": CERTIFIED_SEND_MAX_INDEX_BYTES_READ,
+            "max_completed_entries_enumerated": CERTIFIED_SEND_MAX_COMPLETED_ENTRIES_ENUMERATED,
+            "legacy_absent_fields_default_to_zero_false": True,
+        },
+        "rounds_observed": len(iterations),
+        "validators_observed": len(public_validators),
+        "validators": public_validators,
+    }
+
+
+def _verify_certified_send_work(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    window: Mapping[str, Any],
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> None:
+    expected = _recompute_certified_send_work(raw, lane_name)
+    receipt = _bound_json(
+        packet_dir,
+        checksums,
+        {
+            "path": window.get("certified_send_work_receipt"),
+            "sha256": window.get("certified_send_work_receipt_sha256"),
+        },
+        f"performance lane {lane_name} certified-send work receipt",
+    )
+    if (
+        window.get("certified_send_work_gate_pass") is not True
+        or window.get("certified_send_work_gate_reason_codes") != []
+        or window.get("certified_send_work") != expected
+        or receipt != expected
+    ):
+        _fail(f"performance lane {lane_name} certified-send gate summary differs")
+
+
+def _recompute_round_coverage(
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> dict[str, Any]:
+    iterations = _list(raw.get("iterations"), "performance round-coverage iterations")
+    rows: list[dict[str, Any]] = []
+    max_residual = 0.0
+    for round_number, iteration_value in enumerate(iterations, start=1):
+        iteration = _object(iteration_value, "performance round-coverage iteration")
+        timings = _object(
+            iteration.get("round_timings"),
+            "performance round-coverage timings",
+        )
+        total_ms = _number(timings.get("total_ms"), "performance round total")
+        prewarm = _object(
+            timings.get("shielded_verifier_prewarm"),
+            "performance shielded prewarm timing",
+        )
+        prewarm_ms = _number(
+            prewarm.get("total_ms"),
+            "performance shielded prewarm total",
+        )
+        if total_ms < 0 or prewarm_ms < 0:
+            _fail(f"performance lane {lane_name} round-coverage timing is negative")
+        stage_values: dict[str, float] = {}
+        for field in ROUND_COVERAGE_STAGE_FIELDS:
+            value = timings.get(field, 0 if field == "outbox_resume_ms" else None)
+            parsed = _number(value, f"performance round-coverage {field}")
+            if parsed < 0:
+                _fail(f"performance lane {lane_name} round-coverage timing is negative")
+            stage_values[field] = parsed
+        named_ms = prewarm_ms + sum(stage_values.values())
+        residual_ms = total_ms - named_ms
+        max_residual = max(max_residual, residual_ms)
+        stall = ROUND_COVERAGE_MAX_RESIDUAL_MS < residual_ms <= (
+            ROUND_COVERAGE_MAX_ISOLATED_STALL_MS
+        )
+        if not stall and not -1.0 <= residual_ms <= ROUND_COVERAGE_MAX_RESIDUAL_MS:
+            _fail(f"ROUND_COVERAGE_RESIDUAL_EXCEEDED: performance lane {lane_name}")
+        rows.append(
+            {
+                "finalized_round": round_number,
+                "source_node": str(iteration.get("source_node", "")),
+                "total_ms": total_ms,
+                "named_stage_ms": named_ms,
+                "residual_ms": residual_ms,
+                "passed": True,
+                "tolerated_stall": stall,
+                "reason_code": None,
+            }
+        )
+    if len(iterations) != 50:
+        _fail(f"performance lane {lane_name} round-coverage count differs")
+    stalls = [row["finalized_round"] for row in rows if row["tolerated_stall"]]
+    if len(stalls) > ROUND_COVERAGE_MAX_STALL_ROUNDS_PER_WINDOW:
+        _fail(f"ROUND_COVERAGE_RESIDUAL_EXCEEDED: performance lane {lane_name}")
+    return {
+        "schema": ROUND_COVERAGE_GATE_SCHEMA,
+        "passed": True,
+        "reason_codes": [],
+        "tolerated_stall_rounds": stalls,
+        "limits": {
+            "max_unattributed_residual_ms": ROUND_COVERAGE_MAX_RESIDUAL_MS,
+            "max_isolated_stall_residual_ms": ROUND_COVERAGE_MAX_ISOLATED_STALL_MS,
+            "max_tolerated_stall_rounds_per_window": (
+                ROUND_COVERAGE_MAX_STALL_ROUNDS_PER_WINDOW
+            ),
+            "minimum_residual_ms": -1.0,
+            "named_stage_fields": list(ROUND_COVERAGE_STAGE_FIELDS),
+            "shielded_verifier_prewarm_field": "shielded_verifier_prewarm.total_ms",
+            "overlapping_diagnostic_fields_excluded": [
+                "local_vote_ms",
+                "client_visible_finality_ms",
+                "legacy_certificate_ms",
+                "consensus_v2_prepare_qc_ms",
+                "consensus_v2_precommit_votes_ms",
+                "consensus_v2_precommit_qc_ms",
+                "consensus_v2_commit_assembly_ms",
+                "consensus_v2_commit_attach_write_ms",
+            ],
+        },
+        "rounds_observed": len(iterations),
+        "max_residual_ms": max_residual,
+        "rounds": rows,
+    }
+
+
+def _verify_round_coverage(
+    packet_dir: Path,
+    checksums: Mapping[str, str],
+    window: Mapping[str, Any],
+    raw: Mapping[str, Any],
+    lane_name: str,
+) -> None:
+    expected = _recompute_round_coverage(raw, lane_name)
+    receipt = _bound_json(
+        packet_dir,
+        checksums,
+        {
+            "path": window.get("round_coverage_receipt"),
+            "sha256": window.get("round_coverage_receipt_sha256"),
+        },
+        f"performance lane {lane_name} round-coverage receipt",
+    )
+    if (
+        window.get("round_coverage_gate_pass") is not True
+        or window.get("round_coverage_gate_reason_codes") != []
+        or window.get("round_coverage") != expected
+        or receipt != expected
+    ):
+        _fail(f"performance lane {lane_name} round-coverage summary differs")
 
 
 def _verify_resource_samples(
@@ -2007,6 +2510,27 @@ def _verify_performance_lane(
                     stage_samples[stage].append(
                         _nested_stage_value(iteration, stage, path)
                     )
+            _verify_vote_lock_work(
+                packet_dir,
+                checksums,
+                window,
+                raw,
+                lane_name,
+            )
+            _verify_certified_send_work(
+                packet_dir,
+                checksums,
+                window,
+                raw,
+                lane_name,
+            )
+            _verify_round_coverage(
+                packet_dir,
+                checksums,
+                window,
+                raw,
+                lane_name,
+            )
             raw_storage = _recompute_raw_storage_work(raw, lane_name)
             for field in TRANSACTIONAL_COUNTER_FIELDS:
                 if field in ("full_history_records_read", "full_history_bytes_read"):
@@ -2148,6 +2672,9 @@ def _verify_prepared_input_build(
         "runner": manifest.get("runner"),
         "build": manifest.get("build"),
     }
+    prepared_by = manifest.get("prepared_by")
+    if prepared_by is not None:
+        expected_build["prepared_by"] = prepared_by
     if performance.get("prepared_input_build") != expected_build:
         _fail("performance prepared-input build identity differs from the manifest")
     candidate = _object(manifest.get("candidate"), "prepared-input candidate")
@@ -2158,6 +2685,13 @@ def _verify_prepared_input_build(
         candidate.get("source_revision") != source_revision
         or candidate.get("node_binary_sha256")
         != binary_digests["bin/postfiat-node"]
+        or (
+            candidate.get("candidate_build_manifest_sha256") is not None
+            and HEX64.fullmatch(
+                str(candidate.get("candidate_build_manifest_sha256", ""))
+            )
+            is None
+        )
         or node_build.get("git_revision") != source_revision[:8]
         or node_build.get("profile") != "release"
     ):
@@ -2176,6 +2710,12 @@ def _verify_prepared_input_build(
         or HEX40.fullmatch(runner_revision) is None
         or builder_build.get("git_revision") != runner_revision[:8]
         or builder_build.get("profile") != "release"
+        or runner.get("vote_lock_work_gate_schema")
+        != VOTE_LOCK_WORK_GATE_SCHEMA
+        or runner.get("certified_send_work_gate_schema")
+        != CERTIFIED_SEND_WORK_GATE_SCHEMA
+        or runner.get("round_coverage_gate_schema")
+        != ROUND_COVERAGE_GATE_SCHEMA
         or HEX96.fullmatch(str(runner.get("spec_sha3_384", ""))) is None
         or any(
             HEX64.fullmatch(str(runner.get(field, ""))) is None
@@ -2187,6 +2727,82 @@ def _verify_prepared_input_build(
         )
     ):
         _fail("performance prepared-input helper or runner binding differs")
+    build_batch_builder = batch_builder
+    build_builder_build = builder_build
+    if prepared_by is not None:
+        prepared_by_object = _object(prepared_by, "prepared-input prepared-by")
+        prepared_candidate = _object(
+            prepared_by_object.get("candidate"),
+            "prepared-input prepared-by candidate",
+        )
+        prepared_node_build = _object(
+            prepared_candidate.get("node_binary_build"),
+            "prepared-input prepared-by node build",
+        )
+        prepared_runner = _object(
+            prepared_by_object.get("runner"),
+            "prepared-input prepared-by runner",
+        )
+        prepared_runner_revision = str(prepared_runner.get("source_revision", ""))
+        build_batch_builder = _object(
+            prepared_by_object.get("batch_builder"),
+            "prepared-input prepared-by batch builder",
+        )
+        build_builder_build = _object(
+            build_batch_builder.get("build"),
+            "prepared-input prepared-by batch builder build",
+        )
+        prepared_source_revision = str(prepared_candidate.get("source_revision", ""))
+        if (
+            set(prepared_by_object)
+            != {"source_manifest_sha256", "candidate", "batch_builder", "runner"}
+            or HEX64.fullmatch(
+                str(prepared_by_object.get("source_manifest_sha256", ""))
+            )
+            is None
+            or HEX40.fullmatch(prepared_source_revision) is None
+            or HEX64.fullmatch(
+                str(prepared_candidate.get("node_binary_sha256", ""))
+            )
+            is None
+            or (
+                prepared_candidate.get("candidate_build_manifest_sha256")
+                is not None
+                and HEX64.fullmatch(
+                    str(
+                        prepared_candidate.get(
+                            "candidate_build_manifest_sha256",
+                            "",
+                        )
+                    )
+                )
+                is None
+            )
+            or prepared_node_build.get("git_revision")
+            != prepared_source_revision[:8]
+            or prepared_node_build.get("profile") != "release"
+            or HEX40.fullmatch(prepared_runner_revision) is None
+            or HEX96.fullmatch(
+                str(prepared_runner.get("spec_sha3_384", ""))
+            )
+            is None
+            or any(
+                HEX64.fullmatch(str(prepared_runner.get(field, ""))) is None
+                for field in (
+                    "paired_runner_sha256",
+                    "selected_runner_sha256",
+                    "shared_runner_sha256",
+                )
+            )
+            or HEX64.fullmatch(
+                str(build_batch_builder.get("binary_sha256", ""))
+            )
+            is None
+            or build_builder_build.get("git_revision")
+            != prepared_runner_revision[:8]
+            or build_builder_build.get("profile") != "release"
+        ):
+            _fail("performance prepared-input prepared-by binding differs")
     public = _object(manifest.get("public_inputs"), "prepared-input public inputs")
     private_bundle = _object(
         manifest.get("private_bundle"), "prepared-input private bundle reference"
@@ -2395,8 +3011,8 @@ def _verify_prepared_input_build(
             or receipt.get("result_prepared_fleet_sha256")
             != advance.get("result_prepared_fleet_sha256")
             or receipt.get("batch_builder_binary_sha256")
-            != batch_builder.get("binary_sha256")
-            or receipt.get("batch_builder_build") != builder_build
+            != build_batch_builder.get("binary_sha256")
+            or receipt.get("batch_builder_build") != build_builder_build
         ):
             _fail(f"performance prepared-input advance {index} receipt differs")
         expected_start = final
@@ -2853,6 +3469,18 @@ def _verify_performance(
             _fail(f"performance ratio exceeds 110% for {key}")
     _bool(performance.get("comparison_windows_pass"), "comparison window gate")
     _bool(performance.get("window_gates_pass"), "selected window gate")
+    _bool(
+        performance.get("vote_lock_work_gates_pass"),
+        "vote-lock work gate",
+    )
+    _bool(
+        performance.get("certified_send_work_gates_pass"),
+        "certified-send work gate",
+    )
+    _bool(
+        performance.get("round_coverage_gates_pass"),
+        "round coverage gate",
+    )
     _bool(
         performance.get("no_positive_linear_height_relationship"),
         "height relationship gate",
