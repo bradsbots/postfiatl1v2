@@ -142,10 +142,47 @@ postfiat-node governance-amendment-assemble --data-dir PATH \
   --proposal-slot S --output recipient-format.signed.json
 postfiat-node governance-batch --data-dir PATH \
   --amendment-file recipient-format.signed.json --batch-file recipient-format.batch.json
+# on the proposer of slot S (postfiat-node block-proposer --height S), as the postfiat user
 postfiat-node transport-peer-certified-batch-round --data-dir PATH --topology PATH \
   --batch-kind governance --batch-file recipient-format.batch.json \
-  --key-file PATH --artifact-dir PATH
+  --key-file PATH --artifact-dir PATH --require-local-proposer --height S \
+  --quorum-early-full-propagation --local-apply-before-certified-send \
+  --timeout-ms 60000 --send-retries 3 --retry-backoff-ms 2000
 ```
+
+!!! warning "This activation cannot be undone"
+
+    The recipient-format activation is the only one of the three exchange-readiness
+    activations that cannot be reversed. `rejected_tx_fee_activation_height` and
+    `require_memo_activation_height` take the latest amendment, so a later
+    amendment with a far height postpones them. `recipient_format_activation_height`
+    takes the earliest unpaused amendment, and a paused amendment is refused.
+
+    Before submitting it, check every address in use against the parsing rules,
+    and submit it last. On the devnet it was set to 1153 at block 1146 on
+    2026-10-23
+    ([record](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/DEPLOY-SHEET.md#8-governance-activation-of-the-three-heights--covered-by-the-operators-go-of-the-day-only-after-6-and-7-are-clean-on-all-six)).
+
+When the round runs on a validator host against that validator's data
+directory, pass `--local-apply-before-certified-send`. Without it, the round
+also sends the certified block to its own validator service while holding the
+store lease. That send is reset, the proposer does not apply the block, and the
+round exits 1 after the peers have committed.
+
+**If a round stalls after the votes are durable.** A same-view retry is refused
+by the vote-safety rule. Move the height to the next view instead:
+
+1. Each validator signs `block-timeout-vote --height H --view V` on its own host.
+2. `block-timeout-certificate` assembles the votes; it needs a quorum of 5 of 6.
+3. The leader of view V+1 (`block-proposer --height H --view V+1`) runs the same
+   round with `--view V+1 --timeout-certificate-file PATH`.
+
+The view-(V+1) proposal must carry the locked block, so the same batch commits.
+The authorization's slot is the height, not the view. A validator that missed
+the delivery takes the same block with `transport-batch-send --batch-file B
+--certificate-file C` from a peer. The 2026-10-23 procedure, with code
+references, is
+[§8b of the release sheet](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/DEPLOY-SHEET.md#8b-view-change-at-1144-2026-10-23--covered-by-the-operators-go-of-the-day).
 
 ## Display
 
