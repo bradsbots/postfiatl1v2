@@ -48,9 +48,9 @@ flowchart LR
   ValidatorRegistry --> GovernanceReplay[Governance replay checks]
 ```
 
-## Transactional finality-path candidate
+## Transactional finality-path store
 
-The active storage-scaling milestone selects an embedded transactional `redb`
+The storage-scaling milestone selected an embedded transactional `redb`
 store for finalized blocks, receipts, archived batches, ordered membership,
 current state, history indexes, and chain-tip metadata. One finalized height is
 committed in one write transaction with an expected-parent check. Proposal,
@@ -86,18 +86,26 @@ crash-suffix truncation/checkpointing, manifest writes, and export writes are
 not. Whole-directory mutation-sentinel tests cover successful verification and
 each repair/refusal boundary.
 
-This source is an undeployed development candidate. Canonical snapshot/restore,
-rebuild, retained-history equality, exact height-915 replay, the closed 69-case
-tamper/crash matrix, compatible two-binary rollback, and a development-only
-height-501 six-clone migration rehearsal pass offline. Candidate `d0ae79f3`
-later passed six exact height-924 transactional rebuild/verify pairs but failed
-its first certified continuation round when superseded validator-registry
-history was treated as due again. It is not clone-qualified and was not
-deployed; the continuation defect itself is repaired in the repository lineage
-(see the next section). See the [Storage Scaling Fix implementation specification](storage-scaling-fix-spec.md),
-the [active milestone](../plans/active/storage-scaling-milestone.md), and
-[development evidence](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling).
-Public testnet remains blocked.
+**Deployed.** The controlled devnet has run this store since height 930
+(2026-08-31). It now runs release `store-handle-20261021`: binary
+`eea96ba6…`, source `86706699`.
+
+**Qualification evidence.** The packet for that binary covers G1, G2 and G4
+(attempt 4), the exact height-924 and height-1123 replays, and the six-clone
+migration rehearsal (924–934). It is on the work server, not in git:
+`~/.cache/storage-packet-20261023/packet-r2/`, checksum manifest `8bc64e1d…`.
+`python -m postfiat_rpc.storage_scaling verify` accepts it offline; verifier
+output `e396222b…`.
+
+**Status.** The state is SELECTED, not yet `OFFLINE QUALIFIED`. The label waits
+for an independent review of the 2026-10-23 verifier acceptance changes. G6's
+deployment-exact gate is still open, and public testnet remains blocked.
+
+The redaction-safe G2 reports are committed under
+[`benchmarks/storage-scaling/g2-eea96ba6/`](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling/g2-eea96ba6).
+The gate list and history are in the
+[storage milestone](../plans/active/storage-scaling-milestone.md) and the
+[Storage Scaling Fix specification](storage-scaling-fix-spec.md).
 
 ## Validator-registry activation on continuation
 
