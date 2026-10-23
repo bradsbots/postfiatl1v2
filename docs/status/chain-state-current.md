@@ -6,9 +6,10 @@ Status: **canonical operational-state reference**
 
 !!! note "2026-10-23: exchange-readiness candidate cut, not deployed"
 
-    On 2026-10-23 the next candidate, `exchange-readiness-20261023` (`main` at `6604c93e`,
-    executable `59bcd5b5…`), which carries #138–#144, #49 and their integration fixes, was cut
-    and qualified locally; it is cut, not deployed
+    On 2026-10-23 the next candidate, `exchange-readiness-20261023` (release branch at `6b1a0585`,
+    `main` `d9260e93`, executable `4085ac70…`, signed manifest `210544a8…`), which carries #138–#144,
+    #49, their integration fixes and the account history index fix, was cut and re-qualified locally;
+    it is cut, not deployed
     ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/README.md)).
     Its three governed activation heights stay unset until a governance record after rollout.
 
