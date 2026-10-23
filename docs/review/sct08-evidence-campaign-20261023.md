@@ -1,6 +1,12 @@
 # SCT-08 evidence campaign — 2026-10-23
 
-**Status:** started 2026-10-23. Item 5 PASSES since the runner change of the same day (see item 5). One fact of item 4 has run.
+**Status:** started 2026-10-23.
+
+- Item 5 passes since the runner change of the same day.
+- Item 4's native reliability input is defined (decision below). Its node
+  side, the vote records, is a candidate of the next release, and until then
+  the measure is "not available".
+- Items 1–3 wait for their providers.
 Items 1–3 cannot run here because their inputs do not exist yet. Nothing below
 is live authority.
 
@@ -54,7 +60,7 @@ Cobalt linkedness and model classification.
 | 1 | **NOT RUNNABLE HERE** | `results/presence.json` (`a69a61f2…`) |
 | 2 | **NOT RUNNABLE HERE** | `results/presence.json` |
 | 3 | **NOT RUNNABLE HERE** | `results/presence.json` |
-| 4 | **PARTIAL**: L1 facts derived, one FAIL; the rest NOT RUNNABLE HERE | `results/native-evidence.json` (`a9010949…`) |
+| 4 | **PARTIAL**: L1 facts derived. The reliability source is defined (decision below), but its records do not exist yet. The rest NOT RUNNABLE HERE | `results/native-evidence.json` (`a9010949…`) |
 | 5 | **PASS** (2026-10-23, after the runner change). First run: PASS for the native root and its certification, FAIL for the shadow binding | `item5/shadow-report-1137.json` (`6b2059a4…`); first run `results/native-evidence.json`, `results/native-root-shadow/run.stderr` (`2c925153…`) |
 
 The Task Node verifier suite passes on main (178 tests,
@@ -107,7 +113,38 @@ validators:
   - *Suggested change:* define `uptime_window_bps` against a native source that
     records each validator's availability per height, not certificate
     inclusion. Until then, keep this fact sourced from Task Node and holding
-    when absent.
+    when absent. Done as a definition in the decision below; the records it
+    needs are a node change for the next release.
+
+#### Decision: the native reliability input (2026-10-23)
+
+1. **Measure.** For each validator, `uptime_window_bps` is its accepted votes
+   divided by the finalized heights in the window, times 10,000. The window
+   is a fixed run of heights ending at the evaluated archive's tip, and the
+   votes are counted from that window's **vote records**.
+2. **When it counts.** The measure counts only when a vote record exists for
+   every height in the window. Otherwise it is **not available**: the runner
+   holds on `missing_reliability`, and the 9,950 bps floor does not apply.
+3. **No stand-in.** Certificate inclusion is never used as the reliability
+   fact. A certificate carries only the votes needed for its quorum of five,
+   so a validator missing from a certificate may still have voted.
+   Certificate inclusion is reported only as a lower bound.
+4. **What the node must record.** For every finalized height, the round's
+   vote record lists each validator it asked for a vote. For each, it gives
+   the outcome: an accepted vote with its vote ID, a refusal, or no answer by
+   the round deadline. It includes votes that arrive after the quorum is
+   formed. The record is kept with the block and exported in the signed
+   snapshot, under a manifest hash, so an archive carries it.
+5. **Which release.** The node change is a candidate of the release after
+   `exchange-readiness-20261023`
+   ([plan](../plans/active/next-validator-release-plan-20261108.md#candidates)).
+   It adds a stored and exported artifact without changing a consensus or
+   state result. It is qualified as the plan's rule requires, and gets its
+   own qualification if review finds that it touches a state or consensus
+   result.
+
+No node code changed today. Until a release carries vote records, the
+native reliability fact stays not available.
 - **Cobalt linkedness: NOT RUNNABLE HERE.** The native trust state verifies,
   but linkedness is a property of a candidate's admission, and no candidate has
   a binding (item 1).
@@ -209,7 +246,7 @@ The re-run, with outputs under `~/.cache/sct08-20261023/item5/`:
 | 1 | Signed validator-to-wallet bindings for the six validators, published as ledger memos | Post Fiat as operator of the six validators, under a separate signing authorization |
 | 2 | Signed per-account work digests and the publishing-key record | Task Node maintainers |
 | 3 | The published exchange and Foundation funding exclusion list | Post Fiat |
-| 4 | A native reliability definition; accountability, ρ and domain-control inputs from items 1–3; operator manifests; model classification | This lane (definition); operators; the governance lane |
+| 4 | The vote records of the reliability decision (a node change); accountability, ρ and domain-control inputs from items 1–3; operator manifests; model classification | This lane (vote records, next-release candidate); operators; the governance lane |
 | 5 | Done 2026-10-23 (runner change and 1137 re-run). A real non-empty derivation still needs items 1–3. | — |
 
 ## Commands
