@@ -2653,6 +2653,21 @@ class StorageScalingVerifierTests(unittest.TestCase):
             ):
                 verify_packet(packet)
 
+    def test_storage_scaling_redaction_skips_only_bound_release_binaries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = Path(temporary)
+            binary = packet / "bin" / "postfiat-storage-corpus-batches"
+            binary.parent.mkdir()
+            binary.write_bytes(b"\x7fELF/home/builder/.cargo/registry/src/lib.rs")
+            redaction = {"passed": True, "allowed_nonlocal_ip_files": []}
+            storage_scaling._verify_redaction(
+                packet, redaction, frozenset({"bin/postfiat-storage-corpus-batches"})
+            )
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError, "host-local path found"
+            ):
+                storage_scaling._verify_redaction(packet, redaction)
+
     def test_storage_scaling_packet_accepts_one_isolated_round_stall(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             packet = self.packet_dir(temporary)

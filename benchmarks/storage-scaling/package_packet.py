@@ -645,11 +645,22 @@ def validate_capture_time(value: str) -> None:
     datetime.fromisoformat(value[:-1] + "+00:00")
 
 
-def scan_redaction(packet: Path, allowed_nonlocal: set[str]) -> None:
+def scan_redaction(
+    packet: Path,
+    allowed_nonlocal: set[str],
+    binary_paths: frozenset[str] = frozenset(),
+) -> None:
+    """Scan every evidence file; the hash-bound release binaries are not text.
+
+    Release binaries embed build-host source paths (panic locations); they are
+    copied byte for byte and bound by SHA-256 in `artifacts/source.json`.
+    """
     for path in packet.rglob("*"):
         if not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
             continue
         relative = path.relative_to(packet).as_posix()
+        if relative in binary_paths:
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if SENSITIVE.search(text):
             raise ValueError(f"sensitive marker found in packet file: {relative}")
@@ -881,7 +892,11 @@ def main() -> int:
         },
     }
     write_json(packet / "storage-scaling-packet.json", manifest)
-    scan_redaction(packet, allowed_nonlocal)
+    scan_redaction(
+        packet,
+        allowed_nonlocal,
+        frozenset(str(binary["path"]) for binary in binaries),
+    )
     write_checksums(packet)
 
     sys.path.insert(0, str(PYTHON_ROOT))

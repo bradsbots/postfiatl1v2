@@ -4236,13 +4236,20 @@ def _verify_migration(
         _fail("migration activation packet root disagrees with the six final refreezes")
 
 
-def _verify_redaction(packet_dir: Path, redaction: Mapping[str, Any]) -> None:
+def _verify_redaction(
+    packet_dir: Path,
+    redaction: Mapping[str, Any],
+    binary_paths: frozenset[str] = frozenset(),
+) -> None:
+    """Scan every evidence file; the hash-bound release binaries are not text."""
     _bool(redaction.get("passed"), "redaction gate")
     allow = set(_list(redaction.get("allowed_nonlocal_ip_files", []), "redaction allowlist"))
     for path in packet_dir.rglob("*"):
         if not path.is_file() or path.name == CHECKSUM_FILE or path.stat().st_size > 16 * 1024 * 1024:
             continue
         relative = path.relative_to(packet_dir).as_posix()
+        if relative in binary_paths:
+            continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if SENSITIVE.search(text):
             _fail(f"sensitive material marker found in {relative}")
@@ -4310,7 +4317,7 @@ def verify_packet(packet: str | Path) -> VerifiedPacket:
         current_binary_digest,
         incompatible_binary_digest,
     )
-    _verify_redaction(packet_dir, artifacts["redaction"])
+    _verify_redaction(packet_dir, artifacts["redaction"], frozenset(binaries))
     report: dict[str, Any] = {
         "schema": REPORT_SCHEMA,
         "verified": True,

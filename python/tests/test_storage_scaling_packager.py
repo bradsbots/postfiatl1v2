@@ -424,6 +424,18 @@ class StorageScalingPackagerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "prepared corpus binding"):
                 PACKAGER.copy_performance(root / "packet", source)
 
+    def test_scan_redaction_skips_only_bound_release_binaries(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = Path(temporary)
+            binary = packet / "bin" / "postfiat-storage-corpus-batches"
+            binary.parent.mkdir()
+            binary.write_bytes(b"\x7fELF/home/builder/.cargo/registry/src/lib.rs")
+            PACKAGER.scan_redaction(
+                packet, set(), frozenset({"bin/postfiat-storage-corpus-batches"})
+            )
+            with self.assertRaisesRegex(ValueError, "host-local path"):
+                PACKAGER.scan_redaction(packet, set())
+
     def test_resolve_campaign_file_rejects_parent_escape(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
