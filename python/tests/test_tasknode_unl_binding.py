@@ -813,6 +813,7 @@ class OfflineCliTests(unittest.TestCase):
                 "shadow-derive",
                 "derive",
                 "shadow-diff",
+                "native-registry-extract",
             },
         )
         self.assertNotIn("submit", subparser_action.choices)

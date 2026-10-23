@@ -1,6 +1,6 @@
 # SCT-08 evidence campaign — 2026-10-23
 
-**Status:** started 2026-10-23. Item 5 has run and one fact of item 4 has run.
+**Status:** started 2026-10-23. Item 5 PASSES since the runner change of the same day (see item 5). One fact of item 4 has run.
 Items 1–3 cannot run here because their inputs do not exist yet. Nothing below
 is live authority.
 
@@ -55,7 +55,7 @@ Cobalt linkedness and model classification.
 | 2 | **NOT RUNNABLE HERE** | `results/presence.json` |
 | 3 | **NOT RUNNABLE HERE** | `results/presence.json` |
 | 4 | **PARTIAL**: L1 facts derived, one FAIL; the rest NOT RUNNABLE HERE | `results/native-evidence.json` (`a9010949…`) |
-| 5 | **PASS** for the native root and its certification; **FAIL** for the shadow binding | `results/native-evidence.json`; `results/native-root-shadow/run.stderr` (`2c925153…`) |
+| 5 | **PASS** (2026-10-23, after the runner change). First run: PASS for the native root and its certification, FAIL for the shadow binding | `item5/shadow-report-1137.json` (`6b2059a4…`); first run `results/native-evidence.json`, `results/native-root-shadow/run.stderr` (`2c925153…`) |
 
 The Task Node verifier suite passes on main (178 tests,
 `results/tasknode-verifier-tests.txt`, `3fae1c84…`). Items 1–3 therefore have a
@@ -160,6 +160,48 @@ current runner adds `wallet_account_mapping_hold`, from the SCT-02 fix
   hold when it differs. The fork's list stays a separate input of the trust
   graph.
 
+**Re-run after the runner change (2026-10-23): PASS.**
+
+The runner change (`python/postfiat_rpc/tasknode_unl_policy.py`):
+
+- an optional `native_registry` input (`:90`);
+- `native_registry_root` (`:282`), the node's `validator_registry_root` in
+  Python, which equals the node's `08a451e0…` for the 1137 registry;
+- `native_registry_from_document` (`:327`). It accepts 96-character roots for
+  this kind only, recomputes the root from the ordered validator set, and
+  refuses `native_registry_root_mismatch` or a certificate root that differs.
+- `native_registry_from_archive` (`:398`). It reads the registry, the last
+  registry update and the tip certificate from a signed export. Each file must
+  match its hash in the signed manifest (`postfiat.snapshot.file.v1`).
+- Admission packets and their registry deltas now bind the native root
+  (`:1520`), and the report records it (`:1783`, `:2137`).
+- The fork's 64-character content-hash baseline is unchanged; it still feeds
+  the churn guard. Without the native input, the golden fixture output is
+  byte-identical.
+- CLI: `python -m postfiat_rpc.tasknode_unl native-registry-extract
+  --archive-dir DIR` (`tasknode_unl.py:461`).
+
+Tests are in `python/tests/test_tasknode_unl_native_registry.py`:
+
+- 9 of 10 failed before the change and all 10 pass after. The tenth, the
+  fork-path test, passes both times by design.
+- The Task Node suite passes: 188 tests.
+
+The re-run, with outputs under `~/.cache/sct08-20261023/item5/`:
+
+- Extracting from the signed 1137 export (`3257115c…`) gives root
+  `08a451e0…` from the registry update and from the tip certificate. The
+  validator set is `validator-0`…`5`. The output is `native-registry-1137.json`
+  (`157476ce…`). The 1131 export (`df9b3847…`) gives the same root
+  (`45c4c7e7…`).
+- Both archive trees were unchanged. The 1137 re-import's registry file is
+  byte-identical to the export's.
+- `shadow-derive` on the retained 2026-09-04 input plus the native input exits
+  0. The report is `shadow-report-1137.json`, SHA-256 `6b2059a4…`, report hash
+  `95b87398…`.
+- All three observed accounts still hold. Every admission packet and registry
+  delta now names `08a451e0…`.
+
 ## What remains and who provides it
 
 | Item | Remaining | Provider |
@@ -168,7 +210,7 @@ current runner adds `wallet_account_mapping_hold`, from the SCT-02 fix
 | 2 | Signed per-account work digests and the publishing-key record | Task Node maintainers |
 | 3 | The published exchange and Foundation funding exclusion list | Post Fiat |
 | 4 | A native reliability definition; accountability, ρ and domain-control inputs from items 1–3; operator manifests; model classification | This lane (definition); operators; the governance lane |
-| 5 | The runner change above and a re-run against 1137 | This lane (Python change under its own task) |
+| 5 | Done 2026-10-23 (runner change and 1137 re-run). A real non-empty derivation still needs items 1–3. | — |
 
 ## Commands
 

@@ -9,7 +9,9 @@ SHADOW_ONLY.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from fractions import Fraction
 from typing import Any, Mapping, Sequence
 
@@ -83,6 +85,15 @@ SHADOW_INPUT_FILES = (
     "baseline_list",
     "registry_history",
 )
+
+# Optional input: the native L1 validator registry read from a signed archive.
+SHADOW_OPTIONAL_INPUT_FILES = ("native_registry",)
+NATIVE_REGISTRY_SCHEMA = "tasknode-unl-native-registry-v1"
+NATIVE_REGISTRY_KIND = "native_l1"
+# The node's `validator_registry_root` and snapshot file hashes (SHA3-384).
+NATIVE_REGISTRY_ROOT_DOMAIN = "postfiat.validator_registry.root.v1"
+SNAPSHOT_FILE_HASH_DOMAIN = "postfiat.snapshot.file.v1"
+NATIVE_HASH_HEX_LENGTH = 96
 
 V1_POLICY_SCHEMA = "postfiat.validator_admission_policy.v1"
 V1_DECISION_SCHEMA = "postfiat.validator_admission_decision.v1"
@@ -262,6 +273,202 @@ class PolicyEvidence:
                 candidate.to_dict() for candidate in self.candidates
             ],
         }
+
+
+def _sha3_384_domain(domain: str, payload: bytes) -> str:
+    return hashlib.sha3_384(domain.encode("ascii") + b"\x00" + payload).hexdigest()
+
+
+def native_registry_root(validators: Sequence[Mapping[str, Any]]) -> str:
+    """Recompute the node's validator registry root for an ordered validator set."""
+
+    records = [
+        [row["node_id"], row["algorithm_id"], row["public_key_hex"]]
+        for row in validators
+    ]
+    encoded = json.dumps(records, separators=(",", ":"), ensure_ascii=False)
+    return _sha3_384_domain(NATIVE_REGISTRY_ROOT_DOMAIN, encoded.encode("utf-8"))
+
+
+def _native_validators(value: object, field: str) -> list[dict[str, str]]:
+    if not isinstance(value, list) or not value:
+        raise TaskNodeUnlError("invalid_array", field)
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(value):
+        item_field = f"{field}[{index}]"
+        row = require_closed_keys(
+            item,
+            required=("node_id", "algorithm_id", "public_key_hex"),
+            field=item_field,
+        )
+        node_id = require_identifier(row["node_id"], f"{item_field}.node_id")
+        if node_id in seen:
+            raise TaskNodeUnlError("duplicate_validator_id", item_field)
+        seen.add(node_id)
+        algorithm_id = require_identifier(
+            row["algorithm_id"], f"{item_field}.algorithm_id"
+        )
+        key = row["public_key_hex"]
+        if (
+            not isinstance(key, str)
+            or not key
+            or len(key) % 2
+            or key != key.lower()
+            or any(character not in "0123456789abcdef" for character in key)
+        ):
+            raise TaskNodeUnlError("invalid_lower_hex", f"{item_field}.public_key_hex")
+        rows.append(
+            {"node_id": node_id, "algorithm_id": algorithm_id, "public_key_hex": key}
+        )
+    return rows
+
+
+def native_registry_from_document(document: object) -> dict[str, Any]:
+    """Verify a native-registry input and recompute its root from the validator set."""
+
+    field = "native_registry"
+    row = require_closed_keys(
+        document,
+        required=(
+            "schema",
+            "mode",
+            "kind",
+            "archive",
+            "registry_root",
+            "certificate_registry_root",
+            "validators",
+        ),
+        field=field,
+    )
+    if row["schema"] != NATIVE_REGISTRY_SCHEMA:
+        raise TaskNodeUnlError("unknown_schema", f"{field}.schema")
+    if row["mode"] != SHADOW_MODE:
+        raise TaskNodeUnlError("mode_mismatch", f"{field}.mode")
+    if row["kind"] != NATIVE_REGISTRY_KIND:
+        raise TaskNodeUnlError("unknown_registry_kind", f"{field}.kind")
+    archive = require_closed_keys(
+        row["archive"],
+        required=(
+            "chain_id",
+            "genesis_hash",
+            "height",
+            "block_hash",
+            "state_root",
+            "signed_manifest_sha256",
+            "registry_file_hash",
+        ),
+        field=f"{field}.archive",
+    )
+    checked_archive = {
+        "chain_id": require_identifier(archive["chain_id"], f"{field}.archive.chain_id"),
+        "height": require_int(archive["height"], f"{field}.archive.height", minimum=1),
+        "signed_manifest_sha256": _require_hex(
+            archive["signed_manifest_sha256"], f"{field}.archive.signed_manifest_sha256"
+        ),
+    }
+    for key in ("genesis_hash", "block_hash", "state_root", "registry_file_hash"):
+        checked_archive[key] = _require_hex(
+            archive[key], f"{field}.archive.{key}", NATIVE_HASH_HEX_LENGTH
+        )
+    registry_root = _require_hex(
+        row["registry_root"], f"{field}.registry_root", NATIVE_HASH_HEX_LENGTH
+    )
+    certificate_root = _require_hex(
+        row["certificate_registry_root"],
+        f"{field}.certificate_registry_root",
+        NATIVE_HASH_HEX_LENGTH,
+    )
+    validators = _native_validators(row["validators"], f"{field}.validators")
+    if native_registry_root(validators) != registry_root:
+        raise TaskNodeUnlError("native_registry_root_mismatch", f"{field}.registry_root")
+    if certificate_root != registry_root:
+        raise TaskNodeUnlError(
+            "native_registry_certificate_root_mismatch",
+            f"{field}.certificate_registry_root",
+        )
+    return {
+        "kind": NATIVE_REGISTRY_KIND,
+        "registry_root": registry_root,
+        "validator_ids": [item["node_id"] for item in validators],
+        "archive": dict(sorted(checked_archive.items())),
+    }
+
+
+def native_registry_from_archive(archive_dir: Path) -> dict[str, Any]:
+    """Read the native registry input from a signed snapshot export directory.
+
+    Every file read is bound to the signed manifest by its snapshot file hash.
+    The manifest signature itself is checked by the node's signed import.
+    """
+
+    manifest_path = archive_dir / "snapshot.signed-manifest.json"
+    manifest_bytes = manifest_path.read_bytes()
+    signed = json.loads(manifest_bytes)
+    manifest = signed.get("manifest") if isinstance(signed, Mapping) else None
+    if not isinstance(manifest, Mapping) or not isinstance(manifest.get("files"), list):
+        raise TaskNodeUnlError("invalid_object", "snapshot.signed-manifest.manifest")
+    bound = {
+        str(item.get("name")): str(item.get("hash_hex"))
+        for item in manifest["files"]
+        if isinstance(item, Mapping)
+    }
+
+    def read_bound(name: str) -> Any:
+        payload = (archive_dir / name).read_bytes()
+        if _sha3_384_domain(SNAPSHOT_FILE_HASH_DOMAIN, payload) != bound.get(name):
+            raise TaskNodeUnlError("native_archive_file_unbound", name)
+        value, _end = json.JSONDecoder().raw_decode(payload.decode("utf-8"))
+        return value
+
+    registry = read_bound("validator_registry.json")
+    governance = read_bound("governance.json")
+    blocks = read_bound("blocks.json").get("blocks")
+    if not isinstance(blocks, list) or not blocks:
+        raise TaskNodeUnlError("invalid_array", "blocks.json.blocks")
+    tip = blocks[-1]["header"]
+    if tip.get("height") != manifest.get("block_height"):
+        raise TaskNodeUnlError("native_archive_tip_mismatch", "blocks.json")
+    certificate = tip["certificate"]
+    updates = governance.get("validator_registry_updates") or []
+    if not updates:
+        raise TaskNodeUnlError("native_registry_update_missing", "governance.json")
+    records = {
+        str(item.get("node_id")): item
+        for item in registry.get("validators", [])
+        if isinstance(item, Mapping)
+    }
+    validators = []
+    for node_id in certificate["validators"]:
+        record = records.get(node_id)
+        if record is None:
+            raise TaskNodeUnlError("native_registry_validator_missing", node_id)
+        validators.append(
+            {
+                "node_id": node_id,
+                "algorithm_id": record["algorithm_id"],
+                "public_key_hex": record["public_key_hex"],
+            }
+        )
+    document = {
+        "schema": NATIVE_REGISTRY_SCHEMA,
+        "mode": SHADOW_MODE,
+        "kind": NATIVE_REGISTRY_KIND,
+        "archive": {
+            "chain_id": manifest.get("chain_id"),
+            "genesis_hash": manifest.get("genesis_hash"),
+            "height": manifest.get("block_height"),
+            "block_hash": manifest.get("block_tip_hash"),
+            "state_root": manifest.get("state_root"),
+            "signed_manifest_sha256": hashlib.sha256(manifest_bytes).hexdigest(),
+            "registry_file_hash": bound.get("validator_registry.json"),
+        },
+        "registry_root": updates[-1].get("new_registry_root"),
+        "certificate_registry_root": certificate.get("registry_root"),
+        "validators": validators,
+    }
+    native_registry_from_document(document)
+    return document
 
 
 def _sha256_document(value: object, domain: str) -> str:
@@ -1181,10 +1388,14 @@ def _require_documents(
     missing = sorted(required - keys)
     if missing:
         raise TaskNodeUnlError("missing_input_document", missing[0])
-    unknown = sorted(keys - required)
+    unknown = sorted(keys - required - set(SHADOW_OPTIONAL_INPUT_FILES))
     if unknown:
         raise TaskNodeUnlError("unknown_input_document", unknown[0])
-    return {key: documents[key] for key in SHADOW_INPUT_FILES}
+    return {
+        key: documents[key]
+        for key in SHADOW_INPUT_FILES + SHADOW_OPTIONAL_INPUT_FILES
+        if key in documents
+    }
 
 
 def _registry_root(document: object) -> str:
@@ -1299,6 +1510,14 @@ def derive_shadow_report(
     )
     baseline_ids = _baseline_ids(source["baseline_list"])
     registry_root = _registry_root(source["baseline_list"])
+    native = (
+        native_registry_from_document(source["native_registry"])
+        if "native_registry" in source
+        else None
+    )
+    # Admission deltas apply to the native registry when it is supplied; the
+    # fork baseline root keeps serving the churn guard and the baseline input root.
+    packet_registry_root = native["registry_root"] if native is not None else registry_root
     active_ids = tuple(
         item.validator_id for item in policy.active_validators
     )
@@ -1560,6 +1779,10 @@ def derive_shadow_report(
         "trust_graph": graph_root,
         "work_digest_verifications": digest_root,
     }
+    if native is not None:
+        roots["native_registry"] = _sha256_document(
+            source["native_registry"], "postfiat/tasknode-unl/native-registry/v1"
+        )
 
     candidates: list[dict[str, Any]] = []
     eligible_ids: list[str] = []
@@ -1696,7 +1919,7 @@ def derive_shadow_report(
         packet = _policy_packet(
             candidate,
             policy,
-            registry_root,
+            packet_registry_root,
             accountability_score,
             rho_score,
             roots,
@@ -1910,6 +2133,8 @@ def derive_shadow_report(
         },
         "churn_guard": churn.to_dict(),
     }
+    if native is not None:
+        report["native_registry"] = native
     report["report_hash"] = _sha256_document(
         report, "postfiat/tasknode-unl/shadow-report/v1"
     )
@@ -1939,6 +2164,7 @@ def render_shadow_markdown(report: object) -> str:
             "churn_guard",
             "report_hash",
         ),
+        optional=("native_registry",),
         field="shadow_report",
     )
     if row["schema"] != SHADOW_REPORT_SCHEMA or row["mode"] != SHADOW_MODE:

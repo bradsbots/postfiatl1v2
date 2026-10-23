@@ -31,7 +31,9 @@ from .tasknode_unl_binding import (
 )
 from .tasknode_unl_policy import (
     SHADOW_INPUT_FILES,
+    SHADOW_OPTIONAL_INPUT_FILES,
     derive_shadow_report,
+    native_registry_from_archive,
     render_shadow_markdown,
 )
 from .tasknode_unl_schema import (
@@ -86,11 +88,14 @@ def _shadow_documents(input_dir: Path) -> dict[str, object]:
     files = require_closed_keys(
         manifest["files"],
         required=SHADOW_INPUT_FILES,
+        optional=SHADOW_OPTIONAL_INPUT_FILES,
         field="shadow_input_manifest.files",
     )
     selected: dict[str, object] = {}
     names: set[str] = set()
-    for logical_name in SHADOW_INPUT_FILES:
+    for logical_name in SHADOW_INPUT_FILES + tuple(
+        name for name in SHADOW_OPTIONAL_INPUT_FILES if name in files
+    ):
         name = require_identifier(
             files[logical_name],
             f"shadow_input_manifest.files.{logical_name}",
@@ -452,6 +457,13 @@ def build_parser() -> argparse.ArgumentParser:
     shadow.add_argument("--output", type=Path, required=True)
     shadow.add_argument("--markdown-output", type=Path)
 
+    native_extract = commands.add_parser(
+        "native-registry-extract",
+        help="read the native registry input from a signed snapshot export",
+    )
+    native_extract.add_argument("--archive-dir", type=Path, required=True)
+    native_extract.add_argument("--output", type=Path)
+
     shadow_diff = commands.add_parser(
         "shadow-diff",
         help="project one local shadow delta onto a published UNL",
@@ -469,6 +481,10 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
+        if args.command == "native-registry-extract":
+            _emit(native_registry_from_archive(args.archive_dir), args.output)
+            return 0
+
         if args.command == "prepare-bind":
             challenge = prepare_bind_challenge(
                 validator_id=args.validator_id,
