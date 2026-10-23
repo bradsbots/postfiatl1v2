@@ -1,6 +1,6 @@
 # Z2 Advisory Flag Execution Plan
 
-**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 (Task Node `task_f70334d6192a53277e08313fc0699e5c` and `task_d88cc467a1f9926dcfd01570c0a36696`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Steps 1b–6 have not started.
+**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 (Task Node `task_f70334d6192a53277e08313fc0699e5c` and `task_d88cc467a1f9926dcfd01570c0a36696`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Step 2's specification is locked (2026-10-23, [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md)); its package and prompt are still open. Steps 1b and 3–6 have not started.
 **Date:** 2026-10-22
 **Parent gate:** [L1v2 Public Testnet Path, Gate Zero Z2](l1v2-public-testnet-path-milestone.md#gate-zero-operator-preconditions-recorded-2026-08-30)
 **Decision:** [AI governance direction of 2026-09-03](../../governance/ai-governance-direction-20260903.md), confirmed 2026-10-20 (row 1 of the [pending operator decisions](../../governance/pending-operator-decisions.md))
@@ -58,6 +58,16 @@
     - *Acceptance:* the builder emits identical request bytes on two runs. Tests show that each failure class yields no flag for that operator and changes nothing else. The note passes the doc gates.
     - *Estimate:* 2–3 days.
     - *Depends on:* nothing, to write it. A live GPU run (not part of this step) needs the inference-cost row in the decision sheet answered, which is open today, and a frozen packet set covering the round's candidates.
+    - *Step 2 record (2026-10-23, Task Node `task_46fd38ab1cc6f8aea2707ef707c6039b`):*
+        - [x] Specification written and locked: [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md). It is in `docs/specs/` rather than the `docs/governance/identity-flag-pipeline.md` named above. The Text Improvement Harness full gate gave 86.33/100 (GPT 85.40, Fable 85.60, GLM 88.00), after a first gate of 85.67 and one improvement pass. It covers the schemas (`postfiat.identity_flag.model_response.v1`, `postfiat.identity_flag.v1`), the reason codes and the cited-field list (§11, leans).
+        - [x] Flag rule (§4). A flag needs an admissible model `flag` **and** the deterministic strict-profile result "not met". Until step 3 lands, that result uses the frozen v3 identity rule (`f71f29dd…`): a verified domain or not. On the 2026-09-03 corpus the rule gives 13 flags with the score-0 stand-in and 0 with the "not established" stand-in. "Legitimacy 0" alone gives 33. No PostFiat validator is flagged under the rule (§4.1).
+        - [x] Admissibility (§5, §9). Two distinct-owner hosts × two runs, byte-identical content per slot. A divergent, missing, truncated, invalid or wrong-echo slot means no flag for that operator. A padding divergence means no flag for its batch. An outage or a stale pin means zero flags. The same applies in shadow and binding mode, and model deletion is the no-op branch.
+        - [x] Pinned execution profile (§6). It is the 2026-09-03 profile unchanged, plus the prompt, schema, input, sub-scorer and entry-profile hashes, recorded in the round manifest's flag section.
+        - [x] Data contract with step 3 (§7: `flags.json`, `admissibility.json`, `strict_profile_rule`, `none`/`clear`/`flag`). `SHADOW_ONLY` invariant (§8). Acceptance test names (§10).
+        - [ ] Prompt `postfiat.identity_flag.prompt.v1`: bytes and hash (open point 1).
+        - [ ] Package skeleton `benchmarks/ai-governance/identity-flag-<date>/`: the builder, host runner and comparator reused, plus `admissibility.py`, writing `flags.json` and `admissibility.json`. It needs the §10 package tests, offline with recorded fake responses, and the builder's two-run byte identity, which is step 2's acceptance check.
+        - [ ] Decision lines for the open points of §11 (reason codes, cited fields, padding scope, owner, cadence and the inference-cost owner).
+    - *Left to do (step 2):* prompt bytes and hash, 0.5 day; package skeleton and its offline tests, 1–1.5 days; open-point decisions, the operator's lines.
 - [ ] **3. Build the strict entry profile** as a versioned deterministic rule module with a Python mirror and fixtures
     - *Today:*
         - Only the proposed defaults exist (direction lines 72–82): a verified domain is mandatory, four consecutive clean rounds are required, and there is no seat (fork) or trust-view membership (l1v2) until then. The five fixture cases are listed at lines 275–281.
