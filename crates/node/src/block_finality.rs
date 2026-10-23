@@ -290,6 +290,158 @@ pub fn rebuild_account_tx_index(
     refresh_account_tx_index_after_ordered_commit(&store, &block_log, &archive, &receipts)
 }
 
+/// What the commit-time append did to the disk index.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AccountTxIndexAppend {
+    /// No disk index exists yet (`account-tx-index-build` has not run).
+    NotIndexed,
+    /// The disk index already ends at this block (a replayed commit).
+    AlreadyCurrent,
+    /// The disk index does not end at this block's parent, so it is left
+    /// behind; `account_tx` answers from the archive scan until the build
+    /// catches it up.
+    Behind,
+    /// The block's rows were appended and the index now ends at this block.
+    Appended,
+}
+
+/// Appends one committed block to the disk index: the touched account shards
+/// and `account_tx_index_meta.json`.
+///
+/// Ordering rule: the caller runs this only after the block, its archive entry
+/// and its receipts are durable (the transactional commit returned, or the
+/// ordered commit journal was applied and removed). The append extends the
+/// index only from the block's parent, writes every touched shard first and
+/// the metadata last, and changes nothing else. A crash or error between the
+/// commit and the metadata write leaves the metadata at the parent: reads see
+/// a stale tip and use the archive scan, later commits do not extend it, and
+/// `account-tx-index-build` repairs it. The aggregate `account_tx_index.json`
+/// holds every row and is not rewritten here; the build refreshes it.
+pub(crate) fn append_account_tx_index_after_commit(
+    store: &NodeStore,
+    genesis: &Genesis,
+    block: &BlockRecord,
+    archive_entry: &BatchArchiveEntry,
+    receipts: &[Receipt],
+) -> io::Result<AccountTxIndexAppend> {
+    let meta_path = account_tx_disk_index_path(store.data_dir());
+    let mut disk_index = match read_account_tx_disk_index_file(&meta_path) {
+        Ok(index) => index,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(AccountTxIndexAppend::NotIndexed);
+        }
+        Err(error) if error.kind() == io::ErrorKind::InvalidData => {
+            return Ok(AccountTxIndexAppend::Behind);
+        }
+        Err(error) => return Err(error),
+    };
+    let block_hash = &block.header.block_hash;
+    if &disk_index.tip_hash == block_hash {
+        return Ok(AccountTxIndexAppend::AlreadyCurrent);
+    }
+    if account_tx_disk_index_matches_genesis_and_tip(
+        &disk_index,
+        genesis,
+        &block.header.parent_hash,
+    )
+    .is_err()
+    {
+        return Ok(AccountTxIndexAppend::Behind);
+    }
+    let indexed_kind = account_tx_indexes_batch_kind(&block.header.batch_kind);
+    let rows = if indexed_kind {
+        if archive_entry.batch_kind != block.header.batch_kind
+            || archive_entry.batch_id != block.header.batch_id
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!(
+                    "block {} archive entry does not match its batch",
+                    block.header.height
+                ),
+            ));
+        }
+        // The block's own receipts, under the same repeated-id rule as the
+        // build: only governance blocks may repeat an id, and they have no rows.
+        let block_log = BlockLog {
+            blocks: vec![block.clone()],
+        };
+        let receipt_by_tx = receipt_by_tx_id(receipts, &block_log)?;
+        account_tx_rows_for_archived_block(block, archive_entry, &receipt_by_tx)?
+    } else {
+        Vec::new()
+    };
+
+    let mut appended = BTreeMap::new();
+    for row in &rows {
+        accounts_for_account_tx_index_map(&mut appended, row.clone());
+    }
+    let shards_dir = account_tx_account_shards_dir(store.data_dir());
+    let mut shards = Vec::with_capacity(appended.len());
+    for (address, new_rows) in appended {
+        let mut account_rows = match disk_index.accounts.get(&address) {
+            Some(entry) => {
+                let shard =
+                    read_account_tx_account_shard_file(&shards_dir.join(&entry.shard_file))?;
+                if account_tx_account_shard_matches(&shard, &disk_index, &address, entry).is_err()
+                {
+                    return Ok(AccountTxIndexAppend::Behind);
+                }
+                shard.rows
+            }
+            None => Vec::new(),
+        };
+        account_rows.extend(new_rows);
+        shards.push(AccountTxDiskAccountShard {
+            schema: ACCOUNT_TX_ACCOUNT_SHARD_SCHEMA.to_string(),
+            chain_id: disk_index.chain_id.clone(),
+            genesis_hash: disk_index.genesis_hash.clone(),
+            protocol_version: disk_index.protocol_version,
+            address,
+            tip_hash: block_hash.clone(),
+            row_count: account_rows.len() as u64,
+            rows: account_rows,
+        });
+    }
+    std::fs::create_dir_all(&shards_dir)?;
+    for shard in shards {
+        let shard_file = account_tx_account_shard_file(&shard.address);
+        write_account_tx_account_shard_file(&shards_dir.join(&shard_file), &shard)?;
+        disk_index.accounts.insert(
+            shard.address,
+            AccountTxDiskAccountEntry {
+                shard_file,
+                row_count: shard.row_count,
+                tip_hash: block_hash.clone(),
+            },
+        );
+    }
+    if indexed_kind {
+        disk_index
+            .indexed_from_height
+            .get_or_insert(block.header.height);
+        disk_index.indexed_to_height = Some(block.header.height);
+        disk_index.indexed_block_count = disk_index.indexed_block_count.saturating_add(1);
+        disk_index.indexed_row_count = disk_index
+            .indexed_row_count
+            .saturating_add(rows.len() as u64);
+    }
+    disk_index.account_count = disk_index.accounts.len() as u64;
+    disk_index.tip_hash = block_hash.clone();
+    write_account_tx_disk_index_file(&meta_path, &disk_index)?;
+    Ok(AccountTxIndexAppend::Appended)
+}
+
+/// Blocks committed after `tip_hash`, or `None` when `tip_hash` is not on the
+/// local chain.
+fn account_tx_index_lag_blocks(block_log: &BlockLog, tip_hash: &str) -> Option<u64> {
+    if tip_hash == block_log.tip_hash() {
+        return Some(0);
+    }
+    account_tx_index_extension_start(block_log, tip_hash)
+        .map(|start| (block_log.blocks.len() - start) as u64)
+}
+
 fn refresh_account_tx_index_after_ordered_commit(
     store: &NodeStore,
     block_log: &BlockLog,
@@ -521,6 +673,7 @@ pub fn account_tx_index_status(
     let block_log = store.read_blocks()?;
     let index_path = account_tx_index_path(store.data_dir());
     let current_tip_hash = logical_tip_hash(&store, &block_log)?;
+    let current_tip_height = block_log.blocks.last().map(|block| block.header.height);
     let disk_status = account_tx_disk_index_status_fields(&store, &genesis, &block_log)?;
     match read_account_tx_index_file(&index_path) {
         Ok(index) => {
@@ -546,6 +699,11 @@ pub fn account_tx_index_status(
                 disk_account_shard_count: disk_status.account_shard_count,
                 tip_hash: index.tip_hash,
                 current_tip_hash,
+                current_tip_height,
+                disk_indexed_from_height: disk_status.indexed_from_height,
+                disk_indexed_to_height: disk_status.indexed_to_height,
+                disk_tip_hash: disk_status.tip_hash,
+                disk_index_lag_blocks: disk_status.lag_blocks,
             })
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(AccountTxIndexStatusReport {
@@ -569,6 +727,11 @@ pub fn account_tx_index_status(
             disk_account_shard_count: disk_status.account_shard_count,
             tip_hash: String::new(),
             current_tip_hash,
+            current_tip_height,
+            disk_indexed_from_height: disk_status.indexed_from_height,
+            disk_indexed_to_height: disk_status.indexed_to_height,
+            disk_tip_hash: disk_status.tip_hash,
+            disk_index_lag_blocks: disk_status.lag_blocks,
         }),
         Err(error) => Err(error),
     }
@@ -579,6 +742,10 @@ struct AccountTxDiskIndexStatusFields {
     usable: bool,
     reason: Option<String>,
     account_shard_count: u64,
+    indexed_from_height: Option<u64>,
+    indexed_to_height: Option<u64>,
+    tip_hash: String,
+    lag_blocks: Option<u64>,
 }
 
 fn account_tx_disk_index_status_fields(
@@ -594,6 +761,10 @@ fn account_tx_disk_index_status_fields(
                 usable: reason.is_none(),
                 reason,
                 account_shard_count: index.accounts.len() as u64,
+                indexed_from_height: index.indexed_from_height,
+                indexed_to_height: index.indexed_to_height,
+                lag_blocks: account_tx_index_lag_blocks(block_log, &index.tip_hash),
+                tip_hash: index.tip_hash,
             })
         }
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -602,6 +773,10 @@ fn account_tx_disk_index_status_fields(
                 usable: false,
                 reason: Some("account_tx disk index file is absent".to_string()),
                 account_shard_count: 0,
+                indexed_from_height: None,
+                indexed_to_height: None,
+                tip_hash: String::new(),
+                lag_blocks: None,
             })
         }
         Err(error) if error.kind() == io::ErrorKind::InvalidData => {
@@ -610,6 +785,10 @@ fn account_tx_disk_index_status_fields(
                 usable: false,
                 reason: Some(error.to_string()),
                 account_shard_count: 0,
+                indexed_from_height: None,
+                indexed_to_height: None,
+                tip_hash: String::new(),
+                lag_blocks: None,
             })
         }
         Err(error) => Err(error),

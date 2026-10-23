@@ -2464,6 +2464,9 @@ pub(super) fn write_ordered_commit_with_journal_timed_locked(
             )?;
             timings.write_validator_registry_ms = apply_batch_elapsed_ms(stage_start);
         }
+        let stage_start = std::time::Instant::now();
+        append_account_tx_index_after_durable_commit(store, &genesis, &journal);
+        timings.refresh_account_tx_index_ms = apply_batch_elapsed_ms(stage_start);
         timings.total_ms = apply_batch_elapsed_ms(total_start);
         return Ok(timings);
     }
@@ -2483,8 +2486,37 @@ pub(super) fn write_ordered_commit_with_journal_timed_locked(
     let stage_start = std::time::Instant::now();
     store.remove_ordered_commit_journal()?;
     timings.remove_journal_ms = apply_batch_elapsed_ms(stage_start);
+
+    let stage_start = std::time::Instant::now();
+    append_account_tx_index_after_durable_commit(store, &genesis, &journal);
+    timings.refresh_account_tx_index_ms = apply_batch_elapsed_ms(stage_start);
     timings.total_ms = apply_batch_elapsed_ms(total_start);
     Ok(timings)
+}
+
+/// The account history index follows the chain: after the block, its archive
+/// entry and its receipts are durable, its `account_tx` rows are appended to
+/// the disk index. The index is a rebuildable operator cache, never consensus
+/// state, so a failed append never fails the commit; it leaves the index
+/// behind, which `account_tx_index_status` reports and `account_tx` answers
+/// with the archive scan until `account-tx-index-build` catches it up.
+fn append_account_tx_index_after_durable_commit(
+    store: &NodeStore,
+    genesis: &Genesis,
+    journal: &OrderedCommitDeltaJournal,
+) {
+    if let Err(error) = append_account_tx_index_after_commit(
+        store,
+        genesis,
+        &journal.block,
+        &journal.archive_entry,
+        &journal.receipt_delta,
+    ) {
+        eprintln!(
+            "account_tx index left behind at height {}: {error}",
+            journal.height
+        );
+    }
 }
 
 fn scheduled_storage_activation_after_journal(
@@ -2694,7 +2726,13 @@ pub(super) fn recover_ordered_commit_journal_locked(
             apply_ordered_commit_journal(store, journal)?;
         }
     }
-    store.remove_ordered_commit_journal()
+    store.remove_ordered_commit_journal()?;
+    if let StoredOrderedCommitJournal::Delta(journal) = &journal {
+        // The recovered block is durable now; the append is a no-op when the
+        // index already ends at it.
+        append_account_tx_index_after_durable_commit(store, &store.read_genesis()?, journal);
+    }
+    Ok(())
 }
 
 pub(super) fn apply_ordered_commit_journal(
@@ -2761,9 +2799,8 @@ pub(super) fn apply_ordered_commit_journal_timed(
         timings.write_validator_registry_ms = apply_batch_elapsed_ms(stage_start);
     }
     // The account history index is a rebuildable operator cache, not consensus
-    // state. It is deliberately not refreshed in the synchronous finality path;
-    // account_tx falls back to a bounded scan when the cache is stale, and
-    // account-tx-index-build refreshes the cache as maintenance work.
+    // state. It is not touched while the journal is applied; the caller appends
+    // the block to the disk index once the commit is durable.
     timings.refresh_account_tx_index_ms = 0.0;
     Ok(())
 }
@@ -2957,8 +2994,9 @@ pub(super) fn apply_ordered_commit_delta_journal_timed(
         timings.write_validator_registry_ms = apply_batch_elapsed_ms(stage_start);
     }
     // The account history index is a rebuildable operator cache, not consensus
-    // state. Keep it out of synchronous delta commit; stale status remains
-    // observable and account_tx falls back to block/archive scanning.
+    // state. It is not touched while the journal is applied; the caller appends
+    // the block to the disk index once the commit is durable
+    // (`append_account_tx_index_after_durable_commit`).
     timings.refresh_account_tx_index_ms = 0.0;
     Ok(())
 }

@@ -3797,6 +3797,20 @@ pub struct AccountTxIndexStatusReport {
     pub disk_account_shard_count: u64,
     pub tip_hash: String,
     pub current_tip_hash: String,
+    /// Height of the local tip block, absent when no block is retained.
+    #[serde(default)]
+    pub current_tip_height: Option<u64>,
+    /// Indexed range and tip of the disk index, which block commits extend.
+    #[serde(default)]
+    pub disk_indexed_from_height: Option<u64>,
+    #[serde(default)]
+    pub disk_indexed_to_height: Option<u64>,
+    #[serde(default)]
+    pub disk_tip_hash: String,
+    /// Blocks committed after the disk index tip: 0 when it follows the
+    /// chain, absent when its tip is not on the local chain.
+    #[serde(default)]
+    pub disk_index_lag_blocks: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

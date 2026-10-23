@@ -1,7 +1,7 @@
 # Account Tx Index
 
-Status: v2 retained-history index (memo contents and shielded withdrawals)
-Date: 2026-10-22
+Status: v2 retained-history index (memo contents and shielded withdrawals); block commits extend the disk index
+Date: 2026-10-23
 
 `account_tx` is a read-only public RPC method for account history: transparent
 transactions, including `payment_v2` memo contents, and transparent credits
@@ -14,10 +14,44 @@ stale, or unreadable, the node falls back to the aggregate
 existing bounded retained-history scan instead of failing the public read.
 
 This index is not consensus state. It is an operator cache rebuilt from local
-block/archive/receipt data. Ordered block commit does not refresh it (the
-finality path stays free of cache work); `account-tx-index-build` refreshes it
-as maintenance, and stale or unusable aggregate/disk status remains visible
-through `account_tx_index_status`.
+block/archive/receipt data. Stale or unusable aggregate/disk status stays
+visible through `account_tx_index_status`.
+
+## Following the chain
+
+Once `account-tx-index-build` has written the disk index, every block commit
+extends it. No rebuild is needed after each block.
+
+1. **Order.** The append runs only after the block, its archive entry and its
+   receipts are durable: after the transactional commit returns, or after the
+   ordered commit journal is applied and removed (also on journal recovery at
+   restart).
+2. **What is written.** The append extends the index only from the block's
+   parent. It writes the touched account shards first and
+   `account_tx_index_meta.json` last.
+3. **Idempotent.** A replayed commit whose block the index already ends at
+   changes nothing.
+4. **Never fails the commit.** If the append fails, or the node stops between
+   the commit and the metadata write, the metadata stays at an older tip. Reads
+   then see a stale tip and use the bounded archive scan (`index_used: false`),
+   and later commits do not extend the index across the gap. Run
+   `account-tx-index-build` to catch it up; commits follow again after that.
+5. **Aggregate file.** The aggregate `account_tx_index.json` holds every row,
+   so commits do not rewrite it. It shows `index_usable: false` after the first
+   new block until the next build, while `disk_index_usable: true` answers
+   reads.
+6. **No consensus change.** The append changes no block, receipt, ledger or
+   state root. Its time is reported as `refresh_account_tx_index_ms` in the
+   commit write timings.
+
+`account_tx_index_status` reports the disk index's range against the tip:
+
+- `disk_indexed_from_height` and `disk_indexed_to_height`;
+- `disk_tip_hash`;
+- `current_tip_height`;
+- `disk_index_lag_blocks`: 0 when the index follows the chain, the number of
+  blocks it is behind otherwise, and absent when its tip is not on the local
+  chain.
 
 The build first tries a bounded incremental append when the existing cache tip
 is still a known ancestor of the local tip and the cache matches the same

@@ -4669,26 +4669,25 @@ fn account_tx_index_explicit_build_catches_up_after_archive_prune() {
         second_stale_index.reason.as_deref(),
         Some("account_tx index tip hash is stale")
     );
+    // The commit extended the disk index; the aggregate file waits for the build.
     assert!(second_stale_index.disk_index_present);
-    assert!(!second_stale_index.disk_index_usable);
-    assert_eq!(
-        second_stale_index.disk_index_reason.as_deref(),
-        Some("account_tx disk index tip hash is stale")
-    );
-    let second_scan_history = account_tx(AccountTxQueryOptions {
+    assert!(second_stale_index.disk_index_usable);
+    assert_eq!(second_stale_index.disk_index_reason, None);
+    assert_eq!(second_stale_index.disk_index_lag_blocks, Some(0));
+    let second_history = account_tx(AccountTxQueryOptions {
         data_dir: data_dir.clone(),
         address: key_file.address.clone(),
         from_height: Some(1),
         to_height: Some(2),
         limit: Some(10),
     })
-    .expect("scan faucet account history with stale index");
-    assert!(!second_scan_history.index_used);
-    assert_eq!(second_scan_history.scanned_block_count, 2);
-    assert_eq!(second_scan_history.archive_lookup_count, 2);
-    assert_eq!(second_scan_history.row_count, 2);
-    assert_eq!(second_scan_history.rows[0].tx_id, first_receipts[0].tx_id);
-    assert_eq!(second_scan_history.rows[1].tx_id, second_receipts[0].tx_id);
+    .expect("faucet account history from the followed disk index");
+    assert!(second_history.index_used);
+    assert_eq!(second_history.scanned_block_count, 0);
+    assert_eq!(second_history.archive_lookup_count, 0);
+    assert_eq!(second_history.row_count, 2);
+    assert_eq!(second_history.rows[0].tx_id, first_receipts[0].tx_id);
+    assert_eq!(second_history.rows[1].tx_id, second_receipts[0].tx_id);
 
     let store = NodeStore::new(&data_dir);
     let mut archive = store.read_batch_archive().expect("batch archive");
