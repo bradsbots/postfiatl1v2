@@ -15,7 +15,7 @@ pending authorization. This does **not** qualify storage or authorize another
 performance campaign; the next 5+5+5 run needs a separate operator decision.
 The governing
 records are the [completed remediation plan](../plans/active/certified-send-tombstone-bounding-plan.md)
-and the [storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+and the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 
 ## Current state
 
@@ -176,7 +176,7 @@ cause idle waiting or broaden authorization.
 ## References
 
 - [Certified-send tombstone bounding plan](../plans/active/certified-send-tombstone-bounding-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Corrected G4 campaign failure](2026-08-28___postfiatchad__corrected_g4_campaign_failure.md)
 - [Vote-lock index implementation handoff](2026-08-28___postfiatchad__vote_lock_index_fix.md)
 - [`certified_send_completed_index.rs`](https://github.com/postfiatorg/postfiatl1v2/blob/e52e050269a2f9fdd28c5083c3888debf3a85063/crates/node/src/certified_send_completed_index.rs)

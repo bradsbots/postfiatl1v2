@@ -196,8 +196,8 @@ I ask the other lane for the following:
 [nazgul]: 2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md
 [previous]: 2026-10-19___dravlic__storage_regression_campaign_on_the_running_code.md
 [state]: ../status/chain-state-current.md
-[milestone]: ../plans/active/storage-scaling-milestone.md
-[g3]: ../plans/active/storage-scaling-milestone.md#g3-exact-replay
+[milestone]: ../plans/completed/storage-scaling-milestone.md
+[g3]: ../plans/completed/storage-scaling-milestone.md#g3-exact-replay
 [g4plan]: ../plans/active/g4-regression-deployed-release-20261019.md
 [fix]: ../plans/active/g4-regression-deployed-release-20261019.md#fix-2026-10-20
 [result]: ../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-20-attempt-3-after-the-fix

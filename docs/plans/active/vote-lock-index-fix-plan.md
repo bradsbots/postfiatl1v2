@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **Baseline:** `main` at `1f478e0c473de42ecf43b4dd0925893de8f181ed`
 **Motivating failure:** [Storage G4 structural vote-path failure](../../handoffs/2026-08-28___postfiatchad__storage_g4_structural_vote_path_failure.md)
-**Tracked by:** [Storage scaling milestone](storage-scaling-milestone.md)
+**Tracked by:** [Storage scaling milestone](../completed/storage-scaling-milestone.md)
 
 ## BLUF for the executing agent
 

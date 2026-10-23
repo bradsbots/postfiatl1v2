@@ -79,7 +79,7 @@ records without a separate forensic signer-safety procedure.
 - Two semantics-preserving workspace-Clippy corrections use
   `is_multiple_of(2)` in the Cobalt oracle and place the E1 harness test module
   after `main`.
-- The [storage milestone](../plans/active/storage-scaling-milestone.md) now
+- The [storage milestone](../plans/completed/storage-scaling-milestone.md) now
   records the completed failed G4 result and the corrected critical path.
 
 ### Verification
@@ -131,7 +131,7 @@ intentionally not performed here and remain blocked by their own gates.
 ## References
 
 - [Vote-lock index implementation plan](../plans/active/vote-lock-index-fix-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Motivating G4 structural failure](2026-08-28___postfiatchad__storage_g4_structural_vote_path_failure.md)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Current recorded network state](../status/chain-state-current.md)

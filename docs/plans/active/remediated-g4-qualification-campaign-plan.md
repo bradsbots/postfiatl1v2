@@ -5,7 +5,7 @@
 **Planning baseline:** `main` at `24edd8fa`; frozen candidate source `a92bb085`
 **Predecessors:** [Final G4 qualification plan](final-g4-qualification-campaign-plan.md) (closed, failed — mechanics of this plan follow it),
 [Certified-send eager-index remediation spec](certified-send-eager-index-remediation-spec.md) (implemented, verified),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 **Key handoffs:** [Eager-index remediation complete](../../handoffs/2026-08-29___postfiatchad__certified_send_eager_index_remediation_complete.md),
 [Final G4 qualification failure](../../handoffs/2026-08-29___postfiatchad__final_g4_qualification_failure.md)
 

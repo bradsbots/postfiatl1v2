@@ -7,7 +7,7 @@
 **Motivating failure:** [Final G4 qualification failure](../../handoffs/2026-08-29___postfiatchad__final_g4_qualification_failure.md)
 **Predecessors:** [Final G4 qualification plan](final-g4-qualification-campaign-plan.md) (closed, failed),
 [Certified-send tombstone bounding plan](certified-send-tombstone-bounding-plan.md) (implemented; source of the defect this spec removes),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 
 **Later outcome:** this spec's certified-send fix passed its affected gates in
 all ten selected windows. The separately authorized campaign nevertheless

@@ -90,21 +90,20 @@ each repair/refusal boundary.
 (2026-08-31). It now runs release `store-handle-20261021`: binary
 `eea96ba6…`, source `86706699`.
 
-**Qualification evidence.** The packet for that binary covers G1, G2 and G4
-(attempt 4), the exact height-924 and height-1123 replays, and the six-clone
-migration rehearsal (924–934). It is on the work server, not in git:
-`~/.cache/storage-packet-20261023/packet-r2/`, checksum manifest `8bc64e1d…`.
-`python -m postfiat_rpc.storage_scaling verify` accepts it offline; verifier
-output `e396222b…`.
-
-**Status.** The state is SELECTED, not yet `OFFLINE QUALIFIED`. The label waits
-for an independent review of the 2026-10-23 verifier acceptance changes. G6's
-deployment-exact gate is still open, and public testnet remains blocked.
+**Qualification: `OFFLINE QUALIFIED` (2026-10-23).** The packet for that
+binary covers G1, G2 and G4 (attempt 4), and the exact height-924 replay with
+its verify-only output. It also covers the height-1123 replay in place of the
+lost 915 archive, and the six-clone migration rehearsal (924–934). It is on
+the work server, not in git: `~/.cache/storage-packet-20261023/packet-r3/`,
+checksum manifest `357f06ee…`. `python -m postfiat_rpc.storage_scaling verify`
+accepts it offline; verifier output `e4fba47e…`. Offline qualification is not
+G6 (`CLONE QUALIFIED`) and not a deployment decision, and public testnet
+remains blocked.
 
 The redaction-safe G2 reports are committed under
 [`benchmarks/storage-scaling/g2-eea96ba6/`](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling/g2-eea96ba6).
-The gate list and history are in the
-[storage milestone](../plans/active/storage-scaling-milestone.md) and the
+The gate list and history are in the completed
+[storage milestone](../plans/completed/storage-scaling-milestone.md) and the
 [Storage Scaling Fix specification](storage-scaling-fix-spec.md).
 
 ## Validator-registry activation on continuation

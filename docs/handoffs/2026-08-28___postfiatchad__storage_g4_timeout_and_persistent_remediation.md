@@ -3,7 +3,7 @@
 > **Historical snapshot:** this handoff predates the v3 release run. V3 later
 > reached height 5,000 but failed its first high-height resource-sampling gate.
 > Resume from the
-> [active storage-scaling milestone](../plans/active/storage-scaling-milestone.md),
+> [active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md),
 > not from the commands below.
 
 - **Operator:** Post Fiat Chad (`postfiatchad`)
@@ -11,7 +11,7 @@
 
 ## BLUF
 
-The [active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+The [active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 still blocks public testnet. The selected transactional `redb` candidate did not
 show the original full-history rescan in the four-hour G4 attempt, but that run
 failed its time budget because the evidence harness launched and restarted node
@@ -131,7 +131,7 @@ separate authorization for six distinct stopped copies.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage-scaling evidence workflow](https://github.com/postfiatorg/postfiatl1v2/tree/438fb29c/benchmarks/storage-scaling)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Locked storage scaling research specification](../architecture/storage-scaling-research-spec.md)

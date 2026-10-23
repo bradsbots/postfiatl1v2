@@ -11,7 +11,7 @@ not a storage-candidate result. Clean v4 runner `03123ca0` fixes deterministic
 sampler startup and bounded large-fleet restoration. Its real six-validator
 smoke and 19 GB height-5,000 restore preflight pass. G4 still has **not** passed:
 the next bounded action in the
-[active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+[active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 is exactly one clean v4 qualification output with a four-hour aggregate budget.
 
 ## Current state
@@ -79,7 +79,7 @@ packet verifies. G6 remains deferred and separately authorization-bound.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Clean v4 implementation](https://github.com/postfiatorg/postfiatl1v2/tree/03123ca0/benchmarks/storage-scaling)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Locked storage scaling research specification](../architecture/storage-scaling-research-spec.md)

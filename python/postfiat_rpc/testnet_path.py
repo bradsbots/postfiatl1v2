@@ -6,7 +6,7 @@ and prints their current gate states:
 - Gate Zero Z1/Z2/Z3 and phase A-E checkbox items from
   ``docs/plans/active/l1v2-public-testnet-path-milestone.md``;
 - the G0-G7 gate-table rows from
-  ``docs/plans/active/storage-scaling-milestone.md``;
+  ``docs/plans/completed/storage-scaling-milestone.md``;
 - the milestone registry listing in ``docs/plans/README.md``; and
 - the head of ``docs/status/chain-state-current.md``.
 
@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 MILESTONE_PATH = "docs/plans/active/l1v2-public-testnet-path-milestone.md"
-STORAGE_MILESTONE_PATH = "docs/plans/active/storage-scaling-milestone.md"
+STORAGE_MILESTONE_PATH = "docs/plans/completed/storage-scaling-milestone.md"
 PLANS_README_PATH = "docs/plans/README.md"
 CHAIN_STATE_PATH = "docs/status/chain-state-current.md"
 INPUT_PATHS = (
@@ -449,7 +449,7 @@ def render_markdown(status: dict[str, Any]) -> str:
         commit_line,
         "",
         "Inputs: the [testnet-path milestone](../plans/active/l1v2-public-testnet-path-milestone.md),",
-        "the [storage scaling milestone](../plans/active/storage-scaling-milestone.md) gate table,",
+        "the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md) gate table,",
         "the [plans registry](../plans/README.md), and",
         "[chain-state-current](chain-state-current.md).",
         "",

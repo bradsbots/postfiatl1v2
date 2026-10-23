@@ -19,7 +19,7 @@ does **not** change the failed G4 result, qualify storage, authorize another
 campaign, touch the devnet, or deploy the candidate. The governing documents
 are the
 [completed remediation spec](../plans/active/certified-send-eager-index-remediation-spec.md)
-and the [storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+and the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 
 ## Current state
 
@@ -123,7 +123,7 @@ There is no automatic next run.
 ## References
 
 - [Certified-send eager-index remediation spec](../plans/active/certified-send-eager-index-remediation-spec.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Final G4 qualification failure](2026-08-29___postfiatchad__final_g4_qualification_failure.md)
 - [Node implementation](https://github.com/postfiatorg/postfiatl1v2/blob/a92bb085ceb6a9f405e916608e6b7bb6010fcc9b/crates/node/src/certified_send_completed_index.rs)
 - [Runner fixture](https://github.com/postfiatorg/postfiatl1v2/blob/a3c7bea9285ab02871fd2111038764c6174b905b/python/tests/test_storage_scaling_paired_runner.py)

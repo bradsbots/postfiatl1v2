@@ -13,7 +13,7 @@
 Generated at input commit `9f5382bf` (2026-10-20), the newest commit touching the input documents at generation time.
 
 Inputs: the [testnet-path milestone](../plans/active/l1v2-public-testnet-path-milestone.md),
-the [storage scaling milestone](../plans/active/storage-scaling-milestone.md) gate table,
+the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md) gate table,
 the [plans registry](../plans/README.md), and
 [chain-state-current](chain-state-current.md).
 

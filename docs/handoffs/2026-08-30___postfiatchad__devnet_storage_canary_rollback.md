@@ -50,5 +50,5 @@ resume the rollout from validator-2.
 - [Live-canary postmortem](../postmortems/devnet-storage-live-canary-rollback-2026-08-30.md)
 - [Redaction-safe rollback receipt](https://github.com/postfiatorg/postfiatl1v2/blob/main/benchmarks/storage-scaling/devnet-rollout/canary-rollback-20260830.json)
 - [Active rollout plan](../plans/active/devnet-storage-rollout-plan.md)
-- [Storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Current State](../status/chain-state-current.md)

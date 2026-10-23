@@ -12,6 +12,6 @@ requires an explicit decision and an updated active milestone.
 - [Dynamic UNL proposal source (activation-ready, awaiting the operator's milestone decision and the two owner names)](dynamic-unl-proposal-source-milestone.md)
 
 Storage scaling was reactivated on 2026-08-26 and is tracked in the
-[active milestone](../plans/active/storage-scaling-milestone.md). Public testnet
+[active milestone](../plans/completed/storage-scaling-milestone.md). Public testnet
 remains blocked while its replay, finality, tamper, and migration gates are
 open.

@@ -413,7 +413,7 @@ verification steps an operator can perform on a published release:
     (output `e396222b…`). Browse it read-only with `... serve PACKET`, which
     serves only a verified packet on loopback. The state is SELECTED, not
     `OFFLINE QUALIFIED`, until the review of the 2026-10-23 verifier changes
-    ([storage milestone](../plans/active/storage-scaling-milestone.md#g5-offline-qualification-packet)).
+    ([storage milestone](../plans/completed/storage-scaling-milestone.md#g5-offline-qualification-packet)).
 
 !!! warning "Gap: no public-testnet release has run this process"
 

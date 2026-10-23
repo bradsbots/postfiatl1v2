@@ -212,7 +212,7 @@ The storage-scaling milestone's gates: G0 make runs resumable, G1 freeze the
 release candidate, G2 safety and failure atomicity, G3 exact replay, G4
 time-budgeted scaling qualification, G5 offline qualification packet, G6
 pre-deployment six-clone gate, G7 next-milestone handoff
-([Storage Scaling](../plans/active/storage-scaling-milestone.md)). The Z3 plan
+([Storage Scaling](../plans/completed/storage-scaling-milestone.md)). The Z3 plan
 and the StakeHub decoupling plan reuse G0–G7 for their own, different gates.
 
 ### E1–E6

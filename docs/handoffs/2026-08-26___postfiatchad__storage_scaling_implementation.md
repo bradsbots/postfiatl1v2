@@ -17,7 +17,7 @@ activation boundary, removes full ordered-history reconstruction from the
 post-activation proposal/commit path, and extends replay and crash recovery.
 Synthetic counters are bounded through height 5,000, but this is an undeployed
 development candidate, not a milestone PASS. Resume from the
-[active milestone](../plans/active/storage-scaling-milestone.md) and use
+[active milestone](../plans/completed/storage-scaling-milestone.md) and use
 [Current State](../status/chain-state-current.md) for the live/repository
 boundary.
 
@@ -156,7 +156,7 @@ separate authorization and fresh fleet-bound evidence.
 ## References
 
 - [Current State](../status/chain-state-current.md)
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage-scaling research specification](../architecture/storage-scaling-research-spec.md)
 - [State and Storage](../architecture/state-and-storage.md)
 - [Evidence index](../evidence/index.md)

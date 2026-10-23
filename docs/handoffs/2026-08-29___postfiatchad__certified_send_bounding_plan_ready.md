@@ -100,5 +100,5 @@ is approximately a further 2–2.5 hours with ~35 minutes of measurement.
 - [Corrected G4 campaign plan](../plans/active/corrected-g4-campaign-plan.md)
 - [Vote-lock index fix handoff](2026-08-28___postfiatchad__vote_lock_index_fix.md)
 - [Vote-lock index fix plan](../plans/active/vote-lock-index-fix-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Current recorded network state](../status/chain-state-current.md)

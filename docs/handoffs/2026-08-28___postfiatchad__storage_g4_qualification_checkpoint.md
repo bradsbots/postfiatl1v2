@@ -10,7 +10,7 @@
 
 ## BLUF
 
-The [active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+The [active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 still blocks public testnet. G4A is complete on runner implementation
 `f7b3d21d`, and the one authorized clean G4 campaign crossed the old
 high-height snapshot failure and durably reached height 1,550 with zero
@@ -110,7 +110,7 @@ for six stopped copies.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage-scaling evidence workflow](https://github.com/postfiatorg/postfiatl1v2/tree/f7b3d21d/benchmarks/storage-scaling)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Locked storage scaling research specification](../architecture/storage-scaling-research-spec.md)

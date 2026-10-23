@@ -5,7 +5,7 @@
 **Baseline:** plan commit `d3da5169`; frozen candidate source `e52e0502`
 **Predecessors:** [Corrected G4 campaign plan](corrected-g4-campaign-plan.md) (closed, failed — mechanics of this plan follow it),
 [Certified-send tombstone bounding plan](certified-send-tombstone-bounding-plan.md) (implemented, verified),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 **Key handoffs:** [Certified-send bounding complete](../../handoffs/2026-08-29___postfiatchad__certified_send_tombstone_bounding_complete.md),
 [Corrected G4 failure](../../handoffs/2026-08-28___postfiatchad__corrected_g4_campaign_failure.md)
 

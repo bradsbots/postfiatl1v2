@@ -48,7 +48,7 @@ normal on this devnet.
 - **Storage.** The transactional `redb` storage engine has been active on the
   devnet since height 930 (2026-08-31). The storage-scaling milestone's offline
   qualification packet (gate G5) is not yet assembled as of 2026-10-22; see the
-  [storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+  [storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 - **FastPay and FastSwap.** FastPay's epoch-2 recovery committee was installed
   at height 1123 (2026-10-12). The FastSwap service runs at committee epoch 2
   on all six validators since 2026-10-21. These are certificate lanes beside

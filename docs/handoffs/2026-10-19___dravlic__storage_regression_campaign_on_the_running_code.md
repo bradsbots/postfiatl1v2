@@ -174,7 +174,7 @@ I ask the other lane for the following; each shows the date first asked.
 [nazgul]: 2026-10-01___nazgul__navcoin_create_and_swap_build_phase0_and_bmnrc_opening.md
 [previous]: 2026-10-16___dravlic__committee_migration_command_and_relays_persistent.md
 [state]: ../status/chain-state-current.md
-[milestone]: ../plans/active/storage-scaling-milestone.md
+[milestone]: ../plans/completed/storage-scaling-milestone.md
 [g4plan]: ../plans/active/g4-regression-deployed-release-20261019.md
 [result]: ../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-19
 [bounds]: ../plans/active/g4-regression-deployed-release-20261019.md#bound-re-derivation-2026-10-19

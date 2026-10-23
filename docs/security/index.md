@@ -35,7 +35,7 @@ These documents define review scope. None records a completed review.
 The [Release Gate Inventory](../status/release-gate-inventory.md) (dated
 2026-09-01) lists 21 non-storage gates before a public testnet:
 **4 DONE, 16 OPEN, 1 UNKNOWN.** Storage gates (G0–G7) are tracked separately in
-the [storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 
 | State | Gates |
 | --- | --- |

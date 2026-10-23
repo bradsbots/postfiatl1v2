@@ -263,9 +263,9 @@ I ask the other lane for the following; each shows the date first asked.
 [previous]: 2026-10-21___dravlic__store_handle_release_deployed_and_swap_service_on_epoch_2.md
 [state]: ../status/chain-state-current.md
 [next]: ../plans/active/next-validator-release-plan-20261101.md
-[milestone]: ../plans/active/storage-scaling-milestone.md
-[g3]: ../plans/active/storage-scaling-milestone.md#g3-exact-replay
-[g5]: ../plans/active/storage-scaling-milestone.md#g5-offline-qualification-packet
+[milestone]: ../plans/completed/storage-scaling-milestone.md
+[g3]: ../plans/completed/storage-scaling-milestone.md#g3-exact-replay
+[g5]: ../plans/completed/storage-scaling-milestone.md#g5-offline-qualification-packet
 [testnet]: ../plans/active/l1v2-public-testnet-path-milestone.md
 [g4a4]: ../plans/active/g4-regression-deployed-release-20261019.md#result-2026-10-22-attempt-4-deployed-binary
 [z2]: ../plans/active/z2-advisory-flag-execution-plan-20261022.md

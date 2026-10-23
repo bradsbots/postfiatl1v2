@@ -10,8 +10,7 @@ Only current execution plans and completed plans belong here.
 - [Next Validator Release Plan (after the conference)](active/next-validator-release-plan-20261005.md)
 - [Validator Release Plan after signer-rotation-20261007 (skeleton)](active/next-validator-release-plan-20261101.md)
 - [Validator Release Plan after exchange-readiness-20261023 (skeleton)](active/next-validator-release-plan-20261108.md)
-- [Storage Scaling: Time-Budgeted Qualification and Release Gates](active/storage-scaling-milestone.md)
-  - [G4 Regression on the Deployed Release `8bed9b90` (2026-10-19)](active/g4-regression-deployed-release-20261019.md)
+- [G4 Regression on the Deployed Release `8bed9b90` (2026-10-19)](active/g4-regression-deployed-release-20261019.md) (evidence for the completed storage milestone)
 - [L1v2 Public Testnet Path](active/l1v2-public-testnet-path-milestone.md)
   - [Z2 Advisory Flag Execution Plan (2026-10-22)](active/z2-advisory-flag-execution-plan-20261022.md)
 - [Z3 NAVCoin Round-Trip Execution Plan](active/z3-navcoin-roundtrip-plan.md)
@@ -20,6 +19,7 @@ Only current execution plans and completed plans belong here.
 
 ## Completed
 
+- [Storage Scaling: Time-Budgeted Qualification and Release Gates](completed/storage-scaling-milestone.md) (`OFFLINE QUALIFIED` 2026-10-23)
 - [Task Node UNL Amendment V2 Implementation Journal](completed/tasknode-unl-amendment-v2-milestone.md)
 - [Task Node Identity-Derived UNL MVP Execution Plan](completed/tasknode-unl-mvp-plan.md)
 - [Cobalt Adversarial Verification Milestone](completed/cobalt-adversarial-verification-milestone.md)

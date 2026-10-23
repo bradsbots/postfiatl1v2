@@ -7,7 +7,7 @@
 
 This was an independent read-only review of transactional-storage candidate
 `0fdcc2b3` and the
-[active milestone](../plans/active/storage-scaling-milestone.md) against the
+[active milestone](../plans/completed/storage-scaling-milestone.md) against the
 [locked research specification](../architecture/storage-scaling-research-spec.md)
 and [fix specification](../architecture/storage-scaling-fix-spec.md), using
 checkout `aa449bdd`. The source-level claims hold, but the release-evidence
@@ -29,7 +29,7 @@ day.
   binds only `README.md`, `e2-bounded-work.json`, and
   `verify_development_evidence.py`. The checked height-915 replay, 69-case
   tamper run, two-binary rollback, and six-clone rehearsal are cited by digest
-  in the [milestone](../plans/active/storage-scaling-milestone.md), but their
+  in the [milestone](../plans/completed/storage-scaling-milestone.md), but their
   reports and receipts are not committed. They are operator-reported, not
   repository-verifiable.
 - The E1 five-height measurements are the development-only synthetic
@@ -38,7 +38,7 @@ day.
   prototype
   ([`benchmarks/storage-scaling/README.md:8-11`](https://github.com/postfiatorg/postfiatl1v2/blob/aa449bdd/benchmarks/storage-scaling/README.md#L8-L11)),
   and the six-clone rehearsal used dirty source and a height-501 fixture
-  ([`docs/plans/active/storage-scaling-milestone.md:197-214`](../plans/active/storage-scaling-milestone.md)).
+  ([`docs/plans/active/storage-scaling-milestone.md:197-214`](../plans/completed/storage-scaling-milestone.md)).
 - Committed-test support covers v2 JSONL heads, crash-suffix recovery, per-log
   locks, deterministic indexes and a fixed-size accumulator, the
   activation-height genesis field, all four proposal kinds, replay across the
@@ -73,7 +73,7 @@ gates changed or lack a matching milestone gate:
    every checkpoint
    ([`research-spec.md:228-229`](../architecture/storage-scaling-research-spec.md)
    versus
-   [`milestone.md:101-110`](../plans/active/storage-scaling-milestone.md)).
+   [`milestone.md:101-110`](../plans/completed/storage-scaling-milestone.md)).
 6. "Consensus v2 never stops or forks"
    ([`research-spec.md:244-245`](../architecture/storage-scaling-research-spec.md))
    is absent from [`fix-spec.md:303-306`](../architecture/storage-scaling-fix-spec.md).
@@ -136,7 +136,7 @@ Fleet copying requires separate authorization.
 - The [plans index](../plans/README.md) was corrected in `97afa8c6`.
   [Current State](../status/chain-state-current.md) still names `20c95ec2` as
   the transactional lineage at lines 26 and 46, while the
-  [milestone](../plans/active/storage-scaling-milestone.md) names `0fdcc2b3`.
+  [milestone](../plans/completed/storage-scaling-milestone.md) names `0fdcc2b3`.
   The [previous handoff](2026-08-27___postfiatchad__transactional_storage_candidate.md)
   is now historical: its open-gate list predates later qualification claims and
   has no forward link. Those files were left untouched because the other
@@ -172,7 +172,7 @@ Fleet copying requires separate authorization.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage-scaling research specification](../architecture/storage-scaling-research-spec.md)
 - [Storage-scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Transactional storage candidate handoff](2026-08-27___postfiatchad__transactional_storage_candidate.md)

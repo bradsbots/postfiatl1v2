@@ -7,7 +7,7 @@ G4 criteria; see [Result 2026-10-20](#result-2026-10-20-attempt-3-after-the-fix)
 (`29824ed7`, 2026-10-19) was **PUBLIC TESTNET BLOCKED** by the regression since `f0013c29`; see
 [Result 2026-10-19](#result-2026-10-19).
 **Date:** 2026-10-19
-**Parent:** [Storage scaling milestone](storage-scaling-milestone.md)
+**Parent:** [Storage scaling milestone](../completed/storage-scaling-milestone.md)
 **Predecessor:** [Model-floor G4 plan](model-floor-g4-campaign-plan.md) (PASS on `d0ae79f3`, 2026-08-30)
 
 ## Purpose
@@ -356,7 +356,7 @@ on disk to compare against. The legacy lane is unchanged (970.5 ms p95, 0.34 GB 
 
 Operator decision (2026-10-22): the storage packet qualifies the running code. The packet needs G1,
 G2, G4, the exact replays and the migration rehearsal on one source and one binary
-([G5](storage-scaling-milestone.md#g5-offline-qualification-packet)), and the replays ran on the
+([G5](../completed/storage-scaling-milestone.md#g5-offline-qualification-packet)), and the replays ran on the
 deployed executable. G1 tests, G2 and G4 are therefore re-run with attempt 3's procedure, with the
 node binary replaced.
 
@@ -437,4 +437,4 @@ unchanged G4 criteria. Its storage work equals attempt 3's (same page counts, no
 stage). Both ratios stay below 1.10, with about 2 to 3 points more height-5,000 tail than attempt 3,
 and inside August's range. G1 tests, G2 and G4 are now on the same source and binary as the 924 and
 1123 replays. No milestone label changes: the storage packet still needs the items in
-[G5](storage-scaling-milestone.md#g5-offline-qualification-packet).
+[G5](../completed/storage-scaling-milestone.md#g5-offline-qualification-packet).

@@ -13,7 +13,7 @@ check for the exact binding scenario dropped from ~205 ms to ≤6.4 ms per
 round. The fixes are locally verified but **unfrozen**: no G1/G2 refresh,
 prepared-input rebind, campaign, packet, or qualification claim exists. The
 governing state is the
-[storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+[storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 
 ## Diagnosis (from preserved campaign artifacts, read-only)
 
@@ -108,7 +108,7 @@ measurement; only a future authorized campaign proves it.
 
 ## References
 
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Remediated G4 qualification failure](2026-08-29___postfiatchad__remediated_g4_qualification_failure.md)
 - [Vote-lock fix](https://github.com/postfiatorg/postfiatl1v2/commit/ff2b3532)
 - [Batched index fix](https://github.com/postfiatorg/postfiatl1v2/commit/48a94425)

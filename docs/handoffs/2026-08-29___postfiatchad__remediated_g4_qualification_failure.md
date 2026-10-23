@@ -13,7 +13,7 @@ miss both 1.10 height-ratio limits at `1.402629` and `1.401582`. The first
 legacy control then failed the vote-lock migration-position gate because four
 validators migrated on their second observed reservation. No final report or
 packet exists, the packager was not invoked, and no retry is authorized. The
-[storage milestone](../plans/active/storage-scaling-milestone.md) is updated with
+[storage milestone](../plans/completed/storage-scaling-milestone.md) is updated with
 the complete result.
 
 ## Current state
@@ -129,7 +129,7 @@ until a future G4 passes and all other gates close.
 ## References
 
 - [Remediated G4 qualification plan](../plans/active/remediated-g4-qualification-campaign-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Certified-send remediation handoff](2026-08-29___postfiatchad__certified_send_eager_index_remediation_complete.md)
 - [Vote-lock owner source](https://github.com/postfiatorg/postfiatl1v2/blob/a92bb085ceb6a9f405e916608e6b7bb6010fcc9b/crates/node/src/vote_locks.rs)
 - [Runner gate source](https://github.com/postfiatorg/postfiatl1v2/blob/a3c7bea9285ab02871fd2111038764c6174b905b/benchmarks/storage-scaling/run_campaign.py)

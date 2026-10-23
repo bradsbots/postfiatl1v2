@@ -5,7 +5,7 @@
 **Baseline:** `main` at `86929450` (frozen candidate); predecessor failure closed at `db595bf2`
 **Predecessors:** [Remediated G4 plan](remediated-g4-qualification-campaign-plan.md) (closed, failed),
 [Vote-lock marker and batched index fixes handoff](../../handoffs/2026-08-29___postfiatchad__vote_lock_marker_and_batched_index_fixes.md),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 
 ## BLUF
 

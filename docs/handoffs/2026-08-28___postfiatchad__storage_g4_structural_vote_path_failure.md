@@ -197,7 +197,7 @@ network mutation is authorized by this handoff.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Storage G4 v4 preflight](2026-08-28___postfiatchad__storage_g4_v4_preflight.md)
 - [Storage G4 time-budget decision](2026-08-28___dravlic__storage_g4_time_budget_decision.md)

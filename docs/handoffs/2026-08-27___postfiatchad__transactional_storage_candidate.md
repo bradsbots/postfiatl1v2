@@ -75,7 +75,7 @@ The implementation commit adds:
 
 The operational sequence is documented in the
 [storage-scaling evidence README](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling).
-The [active milestone](../plans/active/storage-scaling-milestone.md) now marks
+The [active milestone](../plans/completed/storage-scaling-milestone.md) now marks
 only the source-level boundaries that were actually implemented; release and
 existing-chain evidence gates remain unchecked.
 
@@ -126,7 +126,7 @@ qualification.
 ## Next decision or action
 
 Resume from the
-[active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+[active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 and keep the public-testnet block in place.
 
 1. Pull `main`, confirm `cc9e32d7` is an ancestor, and run the full locked node
@@ -157,7 +157,7 @@ and keep the public-testnet block in place.
 
 - [Current State](../status/chain-state-current.md)
 - [Locked storage-scaling fix specification](../architecture/storage-scaling-fix-spec.md)
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage and state architecture](../architecture/state-and-storage.md)
 - [Storage-scaling evidence and operator workflow](https://github.com/postfiatorg/postfiatl1v2/tree/main/benchmarks/storage-scaling)
 - Transactional store: `crates/storage/src/transactional.rs`

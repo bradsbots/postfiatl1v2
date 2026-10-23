@@ -8,7 +8,7 @@
 **Motivating failure:** [Corrected G4 campaign failure](../../handoffs/2026-08-28___postfiatchad__corrected_g4_campaign_failure.md)
 **Predecessors:** [Vote-lock index fix plan](vote-lock-index-fix-plan.md) (implemented, proven in-campaign),
 [Corrected G4 campaign plan](corrected-g4-campaign-plan.md) (closed, failed),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 
 ## BLUF for the executing agent
 

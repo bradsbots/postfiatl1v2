@@ -5,7 +5,7 @@
 
 ## BLUF
 
-The active [storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+The active [storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 is still open and public testnet remains blocked. Source `785806bd` makes
 `storage-rebuild-transactional --verify-only` genuinely non-mutating and passes
 the expanded storage/node qualification, but the interrupted three-binary
@@ -59,7 +59,7 @@ fleet actions open until separately authorized material is available.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage scaling fix specification](../architecture/storage-scaling-fix-spec.md)
 - [Locked storage scaling research specification](../architecture/storage-scaling-research-spec.md)
 - [State and storage architecture](../architecture/state-and-storage.md)

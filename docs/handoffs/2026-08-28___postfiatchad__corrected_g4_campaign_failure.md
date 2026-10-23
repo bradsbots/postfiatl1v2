@@ -15,7 +15,7 @@ legacy control also hit a binding round-2 migration-position failure. The run
 stopped without retry, candidate change, devnet access, final report, or packet.
 The authoritative records are the
 [corrected campaign plan](../plans/active/corrected-g4-campaign-plan.md) and
-[storage milestone](../plans/active/storage-scaling-milestone.md).
+[storage milestone](../plans/completed/storage-scaling-milestone.md).
 
 ## Current state
 
@@ -232,7 +232,7 @@ or begin deployment work from this failed result.
 ## References
 
 - [Corrected G4 campaign plan](../plans/active/corrected-g4-campaign-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Vote-lock index implementation plan](../plans/active/vote-lock-index-fix-plan.md)
 - [Vote-lock fix handoff](2026-08-28___postfiatchad__vote_lock_index_fix.md)
 - [Pre-fix G4 structural failure](2026-08-28___postfiatchad__storage_g4_structural_vote_path_failure.md)

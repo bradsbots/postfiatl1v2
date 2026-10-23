@@ -210,7 +210,7 @@ objection or replacement decision in his handoff.
 
 ## References
 
-- [Active storage-scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Active storage-scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Storage-scaling evidence workflow](https://github.com/postfiatorg/postfiatl1v2/blob/03123ca060eaa25618b89b35fc0add02999915d5/benchmarks/storage-scaling/README.md)
 - [Storage G4 qualification checkpoint](2026-08-28___postfiatchad__storage_g4_qualification_checkpoint.md)
 - [Storage G4 timeout and persistent remediation](2026-08-28___postfiatchad__storage_g4_timeout_and_persistent_remediation.md)

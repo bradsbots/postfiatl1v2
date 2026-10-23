@@ -223,8 +223,8 @@ I ask the other lane for the following; each shows the date first asked.
 [previous]: 2026-10-20___dravlic__answers_acted_on_and_store_handle_fix_qualified.md
 [state]: ../status/chain-state-current.md
 [next]: ../plans/active/next-validator-release-plan-20261101.md
-[milestone]: ../plans/active/storage-scaling-milestone.md
-[g3]: ../plans/active/storage-scaling-milestone.md#g3-exact-replay
+[milestone]: ../plans/completed/storage-scaling-milestone.md
+[g3]: ../plans/completed/storage-scaling-milestone.md#g3-exact-replay
 [testnet]: ../plans/active/l1v2-public-testnet-path-milestone.md
 [packet]: https://github.com/postfiatorg/postfiatl1v2/blob/6692edf29a8615cd389c2d7a52eed24d26f36032/deployments/store-handle-20261021/README.md
 [qual]: https://github.com/postfiatorg/postfiatl1v2/blob/6692edf29a8615cd389c2d7a52eed24d26f36032/deployments/store-handle-20261021/qualification/README.md

@@ -16,7 +16,7 @@ migration only on observation 1. This is a candidate/runner contract mismatch,
 not evidence that `redb` passed or failed the height-scaling ratios. There is no
 final campaign report or packet; storage remains **SELECTED, NOT OFFLINE
 QUALIFIED**, and public testnet remains blocked. The governing state is in the
-[storage scaling milestone](../plans/active/storage-scaling-milestone.md).
+[storage scaling milestone](../plans/completed/storage-scaling-milestone.md).
 
 ## Current state
 
@@ -159,7 +159,7 @@ future G4 pass and the remaining G3/G5 gates.
 ## References
 
 - [Final G4 qualification plan](../plans/active/final-g4-qualification-campaign-plan.md)
-- [Storage scaling milestone](../plans/active/storage-scaling-milestone.md)
+- [Storage scaling milestone](../plans/completed/storage-scaling-milestone.md)
 - [Certified-send remediation handoff](2026-08-29___postfiatchad__certified_send_tombstone_bounding_complete.md)
 - [Corrected G4 failure handoff](2026-08-28___postfiatchad__corrected_g4_campaign_failure.md)
 - [Candidate no-outbox path](https://github.com/postfiatorg/postfiatl1v2/blob/e52e050269a2f9fdd28c5083c3888debf3a85063/crates/node/src/certified_send_completed_index.rs#L1173-L1195)

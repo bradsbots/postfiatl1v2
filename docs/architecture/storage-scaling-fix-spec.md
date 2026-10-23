@@ -5,7 +5,7 @@
 **Decision owner:** Post Fiat
 **Source baseline:** `b40c31a55dbe6b59330621de2cb409eb59461c0e`
 **Derived from:** [Storage Scaling and Bounded Finality Research Specification](storage-scaling-research-spec.md)
-**Tracked by:** [Storage Scaling: Time-Budgeted Qualification and Release Gates](../plans/active/storage-scaling-milestone.md)
+**Tracked by:** [Storage Scaling: Time-Budgeted Qualification and Release Gates](../plans/completed/storage-scaling-milestone.md)
 
 > **Execution-profile amendment (2026-08-27):** The active milestone selects
 > transactional `redb` and replaces the exhaustive three-lane/five-height

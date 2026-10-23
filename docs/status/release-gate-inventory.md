@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-01
 **Purpose:** D1 of the [testnet-path milestone](../plans/active/l1v2-public-testnet-path-milestone.md) — an inventory of every non-storage gate that must pass before a public testnet, so D2–D4 work against a fixed list.
-**Scope boundary:** storage gates (G0–G7) are tracked separately in the [storage scaling milestone](../plans/active/storage-scaling-milestone.md) and are deliberately absent here.
+**Scope boundary:** storage gates (G0–G7) are tracked separately in the [storage scaling milestone](../plans/completed/storage-scaling-milestone.md) and are deliberately absent here.
 
 This is an inventory, not policy. Every state below is read from a committed
 source; nothing is asserted beyond what those sources record. States: **DONE**

@@ -4,7 +4,7 @@
 **Date:** 2026-08-28
 **Baseline:** `main` at `442c5a4d` (vote-lock fix `be4c7f44` + handoff)
 **Predecessor plans:** [Vote-lock index fix](vote-lock-index-fix-plan.md) (implemented, verified),
-[Storage scaling milestone](storage-scaling-milestone.md) (governing gates)
+[Storage scaling milestone](../completed/storage-scaling-milestone.md) (governing gates)
 **Motivating failures:** [G4 structural vote-path failure](../../handoffs/2026-08-28___postfiatchad__storage_g4_structural_vote_path_failure.md),
 [Vote-lock fix handoff](../../handoffs/2026-08-28___postfiatchad__vote_lock_index_fix.md)
 
