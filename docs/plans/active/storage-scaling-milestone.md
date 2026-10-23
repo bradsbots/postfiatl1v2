@@ -1361,6 +1361,8 @@ stay in G6.
     embeds build paths.
   - A first assembly at the unpushed `63343201` is superseded.
 
+**Review (2026-10-23):** the [verifier and packager acceptance changes](../../review/storage-verifier-acceptance-review-20261023.md) were reviewed: ACCEPT WITH CHANGES (keep the original window-report hashes; add refusal tests for the ported gates).
+
 **Still open for `OFFLINE QUALIFIED`** (state stays SELECTED):
 
 1. G2, last box: the reports and receipts are not committed or bound in
