@@ -1,22 +1,31 @@
-"""Unit tests for the deterministic sub-scorers (v1 and v2).
+"""Unit tests for the deterministic sub-scorers (v1, v2 and the frozen v3).
 
 ``unittest.TestCase`` classes so the repository-standard
 ``python3 -m unittest`` collects them (run from this directory); also
 runnable directly: ``python3 test_subscorer.py``. No fork imports, no
-network: only ``subscorer`` (v1) and ``subscorer_v2``.
+network: only ``subscorer`` (v1), ``subscorer_v2`` and ``subscorer_v3``.
 
 The shared fixture is a small synthetic round shaped like the frozen
 testnet entries (rounds 17+ shape with ``provider_family``; one
 legacy-shape entry without it exercises the ASN-keyed provider fallback).
 The v1 assertions preserve the originally recorded v1 semantics unchanged.
+The v3 golden vectors and frozen content hash live in
+``fixtures/subscorer_v3_golden.json``.
 """
 
 from __future__ import annotations
 
+import hashlib
+import json
 import unittest
+from pathlib import Path
 
 import subscorer
 import subscorer_v2
+import subscorer_v3
+
+HERE = Path(__file__).resolve().parent
+V3_GOLDEN = HERE / "fixtures" / "subscorer_v3_golden.json"
 
 
 def _entry(
@@ -291,6 +300,95 @@ class TestSubscorerV2Round(unittest.TestCase):
             subscorer_v2.score_round(FIXTURE, "v5"),
             subscorer_v2.score_round(FIXTURE, "v5"),
         )
+
+
+class TestSubscorerV3MinimumSafeVersion(unittest.TestCase):
+    """Fork rule of 2026-09-21 (prompt v11+): a failing validator scores 0."""
+
+    def test_failing_validator_scores_zero_even_on_the_newest_version(self) -> None:
+        entry = _entry("x", version="1.0.4")
+        entry["fails_minimum_safe_version"] = True
+        self.assertEqual(subscorer_v3.score_software(entry, (1, 0, 4)), 0)
+        self.assertEqual(subscorer_v2.score_software(entry, (1, 0, 4)), 100)
+
+    def test_failing_validator_without_a_readable_version_scores_zero(self) -> None:
+        entry = _entry("x", version="")
+        entry["fails_minimum_safe_version"] = True
+        self.assertEqual(subscorer_v3.score_software(entry, (1, 0, 4)), 0)
+
+    def test_false_or_absent_verdict_keeps_the_v2_ladder(self) -> None:
+        for version, expected in (("1.0.4", 100), ("1.0.0", 80), ("0.9.9", 40), ("", 50)):
+            for flag in (None, False):
+                entry = _entry("x", version=version)
+                if flag is not None:
+                    entry["fails_minimum_safe_version"] = flag
+                self.assertEqual(subscorer_v3.score_software(entry, (1, 0, 4)), expected)
+                self.assertEqual(subscorer_v2.score_software(entry, (1, 0, 4)), expected)
+
+    def test_the_verdict_touches_no_other_dimension(self) -> None:
+        flagged = [dict(e) for e in FIXTURE]
+        flagged[0]["fails_minimum_safe_version"] = True
+        base = subscorer_v3.score_round(FIXTURE, "v12")
+        moved = subscorer_v3.score_round(flagged, "v12")
+        self.assertEqual(moved["v001"]["software"], 0)
+        for vid in base:
+            for dim in subscorer_v3.DIMENSIONS:
+                if (vid, dim) != ("v001", "software"):
+                    self.assertEqual(base[vid][dim], moved[vid][dim])
+
+
+class TestSubscorerV3DiversityFromTheFork(unittest.TestCase):
+    """Fork rule of 2026-10-09: diversity formula v1 owns diversity."""
+
+    def test_v3_owns_the_four_model_dimensions_only(self) -> None:
+        self.assertEqual(
+            subscorer_v3.DIMENSIONS, ("consensus", "reliability", "software", "identity")
+        )
+        for dims in subscorer_v3.score_round(FIXTURE, "v12").values():
+            self.assertEqual(tuple(dims), subscorer_v3.DIMENSIONS)
+
+    def test_the_v2_band_matrix_is_gone(self) -> None:
+        self.assertFalse(hasattr(subscorer_v3, "score_diversity"))
+        self.assertFalse(hasattr(subscorer_v3, "_DIVERSITY_BANDS"))
+
+
+class TestSubscorerV3KeepsTheV2Rules(unittest.TestCase):
+    def test_version_constant(self) -> None:
+        self.assertEqual(subscorer_v3.SUBSCORER_VERSION, 3)
+
+    def test_consensus_reliability_identity_equal_v2_in_every_era(self) -> None:
+        for prompt_version in ("v5", "v8", "v10", "v12"):
+            v2 = subscorer_v2.score_round(FIXTURE, prompt_version)
+            v3 = subscorer_v3.score_round(FIXTURE, prompt_version)
+            for vid in v2:
+                for dim in ("consensus", "reliability", "software", "identity"):
+                    self.assertEqual(v3[vid][dim], v2[vid][dim], (vid, dim))
+
+    def test_unknown_prompt_version_fails_closed(self) -> None:
+        with self.assertRaises(ValueError):
+            subscorer_v3.score_round(FIXTURE, "unversioned")
+
+
+class TestSubscorerV3Frozen(unittest.TestCase):
+    """The frozen bytes and their golden vectors; any edit restarts the clock."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.golden = json.loads(V3_GOLDEN.read_text())
+
+    def test_module_bytes_match_the_frozen_content_hash(self) -> None:
+        digest = hashlib.sha256(Path(subscorer_v3.__file__).read_bytes()).hexdigest()
+        self.assertEqual(digest, self.golden["content_sha256"])
+        self.assertEqual(self.golden["subscorer_version"], subscorer_v3.SUBSCORER_VERSION)
+
+    def test_golden_vectors(self) -> None:
+        self.assertTrue(self.golden["cases"])
+        for case in self.golden["cases"]:
+            self.assertEqual(
+                subscorer_v3.score_round(case["entries"], case["prompt_version"]),
+                case["expected"],
+                case["name"],
+            )
 
 
 if __name__ == "__main__":

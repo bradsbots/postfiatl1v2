@@ -1,0 +1,948 @@
+{
+ "cases": [
+  {
+   "entries": [
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 852
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Canada"
+     },
+     "identity": null,
+     "provider_family": "telus",
+     "server_version": "1.0.4",
+     "validator_id": "v001"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.99336,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v002"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 0.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 0.09976,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.97037,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v003"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 0.9821,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.98959,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.0",
+     "validator_id": "v004"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": null,
+     "base_fee": 10,
+     "domain": null,
+     "domain_verified": null,
+     "geolocation": null,
+     "identity": null,
+     "provider_family": "unknown",
+     "server_version": "1.0.4",
+     "validator_id": "v005"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "server_version": "1.0.4",
+     "validator_id": "v006"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.83,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v007"
+    }
+   ],
+   "expected": {
+    "v001": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v002": {
+     "consensus": 99,
+     "identity": 80,
+     "reliability": 85,
+     "software": 100
+    },
+    "v003": {
+     "consensus": 10,
+     "identity": 80,
+     "reliability": 10,
+     "software": 100
+    },
+    "v004": {
+     "consensus": 98,
+     "identity": 55,
+     "reliability": 55,
+     "software": 80
+    },
+    "v005": {
+     "consensus": 100,
+     "identity": 45,
+     "reliability": 100,
+     "software": 100
+    },
+    "v006": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v007": {
+     "consensus": 83,
+     "identity": 80,
+     "reliability": 75,
+     "software": 100
+    }
+   },
+   "name": "v5-era synthetic round (legacy shape)",
+   "prompt_version": "v5"
+  },
+  {
+   "entries": [
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 852
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Canada"
+     },
+     "identity": null,
+     "provider_family": "telus",
+     "server_version": "1.0.4",
+     "validator_id": "v001"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.99336,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v002"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 0.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 0.09976,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.97037,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v003"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 0.9821,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.98959,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.0",
+     "validator_id": "v004"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": null,
+     "base_fee": 10,
+     "domain": null,
+     "domain_verified": null,
+     "geolocation": null,
+     "identity": null,
+     "provider_family": "unknown",
+     "server_version": "1.0.4",
+     "validator_id": "v005"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "server_version": "1.0.4",
+     "validator_id": "v006"
+    },
+    {
+     "agreement_1h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "missed": 0,
+      "score": 0.83,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v007"
+    }
+   ],
+   "expected": {
+    "v001": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v002": {
+     "consensus": 99,
+     "identity": 80,
+     "reliability": 85,
+     "software": 100
+    },
+    "v003": {
+     "consensus": 0,
+     "identity": 80,
+     "reliability": 10,
+     "software": 100
+    },
+    "v004": {
+     "consensus": 98,
+     "identity": 55,
+     "reliability": 55,
+     "software": 80
+    },
+    "v005": {
+     "consensus": 100,
+     "identity": 45,
+     "reliability": 100,
+     "software": 100
+    },
+    "v006": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v007": {
+     "consensus": 83,
+     "identity": 80,
+     "reliability": 75,
+     "software": 100
+    }
+   },
+   "name": "v10-era synthetic round",
+   "prompt_version": "v10"
+  },
+  {
+   "entries": [
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 852
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Canada"
+     },
+     "identity": null,
+     "provider_family": "telus",
+     "server_version": "1.0.4",
+     "validator_id": "v001"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.99336,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v002"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.09976,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.97037,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v003"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.9821,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.98959,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": false,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.0",
+     "validator_id": "v004"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": null,
+     "base_fee": 10,
+     "domain": null,
+     "domain_verified": null,
+     "fails_minimum_safe_version": false,
+     "geolocation": null,
+     "identity": null,
+     "provider_family": "unknown",
+     "server_version": "1.0.4",
+     "validator_id": "v005"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "server_version": "1.0.4",
+     "validator_id": "v006"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 0.83,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v007"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v008"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": true,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "",
+     "validator_id": "v009"
+    },
+    {
+     "agreement_1h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 1192
+     },
+     "agreement_24h": {
+      "incomplete": false,
+      "missed": 0,
+      "score": 1.0,
+      "total": 28610
+     },
+     "agreement_30d": {
+      "incomplete": true,
+      "missed": 0,
+      "score": 0.9991,
+      "total": 853615
+     },
+     "asn": {
+      "as_name": "X",
+      "asn": 24940
+     },
+     "base_fee": 10,
+     "domain": "example.com",
+     "domain_verified": true,
+     "fails_minimum_safe_version": false,
+     "geolocation": {
+      "country": "Germany"
+     },
+     "identity": null,
+     "provider_family": "hetzner",
+     "server_version": "1.0.4",
+     "validator_id": "v010"
+    }
+   ],
+   "expected": {
+    "v001": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v002": {
+     "consensus": 99,
+     "identity": 80,
+     "reliability": 85,
+     "software": 100
+    },
+    "v003": {
+     "consensus": 0,
+     "identity": 80,
+     "reliability": 10,
+     "software": 100
+    },
+    "v004": {
+     "consensus": 98,
+     "identity": 55,
+     "reliability": 55,
+     "software": 80
+    },
+    "v005": {
+     "consensus": 100,
+     "identity": 45,
+     "reliability": 100,
+     "software": 100
+    },
+    "v006": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 100
+    },
+    "v007": {
+     "consensus": 83,
+     "identity": 80,
+     "reliability": 75,
+     "software": 100
+    },
+    "v008": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 0
+    },
+    "v009": {
+     "consensus": 100,
+     "identity": 80,
+     "reliability": 100,
+     "software": 0
+    },
+    "v010": {
+     "consensus": 99,
+     "identity": 80,
+     "reliability": 95,
+     "software": 100
+    }
+   },
+   "name": "v12-era synthetic round with minimum-safe-version verdicts",
+   "prompt_version": "v12"
+  }
+ ],
+ "content_sha256": "f71f29ddf00c3825447fc19034340d4ef714b9668345c51e6872586a844c5dc5",
+ "dimensions": [
+  "consensus",
+  "reliability",
+  "software",
+  "identity"
+ ],
+ "module": "benchmarks/ai-governance/dunl-subscorer-shadow-20260901/subscorer_v3.py",
+ "schema": "postfiat.dunl_subscorer_golden.v1",
+ "subscorer_version": 3
+}

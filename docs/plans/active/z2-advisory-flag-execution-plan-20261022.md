@@ -1,6 +1,6 @@
 # Z2 Advisory Flag Execution Plan
 
-**Status:** Execution plan, 2026-10-22. No step has started; work begins 2026-10-23. No step has been requested as a Task Node task yet.
+**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 except its v12-round check (Task Node `task_f70334d6192a53277e08313fc0699e5c`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Steps 1b–6 have not started.
 **Date:** 2026-10-22
 **Parent gate:** [L1v2 Public Testnet Path, Gate Zero Z2](l1v2-public-testnet-path-milestone.md#gate-zero-operator-preconditions-recorded-2026-08-30)
 **Decision:** [AI governance direction of 2026-09-03](../../governance/ai-governance-direction-20260903.md), confirmed 2026-10-20 (row 1 of the [pending operator decisions](../../governance/pending-operator-decisions.md))
@@ -17,7 +17,7 @@
 
 ## Steps
 
-- [ ] **1. Pin the v2 sub-scorer in the round manifest** (content hash and manifest section)
+- [ ] **1. Pin the v3 sub-scorer in the round manifest** (content hash and manifest section)
     - *Today:* `benchmarks/ai-governance/dunl-subscorer-shadow-20260901/subscorer_v2.py:132` sets `SUBSCORER_VERSION = 2`. The rules are at `:176` (consensus), `:184-202` (reliability; chronic floor 40 at `:195`), `:213-223` (software), `:146-152` and `:261` (diversity bands) and `:271-276` (identity). The 2026-09-01 shadow evaluation lists the pin as open ([results](../../governance/dunl-subscorer-shadow-eval-20260901.md#v2-results)). The fork's `_build_code_manifest` (`scoring_service/services/ipfs_publisher.py:380-452`) pins the parser, `diversity_formula` (`:417-425`), `score_formula` (`:426-436`) and selector (`:437-447`) by `content_sha256` (`:259-265`). Selection runs `select_unl(apply_formula(apply_diversity_formula(...)))` (`orchestrator.py:763-768`). The diversity module is `diversity_formula.py:22`, commit `ffe7582`. Prompt v12 tells the model to score software 0 when `fails_minimum_safe_version` is set (`prompts/scoring_v12.txt:73`; collector `collector.py:62-72`, commit `d85a3e9`). v2 does not read that flag. On the sidecar side, `manifest.py:527-544` rejects unknown diversity hashes, and `scripts/check_vendor_freshness.py:49-50` vendors the two formulas.
     - *Missing:*
         - a fork module for the four model-owned dimensions, reconciled to the current era (minimum safe version gives software 0; v12 inputs; 25 seats), with diversity taken unchanged from `diversity_formula`;
@@ -33,6 +33,16 @@
         - **1b:** a devnet manual round publishes the new section with the frozen hash. A sidecar that vendors the module matches at RAW, PARSED and SELECTED_UNL.
     - *Estimate:* 3–5 days (1a 1.5–2, 1b 1.5–3).
     - *Depends on:* code-owner review in the fork and sidecar repositories. Nothing from the other lane.
+    - *1a record (2026-10-23, fork clone pulled from `f18e6b4` to `e70515d`):*
+        - [x] `subscorer_v3.py` is v2 plus the fork's current rules. Software is 0 when `fails_minimum_safe_version` is true (`subscorer_v3.py:138-140`, fork `d85a3e9`). Diversity is no longer scored (`DIMENSIONS`, `:70`); the comparison takes it from the round's `code.diversity_formula` (fork `ffe7582`). The 25 seats (fork `5f65bdf`) change no sub-score rule; they reach the comparison only through the manifest's `max_size`. Consensus, reliability and identity are v2's. Fail-first tests are in `test_subscorer.py:305-391`, and golden vectors are in `fixtures/subscorer_v3_golden.json`.
+        - [x] **Frozen hash.** SHA-256 over the module bytes, the fork's `content_sha256` definition (`ipfs_publisher.py:259-265`): `f71f29ddf00c3825447fc19034340d4ef714b9668345c51e6872586a844c5dc5`. The hash covers one file: `benchmarks/ai-governance/dunl-subscorer-shadow-20260901/subscorer_v3.py`. Reproduce with `sha256sum benchmarks/ai-governance/dunl-subscorer-shadow-20260901/subscorer_v3.py`. The golden file carries the same hash, and `test_module_bytes_match_the_frozen_content_hash` fails on any byte change.
+        - [x] `shadow_eval.py --scorer-version 3` verifies `code.diversity_formula` (hash, version, parameters) and computes diversity from `inputs/diversity_inputs.json`. It cross-checks `outputs/final_scores.json`, rejects a published UNL larger than the pinned `max_size` and refuses a fork clone that is not at `origin/main`. It also reports the automated part of the step 6 acceptance check. Tests: `test_shadow_eval.py:160-358`. The v1 and v2 outputs regenerate byte-identically.
+        - [x] Rounds 12–19 (`results-v3.json`): the internal control reproduces the published UNL 8/8. There are 0 ineligible→eligible flips and 1 eligible→ineligible flip, the same round-12 validator as v2 (baseline 45, v3 29). Overlap is at least 19/20 in every round.
+        - [ ] v12-era rounds: this server holds only rounds 12–19, so nothing was replayed. `fetch_rounds.py` does not yet fetch `inputs/diversity_inputs.json` or `outputs/final_scores.json`.
+    - *Left to do:*
+        - `fetch_rounds.py`: fetch those two files when a round has them, with a test (0.5 h).
+        - Fetch round 26 or later from a networked session (read-only public scoring API) and run `--scorer-version 3`. That closes the 1a acceptance check and must happen before the first counted round on 2026-10-27 (0.5 day).
+        - 1b as above (1.5–3 days). The fork module must reproduce `fixtures/subscorer_v3_golden.json`. Manifests pin the fork file's hash, so record it here beside the v3 hash. The 1b PR must say whether a byte-different but vector-identical port restarts the count.
 - [ ] **2. Specify the flag pipeline** (typed `identity_flag` `clear`/`flag`, pinned execution profile, two-owner byte-convergent replay)
     - *Today:*
         - The flag is defined in direction §2 (lines 57–94) and work-sequence step 1 (lines 269–274).
@@ -98,10 +108,10 @@
     - *Acceptance:* a test shows that binding mode without a record falls back to shadow. The register's hashes match the switch-round manifest. The doc gates pass.
     - *Estimate:* 1–2 days.
     - *Depends on:* step 3. Step 1 hashes are filled in as they land.
-- [ ] **6. Run v2 beside the model for four weekly shadow rounds on the fork, then switch the production rounds**
+- [ ] **6. Run v3 beside the model for four weekly shadow rounds on the fork, then switch the production rounds**
     - *Today:*
         - Testnet runs weekly (`SCORING_CADENCE_HOURS=168`, fork `.env.testnet:24`).
-        - The offline harness is `fetch_rounds.py:32-34` (fork clone path, rounds 12–19), which drives the fork's `scripts/replay_model_candidate.py`, and `shadow_eval.py:448` (`--scorer-version`). The local fork clone is at `f18e6b4` (2026-08-21), so `_verify_code_pins` (`:174-198`) correctly stops on v12-era rounds.
+        - The offline harness is `fetch_rounds.py:32-34` (fork clone path, rounds 12–19), which drives the fork's `scripts/replay_model_candidate.py`, and `shadow_eval.py:662` (`--scorer-version`, 1–3). Since 2026-10-23 the local fork clone is at `e70515d`, and `_verify_code_pins` (`:197-220`) also checks the `diversity_formula` pin, so v12-era rounds can be evaluated (step 1a record).
         - The rollout pattern exists: diversity formula v1 went main → devnet manual round → testnet slot, deployed outside the three-hour `AWAITING_COMMIT_CLOSE` window, with the sidecar image, explorer and governance row shipped alongside (fork `docs/DeterministicDiversity.md:77`).
         - Fork dry runs (`docs/ScoringOperations.md:136-166`) stop after selection and publish nothing.
     - *Missing:* counted rounds, a weekly record and the switch.
