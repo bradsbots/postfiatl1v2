@@ -1238,11 +1238,10 @@ What the packet still lacks:
       re-checks the step outputs by hash and against the receipt, and reports the
       replacement with its reason. The 915+924 pair path is unchanged. On the real
       receipts (`c172d31e…`, `fa643375…`) the replay section verifies.
-- [ ] A six-clone migration report and its incompatible binary for the chosen
-      candidate (`run_migration_rehearsal.py`). None exists for `8644f0af`,
-      `86706699` or `d0ae79f3`. The incompatible binary of the `10dd9f20`
-      report (`b5e408bb…`) is not on disk. Owner: this lane; the rehearsal
-      needs authorization.
+- [x] A six-clone migration report and its incompatible binary for the chosen
+      candidate (`run_migration_rehearsal.py`). **Done 2026-10-23:** PASS on
+      `eea96ba6…`/`86706699` with the incompatible binary `b5e408bb…`
+      (`13c969f8`), which was on disk after all. See the gap 3 attempt below.
 - [x] Redaction: `verify-only.json` contained four host-local paths, which the
       packet scan rejects. Done 2026-10-22 (`325afbdb`): in all three modes the
       harness writes paths as `<scratch>/…`, `<source>/…`, `<output>/…` or a
@@ -1264,7 +1263,7 @@ binary. The remaining gaps follow in order:
 | ---: | --- | --- | --- |
 | 1 | G1, G2 and G4 on `eea96ba6…` (attempt 4) | ours | **done 2026-10-22, PASS** |
 | 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
-| 3 | Six-clone migration rehearsal on the same binary | ours | 0.5–1 d |
+| 3 | Six-clone migration rehearsal on the same binary | ours | **done 2026-10-23, PASS** |
 | 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | **done 2026-10-22** (`325afbdb`) |
 | 5 | Assemble the packet and run the offline verifier | ours | 0.25 d |
 
@@ -1296,15 +1295,29 @@ stay in G6.
   rehearsal's isolated split keys (`storage-rollout-d0ae79f3/g6-private/`),
   recipient `pf15ee51…`.
 - Output (work server, not in git): `~/.cache/g3-migration-rehearsal-20261023/`.
-- Progress (05:10Z), run started 04:15Z:
-  - [x] Height 924: the initial migration passed on all six (rebuild, then
-    verify-only). They share one packet root, `6a6b53ea…`, the same as in
-    August.
-  - [x] Height 925: the legacy-finality round, where August failed, was
-    accepted with 6 of 6 votes. All six are at tip `325cf746…`, root
-    `a931c1f2…`.
-  - [ ] Still to run: the restart refreeze, heights 926–934 and the final
-    refreeze.
+- [x] **Result: PASS** (04:15–06:09Z, `evidence_eligible = true`, clean
+  worktree). No network contact and no transaction.
+  - Height 924: all six validators passed the three rebuild and verify-only
+    rounds. The shared packet roots are `6a6b53ea…` (924, the same as in
+    August), `a8ad1c5d…` (925) and `83b37b15…` (928).
+  - Heights 925–934: all ten phases were accepted. Height 925
+    (legacy finality, where August failed) had 6/6 votes. Heights 926/927
+    scheduled and then cancelled an activation. Height 928 was legacy
+    finality again and 929 scheduled the activation.
+  - Height 932: activation with 5/5 votes. `validator-5` was held back
+    (`all_certified_sends_verified = false`, as the verifier requires) and
+    caught up from the certificate. Heights 933 and 934 had 6/6 votes.
+  - Final state: all six at 934, tip `d0dc3da6…`, root `4ebd4e90…`.
+  - The old `13c969f8` binary refused the activation round with
+    `storage_unsupported_schema`.
+  - The Cobalt and registry digests are unchanged. All three groups of
+    six restarts are clean.
+  - Sources: the originals' tree hashes are equal before and after, and the
+    backups re-verified.
+  - Report `~/.cache/g3-migration-rehearsal-20261023/receipts/six-clone-migration-report.json`,
+    SHA-256 `b2d786228814b552a8f0031542d5368e5f07c0f81a27fc546441a58527455643`.
+    Logs and hashes are listed in that directory's `SHA256SUMS.txt`
+    (`9754a385…`). The scratch copies and clones are deleted.
 
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
 deployment and public testnet remain blocked.
