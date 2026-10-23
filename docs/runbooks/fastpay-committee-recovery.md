@@ -263,9 +263,7 @@ that payload.
 
 The payload alone does not finish the switch:
 
-- `fastswap_wallet_payload` (`read_payload`) still calls `validate_payload`, which
-  accepts only committee epoch 1 (`crates/types/src/fastswap_types.rs:1519`). It
-  therefore refuses this payload until it accepts a recorded committee.
+- `fastswap_wallet_payload` builds `deposit` and `intent` under the committee epoch the payload declares, and keeps every other bootstrap rule. With `--committee-file 7.2-activate-committee.fastlane-primary.json`, it refuses a payload whose committee differs from the recorded one.
 - The wallet's `ACCEPTANCE.json` names the payload by SHA-256.
 
 ## Release and backup basis

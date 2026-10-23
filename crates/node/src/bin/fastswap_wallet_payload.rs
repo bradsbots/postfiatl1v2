@@ -1,8 +1,8 @@
 use postfiat_crypto_provider::{hash_bytes, hex_to_bytes};
 use postfiat_types::{
     FastAssetIdV1, FastLaneDepositV1, FastLanePrimaryOperationV1, FastLanePrimaryTransactionV1,
-    FastObjectIdV1, FastObjectKeyV1, FastSwapGovernanceBootstrapPayloadV1, FastSwapIntentV1,
-    FastSwapPartyV1, FastSwapRfqHashV1, SignedFastLaneDepositV1,
+    FastObjectIdV1, FastObjectKeyV1, FastSwapCommitteeV1, FastSwapGovernanceBootstrapPayloadV1,
+    FastSwapIntentV1, FastSwapPartyV1, FastSwapRfqHashV1, SignedFastLaneDepositV1,
 };
 use std::env;
 use std::fs;
@@ -18,14 +18,75 @@ fn flag(args: &[String], name: &str) -> Result<String, String> {
         .ok_or_else(|| format!("missing value for {name}"))
 }
 
-fn read_payload(path: &Path) -> Result<FastSwapGovernanceBootstrapPayloadV1, String> {
+fn optional_flag(args: &[String], name: &str) -> Result<Option<String>, String> {
+    if !args.iter().any(|value| value == name) {
+        return Ok(None);
+    }
+    flag(args, name).map(Some)
+}
+
+/// The wallet's activation payload, under the committee epoch it declares.
+///
+/// An epoch-1 payload is the governance bootstrap and must pass every
+/// bootstrap rule. A payload for a later epoch (written by
+/// `fastswap_bootstrap_payload --committee-file` after an `ActivateCommittee`)
+/// keeps every rule except the bootstrap's own epoch-1 bound. With
+/// `--committee-file`, the payload's committee must equal the committee that
+/// record installed, read as `fastswap-committee-migrate` reads it.
+fn read_payload(
+    path: &Path,
+    committee_file: Option<&Path>,
+) -> Result<FastSwapGovernanceBootstrapPayloadV1, String> {
     let bytes = fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
     let payload: FastSwapGovernanceBootstrapPayloadV1 =
         serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
-    payload
-        .validate_payload()
-        .map_err(|error| format!("invalid bootstrap payload: {error:?}"))?;
+    match payload.committee.domain.committee_epoch {
+        0 => return Err("invalid bootstrap payload: committee epoch 0".to_owned()),
+        1 => payload
+            .validate_payload()
+            .map_err(|error| format!("invalid bootstrap payload: {error:?}"))?,
+        _ => {
+            payload
+                .committee
+                .validate()
+                .map_err(|error| format!("invalid bootstrap payload: committee: {error:?}"))?;
+            let mut bootstrap_bounds = payload.clone();
+            bootstrap_bounds.committee.domain.committee_epoch = 1;
+            bootstrap_bounds
+                .validate_payload()
+                .map_err(|error| format!("invalid bootstrap payload: {error:?}"))?;
+        }
+    }
+    if let Some(committee_file) = committee_file {
+        if read_committee_file(committee_file)? != payload.committee {
+            return Err("activation payload committee differs from the committee file".to_owned());
+        }
+    }
     Ok(payload)
+}
+
+fn read_committee_file(path: &Path) -> Result<FastSwapCommitteeV1, String> {
+    let bytes = fs::read(path).map_err(|error| format!("{}: {error}", path.display()))?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&bytes).map_err(|error| format!("{}: {error}", path.display()))?;
+    let object = value
+        .pointer("/operation/certificate/action/committee")
+        .cloned()
+        .unwrap_or(value);
+    let committee: FastSwapCommitteeV1 = serde_json::from_value(object)
+        .map_err(|error| format!("committee file is not a FastSwap committee: {error}"))?;
+    committee.validate().map_err(|error| {
+        format!("committee file does not validate against its own root: {error:?}")
+    })?;
+    Ok(committee)
+}
+
+fn activation_payload(args: &[String]) -> Result<FastSwapGovernanceBootstrapPayloadV1, String> {
+    let committee_file = optional_flag(args, "--committee-file")?.map(PathBuf::from);
+    read_payload(
+        &PathBuf::from(flag(args, "--payload")?),
+        committee_file.as_deref(),
+    )
 }
 
 fn bytes<const N: usize>(value: &str, label: &str) -> Result<[u8; N], String> {
@@ -44,7 +105,7 @@ fn write_private(path: &Path, value: &impl serde::Serialize) -> Result<(), Strin
 }
 
 fn deposit(args: &[String]) -> Result<(), String> {
-    let payload = read_payload(&PathBuf::from(flag(args, "--payload")?))?;
+    let payload = activation_payload(args)?;
     let asset_id = FastAssetIdV1(bytes(&flag(args, "--asset-id")?, "asset id")?);
     let rule = payload
         .asset_rules
@@ -149,7 +210,7 @@ fn party_args(args: &[String], suffix: &str) -> Result<PartyArgs, String> {
 }
 
 fn intent(args: &[String]) -> Result<(), String> {
-    let payload = read_payload(&PathBuf::from(flag(args, "--payload")?))?;
+    let payload = activation_payload(args)?;
     if payload.policies.len() != 1 {
         return Err("wallet helper requires one unambiguous active policy".to_owned());
     }
@@ -253,6 +314,251 @@ fn main() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const PFUSDC: &str = "02c46a36eb0da3516b4d8affea8f4028ad3f36825a3e8f0e009ea9dbbbcfb3c233f6830bd5221fe2717fb6a1a7005d7b";
+    const OWNER_0: &str = "pf23d8831301aa1cce6fdd7bf4a2db2aead1619ba8";
+    const OWNER_1: &str = "pffcb93d9f87a843a8aa34e1adf241f5d58143e81b";
+    const EPOCH_2_PAYLOAD_SHA256: &str =
+        "718fce157096c58133ca08c19e9bdd577c22b023c35556f78e9c083c1f4c39b7";
+    const EPOCH_2_ROOT: &str = "72836827f9f3ecd3042261a77abff72235f0238b6a81f673630a62199415021a1be0cbd5451878edca0e110434c1da37";
+    const EPOCH_2_DOMAIN_SHA256: &str =
+        "b1c5261b5559f2266a4e7620f5945fa250dcea8ad7dd7d2e763a5e7c756b577b";
+    /// Outputs of this helper at `ef7b406b` (before epoch awareness) for the
+    /// epoch-1 form of the fixture payload and the arguments below.
+    const EPOCH_1_DEPOSIT_SHA256: &str =
+        "76ee046e1170420d1e8c076cca495ae1f7d0408f1fa9dec2c6582c3ea9ca1ac3";
+    const EPOCH_1_INTENT_SHA256: &str =
+        "eba7a5fbd8cbdd268292d391789e6f1d07d88a43c0e3765fc9b65bfc989f3fa9";
+
+    fn fixture(name: &str) -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("testdata/fastswap-bootstrap-current-epoch")
+            .join(name)
+    }
+
+    fn sha256_hex(bytes: &[u8]) -> String {
+        use sha2::Digest;
+        postfiat_crypto_provider::bytes_to_hex(&sha2::Sha256::digest(bytes))
+    }
+
+    fn scratch(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "postfiat-wallet-payload-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        dir.join(name)
+    }
+
+    /// The real epoch-2 activation payload with its committee epoch changed.
+    fn payload_with_epoch(epoch: u64) -> PathBuf {
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&fs::read(fixture("payload-epoch2.json")).unwrap()).unwrap();
+        value["committee"]["domain"]["committee_epoch"] = epoch.into();
+        let path = scratch("payload.json");
+        fs::write(&path, serde_json::to_vec_pretty(&value).unwrap()).unwrap();
+        path
+    }
+
+    fn validator_key(index: usize) -> String {
+        let payload: FastSwapGovernanceBootstrapPayloadV1 =
+            serde_json::from_slice(&fs::read(fixture("payload-epoch2.json")).unwrap()).unwrap();
+        postfiat_crypto_provider::bytes_to_hex(&payload.committee.validators[index].public_key)
+    }
+
+    fn args(values: &[String]) -> Vec<String> {
+        values.to_vec()
+    }
+
+    fn deposit_args(payload: &Path, output: &Path, extra: &[&str]) -> Vec<String> {
+        let mut values = [
+            "--payload",
+            &payload.display().to_string(),
+            "--asset-id",
+            PFUSDC,
+            "--source-address",
+            OWNER_0,
+            "--source-pubkey",
+            &validator_key(0),
+            "--sequence",
+            "7",
+            "--amount-atoms",
+            "100000",
+            "--nonce",
+            &"11".repeat(32),
+            "--output",
+            &output.display().to_string(),
+        ]
+        .map(String::from)
+        .to_vec();
+        values.extend(extra.iter().map(|value| value.to_string()));
+        args(&values)
+    }
+
+    fn intent_args(payload: &Path, output: &Path, extra: &[&str]) -> Vec<String> {
+        let mut values = [
+            "--payload",
+            &payload.display().to_string(),
+            "--owner-0-address",
+            OWNER_0,
+            "--owner-0-pubkey",
+            &validator_key(0),
+            "--object-0-id",
+            &"22".repeat(32),
+            "--object-0-version",
+            "1",
+            "--amount-0",
+            "100000",
+            "--owner-1-address",
+            OWNER_1,
+            "--owner-1-pubkey",
+            &validator_key(1),
+            "--object-1-id",
+            &"33".repeat(32),
+            "--object-1-version",
+            "1",
+            "--amount-1",
+            "100000",
+            "--expires-at-height",
+            "200",
+            "--rfq",
+            "rh-20261021-fs",
+            "--nonce",
+            &"44".repeat(32),
+            "--output",
+            &output.display().to_string(),
+        ]
+        .map(String::from)
+        .to_vec();
+        values.extend(extra.iter().map(|value| value.to_string()));
+        args(&values)
+    }
+
+    fn committee_file() -> String {
+        fixture("activate-committee.json").display().to_string()
+    }
+
+    #[test]
+    fn epoch_two_fixture_is_the_recorded_activation_payload() {
+        assert_eq!(
+            sha256_hex(&fs::read(fixture("payload-epoch2.json")).unwrap()),
+            EPOCH_2_PAYLOAD_SHA256
+        );
+    }
+
+    #[test]
+    fn epoch_one_activation_keeps_the_deposit_and_intent_bytes() {
+        let payload = payload_with_epoch(1);
+        let deposit_out = scratch("deposit.json");
+        deposit(&deposit_args(&payload, &deposit_out, &[])).expect("epoch-1 deposit");
+        assert_eq!(
+            sha256_hex(&fs::read(&deposit_out).unwrap()),
+            EPOCH_1_DEPOSIT_SHA256
+        );
+        let intent_out = scratch("intent.json");
+        intent(&intent_args(&payload, &intent_out, &[])).expect("epoch-1 intent");
+        assert_eq!(
+            sha256_hex(&fs::read(&intent_out).unwrap()),
+            EPOCH_1_INTENT_SHA256
+        );
+    }
+
+    #[test]
+    fn epoch_two_activation_builds_deposit_and_intent_under_epoch_two() {
+        let payload = fixture("payload-epoch2.json");
+        let deposit_out = scratch("deposit.json");
+        deposit(&deposit_args(&payload, &deposit_out, &[])).expect("epoch-2 deposit");
+        let built: FastLaneDepositV1 =
+            serde_json::from_slice(&fs::read(&deposit_out).unwrap()).unwrap();
+        let activation = read_payload(&payload, None).expect("epoch-2 activation");
+        assert_eq!(built.domain, activation.committee.domain.chain);
+        let intent_out = scratch("intent.json");
+        intent(&intent_args(&payload, &intent_out, &[])).expect("epoch-2 intent");
+        let built: FastSwapIntentV1 =
+            serde_json::from_slice(&fs::read(&intent_out).unwrap()).unwrap();
+        assert_eq!(built.domain.committee_epoch, 2);
+        assert_eq!(
+            postfiat_crypto_provider::bytes_to_hex(&built.domain.committee_root.0),
+            EPOCH_2_ROOT
+        );
+        let canonical =
+            serde_json::to_string(&serde_json::to_value(&built.domain).unwrap()).unwrap();
+        assert_eq!(sha256_hex(canonical.as_bytes()), EPOCH_2_DOMAIN_SHA256);
+    }
+
+    #[test]
+    fn committee_file_equal_to_the_activation_committee_is_accepted() {
+        let payload = fixture("payload-epoch2.json");
+        let committee = committee_file();
+        deposit(&deposit_args(
+            &payload,
+            &scratch("d.json"),
+            &["--committee-file", &committee],
+        ))
+        .expect("deposit with the recorded committee");
+        intent(&intent_args(
+            &payload,
+            &scratch("i.json"),
+            &["--committee-file", &committee],
+        ))
+        .expect("intent with the recorded committee");
+    }
+
+    #[test]
+    fn activation_whose_committee_differs_from_the_committee_file_is_refused() {
+        // An epoch-1 activation against the recorded epoch-2 committee.
+        let payload = payload_with_epoch(1);
+        let committee = committee_file();
+        for error in [
+            deposit(&deposit_args(
+                &payload,
+                &scratch("d.json"),
+                &["--committee-file", &committee],
+            )),
+            intent(&intent_args(
+                &payload,
+                &scratch("i.json"),
+                &["--committee-file", &committee],
+            )),
+        ] {
+            let error = error.expect_err("refused");
+            assert!(error.contains("differs from the committee file"), "{error}");
+        }
+    }
+
+    #[test]
+    fn committee_file_that_does_not_validate_is_refused() {
+        let tampered = scratch("committee.json");
+        let text = fs::read_to_string(fixture("activate-committee.json")).unwrap();
+        fs::write(
+            &tampered,
+            text.replacen("\"committee_root\":[114,", "\"committee_root\":[115,", 1),
+        )
+        .unwrap();
+        let tampered = tampered.display().to_string();
+        let error = deposit(&deposit_args(
+            &fixture("payload-epoch2.json"),
+            &scratch("d.json"),
+            &["--committee-file", &tampered],
+        ))
+        .expect_err("refused");
+        assert!(error.contains("root"), "{error}");
+    }
+
+    #[test]
+    fn committee_epoch_zero_is_refused() {
+        let error = deposit(&deposit_args(
+            &payload_with_epoch(0),
+            &scratch("d.json"),
+            &[],
+        ))
+        .expect_err("refused");
+        assert!(error.contains("invalid bootstrap payload"), "{error}");
+    }
 
     #[test]
     fn quote_uses_governed_down_rounding_without_narrowing_prices() {
