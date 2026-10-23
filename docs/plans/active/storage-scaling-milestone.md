@@ -4,6 +4,8 @@
 
 **Status (2026-10-22):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. A4 did not assemble a packet: no single source and binary covers G2–G4 and the G3 replays, and the verifier still requires the lost height-915 archive. The missing inputs and their owners are listed under [G5](#g5-offline-qualification-packet). G1, G2 and G4 now also PASS on the deployed binary `eea96ba6…` (source `86706699`), the replays' binary ([attempt 4](g4-regression-deployed-release-20261019.md#result-2026-10-22-attempt-4-deployed-binary)).
 
+**Status (2026-10-23):** **not** `OFFLINE QUALIFIED`; the state stays SELECTED. The packet is assembled and verifies offline on `eea96ba6…`/`86706699`, and the six-clone rehearsal passed. Five boxes are still open; they are listed under [G5](#g5-offline-qualification-packet).
+
 **Decision date:** 2026-08-27
 
 **Decision owner:** Post Fiat
@@ -586,6 +588,8 @@ compared by SHA-256 outside it, because its per-validator check reads host
       and target directory hashes remain unchanged (2026-10-22, PASS).
 - [ ] Bind the redaction-safe replay report and verifier output into the packet
       checksum manifest (A4). 2026-10-22: not bound; see [G5](#g5-offline-qualification-packet).
+      2026-10-23: the packet binds the report and both receipts. The 924
+      `verify-only.json` is not a packet input, so this box stays open.
 
 **924 replay (2026-10-22): PASS with the harness.** Copy: `storage-rollout-10dd9f20`,
 `g6-rehearsal-20260830-v3/backups/validator-0`. Its own record names the tip
@@ -1174,17 +1178,21 @@ remain open.
 **Purpose:** make the result independently checkable and state exactly what it
 does and does not authorize.
 
-- [ ] Package G1 through G4 into one checksum-bound, redaction-safe packet.
-- [ ] Make `python -m postfiat_rpc.storage_scaling verify PACKET` pass without
+- [x] Package G1 through G4 into one checksum-bound, redaction-safe packet
+      (2026-10-23, see the packet below).
+- [x] Make `python -m postfiat_rpc.storage_scaling verify PACKET` pass without
       network access and fail on every missing, changed, incomparable, stale, or
-      inconsistent required artifact.
-- [ ] Make the read-only browser consume only a successfully verified packet and
-      expose no migration, activation, rollback, or mutation action.
-- [ ] Run the proportional clean release suite and strict documentation,
-      redaction, and public-link checks.
+      inconsistent required artifact (2026-10-23: PASS. There are 114 packager
+      and verifier tests, and a copy with one changed byte is refused).
+- [x] Make the read-only browser consume only a successfully verified packet and
+      expose no migration, activation, rollback, or mutation action (2026-10-23).
+- [x] Run the proportional clean release suite and strict documentation,
+      redaction, and public-link checks (2026-10-23). The release suite is
+      attempt 4's G1 on `86706699`. The checks are the packet redaction scan,
+      `mkdocs build --strict`, `public-doc-links` and `public-secret-scan`.
 - [ ] Update Current State, State and Storage, the evidence index, and operator
       runbooks with the exact source/binary/packet identities and remaining
-      boundaries.
+      boundaries. 2026-10-23: only Current State is done.
 - [ ] Record `OFFLINE QUALIFIED` only after every G0–G5 item passes.
 
 **Packet attempt (2026-10-22, A4): not assembled; no box above passes.**
@@ -1250,7 +1258,8 @@ What the packet still lacks:
       receipts (G3) pass the packet's redaction patterns.
 - [ ] Other open boxes count against `OFFLINE QUALIFIED`: G2's last box, and
       G4D's three, which are pre-pass history. Owner: this lane, to close them
-      or record them as superseded.
+      or record them as superseded. Still open on 2026-10-23; see the list
+      below.
 
 **Decision (2026-10-22): one build for everything.** G1, G2 and G4 are re-run
 on the deployed binary `eea96ba6…` (source `86706699`, the running release
@@ -1265,7 +1274,7 @@ binary. The remaining gaps follow in order:
 | 2 | Verifier and packager accept the height-1123 signed canary in place of the lost 915 archive (code change with tests) | ours | 0.5 d |
 | 3 | Six-clone migration rehearsal on the same binary | ours | **done 2026-10-23, PASS** |
 | 4 | Redact the home-directory paths in `verify-only.json` (harness fix) | ours | **done 2026-10-22** (`325afbdb`) |
-| 5 | Assemble the packet and run the offline verifier | ours | 0.25 d |
+| 5 | Assemble the packet and run the offline verifier | ours | **done 2026-10-23, PASS** |
 
 **Gap 3 attempt (2026-10-23): six-clone migration rehearsal on `eea96ba6…`.**
 The packet needs the lighter rehearsal, not the G6 deployment-exact gate. The
@@ -1318,6 +1327,53 @@ stay in G6.
     SHA-256 `b2d786228814b552a8f0031542d5368e5f07c0f81a27fc546441a58527455643`.
     Logs and hashes are listed in that directory's `SHA256SUMS.txt`
     (`9754a385…`). The scratch copies and clones are deleted.
+
+**Gap 5 packet (2026-10-23): assembled; the offline verifier passes.**
+
+- Packet (work server, not in git): `~/.cache/storage-packet-20261023/packet/`,
+  178 files. It binds:
+  - the source `86706699` and four binaries: node `eea96ba6…`, batch builder
+    `fb83d467…`, rollback `decaa411…`, incompatible `b5e408bb…`;
+  - attempt 4's G4 report `7aa8d72c…` and G2 tamper report (69 cases);
+  - the 924 replay report `fa071f84…` with receipt `fa643375…`, and the 1123
+    receipt `c172d31e…` as the 915 replacement;
+  - the rehearsal report `b2d78622…`.
+- Assembly revision `6e0e3df0`. Checksum manifest `SHA256SUMS.txt`:
+  `c99cf3149d0e3691c6f58baaf1ec0be2e8685598a297964613ee27d62c1a3b38`.
+- `python -m postfiat_rpc.storage_scaling verify`: `verified = true`,
+  `offline = true`, 177 files checked, 69 tamper cases. The ratios are 1.0482
+  (consensus) and 1.0637 (wallet) for 5,000 against 50, and 0.350 and 0.450
+  for 50 against legacy. Output
+  `~/.cache/storage-packet-20261023/verify-output.json`, SHA-256
+  `892843a55c3ae637feaaf01915dbf8bd00c293ad2e21160999063ca9a0b52246`.
+- Browser (`serve`, loopback): `/` and `/api/packet` return 200, and the API
+  equals the verifier report. POST returns 405 and other paths 404. A copy
+  with one changed byte is refused before serving.
+- Packager and verifier fixes, with tests (`aa1ebd05`, `6e0e3df0`):
+  - Main's verifier could not read attempt 4's G4 report. It now carries the
+    runner line's gates (`g4-runner-bounds-20261019`: certified-send and
+    vote-lock work, prepared-build provenance).
+  - It also applies the two runner rules that attempt 4 was judged by. One
+    stall of 100–250 ms per window is tolerated; attempt 4 has one, 108.8 ms
+    at height 50, window 1, round 22. Growth under 5 ms is not material.
+  - The packager replaces the host path in `config.topology_file` and skips
+    the hash-bound binaries in the text scan. The 1.8 MB batch builder
+    embeds build paths.
+  - A first assembly at the unpushed `63343201` is superseded.
+
+**Still open for `OFFLINE QUALIFIED`** (state stays SELECTED):
+
+1. G2, last box: the reports and receipts are not committed or bound in
+   `benchmarks/storage-scaling/SHA256SUMS.txt`. The packet binds them, but it
+   stays off git.
+2. G3, last box: the 924 `verify-only.json` (`10dc5398…`) is not a packet
+   input. The replay report and both receipts are bound.
+3. G4D, three boxes (pre-pass history): attempt 4 meets them, and the
+   packet verifier recomputes that, but the boxes are not yet closed or
+   recorded as superseded.
+4. G5: State and Storage, the evidence index and the operator runbooks are
+   not updated.
+5. G5: the `OFFLINE QUALIFIED` box itself.
 
 **Exit:** the candidate may be described as offline qualified. Controlled-devnet
 deployment and public testnet remain blocked.
