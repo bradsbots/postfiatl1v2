@@ -31,6 +31,7 @@ SENSITIVE = re.compile(
     r"full[-_ ]?viewing[-_ ]?key|master[-_ ]?seed|rseed|ssh[-_ ]?cred",
     re.IGNORECASE,
 )
+REDACTION_MAX_SCANNED_BYTES = 16 * 1024 * 1024
 LOCAL_PATH = re.compile(r"(?:/home/|/Users/|[A-Za-z]:\\\\Users\\\\)")
 NONLOCAL_IPV4 = re.compile(
     r"(?<![0-9.])(?!127\.0\.0\.1\b)(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![0-9.])"
@@ -545,6 +546,7 @@ def copy_performance(packet: Path, source: Path) -> Path:
                     packet / "performance" / "windows" / lane_name / f"{label}.json"
                 )
                 copy_run_report(raw_source, destination)
+                window["source_normalized_report_sha256"] = sha256(raw_source)
                 window["normalized_report"] = destination.relative_to(packet).as_posix()
                 window["normalized_report_sha256"] = sha256(destination)
                 resource_destination = (
@@ -694,21 +696,39 @@ def validate_capture_time(value: str) -> None:
     datetime.fromisoformat(value[:-1] + "+00:00")
 
 
+def redaction_record(
+    allowed_nonlocal: set[str],
+    binary_paths: frozenset[str],
+) -> dict[str, Any]:
+    """State what the redaction scan covered, including what it left out."""
+    sys.path.insert(0, str(PYTHON_ROOT))
+    from postfiat_rpc.storage_scaling import REDACTION_BINARY_EXEMPTION_REASON
+
+    return {
+        "schema": ARTIFACT_SCHEMAS["redaction"],
+        "passed": True,
+        "allowed_nonlocal_ip_files": sorted(allowed_nonlocal),
+        "unscanned_binary_paths": sorted(binary_paths),
+        "unscanned_binary_reason": REDACTION_BINARY_EXEMPTION_REASON,
+        "unscanned_files_over_bytes": REDACTION_MAX_SCANNED_BYTES,
+    }
+
+
 def scan_redaction(
     packet: Path,
     allowed_nonlocal: set[str],
     binary_paths: frozenset[str] = frozenset(),
 ) -> None:
-    """Scan every evidence file; the hash-bound release binaries are not text.
+    """Scan every evidence file; only ELF files at the bound binary roles are exempt.
 
     Release binaries embed build-host source paths (panic locations); they are
     copied byte for byte and bound by SHA-256 in `artifacts/source.json`.
     """
     for path in packet.rglob("*"):
-        if not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
+        if not path.is_file() or path.stat().st_size > REDACTION_MAX_SCANNED_BYTES:
             continue
         relative = path.relative_to(packet).as_posix()
-        if relative in binary_paths:
+        if relative in binary_paths and path.read_bytes()[:4] == b"\x7fELF":
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if SENSITIVE.search(text):
@@ -912,15 +932,9 @@ def main() -> int:
         ),
     }
     allowed_nonlocal = set(args.allow_nonlocal_ip_file)
+    binary_paths = frozenset(str(binary["path"]) for binary in binaries)
     redaction_path = packet / "artifacts" / "redaction.json"
-    write_json(
-        redaction_path,
-        {
-            "schema": ARTIFACT_SCHEMAS["redaction"],
-            "passed": True,
-            "allowed_nonlocal_ip_files": sorted(allowed_nonlocal),
-        },
-    )
+    write_json(redaction_path, redaction_record(allowed_nonlocal, binary_paths))
     artifact_paths["redaction"] = redaction_path
 
     state_distinction = read_json(args.state_distinction.resolve())
@@ -941,11 +955,7 @@ def main() -> int:
         },
     }
     write_json(packet / "storage-scaling-packet.json", manifest)
-    scan_redaction(
-        packet,
-        allowed_nonlocal,
-        frozenset(str(binary["path"]) for binary in binaries),
-    )
+    scan_redaction(packet, allowed_nonlocal, binary_paths)
     write_checksums(packet)
 
     sys.path.insert(0, str(PYTHON_ROOT))

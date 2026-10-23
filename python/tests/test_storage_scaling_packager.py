@@ -389,6 +389,18 @@ class StorageScalingPackagerTests(unittest.TestCase):
             copied_path = packet / copied_window["normalized_report"]
             self.assertEqual(copied_window["normalized_report_sha256"], _sha256(copied_path))
             self.assertEqual(
+                copied_window["source_normalized_report_sha256"], _sha256(normalized)
+            )
+            self.assertNotEqual(
+                copied_window["source_normalized_report_sha256"],
+                copied_window["normalized_report_sha256"],
+            )
+            verbatim = copied["lanes"]["legacy-jsonl"]["rows"][0]["windows"][0]
+            self.assertEqual(
+                verbatim["source_normalized_report_sha256"],
+                verbatim["normalized_report_sha256"],
+            )
+            self.assertEqual(
                 json.loads(copied_path.read_text(encoding="utf-8"))["config"],
                 {"topology_file": "$TOPOLOGY_FILE", "validators": 6},
             )
@@ -423,6 +435,25 @@ class StorageScalingPackagerTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "prepared corpus binding"):
                 PACKAGER.copy_performance(root / "packet", source)
+
+    def test_scan_redaction_scans_a_non_elf_file_in_a_binary_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = Path(temporary)
+            binary = packet / "bin" / "postfiat-storage-corpus-batches"
+            binary.parent.mkdir()
+            binary.write_bytes(b"#!/bin/sh\n# /home/builder/notes\n")
+            with self.assertRaisesRegex(ValueError, "host-local path"):
+                PACKAGER.scan_redaction(
+                    packet, set(), frozenset({"bin/postfiat-storage-corpus-batches"})
+                )
+
+    def test_redaction_record_names_the_unscanned_binaries(self) -> None:
+        roles = frozenset({"bin/postfiat-node", "bin/postfiat-storage-corpus-batches"})
+        record = PACKAGER.redaction_record({"10.0.0.1.json"}, roles)
+        self.assertEqual(record["unscanned_binary_paths"], sorted(roles))
+        self.assertEqual(record["allowed_nonlocal_ip_files"], ["10.0.0.1.json"])
+        self.assertEqual(record["unscanned_files_over_bytes"], 16 * 1024 * 1024)
+        self.assertIn("ELF", record["unscanned_binary_reason"])
 
     def test_scan_redaction_skips_only_bound_release_binaries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

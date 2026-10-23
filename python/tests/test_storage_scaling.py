@@ -881,6 +881,7 @@ def _passing_packet(packet: Path) -> None:
                         "resources": resources,
                         "normalized_report": raw_path.relative_to(packet).as_posix(),
                         "normalized_report_sha256": _sha256(raw_path),
+                        "source_normalized_report_sha256": _sha256(raw_path),
                         "resource_samples": resource_path.relative_to(packet).as_posix(),
                         "resource_samples_sha256": _sha256(resource_path),
                     }
@@ -1684,11 +1685,9 @@ def _passing_packet(packet: Path) -> None:
             "network_contacted": False,
         },
         "migration": migration_report,
-        "redaction": {
-            "schema": ARTIFACT_SCHEMAS["redaction"],
-            "passed": True,
-            "allowed_nonlocal_ip_files": [],
-        },
+        "redaction": _redaction_record(
+            frozenset(str(binary["path"]) for binary in binaries)
+        ),
     }
     artifacts = {}
     for label, report in reports.items():
@@ -2006,6 +2005,8 @@ def _rewrite_first_selected_resource_samples(
 def _rewrite_first_selected_normalized_report(
     packet: Path,
     mutation: Callable[[dict[str, object]], None],
+    *,
+    keep_source: bool = False,
 ) -> None:
     performance_path = packet / "artifacts" / "performance.json"
     performance = json.loads(performance_path.read_text(encoding="utf-8"))
@@ -2016,6 +2017,9 @@ def _rewrite_first_selected_normalized_report(
     mutation(normalized)
     _write_json(normalized_path, normalized)
     window["normalized_report_sha256"] = _sha256(normalized_path)
+    if not keep_source:
+        # Model a campaign whose own report already held this content.
+        window["source_normalized_report_sha256"] = window["normalized_report_sha256"]
     performance["rows"] = selected["rows"]
     _write_json(performance_path, performance)
     manifest_path = packet / MANIFEST_FILE
@@ -2023,6 +2027,84 @@ def _rewrite_first_selected_normalized_report(
     manifest["artifacts"]["performance"]["sha256"] = _sha256(performance_path)
     _write_json(manifest_path, manifest)
     _write_checksums(packet)
+
+
+def _rewrite_redaction(
+    packet: Path,
+    mutation: Callable[[dict[str, object]], None],
+) -> None:
+    redaction_path = packet / "artifacts" / "redaction.json"
+    redaction = json.loads(redaction_path.read_text(encoding="utf-8"))
+    mutation(redaction)
+    _write_json(redaction_path, redaction)
+    manifest_path = packet / MANIFEST_FILE
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["artifacts"]["redaction"]["sha256"] = _sha256(redaction_path)
+    _write_json(manifest_path, manifest)
+    _write_checksums(packet)
+
+
+def _redaction_record(binary_paths: frozenset[str]) -> dict[str, object]:
+    return {
+        "schema": ARTIFACT_SCHEMAS["redaction"],
+        "passed": True,
+        "allowed_nonlocal_ip_files": [],
+        "unscanned_binary_paths": sorted(binary_paths),
+        "unscanned_binary_reason": storage_scaling.REDACTION_BINARY_EXEMPTION_REASON,
+        "unscanned_files_over_bytes": storage_scaling.REDACTION_MAX_SCANNED_BYTES,
+    }
+
+
+def _set_vote_lock_migration(report: dict[str, object], rounds: tuple[int, ...]) -> None:
+    # validator-2 votes in rounds 1 and 2 (offsets 0 and 1) of the fixture.
+    for offset in rounds:
+        for target in report["iterations"][offset]["round_timings"]["vote_request_targets"]:
+            if target["target"] == "validator-2":
+                breakdown = target["vote_request_breakdown"]["remote_handling"][
+                    "block_vote_breakdown"
+                ]
+                breakdown["vote_lock_migration_performed"] = True
+
+
+def _set_certified_send_migration(
+    report: dict[str, object], rounds: tuple[int, ...]
+) -> None:
+    # validator-0 resumes in every round of the fixture.
+    for offset in rounds:
+        report["iterations"][offset]["round_timings"][
+            "outbox_index_migration_performed"
+        ] = True
+
+
+def _add_round_one_time(report: dict[str, object], milliseconds: float) -> None:
+    report["iterations"][0]["round_timings"]["total_ms"] += milliseconds
+
+
+def _height_model_inputs(
+    growth_ms: float,
+) -> tuple[dict[str, object], dict[str, list[dict[str, object]]], dict[str, list[float]]]:
+    observations = {
+        stage: [
+            {
+                "height": height,
+                "window": f"height-{height}-window-{index}",
+                "p95_ms": 10.0 + (growth_ms if height == 5000 and stage == "proposal_ms" else 0.0),
+            }
+            for height in (50, 5000)
+            for index in range(1, 6)
+        ]
+        for stage in MATERIAL_STAGE_PATHS
+    }
+    performance = {
+        "height_relationship_model": {
+            "schema": "postfiat-storage-height-cost-model-v2",
+            "sample_kind": "per_window_p95",
+            "relative_materiality": 0.10,
+            "residual_sigmas": 2.0,
+            "stages": {stage: {} for stage in MATERIAL_STAGE_PATHS},
+        }
+    }
+    return performance, observations, {stage: [10.0] * 5 for stage in MATERIAL_STAGE_PATHS}
 
 
 REPLACEMENT_HEIGHT = 1123
@@ -2696,20 +2778,196 @@ class StorageScalingVerifierTests(unittest.TestCase):
             ):
                 verify_packet(packet)
 
-    def test_storage_scaling_redaction_skips_only_bound_release_binaries(self) -> None:
+    def test_storage_scaling_redaction_skips_only_recorded_elf_binaries(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             packet = Path(temporary)
             binary = packet / "bin" / "postfiat-storage-corpus-batches"
             binary.parent.mkdir()
             binary.write_bytes(b"\x7fELF/home/builder/.cargo/registry/src/lib.rs")
-            redaction = {"passed": True, "allowed_nonlocal_ip_files": []}
-            storage_scaling._verify_redaction(
-                packet, redaction, frozenset({"bin/postfiat-storage-corpus-batches"})
-            )
+            roles = frozenset({"bin/postfiat-storage-corpus-batches"})
+            redaction = _redaction_record(roles)
+            storage_scaling._verify_redaction(packet, redaction, roles)
             with self.assertRaisesRegex(
                 StorageScalingVerificationError, "host-local path found"
             ):
-                storage_scaling._verify_redaction(packet, redaction)
+                storage_scaling._verify_redaction(packet, _redaction_record(frozenset()))
+
+    def test_storage_scaling_redaction_scans_a_non_elf_file_in_a_binary_role(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = Path(temporary)
+            binary = packet / "bin" / "postfiat-storage-corpus-batches"
+            binary.parent.mkdir()
+            binary.write_bytes(b"#!/bin/sh\n# /home/builder/notes\n")
+            roles = frozenset({"bin/postfiat-storage-corpus-batches"})
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError, "host-local path found"
+            ):
+                storage_scaling._verify_redaction(packet, _redaction_record(roles), roles)
+
+    def test_storage_scaling_packet_rejects_unrecorded_binary_exemption(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def drop_exemption(redaction: dict[str, object]) -> None:
+                del redaction["unscanned_binary_paths"]
+
+            _rewrite_redaction(packet, drop_exemption)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError, "redaction binary exemption"
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_widened_binary_exemption(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def widen(redaction: dict[str, object]) -> None:
+                paths = list(redaction["unscanned_binary_paths"])
+                redaction["unscanned_binary_paths"] = sorted(
+                    paths + ["artifacts/performance.json"]
+                )
+
+            _rewrite_redaction(packet, widen)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError, "redaction binary exemption"
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_window_without_source_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def drop_source(performance: dict[str, object]) -> None:
+                for rows in (
+                    performance["rows"],
+                    performance["lanes"]["selected-indexed"]["rows"],
+                ):
+                    del rows[0]["windows"][0]["source_normalized_report_sha256"]
+
+            _rewrite_performance(packet, drop_source)
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError, "window report source digest"
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_accepts_topology_redacted_window(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def redact(report: dict[str, object]) -> None:
+                report["config"]["topology_file"] = "$TOPOLOGY_FILE"
+
+            _rewrite_first_selected_normalized_report(packet, redact, keep_source=True)
+            self.assertIs(verify_packet(packet).report["verified"], True)
+
+    def test_storage_scaling_packet_rejects_window_rewrite_beyond_topology(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+
+            def other_rewrite(report: dict[str, object]) -> None:
+                report["config"]["topology_file"] = "topology.json"
+
+            _rewrite_first_selected_normalized_report(
+                packet, other_rewrite, keep_source=True
+            )
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "window report differs from its campaign source",
+            ):
+                verify_packet(packet)
+
+    def test_storage_scaling_packet_rejects_repeated_vote_lock_migration(self) -> None:
+        self._assert_raw_refusal(
+            lambda report: _set_vote_lock_migration(report, (0, 1)),
+            "VOTE_LOCK_MIGRATION_REPEATED",
+        )
+
+    def test_storage_scaling_packet_rejects_late_vote_lock_migration(self) -> None:
+        self._assert_raw_refusal(
+            lambda report: _set_vote_lock_migration(report, (1,)),
+            "VOTE_LOCK_MIGRATION_AFTER_FIRST_VALIDATOR_RESERVATION",
+        )
+
+    def test_storage_scaling_packet_rejects_repeated_certified_send_migration(
+        self,
+    ) -> None:
+        self._assert_raw_refusal(
+            lambda report: _set_certified_send_migration(report, (0, 1)),
+            "CERTIFIED_SEND_INDEX_MIGRATION_REPEATED",
+        )
+
+    def test_storage_scaling_packet_rejects_late_certified_send_migration(self) -> None:
+        self._assert_raw_refusal(
+            lambda report: _set_certified_send_migration(report, (1,)),
+            "CERTIFIED_SEND_INDEX_MIGRATION_AFTER_FIRST_VALIDATOR_RESUME",
+        )
+
+    def test_storage_scaling_packet_rejects_single_residual_above_250_ms(self) -> None:
+        self._assert_raw_refusal(
+            lambda report: _add_round_one_time(report, 230.01),
+            "ROUND_COVERAGE_RESIDUAL_EXCEEDED",
+        )
+
+    def test_storage_scaling_packet_rejects_residual_below_minus_one_ms(self) -> None:
+        self._assert_raw_refusal(
+            lambda report: _add_round_one_time(report, -21.5),
+            "ROUND_COVERAGE_RESIDUAL_EXCEEDED",
+        )
+
+    def test_storage_scaling_packet_accepts_one_stall_at_exactly_250_ms(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _rewrite_first_selected_normalized_report(
+                packet, lambda report: _add_round_one_time(report, 230.0)
+            )
+
+            def record_stall(performance: dict[str, object]) -> None:
+                window = performance["lanes"]["selected-indexed"]["rows"][0][
+                    "windows"
+                ][0]
+                coverage = window["round_coverage"]
+                row = coverage["rounds"][0]
+                row["total_ms"] += 230.0
+                row["residual_ms"] += 230.0
+                row["tolerated_stall"] = True
+                coverage["max_residual_ms"] = row["residual_ms"]
+                coverage["tolerated_stall_rounds"] = [1]
+                receipt_path = packet / window["round_coverage_receipt"]
+                _write_json(receipt_path, coverage)
+                window["round_coverage_receipt_sha256"] = _sha256(receipt_path)
+                performance["rows"] = performance["lanes"]["selected-indexed"]["rows"]
+
+            _rewrite_performance(packet, record_stall)
+            self.assertIs(verify_packet(packet).report["verified"], True)
+
+    def test_height_model_rejects_growth_above_the_5_ms_floor(self) -> None:
+        with mock.patch.object(storage_scaling, "_verify_numeric_structure"):
+            storage_scaling._verify_height_relationship_models(*_height_model_inputs(4.9))
+            with self.assertRaisesRegex(
+                StorageScalingVerificationError,
+                "material stage proposal_ms retains a positive height relationship",
+            ):
+                storage_scaling._verify_height_relationship_models(
+                    *_height_model_inputs(5.1)
+                )
+
+    def _assert_raw_refusal(
+        self,
+        mutation: Callable[[dict[str, object]], None],
+        message: str,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            packet = self.packet_dir(temporary)
+            _passing_packet(packet)
+            _rewrite_first_selected_normalized_report(packet, mutation)
+            with self.assertRaisesRegex(StorageScalingVerificationError, message):
+                verify_packet(packet)
 
     def test_storage_scaling_packet_accepts_one_isolated_round_stall(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -3281,12 +3539,11 @@ class StorageScalingVerifierTests(unittest.TestCase):
             _write_json(raw, report)
             performance_path = packet / "artifacts" / "performance.json"
             performance = json.loads(performance_path.read_text(encoding="utf-8"))
-            performance["rows"][0]["windows"][0][
-                "normalized_report_sha256"
-            ] = _sha256(raw)
-            performance["lanes"]["selected-indexed"]["rows"][0]["windows"][0][
-                "normalized_report_sha256"
-            ] = _sha256(raw)
+            for key in ("normalized_report_sha256", "source_normalized_report_sha256"):
+                performance["rows"][0]["windows"][0][key] = _sha256(raw)
+                performance["lanes"]["selected-indexed"]["rows"][0]["windows"][0][
+                    key
+                ] = _sha256(raw)
             _write_json(performance_path, performance)
             manifest_path = packet / MANIFEST_FILE
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))

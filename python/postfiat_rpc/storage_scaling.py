@@ -123,6 +123,13 @@ CERTIFIED_SEND_MAX_INDEX_BYTES_READ = 4 * 1024 * 1024
 CERTIFIED_SEND_MAX_COMPLETED_ENTRIES_ENUMERATED = 2_048
 CERTIFIED_SEND_MAX_HASHED_BYTES_PER_TOMBSTONE = 64 * 1024 + 2 * 4 * 1024 * 1024
 ROUND_COVERAGE_MAX_RESIDUAL_MS = 100.0
+REDACTION_MAX_SCANNED_BYTES = 16 * 1024 * 1024
+REDACTION_BINARY_EXEMPTION_REASON = (
+    "Release binaries are copied byte for byte and bound by SHA-256 in "
+    "artifacts/source.json; they embed compile-time source paths, so only ELF "
+    "files at these four binary roles are left out of the text scan."
+)
+TOPOLOGY_PLACEHOLDER = "$TOPOLOGY_FILE"
 # The runner tolerates one isolated stall per window: a round with residual
 # in (100, 250] ms passes only when it is the window's sole such round.
 ROUND_COVERAGE_MAX_ISOLATED_STALL_MS = 250.0
@@ -535,7 +542,7 @@ def _verify_source(
             _fail(f"binary identity mismatch for {name}")
         observed_binaries[name] = expected
     if set(observed_binaries) != expected_binary_paths:
-        _fail("source binary roles do not match the required three-binary set")
+        _fail("source binary roles do not match the required four-binary set")
     if len(set(observed_binaries.values())) != len(expected_binary_paths):
         _fail("source binary roles are not distinct")
 
@@ -2450,6 +2457,20 @@ def _verify_performance_lane(
             ):
                 _fail(f"performance lane {lane_name} normalized window did not pass")
             config = _object(raw.get("config"), "performance raw configuration")
+            source_digest = str(window.get("source_normalized_report_sha256", ""))
+            if HEX64.fullmatch(source_digest) is None:
+                _fail(
+                    f"performance lane {lane_name} window report source digest "
+                    "is missing or invalid"
+                )
+            if (
+                source_digest != window.get("normalized_report_sha256")
+                and config.get("topology_file") != TOPOLOGY_PLACEHOLDER
+            ):
+                _fail(
+                    f"performance lane {lane_name} window report differs from its "
+                    "campaign source beyond the topology path redaction"
+                )
             expected_config = {
                 "mode": "wallet-to-finality",
                 "build_mode": "release",
@@ -4291,14 +4312,24 @@ def _verify_redaction(
     redaction: Mapping[str, Any],
     binary_paths: frozenset[str] = frozenset(),
 ) -> None:
-    """Scan every evidence file; the hash-bound release binaries are not text."""
+    """Scan every evidence file; only the recorded ELF release binaries are exempt."""
     _bool(redaction.get("passed"), "redaction gate")
     allow = set(_list(redaction.get("allowed_nonlocal_ip_files", []), "redaction allowlist"))
+    if (
+        redaction.get("unscanned_binary_paths") != sorted(binary_paths)
+        or redaction.get("unscanned_binary_reason") != REDACTION_BINARY_EXEMPTION_REASON
+        or redaction.get("unscanned_files_over_bytes") != REDACTION_MAX_SCANNED_BYTES
+    ):
+        _fail("redaction binary exemption is not the recorded four-binary set")
     for path in packet_dir.rglob("*"):
-        if not path.is_file() or path.name == CHECKSUM_FILE or path.stat().st_size > 16 * 1024 * 1024:
+        if (
+            not path.is_file()
+            or path.name == CHECKSUM_FILE
+            or path.stat().st_size > REDACTION_MAX_SCANNED_BYTES
+        ):
             continue
         relative = path.relative_to(packet_dir).as_posix()
-        if relative in binary_paths:
+        if relative in binary_paths and path.read_bytes()[:4] == b"\x7fELF":
             continue
         text = path.read_text(encoding="utf-8", errors="ignore")
         if SENSITIVE.search(text):
