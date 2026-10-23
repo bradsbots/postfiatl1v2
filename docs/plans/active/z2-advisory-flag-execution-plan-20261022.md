@@ -1,14 +1,46 @@
 # Z2 Advisory Flag Execution Plan
 
-**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 (Task Node `task_f70334d6192a53277e08313fc0699e5c` and `task_d88cc467a1f9926dcfd01570c0a36696`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Step 2's specification is locked (2026-10-23, [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md)); its prompt v1 (SHA-256 `e5a62a6d…`), package skeleton and offline tests followed the same day, and step 2's acceptance check passes. The first GPU run still needs a host-runner variant, a packet set that covers the round's candidates, and the inference-cost owner. Step 3's rule module, Python mirror and shared fixtures landed on 2026-10-23, unused by consensus. Steps 1b and 4–6 have not started.
+**Status:** Execution plan, 2026-10-22. Refreshed on 2026-10-23: see [Status on 2026-10-23](#status-on-2026-10-23). Step 1a is complete, the step-2 package and the step-3 rule module have landed, and the earliest production switch is the round of 2026-11-24.
 **Date:** 2026-10-22
 **Parent gate:** [L1v2 Public Testnet Path, Gate Zero Z2](l1v2-public-testnet-path-milestone.md#gate-zero-operator-preconditions-recorded-2026-08-30)
 **Decision:** [AI governance direction of 2026-09-03](../../governance/ai-governance-direction-20260903.md), confirmed 2026-10-20 (row 1 of the [pending operator decisions](../../governance/pending-operator-decisions.md))
 **Code read at:** this repository `main` `f50aeff1`; `dynamic-unl-scoring` `origin/main` `e70515d` (2026-10-17); `validator-scoring-sidecar` `origin/main` `c0389f8` (2026-10-15). Fork and sidecar line numbers below are at those commits.
 
+## Status on 2026-10-23
+
+**Done:**
+
+- [x] **Step 1a is complete.** The v3 sub-scorer is frozen at `f71f29dd…` (`5b9f99a8`). Round 28, the newest v12-era round, was replayed (`4e70747c`): the internal control reproduces the published UNL, with 0 flips and 24/25 overlap. Rounds from 2026-10-27 count.
+- [x] **Step 2's specification is locked** at 86.33/100 (`6ba024e4`). Prompt v1 is pinned at `e5a62a6d…`, and the pipeline skeleton has 27 offline tests (`072a9e87`). Step 2's acceptance check passes.
+- [x] **Step 3's rule module** `entry_profile_v1` (`dd98970b…`) has landed with its Python mirror (`18191847…`) and 263 shared fixtures (`1b317fc4`). Consensus does not use it.
+- [x] **Decisions of 2026-10-23:**
+    - the ten spec leans are adopted ([spec Appendix A](../../specs/identity-flag-pipeline-spec-20261023.md#appendix-a-decisions-of-2026-10-23), `072a9e87`);
+    - step 3 keeps its parameters and clean-round definition as implemented (step 3 record);
+    - the inference-cost owner for the weekly flag runs is named ([decision sheet](../../governance/pending-operator-decisions.md), step 2 record).
+
+**Remaining:**
+
+| Item | Needs | Estimate |
+| --- | --- | --- |
+| 1b: fork module, manifest section, prompt v13, sidecar release | Code-owner review in the fork and sidecar repositories | 1.5–3 days |
+| Flag variant of `run_host.py` | — | 0.5 day |
+| Frozen packet set covering the round's candidates (41 of round 28's 61 have none) | The identity-packet runbook, then the §8 human publication review | 1–2 days, plus the review |
+| First two-owner GPU run | The two rows above, and the payment path for the rented hosts (step 2 record) | 0.5 day, about $5 |
+| Step 3: frozen history input (previous rounds' `final_scores.json` by hash) | Round artifacts | 0.5–1 day |
+| Step 4: wire the flag through the entry profile | Steps 2 and 3 | 2–3 days |
+| Step 5: `SHADOW_ONLY` guard and change-control register | Step 3 | 1–2 days |
+| Step 6: four counted rounds, then the switch | Tuesdays 2026-10-27, 11-03, 11-10 and 11-17, then 1b deployed | Half a day per round, then 1.5–3 days for the switch |
+
+**Earliest production switch: the round of 2026-11-24.** That date needs four things:
+
+- all four counted rounds are clean;
+- the Tuesday slot does not move;
+- no module change restarts the count;
+- the 1b set is deployed before that round: a devnet manual round and a sidecar that vendors the module.
+
 ## BLUF
 
-1. **The long pole is step 6.** It needs four weekly shadow rounds, and the clock starts only when the sub-scorer module bytes are frozen (step 1a). Testnet rounds have run on Tuesdays (round 16 on 2026-07-28, round 26 on 2026-10-06). If the module is frozen by Monday 2026-10-26 and the slot does not move, the counted rounds are 10-27, 11-03, 11-10 and 11-17. The earliest production switch is then the round of 2026-11-24.
+1. **The long pole is step 6.** It needs four weekly shadow rounds, and the clock starts only when the sub-scorer module bytes are frozen (step 1a). Testnet rounds have run on Tuesdays (round 16 on 2026-07-28, round 26 on 2026-10-06). If the module is frozen by Monday 2026-10-26 and the slot does not move, the counted rounds are 10-27, 11-03, 11-10 and 11-17. The earliest production switch is then the round of 2026-11-24. The module was frozen on 2026-10-23, so these dates hold.
 2. **Step 1 is partly done on the fork.** Since 2026-10-09 the fork computes diversity in code (diversity formula v1). The manifest pins it as `code.diversity_formula`, and sidecars vendor it. The v2 diversity band matrix is superseded. Under prompt v12 the model still supplies the other four sub-scores: consensus, reliability, software and identity.
 3. **The v2 module is behind the fork.** It predates the minimum-safe-version software rule (2026-09-21), the 25-seat UNL (2026-09-24) and diversity formula v1. Its harness pins fork modules from a local clone that is 34 commits behind and ignores `code.diversity_formula`. The module that gets pinned is therefore v3: the v2 rules plus those two reconciliations. v2 stays as the record.
 4. **Steps 2–5 are deterministic code and docs in this repository.** They run during the shadow weeks and do not block the switch. No flag binds anything: the flag and its strict-profile effect stay `SHADOW_ONLY` until the promotion gates below pass.
@@ -82,7 +114,10 @@
     - *Left to do (step 2), all before the first GPU run; none blocks step 3 or 4:*
         - [ ] A flag variant of the host runner `run_host.py`. Today it checks the legitimacy prompt and schema. Its output shape is what `admissibility.py --run` reads. Estimate: 0.5 day.
         - [ ] A packet set frozen by the round's input freeze that covers the round's candidates. 41 of round 28's 61 have no packet. Building them with the identity-packet runbook takes 1–2 days, and the corpus also needs its human publication review (runbook §8).
-        - [ ] The inference-cost owner, named in the [decision sheet](../../governance/pending-operator-decisions.md). This is the operator's line.
+        - [x] **Inference-cost owner (decided 2026-10-23):**
+            - The founder's OpenRouter account pays, the account whose key the server already holds. That is about $5 per weekly round.
+            - It is recorded in the [decision sheet](../../governance/pending-operator-decisions.md). He is informed in the 2026-10-23 handoff and may object.
+            - The pinned profile runs on two rented GPU hosts and calls no OpenRouter API (spec §6; the 2026-09-03 runs used Vast.ai). How the rental is paid from that account is settled before the first run.
         - [ ] The first two-owner GPU run (about $5) and its record. Estimate: 0.5 day, once the three items above are done.
 - [ ] **3. Build the strict entry profile** as a versioned deterministic rule module with a Python mirror and fixtures
     - *Today:*
@@ -119,10 +154,13 @@
             - Rust: with the three rule functions stubbed, 5 of 6 tests failed (156 of 263 cases mismatched). After: 6 of 6 pass, byte for byte on all 263.
             - Python: with the same stub, 6 of 7 failed. After: 7 of 7 pass, with the same bytes and their SHA-256.
             - Gates: `cargo fmt --all -- --check` and clippy `-D warnings` on `postfiat-consensus-cobalt` are clean.
-        - [ ] Decision line for the parameters, including the "clean round" definition. Proposed: present in the round's final scores, domain verified, final score at or above the cutoff.
+        - [x] **Decision line, 2026-10-23.** The parameters and the clean-round definition stay as implemented in `entry_profile_v1` (`1b317fc4`).
+            - **Parameters:** a verified domain, and four consecutive clean rounds ending at the previous round.
+            - **A clean round:** the operator is present in the round's final scores, its domain is verified, and its final score is at or above the cutoff.
+            - **Pins:** the fixtures and the hashes stand (`dd98970b…`, `18191847…`).
+            - **Register:** the line goes into the change-control register when step 5 creates it.
         - [ ] Pin the module hash in the change-control register (step 5) and in the round manifest's flag section (1b).
     - *Left to do (step 3):*
-        - Parameter and clean-round decision: the operator's line. Fixtures and hashes change if it differs.
         - A frozen history input: the previous rounds' `final_scores.json` by hash, assembled from the round artifacts (0.5–1 day).
         - The shadow report command over a real round: step 4 (0.5 day).
         - The binding-mode guard: step 5.
@@ -192,8 +230,8 @@ Each step is requested as a Task Node task before work on it starts. Direction w
 - No shadow round counts before the 1a module hash is written into this plan. Rounds frozen earlier are calibration only.
 - No switch before four consecutive clean counted rounds, a devnet manual round, and a published sidecar image that vendors the module.
 - No switch deploy between a round's input freeze and its publication.
-- No strict-profile parameter set is final before its decision line exists.
-- No GPU flag run before the inference-cost owner is named and a frozen packet set covers the round's candidates.
+- No strict-profile parameter set is final before its decision line exists. The line for `entry_profile_v1` was recorded on 2026-10-23.
+- No GPU flag run before the inference-cost owner is named and a frozen packet set covers the round's candidates. The owner was named on 2026-10-23; the packet set is open.
 - No flag, legitimacy score or strict-profile result enters the fork's selector, the l1v2 registry or any trust view before every gate below is recorded as passed.
 
 ## Promotion gates
