@@ -555,13 +555,79 @@
     "unl_overlap_ok": true,
     "automated_pass": true
    }
+  },
+  {
+   "round": "testnet-r28",
+   "prompt_version": "v12",
+   "selector_parameters": {
+    "max_size": 25,
+    "score_cutoff": 40,
+    "min_score_gap": 3
+   },
+   "baseline": "formula(model sub-scores, formula diversity)",
+   "validators": 61,
+   "validators_compared": 61,
+   "dimension_deltas": {
+    "consensus": {
+     "mean_abs": 0.49,
+     "max_abs": 1
+    },
+    "reliability": {
+     "mean_abs": 2.46,
+     "max_abs": 30
+    },
+    "software": {
+     "mean_abs": 0,
+     "max_abs": 0
+    },
+    "diversity": {
+     "mean_abs": 9.02,
+     "max_abs": 33
+    },
+    "identity": {
+     "mean_abs": 0.98,
+     "max_abs": 5
+    }
+   },
+   "final_score_deltas": {
+    "mean_abs": 0.57,
+    "max_abs": 6
+   },
+   "cutoff_flips": {
+    "eligible_to_ineligible": 0,
+    "ineligible_to_eligible": 0,
+    "total": 0,
+    "flipped_validators": []
+   },
+   "baseline_reproduces_published_unl": true,
+   "published_unl_size": 25,
+   "deterministic_unl_size": 25,
+   "unl_overlap": 24,
+   "unl_seats_changed": 1,
+   "seats_gained": [
+    "nHBtS3cC2UDzoSANr9nz6HrLYaDY9uYJD2zs649dkLxN6pBfLFiu"
+   ],
+   "seats_lost": [
+    "nHB6Zc7mhr7swksEgpwTE7Hw7SvZ9cz22T2MECMSXjBeMTeHXQB7"
+   ],
+   "cutoff_boundary_cases": [],
+   "subscorer_v3_sha256": "f71f29ddf00c3825447fc19034340d4ef714b9668345c51e6872586a844c5dc5",
+   "diversity_source": "code.diversity_formula",
+   "final_scores_match_published": true,
+   "acceptance": {
+    "internal_control": true,
+    "no_ineligible_to_eligible": true,
+    "unl_overlap_min": 24,
+    "unl_overlap_ok": true,
+    "automated_pass": true
+   }
   }
  ],
  "failures": [],
  "headline": {
   "total_cutoff_flips": 1,
-  "rounds_evaluated": 8,
-  "rounds_passing_automated_acceptance": 8
+  "rounds_evaluated": 9,
+  "rounds_passing_automated_acceptance": 9
  },
  "fork": {
   "repository": "postfiatorg/dynamic-unl-scoring",

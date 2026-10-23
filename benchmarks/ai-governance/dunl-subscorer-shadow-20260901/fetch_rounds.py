@@ -4,8 +4,13 @@
 Drives the fork's own replay harness (``scripts/replay_model_candidate.py``
 in the read-only ``dynamic-unl-scoring`` clone) ``fetch`` path for each
 round, then additionally fetches ``outputs/validator_scores.json`` from the
-same route family (the harness's fetch list predates that artifact). The
-fetched data lands in ``rounds/`` (gitignored); a committed
+same route family (the harness's fetch list predates that artifact), plus
+the two files v12-era rounds publish for diversity formula v1:
+``inputs/diversity_inputs.json`` (input route) and
+``outputs/final_scores.json``. Those two are required exactly when the
+round's manifest pins ``code.diversity_formula`` (what
+``shadow_eval.py --scorer-version 3`` requires); older rounds may lack
+them. The fetched data lands in ``rounds/`` (gitignored); a committed
 ``rounds-manifest.json`` records the per-file SHA-256 of everything fetched
 so the exact inputs of the evaluation are pinned without redistributing the
 round artifacts.
@@ -14,6 +19,7 @@ Usage (from this directory, venv with the fork's parser deps):
 
     .venv/bin/python fetch_rounds.py            # rounds 12-19
     .venv/bin/python fetch_rounds.py --rounds 12 13
+    python3 fetch_rounds.py --rounds 28        # bare python3 + pydantic works too
 
 Rounds 9-11 predate the frozen-input-package contract on testnet and are
 not replayable; do not extend the range downward.
@@ -33,6 +39,11 @@ FORK_ROOT = Path.home() / "repos" / "dynamic-unl-scoring"
 NETWORK = "testnet"
 DEFAULT_ROUNDS = tuple(range(12, 20))
 EXTRA_OUTPUT_FILES = ("outputs/validator_scores.json",)
+# (path, route, manifest code section that makes the file required)
+ERA_FILES = (
+    ("inputs/diversity_inputs.json", "input", "diversity_formula"),
+    ("outputs/final_scores.json", "output", "diversity_formula"),
+)
 MANIFEST_PATH = HERE / "rounds-manifest.json"
 ROUNDS_DIR = HERE / "rounds"
 
@@ -82,11 +93,23 @@ def fetch(rounds: list[int]) -> int:
         round_dir = ROUNDS_DIR / f"{NETWORK}-r{round_number}"
 
         # The harness's fetch list stops at model_response/selected_unl;
-        # validator_scores.json lives on the same outputs route.
+        # validator_scores.json lives on the same outputs route, and the
+        # v12-era files are required only where the manifest pins them.
         base = harness.SERVICE_URLS[NETWORK]
-        for rel_path in EXTRA_OUTPUT_FILES:
-            url = f"{base}/api/scoring/rounds/{round_number}/{rel_path}"
+        manifest_path = round_dir / "runtime" / "execution_manifest.json"
+        code = (
+            json.loads(manifest_path.read_text()).get("code", {})
+            if manifest_path.exists()
+            else {}
+        )
+        extras = [(rel, "output", None) for rel in EXTRA_OUTPUT_FILES] + list(ERA_FILES)
+        for rel_path, route, required_by in extras:
+            prefix = f"{base}/api/scoring/rounds/{round_number}"
+            url = f"{prefix}/input/{rel_path}" if route == "input" else f"{prefix}/{rel_path}"
             payload = harness._fetch_json(url)
+            if payload is None and required_by is not None and required_by not in code:
+                print(f"  {rel_path}: not published (round pins no {required_by})")
+                continue
             if payload is None:
                 print(f"  {rel_path}: MISSING")
                 manifest["failures"].append(
