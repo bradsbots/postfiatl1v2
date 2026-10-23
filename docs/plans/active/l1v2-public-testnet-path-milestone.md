@@ -55,7 +55,10 @@ operationalizations; the operator may tighten or restate them.
   OFFLINE QUALIFIED. Five boxes stay open: G2's last, G3's last, G4D's three,
   G5's documentation box and the label itself
   ([storage G5](storage-scaling-milestone.md#g5-offline-qualification-packet)).
-  A5 waits for them
+  A5 waits for them. 2026-10-23, later: all five boxes except the label are
+  closed (`b055543c`, `475436b4`). Packet-r2 is
+  `~/.cache/storage-packet-20261023/packet-r2/`, checksum manifest
+  `8bc64e1d…`, verifier output `e396222b…`. OFFLINE QUALIFIED pending the independent review of the verifier acceptance changes of 2026-10-23.
 - [ ] A5 Retire [storage-scaling-milestone.md](storage-scaling-milestone.md) into `docs/plans/completed/` and refresh `docs/architecture/state-and-storage.md` concisely
 
 ## B — Pre-deployment rehearsal and deployment decision (G6)
