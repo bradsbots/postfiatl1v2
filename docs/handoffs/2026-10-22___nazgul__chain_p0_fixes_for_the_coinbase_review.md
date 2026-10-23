@@ -4,6 +4,11 @@
 - **Date:** 2026-10-22 UTC
 - **Responding to:** [dravlic, 2026-10-22](2026-10-22___dravlic__reserve_proof_conditions_done_and_both_replays_in.md)
 
+> **Update, 2026-10-23:** All eight PRs in this merge queue are now merged
+> through #145. See the [integration and developer handoff](2026-10-23___codex__chain_pr_merge_handoff.md)
+> for the combined fixes, passing checks and remaining release gates. This
+> update does not record a deployment or governance activation.
+
 ## BLUF
 
 Coinbase's listing team is reviewing PFTL. This lane fixed the chain and
