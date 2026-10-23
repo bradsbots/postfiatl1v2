@@ -6,16 +6,19 @@ release starts after `exchange-readiness-20261023` is deployed and its three act
 
 ## Summary
 
-1. `exchange-readiness-20261023` is cut at `6b1a0585`, the release merge of main `d9260e93`. It is being installed now ([current plan](next-validator-release-plan-20261101.md)).
-2. Main past that cut changes no node behaviour so far. It adds an offline node tool, the wallet-proxy primed-route pin, storage packet tooling and docs (list below).
+1. `exchange-readiness-20261023` (cut at `6b1a0585`, the release merge of main `d9260e93`) has been deployed on all six validators since 2026-10-23 07:37Z, at height 1143. The `account_tx` index is rebuilt on all six, to 1153 after the activation. The three activation heights are active from 1153. Records: release branch `1287da78` and `f79438f2`, main `022bfde0` and `36158400` ([current plan](next-validator-release-plan-20261101.md)).
+2. Main past that cut changes node behaviour only in the `account_tx` index path: the index now follows commits. It also adds node CLI helpers, the wallet-proxy primed-route pin, an unused entry-profile module, storage packet tooling and docs (list below).
 3. Rule kept from the current plan: changes that alter a consensus or state result get their own qualification; read-path and tooling changes ride along.
 4. Qualification and rollout follow the current plan; nothing starts before the "Not before" rules hold.
 
 ## Already on main past the cut
 
-`git log --oneline --first-parent d9260e93..origin/main`. Node behaviour changes are the lines that name `crates/node` or `crates/types` code that the node binary runs.
+`git log --oneline --first-parent d9260e93..origin/main`. `d9260e93`, the account history index fix, is not on this list: it is in the deployed release. Node behaviour changes are the lines that name `crates/node` or `crates/types` code that the node binary runs.
 
 - [x] `62c0d56a`: `fastswap_bootstrap_payload --committee-file` writes the wallet's FastSwap activation payload for the committee an `ActivateCommittee` installed. Epoch-1 output is unchanged, and the tool reads validator state files through their `pftmac1:` line (`crates/node/src/bin/fastswap_bootstrap_payload.rs`; [runbook](../../runbooks/fastpay-committee-recovery.md#the-wallets-activation-payload-for-the-current-committee)). Offline operator tool, not the node binary.
+- [x] `2d4da27c`: `fastswap_wallet_payload` builds payloads under the activation's committee epoch (`crates/node/src/bin/fastswap_wallet_payload.rs`). Node CLI helper, not the node binary.
+- [x] `0ac2bc9b`, `56603e04`: the `account_tx` index follows block commits. The commit appends the block's rows to the disk index and keeps the aggregate status current (`crates/node/src/block_finality.rs`, `storage_commit.rs`). **Node behaviour change, in the index path only**: no consensus, execution or state-commitment change (candidate row below).
+- [x] `1b317fc4`: Z2 step 3's `entry_profile_v1` rule module (`crates/consensus_cobalt/src/validator_entry_profile.rs`) and its Python mirror. Consensus does not call it until step 4.
 - [x] `bb742ec7` (PR #95): wallet-proxy pins the finalized block hash as the parent of a primed proposer route, and readiness needs a matching `block_tip_hash` (`wallet-proxy/rpc-routing.js`). No valid request changes on an unforked chain. Wallet-proxy runtime, not the node binary.
 - [x] `aa1ebd05`, `6e0e3df0`, `b055543c`, `4d8d2a72`: the storage packet verifier and packager (`python/postfiat_rpc/storage_scaling*.py`, `benchmarks/storage-scaling/package_packet.py`). They carry the runner's work gates, the stall rule and the 5 ms floor, and bind the gate reports and the verify-only output. `4d8d2a72` applies the 2026-10-23 review's changes. Tooling, not the node binary.
 - [x] Docs only: `0f852110`, `9e4e267a`, `2cd26f4f`, `a364eaed`, `475436b4`, `35d0d477`, `92c388c2`.
@@ -25,7 +28,7 @@ release starts after `exchange-readiness-20261023` is deployed and its three act
 Included only when ready and reviewed by the cut; none is promised.
 
 - [ ] Storage packet verifier and packager. [Reviewed 2026-10-23](../../review/storage-verifier-acceptance-review-20261023.md): ACCEPT WITH CHANGES (keep the original window-report hashes; add refusal tests for the ported gates). `4d8d2a72` applies the changes; they are not yet checked. Tooling; it rides along once checked.
-- [ ] Wallet helper for the epoch-2 activation payload. `fastswap_wallet_payload` (`read_payload`) still calls `validate_payload`, which accepts only committee epoch 1 (`crates/types/src/fastswap_types.rs:1519`). It therefore refuses the payload `62c0d56a` writes. That blocks StakeHub rehearsal precondition (a). Owner: this lane. Wallet tool; the three wallet binaries must be rebuilt.
+- [x] Wallet helper for the epoch-2 activation payload. `fastswap_wallet_payload` (`read_payload`) called `validate_payload`, which accepts only committee epoch 1 (`crates/types/src/fastswap_types.rs:1519`), so it refused the payload `62c0d56a` writes. Fixed 2026-10-23 on main by `2d4da27c`, and on the StakeHub side by `73bf102`. The three wallet binaries are rebuilt.
 - [ ] Z2 step 1b, when it lands ([Z2 plan](z2-advisory-flag-execution-plan-20261022.md)): the fork module, the manifest section, sidecar vendoring and prompt v13. Mostly in the fork and the sidecar; this repository records the hashes.
 - [ ] SCT-08: bounded read-only evidence campaign, carried from the current plan ([inventory](../../review/defect-inventory-20260910.md)). Owner: this lane.
 - [ ] Per-height vote records for the native reliability input (SCT-08 item 4, [decision](../../review/sct08-evidence-campaign-20261023.md#decision-the-native-reliability-input-2026-10-23)). For every finalized height, the node keeps each requested validator's vote outcome (accepted with vote ID, refused, or no answer by the round deadline), including votes after the quorum, and exports it in the signed snapshot. Without these records the reliability fact is "not available". Owner: this lane. Node change: it adds a stored and exported artifact without changing a consensus or state result, and gets its own qualification if review finds otherwise.
@@ -37,8 +40,8 @@ Included only when ready and reviewed by the cut; none is promised.
 
 ## Not before
 
-- [ ] `exchange-readiness-20261023` deployed on all six validators, with `account-tx-index-build` run on each.
-- [ ] Its three activations done: `recipient_format_activation_height` (#143), `rejected_tx_fee_activation_height` and `require_memo_activation_height` (#144).
+- [x] `exchange-readiness-20261023` deployed on all six validators, with `account-tx-index-build` run on each. Done 2026-10-23: deployed at 1143 (07:37Z); index built 08:02–08:23Z and rebuilt to 1153 on all six after the activation.
+- [x] Its three activations done: `recipient_format_activation_height` (#143), `rejected_tx_fee_activation_height` and `require_memo_activation_height` (#144). Done 2026-10-23: set at blocks 1144–1146, active from 1153.
 - [ ] CI green on main at the cut commit (`docs-build`, `rust-ci`, `product-security-ci`).
 - [ ] Full workspace suite at the cut commit (the release gate for the full suite; `rust-ci` `test` runs `cargo test --workspace --locked`).
 
