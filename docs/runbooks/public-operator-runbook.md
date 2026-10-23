@@ -407,12 +407,13 @@ verification steps an operator can perform on a published release:
     (2026-08-31). The current binary is `eea96ba6…` (release
     `store-handle-20261021`, source `86706699`). Give each store one writer
     process; see the live-canary postmortem above. Its storage evidence packet
-    is `~/.cache/storage-packet-20261023/packet-r2/` on the work server (not
-    in git), checksum manifest `8bc64e1d…`. Check it offline with
+    is `~/.cache/storage-packet-20261023/packet-r3/` on the work server (not
+    in git), checksum manifest `357f06ee…`. Check it offline with
     `PYTHONPATH=python python3 -m postfiat_rpc.storage_scaling verify PACKET`
-    (output `e396222b…`). Browse it read-only with `... serve PACKET`, which
-    serves only a verified packet on loopback. The state is SELECTED, not
-    `OFFLINE QUALIFIED`, until the review of the 2026-10-23 verifier changes
+    (output `e4fba47e…`). Browse it read-only with `... serve PACKET`, which
+    serves only a verified packet on loopback. The store is `OFFLINE
+    QUALIFIED` (2026-10-23). That is neither `CLONE QUALIFIED` nor a
+    deployment decision
     ([storage milestone](../plans/completed/storage-scaling-milestone.md#g5-offline-qualification-packet)).
 
 !!! warning "Gap: no public-testnet release has run this process"

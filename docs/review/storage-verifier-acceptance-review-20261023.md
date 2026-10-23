@@ -15,7 +15,7 @@ kept (finding 4), and the ported gates need refusal tests (finding 5). Finding
 `python/tests/test_storage_scaling.py` and
 `python/tests/test_storage_scaling_packager.py`. The measures used are:
 
-- the [storage milestone](../plans/active/storage-scaling-milestone.md): the
+- the [storage milestone](../plans/completed/storage-scaling-milestone.md): the
   G4 ratio limit of 1.10, the height-cost model and G5;
 - the [stall-tolerant plan](../plans/active/stall-tolerant-g4-campaign-plan.md)
   and the [model-floor plan](../plans/active/model-floor-g4-campaign-plan.md);
