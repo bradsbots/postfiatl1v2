@@ -205,8 +205,8 @@ fn a_block_committed_after_the_build_is_served_from_the_index_without_a_rebuild(
         assert_eq!(status.current_tip_height, Some(tip_height(&data_dir)));
         assert_eq!(status.disk_indexed_to_height, Some(tip_height(&data_dir)));
         assert_eq!(status.disk_tip_hash, status.current_tip_hash);
-        // The aggregate file is left at the build; reads use the disk index.
-        assert!(!status.index_usable, "{status:?}");
+        // The aggregate file follows too.
+        assert!(status.index_usable, "{status:?}");
 
         fs::remove_dir_all(data_dir).expect("remove test data dir");
     }
@@ -223,11 +223,14 @@ fn a_crash_between_the_commit_and_the_index_append_leaves_a_rebuildable_state() 
             commit_transfer(&data_dir, RECIPIENT_A);
             build(&data_dir);
             let saved = save_disk_index(&data_dir, "before-b");
+            let saved_aggregate = save_aggregate_index(&data_dir, "before-b");
 
             // The block and its receipts are durable; the index append is lost
-            // (all of it, or only its final metadata write).
+            // (all of it, or everything from the disk metadata write on; the
+            // aggregate is written after the disk metadata).
             commit_transfer(&data_dir, RECIPIENT_B);
             restore_disk_index(&data_dir, &saved, meta_only);
+            restore_aggregate_index(&data_dir, &saved_aggregate);
             assert_eq!(index_status(&data_dir).disk_index_lag_blocks, Some(1));
             let behind = history(&data_dir, RECIPIENT_B);
             assert!(!behind.index_used, "a stale index answered: {behind:?}");
@@ -468,8 +471,83 @@ fn the_index_append_changes_no_consensus_output() {
         assert_eq!(receipts_indexed, receipts_plain);
         assert_eq!(ledger_indexed, ledger_plain);
         assert!(!account_tx_disk_index_path(&without_index).exists());
+        assert!(!account_tx_index_path(&without_index).exists());
 
         fs::remove_dir_all(with_index).expect("remove indexed dir");
         fs::remove_dir_all(without_index).expect("remove plain dir");
+    }
+}
+
+/// Copies the aggregate index file aside.
+fn save_aggregate_index(data_dir: &Path, label: &str) -> PathBuf {
+    let saved = data_dir.join(format!("saved-aggregate-{label}.json"));
+    fs::copy(account_tx_index_path(data_dir), &saved).expect("save aggregate");
+    saved
+}
+
+fn restore_aggregate_index(data_dir: &Path, saved: &Path) {
+    fs::copy(saved, account_tx_index_path(data_dir)).expect("restore aggregate");
+}
+
+#[test]
+fn status_reports_both_indexes_usable_while_following_and_the_lag_when_behind() {
+    for backend in [Backend::Legacy, Backend::Transactional] {
+        let data_dir = chain(&format!("account-tx-commit-status-{backend:?}"), backend);
+        commit_transfer(&data_dir, RECIPIENT_A);
+        build(&data_dir);
+
+        // A followed commit keeps both indexes current.
+        commit_transfer(&data_dir, RECIPIENT_B);
+        let status = index_status(&data_dir);
+        assert!(status.index_usable, "{backend:?} {status:?}");
+        assert!(status.disk_index_usable, "{backend:?} {status:?}");
+        assert_eq!(status.tip_hash, status.current_tip_hash);
+        assert_eq!(status.indexed_to_height, Some(tip_height(&data_dir)));
+        assert_eq!(status.index_lag_blocks, Some(0));
+        assert_eq!(status.disk_index_lag_blocks, Some(0));
+
+        // The aggregate holds the new rows too, not only a new tip: with the
+        // disk index gone, reads answer from it.
+        let disk_meta = account_tx_disk_index_path(&data_dir);
+        let saved_meta = fs::read(&disk_meta).expect("disk meta");
+        fs::remove_file(&disk_meta).expect("hide disk meta");
+        for address in [RECIPIENT_A, RECIPIENT_B] {
+            assert_served_from_index(&data_dir, address);
+        }
+        fs::write(&disk_meta, saved_meta).expect("restore disk meta");
+
+        // Both lost (a crash right after the commit): both report the lag.
+        let saved_disk = save_disk_index(&data_dir, "before-c");
+        let saved_aggregate = save_aggregate_index(&data_dir, "before-c");
+        commit_transfer(&data_dir, RECIPIENT_C);
+        restore_disk_index(&data_dir, &saved_disk, false);
+        restore_aggregate_index(&data_dir, &saved_aggregate);
+        let behind = index_status(&data_dir);
+        assert!(!behind.index_usable && !behind.disk_index_usable, "{behind:?}");
+        assert_eq!(behind.index_lag_blocks, Some(1));
+        assert_eq!(behind.disk_index_lag_blocks, Some(1));
+        assert_eq!(
+            behind.reason.as_deref(),
+            Some("account_tx index tip hash is stale")
+        );
+        assert!(!history(&data_dir, RECIPIENT_C).index_used);
+
+        // Only the aggregate write lost: the disk index follows, the aggregate
+        // stays behind until the build.
+        build(&data_dir);
+        let saved_aggregate = save_aggregate_index(&data_dir, "before-d");
+        commit_transfer(&data_dir, RECIPIENT_D);
+        restore_aggregate_index(&data_dir, &saved_aggregate);
+        commit_transfer(&data_dir, RECIPIENT_A);
+        let split = index_status(&data_dir);
+        assert!(!split.index_usable && split.disk_index_usable, "{split:?}");
+        assert_eq!(split.index_lag_blocks, Some(2));
+        assert_eq!(split.disk_index_lag_blocks, Some(0));
+        assert_served_from_index(&data_dir, RECIPIENT_D);
+        let rebuilt = build(&data_dir);
+        assert!(rebuilt.index_usable && rebuilt.disk_index_usable, "{rebuilt:?}");
+        assert_eq!(index_status(&data_dir).index_lag_blocks, Some(0));
+
+        fs::remove_dir_all(data_dir).expect("remove test data dir");
     }
 }

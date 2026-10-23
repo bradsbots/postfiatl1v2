@@ -4663,13 +4663,11 @@ fn account_tx_index_explicit_build_catches_up_after_archive_prune() {
         data_dir: data_dir.clone(),
     })
     .expect("second account_tx index status before explicit catch-up");
+    // The commit extended both the aggregate and the disk index.
     assert!(second_stale_index.index_present);
-    assert!(!second_stale_index.index_usable);
-    assert_eq!(
-        second_stale_index.reason.as_deref(),
-        Some("account_tx index tip hash is stale")
-    );
-    // The commit extended the disk index; the aggregate file waits for the build.
+    assert!(second_stale_index.index_usable);
+    assert_eq!(second_stale_index.reason, None);
+    assert_eq!(second_stale_index.index_lag_blocks, Some(0));
     assert!(second_stale_index.disk_index_present);
     assert!(second_stale_index.disk_index_usable);
     assert_eq!(second_stale_index.disk_index_reason, None);

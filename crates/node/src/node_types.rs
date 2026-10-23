@@ -3797,6 +3797,11 @@ pub struct AccountTxIndexStatusReport {
     pub disk_account_shard_count: u64,
     pub tip_hash: String,
     pub current_tip_hash: String,
+    /// Blocks committed after the aggregate index tip: 0 when it follows the
+    /// chain, absent when the file is absent or its tip is not on the local
+    /// chain.
+    #[serde(default)]
+    pub index_lag_blocks: Option<u64>,
     /// Height of the local tip block, absent when no block is retained.
     #[serde(default)]
     pub current_tip_height: Option<u64>,

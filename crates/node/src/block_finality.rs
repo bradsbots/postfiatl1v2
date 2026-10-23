@@ -305,24 +305,113 @@ pub(crate) enum AccountTxIndexAppend {
     Appended,
 }
 
-/// Appends one committed block to the disk index: the touched account shards
-/// and `account_tx_index_meta.json`.
+/// Appends one committed block to the history index: first the disk index
+/// (the touched account shards, then `account_tx_index_meta.json`), then the
+/// aggregate `account_tx_index.json`. Returns what happened to the disk index.
 ///
 /// Ordering rule: the caller runs this only after the block, its archive entry
 /// and its receipts are durable (the transactional commit returned, or the
-/// ordered commit journal was applied and removed). The append extends the
-/// index only from the block's parent, writes every touched shard first and
-/// the metadata last, and changes nothing else. A crash or error between the
-/// commit and the metadata write leaves the metadata at the parent: reads see
-/// a stale tip and use the archive scan, later commits do not extend it, and
-/// `account-tx-index-build` repairs it. The aggregate `account_tx_index.json`
-/// holds every row and is not rewritten here; the build refreshes it.
+/// ordered commit journal was applied and removed). Each index is extended only
+/// from the block's parent and is otherwise left as it is. A crash or error
+/// before a metadata write leaves that index at an older tip: reads see a stale
+/// tip and use the next source (disk index, aggregate, archive scan), later
+/// commits do not extend it, and `account-tx-index-build` repairs it.
 pub(crate) fn append_account_tx_index_after_commit(
     store: &NodeStore,
     genesis: &Genesis,
     block: &BlockRecord,
     archive_entry: &BatchArchiveEntry,
     receipts: &[Receipt],
+) -> io::Result<AccountTxIndexAppend> {
+    let data_dir = store.data_dir();
+    if !account_tx_disk_index_path(data_dir).exists() && !account_tx_index_path(data_dir).exists() {
+        return Ok(AccountTxIndexAppend::NotIndexed);
+    }
+    let rows = account_tx_rows_for_committed_block(block, archive_entry, receipts)?;
+    let disk = append_account_tx_disk_index_after_commit(store, genesis, block, &rows)?;
+    append_account_tx_aggregate_index_after_commit(store, genesis, block, &rows)?;
+    Ok(disk)
+}
+
+/// The `account_tx` rows of one committed block, from the commit's own block,
+/// archive entry and receipts (never the full history).
+fn account_tx_rows_for_committed_block(
+    block: &BlockRecord,
+    archive_entry: &BatchArchiveEntry,
+    receipts: &[Receipt],
+) -> io::Result<Vec<AccountTxRow>> {
+    if !account_tx_indexes_batch_kind(&block.header.batch_kind) {
+        return Ok(Vec::new());
+    }
+    if archive_entry.batch_kind != block.header.batch_kind
+        || archive_entry.batch_id != block.header.batch_id
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "block {} archive entry does not match its batch",
+                block.header.height
+            ),
+        ));
+    }
+    // The block's own receipts, under the same repeated-id rule as the build:
+    // only governance blocks may repeat an id, and they have no rows.
+    let block_log = BlockLog {
+        blocks: vec![block.clone()],
+    };
+    let receipt_by_tx = receipt_by_tx_id(receipts, &block_log)?;
+    account_tx_rows_for_archived_block(block, archive_entry, &receipt_by_tx)
+}
+
+/// Extends the aggregate index by one block. The file holds every row, so this
+/// rewrites it whole (bounded by the retained history, not by the block).
+fn append_account_tx_aggregate_index_after_commit(
+    store: &NodeStore,
+    genesis: &Genesis,
+    block: &BlockRecord,
+    rows: &[AccountTxRow],
+) -> io::Result<AccountTxIndexAppend> {
+    let index_path = account_tx_index_path(store.data_dir());
+    let mut index = match read_account_tx_index_file(&index_path) {
+        Ok(index) => index,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            return Ok(AccountTxIndexAppend::NotIndexed);
+        }
+        Err(error) if error.kind() == io::ErrorKind::InvalidData => {
+            return Ok(AccountTxIndexAppend::Behind);
+        }
+        Err(error) => return Err(error),
+    };
+    if index.tip_hash == block.header.block_hash {
+        return Ok(AccountTxIndexAppend::AlreadyCurrent);
+    }
+    if account_tx_index_matches_domain(&index, genesis).is_err()
+        || index.tip_hash != block.header.parent_hash
+    {
+        return Ok(AccountTxIndexAppend::Behind);
+    }
+    if account_tx_indexes_batch_kind(&block.header.batch_kind) {
+        index.indexed_from_height.get_or_insert(block.header.height);
+        index.indexed_to_height = Some(block.header.height);
+        index.indexed_block_count = index.indexed_block_count.saturating_add(1);
+        for row in rows {
+            index.indexed_row_count = index.indexed_row_count.saturating_add(1);
+            accounts_for_account_tx_index(&mut index, row.clone());
+        }
+    }
+    index.account_count = index.accounts.len() as u64;
+    index.tip_hash = block.header.block_hash.clone();
+    write_account_tx_index_file(&index_path, &index)?;
+    Ok(AccountTxIndexAppend::Appended)
+}
+
+/// Extends the disk index by one block: the touched account shards first,
+/// `account_tx_index_meta.json` last. Each touched shard is rewritten whole.
+fn append_account_tx_disk_index_after_commit(
+    store: &NodeStore,
+    genesis: &Genesis,
+    block: &BlockRecord,
+    rows: &[AccountTxRow],
 ) -> io::Result<AccountTxIndexAppend> {
     let meta_path = account_tx_disk_index_path(store.data_dir());
     let mut disk_index = match read_account_tx_disk_index_file(&meta_path) {
@@ -349,31 +438,9 @@ pub(crate) fn append_account_tx_index_after_commit(
         return Ok(AccountTxIndexAppend::Behind);
     }
     let indexed_kind = account_tx_indexes_batch_kind(&block.header.batch_kind);
-    let rows = if indexed_kind {
-        if archive_entry.batch_kind != block.header.batch_kind
-            || archive_entry.batch_id != block.header.batch_id
-        {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "block {} archive entry does not match its batch",
-                    block.header.height
-                ),
-            ));
-        }
-        // The block's own receipts, under the same repeated-id rule as the
-        // build: only governance blocks may repeat an id, and they have no rows.
-        let block_log = BlockLog {
-            blocks: vec![block.clone()],
-        };
-        let receipt_by_tx = receipt_by_tx_id(receipts, &block_log)?;
-        account_tx_rows_for_archived_block(block, archive_entry, &receipt_by_tx)?
-    } else {
-        Vec::new()
-    };
 
     let mut appended = BTreeMap::new();
-    for row in &rows {
+    for row in rows {
         accounts_for_account_tx_index_map(&mut appended, row.clone());
     }
     let shards_dir = account_tx_account_shards_dir(store.data_dir());
@@ -697,6 +764,7 @@ pub fn account_tx_index_status(
                 indexed_row_count: index.indexed_row_count,
                 account_count: index.account_count,
                 disk_account_shard_count: disk_status.account_shard_count,
+                index_lag_blocks: account_tx_index_lag_blocks(&block_log, &index.tip_hash),
                 tip_hash: index.tip_hash,
                 current_tip_hash,
                 current_tip_height,
@@ -725,6 +793,7 @@ pub fn account_tx_index_status(
             indexed_row_count: 0,
             account_count: 0,
             disk_account_shard_count: disk_status.account_shard_count,
+            index_lag_blocks: None,
             tip_hash: String::new(),
             current_tip_hash,
             current_tip_height,
