@@ -1,6 +1,6 @@
 # PostFiat L1 Current State
 
-Updated: `2026-10-23T07:55:00Z` (release `exchange-readiness-20261023` deployed to all six, blocks 1138–1143; governed activation heights unset; account_tx index rebuild pending); latest fleet observation `2026-10-23T07:40Z`
+Updated: `2026-10-23T08:25:00Z` (release `exchange-readiness-20261023` deployed to all six, blocks 1138–1143; account_tx v2 index built on all six; governed activation heights unset); latest fleet observation `2026-10-23T08:22Z`
 
 Status: **canonical operational-state reference**
 
@@ -29,8 +29,15 @@ Status: **canonical operational-state reference**
     1, 2, 3). Each certified at view 0 with quorum 5 of 6 and the same block, tip and root on all six
     (`blocks` RPC). The three governed activation heights (`recipient_format`, `rejected_tx_fee`,
     `require_memo`) are still unset, so their rules are inactive; malformed recipients are already
-    refused at RPC and mempool. The `account_tx` index is absent on every host and its v2 rebuild
-    (sheet §7) is pending; reads answer from the archive scan meanwhile.
+    refused at RPC and mempool.
+
+    Account history index (sheet §7, 08:02–08:23Z): `account-tx-index-build` ran on all six, one host
+    at a time (validator-1 first, then 0, 2, 3, 4, 5). Only the host's RPC unit was stopped, for 11–31 s;
+    the validator units stayed active. The build took 7–15 s per host and produced a usable v2 index on
+    every host: range 1–1143, 1,105 blocks, 970 rows. `account_tx` for `testing` answers from the index
+    with today's grants. Six-way agreement at 1143 held before and after every host. Ordered commit does
+    not extend the index, so after the next block reads fall back to the archive scan until it is rebuilt
+    ([records](https://github.com/postfiatorg/postfiatl1v2/tree/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/observed/account-tx-index)).
 
     Rollback: the `store-handle-20261021` executable and release directory stay on every host;
     `rollback-one.sh` returns one validator to it with the data in place (before any index build on
@@ -541,7 +548,7 @@ binary to the running services.
 | Plane | Recorded state | Exact identifier | Observed or updated at | Evidence and freshness |
 | --- | --- | --- | --- | --- |
 | Running devnet, latest recorded state | All six validators agree at height 1143. Blocks 1138–1143 are six 1 PFT devnet faucet grants, one after each validator's upgrade to `exchange-readiness-20261023`; each certified at view 0 with quorum 5 of 6. `demo-preflight.py` reported READY (60 PASS). | Chain `postfiat-wan-devnet-2`; genesis `ce22ca8c…e90a9`; tip `7fef75aa…`; root `8c3a32fd…` on all six. | `2026-10-23T07:40Z` | 2026-10-23 entry above; [rollout record](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/observed/rollout-record.json). Point in time. |
-| Deployed runtime | Release `exchange-readiness-20261023` on all six validators: all 12 validator and RPC processes on one executable, `deployment_manifest_verified=true` and build `6b1a0585` on every host, RPC units with `--max-requests 100000` and `RestartSec=1`. Rolled out one validator at a time with `scripts/postfiat-safe-rollout apply-next` (validator-1 canary, then 0, 2, 3, 4, 5); rollback was not needed. Governed activation heights unset; `account_tx` index rebuild pending. | Source `6b1a0585`; executable `4085ac70c7bb3c21b46cc67be8cb1bbb3556bfea9f49fbf6b128cdac2adcbef9`; signed manifest `210544a8…`. | Rollout `2026-10-23T07:10:57Z`–`07:37:03Z`; after-state `07:40Z` | [Deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/README.md) and the rollout record. The previous release, `store-handle-20261021`, stays on every host for rollback. |
+| Deployed runtime | Release `exchange-readiness-20261023` on all six validators: all 12 validator and RPC processes on one executable, `deployment_manifest_verified=true` and build `6b1a0585` on every host, RPC units with `--max-requests 100000` and `RestartSec=1`. Rolled out one validator at a time with `scripts/postfiat-safe-rollout apply-next` (validator-1 canary, then 0, 2, 3, 4, 5); rollback was not needed. Governed activation heights unset; `account_tx` v2 index built on all six (2026-10-23, range 1–1143). | Source `6b1a0585`; executable `4085ac70c7bb3c21b46cc67be8cb1bbb3556bfea9f49fbf6b128cdac2adcbef9`; signed manifest `210544a8…`. | Rollout `2026-10-23T07:10:57Z`–`07:37:03Z`; after-state `07:40Z` | [Deployment README](https://github.com/postfiatorg/postfiatl1v2/blob/release/exchange-readiness-20261023/deployments/exchange-readiness-20261023/README.md) and the rollout record. The previous release, `store-handle-20261021`, stays on every host for rollback. |
 | Storage | Transactional `redb` storage has been the live store since height 930 (2026-08-31). This release carries the STO-07 store-handle fix (`8644f0af`); every batch the new executable accepted reports `storage_work.database_opens=0`. Storage is `OFFLINE QUALIFIED` (2026-10-23, packet-r3 `357f06ee…`); that is neither `CLONE QUALIFIED` nor a deployment decision. | Activation height 930; deployed binary `eea96ba6…` | 2026-10-21 deployment; 2026-10-23 storage note | [Storage-scaling implementation boundary](#storage-scaling-implementation-boundary) and the [storage milestone](../plans/completed/storage-scaling-milestone.md). The August `10dd9f20` canary and its rollback are in the [canary rollback report](../postmortems/devnet-storage-live-canary-rollback-2026-08-30.md). |
 | Swap and bridge committees | FastSwap committee epoch 2 on all six (`enabled: true`), migrated 2026-10-21. Bridge committee epoch 2 activated at height 1131 on 2026-10-15. The A666 and BMNRC routes stay on `authority_epoch` 1, so validators 0–4 still sign Ethereum checkpoints; neither issuer route update has been submitted. FastPay committee epoch 2 was installed at height 1123 for orders 10001–19990. | Epoch-2 committee root `72836827…`; route authority root `a2eebcba…` | 2026-10-21 | 2026-10-21, 2026-10-15 and 2026-10-12 entries above. |
 | Validator-trust authority | Cobalt remains active for validator-registry and trust-graph ratification. The final signed drill rollback committed at 922, return to Cobalt at 923, and legitimate validator-5 rotation at 924. Consensus v2 remains block finality. | Registry root `08a451e0…2b9b1d`; trust root `89f18aef…08f0307`; ratification anchor sequence 2, ID `5eada38d…c21153c8`. | Accepted history through height 924; fleet-audited through `2026-08-30T23:00:39Z`. | The recovery probe found authority mode 1 and identical registry/trust roots on all six. |
