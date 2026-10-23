@@ -1,0 +1,10 @@
+{
+ "cases_sha256": "a7cbfc6ff7ab0dada7c37381d52fa5f62f29557af4e87c6926d0fe400b34f2b2",
+ "hash_definition": "SHA-256 of the exact file bytes, as the fork's content_sha256 pins its modules",
+ "python_mirror": "python/postfiat_rpc/validator_entry_profile.py",
+ "python_mirror_sha256": "18191847385dc2f52b9479e9a6e822b43e4866b6570704e8239b47f594bcff00",
+ "rust_module": "crates/consensus_cobalt/src/validator_entry_profile.rs",
+ "rust_module_sha256": "dd98970b92d284cace99efbc4992e1025600d04a74a045d45966576fed44c83f",
+ "schema": "postfiat.validator_entry_profile.v1",
+ "version": 1
+}

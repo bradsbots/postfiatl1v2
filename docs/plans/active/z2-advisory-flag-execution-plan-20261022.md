@@ -1,6 +1,6 @@
 # Z2 Advisory Flag Execution Plan
 
-**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 (Task Node `task_f70334d6192a53277e08313fc0699e5c` and `task_d88cc467a1f9926dcfd01570c0a36696`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Step 2's specification is locked (2026-10-23, [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md)); its package and prompt are still open. Steps 1b and 3–6 have not started.
+**Status:** Execution plan, 2026-10-22. Step 1a done on 2026-10-23 (Task Node `task_f70334d6192a53277e08313fc0699e5c` and `task_d88cc467a1f9926dcfd01570c0a36696`): the v3 sub-scorer hash is recorded below, so rounds from 2026-10-27 can count. Step 2's specification is locked (2026-10-23, [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md)); its package and prompt are still open. Step 3's rule module, Python mirror and shared fixtures landed on 2026-10-23, unused by consensus. Steps 1b and 4–6 have not started.
 **Date:** 2026-10-22
 **Parent gate:** [L1v2 Public Testnet Path, Gate Zero Z2](l1v2-public-testnet-path-milestone.md#gate-zero-operator-preconditions-recorded-2026-08-30)
 **Decision:** [AI governance direction of 2026-09-03](../../governance/ai-governance-direction-20260903.md), confirmed 2026-10-20 (row 1 of the [pending operator decisions](../../governance/pending-operator-decisions.md))
@@ -86,6 +86,30 @@
     - *Acceptance:* Rust and Python give identical canonical bytes and content hashes on every fixture. The five direction cases pass. Tests stay focused: `cargo test -p postfiat-consensus-cobalt validator_entry_profile` and `pytest python/tests/test_validator_entry_profile.py`.
     - *Estimate:* 3–5 days.
     - *Depends on:* the recorded parameter decision. The defaults are pre-filled, so "confirmed" is enough. Code can start on the defaults; fixture hashes change if the decision does.
+    - *Step 3 record (2026-10-23, Task Node `task_3329e1bced76ef3b625ba2326d9a0265`):*
+        - [x] Rule module `crates/consensus_cobalt/src/validator_entry_profile.rs`, `postfiat.validator_entry_profile.v1`, version 1, SHA-256 `dd98970b92d284cace99efbc4992e1025600d04a74a045d45966576fed44c83f`. It is a `pub mod` of the cobalt crate, registered in `lib.rs` beside `validator_admission_policy.rs`. Consensus never calls it, and the admission policy is unchanged, including its `require_model_classification` hold (`:334-341`, `:499-503`), which step 4 replaces.
+        - [x] Rules, as the [identity flag pipeline specification](../../specs/identity-flag-pipeline-spec-20261023.md) states them (§3, §4, §7):
+            - `meets_strict_profile` never reads a flag. Under `entry_profile_v1` it needs a verified domain and four consecutive clean rounds ending at the previous round. Under `interim_domain_only` it needs a verified domain.
+            - `identity_flag` is `flag` only when the model says `flag` and the strict profile is not met.
+            - `resolve_flag_input` gives `none` for a missing artifact, a wrong schema, a non-shadow artifact, a pin mismatch, an absent or duplicated operator, or an unknown value.
+            - `none` and `clear` select the standard profile, and `flag` the strict one. A flag only withholds a new seat; an incumbent keeps its seat.
+            - Malformed history is refused with stable error codes.
+        - [x] Python mirror `python/postfiat_rpc/validator_entry_profile.py`, SHA-256 `18191847385dc2f52b9479e9a6e822b43e4866b6570704e8239b47f594bcff00`. It shares no code with the Rust module.
+        - [x] Shared fixtures `benchmarks/ai-governance/validator-entry-profile-20261023/fixtures/` (263 cases, `cases.json` SHA-256 `a7cbfc6f…`, pins in `modules.json`):
+            - 31 hand-checked direction and boundary cases;
+            - the spec's 2026-09-03 worked example (110 cases: 13 flags and 0);
+            - round 28 (122 cases, 61 operators under both rules).
+        - [x] Fail-first, then convergence:
+            - Rust: with the three rule functions stubbed, 5 of 6 tests failed (156 of 263 cases mismatched). After: 6 of 6 pass, byte for byte on all 263.
+            - Python: with the same stub, 6 of 7 failed. After: 7 of 7 pass, with the same bytes and their SHA-256.
+            - Gates: `cargo fmt --all -- --check` and clippy `-D warnings` on `postfiat-consensus-cobalt` are clean.
+        - [ ] Decision line for the parameters, including the "clean round" definition. Proposed: present in the round's final scores, domain verified, final score at or above the cutoff.
+        - [ ] Pin the module hash in the change-control register (step 5) and in the round manifest's flag section (1b).
+    - *Left to do (step 3):*
+        - Parameter and clean-round decision: the operator's line. Fixtures and hashes change if it differs.
+        - A frozen history input: the previous rounds' `final_scores.json` by hash, assembled from the round artifacts (0.5–1 day).
+        - The shadow report command over a real round: step 4 (0.5 day).
+        - The binding-mode guard: step 5.
 - [ ] **4. Wire the advisory flag:** it only switches entry to the strict profile; divergent or missing output yields no flag
     - *Today:*
         - The rule is in direction lines 83–94 and the [validity review](../../governance/ai-governance-validity-review.md), decision 5.
