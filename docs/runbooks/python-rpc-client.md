@@ -287,11 +287,14 @@ send_payment(
     wallet=holder,
     destination=issuer.address,
     amount=5,
-    memo_type="invoice",
-    memo_format="text/plain",
-    memo_data="INV-1001",
+    memo_type="invoice".encode().hex(),
+    memo_format="text/plain".encode().hex(),
+    memo_data="INV-1001".encode().hex(),
 )
 ```
+
+Memo fields are lowercase hex of their UTF-8 bytes: the node refuses any other
+form (`PaymentMemo::validate`), and the web wallet encodes memo text the same way.
 
 Amounts are integer ledger units. `precision` is display metadata for the asset
 code; callers should convert UI decimal amounts before signing.

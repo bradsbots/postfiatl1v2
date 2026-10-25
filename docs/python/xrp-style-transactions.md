@@ -110,15 +110,18 @@ payment = send_payment(
     wallet=alice,
     destination=bob.address,
     amount=250,
-    memo_type="invoice",
-    memo_format="text/plain",
-    memo_data="INV-1001",
+    memo_type="invoice".encode().hex(),
+    memo_format="text/plain".encode().hex(),
+    memo_data="INV-1001".encode().hex(),
     **local_finality,
 )
 
 print(payment.tx_id)
 print(payment.submit_result)
 ```
+
+Memo fields are lowercase hex of their UTF-8 bytes: the node refuses any other
+form (`PaymentMemo::validate`), and the web wallet encodes memo text the same way.
 
 Useful readbacks:
 
