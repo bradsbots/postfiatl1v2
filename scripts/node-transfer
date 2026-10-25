@@ -11,7 +11,19 @@ if [ ! -d "$DATA_DIR" ]; then
   exit 2
 fi
 
-cargo run -p postfiat-node --bin postfiat-node -- transfer \
+# Ordered batch path, as scripts/devnet-submit-transfer uses: `transfer`
+# mutates state outside ordered blocks and is refused unless
+# POSTFIAT_ALLOW_DIRECT_STATE=1 (debug-only).
+batch_dir="$DATA_DIR/batches"
+mkdir -p "$batch_dir"
+batch_file="$batch_dir/transfer-$(date +%s%N).json"
+
+cargo run -p postfiat-node --bin postfiat-node -- batch-transfer \
   --data-dir "$DATA_DIR" \
   --to "$TO" \
-  --amount "$AMOUNT"
+  --amount "$AMOUNT" \
+  --batch-file "$batch_file" >/dev/null
+
+cargo run -p postfiat-node --bin postfiat-node -- apply-batch \
+  --data-dir "$DATA_DIR" \
+  --batch-file "$batch_file"
