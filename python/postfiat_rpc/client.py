@@ -1820,13 +1820,13 @@ class PostFiatRpcClient:
         if from_height is not None and to_height is not None and from_height > to_height:
             raise ValueError("from_height cannot exceed to_height")
 
-        params: dict[str, Any] = {"address": address}
+        # Always send the limit: the node echoes the limit it used as
+        # scan_limit, and without one it would use its own maximum.
+        params: dict[str, Any] = {"address": address, "limit": scan_limit}
         if from_height is not None:
             params["from_height"] = from_height
         if to_height is not None:
             params["to_height"] = to_height
-        if limit is not None:
-            params["limit"] = scan_limit
         try:
             result = self._call("account_tx", params)
         except RpcError as error:
