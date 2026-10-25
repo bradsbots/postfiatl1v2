@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Runs the README's local multi-validator devnet path end to end:
+# devnet-up, devnet-submit-transfer, devnet-restart, devnet-status, devnet-down.
+VALIDATORS="${VALIDATORS:-2}"
+SMOKE_DIR="${SMOKE_DIR:-reports/devnet-helper-smoke}"
+
+case "$SMOKE_DIR" in
+  ""|"/"|"."|"./"|".."|"../")
+    echo "SMOKE_DIR must not be empty, /, ., or .." >&2
+    exit 2
+    ;;
+esac
+
+export VALIDATORS
+export BASE_DIR="$SMOKE_DIR/local"
+export LOG_DIR="$SMOKE_DIR/logs"
+export CONFIG_DIR="$SMOKE_DIR/configs"
+export BATCH_DIR="$SMOKE_DIR/local/batches"
+
+rm -rf "$SMOKE_DIR"
+mkdir -p "$SMOKE_DIR"
+
+expect_converged() {
+  local step="$1"
+  local height="$2"
+  local output="$SMOKE_DIR/$step.out"
+  if ! grep -q "^all validators converged .* block_height=$height " "$output"; then
+    echo "devnet helper smoke: $step did not converge at height $height" >&2
+    cat "$output" >&2
+    exit 1
+  fi
+}
+
+scripts/devnet-up >"$SMOKE_DIR/devnet-up.out"
+expect_converged devnet-up 0
+
+scripts/devnet-submit-transfer >"$SMOKE_DIR/devnet-submit-transfer.out"
+expect_converged devnet-submit-transfer 1
+
+scripts/devnet-restart >"$SMOKE_DIR/devnet-restart.out"
+expect_converged devnet-restart 1
+
+scripts/devnet-down >/dev/null
+
+echo "devnet helper smoke passed: $VALIDATORS validators converged at height 1"

@@ -25,6 +25,7 @@ for script in \
   scripts/devnet-restart \
   scripts/devnet-status \
   scripts/devnet-down \
+  scripts/devnet-helper-smoke \
   scripts/testnet-readiness-gate \
   scripts/testnet-p0-network-gate \
   scripts/testnet-node-run-peer-certified-smoke \

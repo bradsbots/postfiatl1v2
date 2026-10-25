@@ -23,6 +23,7 @@ outside the repository under `~/repos/postfiat-archive/postfiatl1v2/`.
 | `devnet-restart` | Restarts local devnet validators from existing data directories. |
 | `devnet-status` | Checks local devnet validator height, root, and status convergence. |
 | `devnet-down` | Removes local devnet data. |
+| `devnet-helper-smoke` | Runs the local multi-validator devnet path end-to-end (`devnet-up`, `devnet-submit-transfer`, `devnet-restart`) on two validators and checks convergence. |
 | `wan-devnet-transaction-preflight` | Read-only WAN transaction gate: checks validator RPC reachability, height/root convergence, mempool emptiness, finality capability, and optional SSH process/binary inventory before wallet or Python transaction tests run. |
 | `wan-devnet-transaction-matrix` | Read-only Stage 7 matrix command: records current accepted evidence, wallet-facing read probes, disabled write surfaces, and open transaction categories without guessing schemas or mutating state. |
 | `wan-devnet-latency-run` | Stage 8 latency evidence runner: gates on fleet health, then measures wallet-facing native PFT, memo `payment_v2`, and FastPay proxy-cycle latency into raw JSONL plus summary reports. |
