@@ -331,3 +331,113 @@ fn operator_attestation_commands_reach_their_cli_handler() {
     .expect("verify the host-control attestation");
     std::fs::remove_dir_all(root).expect("remove fixture root");
 }
+
+#[cfg(test)]
+fn certified_asset_ops_fixture(label: &str) -> (PathBuf, Vec<String>) {
+    let root = std::env::temp_dir().join(format!(
+        "postfiat-certified-asset-ops-{label}-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("system time")
+            .as_nanos()
+    ));
+    let data_dir = root.join("data");
+    init(InitOptions {
+        data_dir: data_dir.clone(),
+        chain_id: "postfiat-certified-asset-ops".to_string(),
+        node_id: "validator-0".to_string(),
+        validator_count: 1,
+    })
+    .expect("initialize certified asset ops fixture");
+    let faucet = faucet_key(NodeOptions {
+        data_dir: data_dir.clone(),
+    })
+    .expect("read fixture faucet");
+    let key_file = data_dir.join(postfiat_node::FAUCET_KEY_FILE);
+    let operations = ["AAA", "BBB"]
+        .iter()
+        .enumerate()
+        .map(|(index, code)| {
+            serde_json::json!({
+                "label": format!("op{index}"),
+                "source": faucet.address,
+                "key_file": key_file,
+                "operation": {
+                    "operation": "asset_create",
+                    "issuer": faucet.address,
+                    "code": code,
+                    "version": 1,
+                    "precision": 6,
+                },
+            })
+        })
+        .collect::<Vec<_>>();
+    let ops_file = root.join("ops.json");
+    std::fs::write(
+        &ops_file,
+        serde_json::to_vec(&serde_json::json!({ "operations": operations })).expect("ops json"),
+    )
+    .expect("write ops file");
+    let args = [
+        "pftl-submit-certified-asset-ops",
+        "--data-dir",
+        data_dir.to_str().expect("utf-8 path"),
+        "--topology",
+        root.join("topology.json").to_str().expect("utf-8 path"),
+        "--key-file",
+        data_dir
+            .join(VALIDATOR_KEYS_FILE)
+            .to_str()
+            .expect("utf-8 path"),
+        "--ops-file",
+        ops_file.to_str().expect("utf-8 path"),
+        "--artifact-dir",
+        root.join("artifacts").to_str().expect("utf-8 path"),
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+    (root, args)
+}
+
+#[test]
+fn certified_asset_ops_refuses_a_short_max_transactions_before_submitting() {
+    let (root, mut args) = certified_asset_ops_fixture("max-transactions");
+    args.extend(["--max-transactions".to_string(), "1".to_string()]);
+    let error = run_cli(args).expect_err("one transaction cannot carry two operations");
+    assert_eq!(
+        error,
+        "--max-transactions 1 is smaller than operation count 2"
+    );
+    let after = status(NodeOptions {
+        data_dir: root.join("data"),
+    })
+    .expect("fixture status");
+    assert_eq!(after.mempool_pending, 0, "a refused run must not submit");
+    assert!(!root.join("artifacts").join("op0").exists());
+    std::fs::remove_dir_all(root).expect("remove fixture");
+}
+
+#[test]
+fn certified_asset_ops_refuses_prepare_only_with_batch_only_before_overwriting() {
+    let (root, mut args) = certified_asset_ops_fixture("mode-conflict");
+    let artifact_dir = root.join("artifacts");
+    std::fs::create_dir_all(&artifact_dir).expect("create artifact dir");
+    std::fs::write(artifact_dir.join("earlier-run.json"), b"{}").expect("write earlier run");
+    args.extend(
+        ["--overwrite", "--prepare-only", "--batch-only"]
+            .into_iter()
+            .map(str::to_string),
+    );
+    let error = run_cli(args).expect_err("the two modes conflict");
+    assert_eq!(
+        error,
+        "--prepare-only and --batch-only cannot be used together"
+    );
+    assert!(
+        artifact_dir.join("earlier-run.json").is_file(),
+        "a refused run must not clear the artifact dir"
+    );
+    std::fs::remove_dir_all(root).expect("remove fixture");
+}
