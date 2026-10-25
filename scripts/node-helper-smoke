@@ -109,7 +109,10 @@ jq -n -e \
   >/dev/null
 
 # The README's single-node transfer path: faucet, transfer, account.
-DATA_DIR="$BASE_DIR" scripts/node-faucet >"$faucet_json" 2>"$LOG_DIR/node-faucet.stderr"
+# Keep only the address: node-faucet also prints the local faucet key, and
+# on_error prints every log file.
+DATA_DIR="$BASE_DIR" scripts/node-faucet 2>"$LOG_DIR/node-faucet.stderr" \
+  | jq '{address}' >"$faucet_json"
 DATA_DIR="$BASE_DIR" TO="$TRANSFER_TO" AMOUNT="$TRANSFER_AMOUNT" \
   scripts/node-transfer >"$transfer_json" 2>"$LOG_DIR/node-transfer.stderr"
 DATA_DIR="$BASE_DIR" ADDRESS="$TRANSFER_TO" \
