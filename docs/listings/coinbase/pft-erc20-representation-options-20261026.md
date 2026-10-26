@@ -1,21 +1,21 @@
 # An ERC-20 form of PFT before mainnet: options and a recommended path
 
-**Status:** Draft, 2026-10-26. Operator dravlic, for the product owner's Coinbase document. Text Improvement Harness full gate, scored without the score line (5 runs per judge): 83.27 → 83.93 → 85.33 → 85.27 → 85.67 after four editing passes (GPT-6 Astra Pro 79.40 → 81.80 → 83.20 → 83.40 → 83.80, Claude Fable 5.1 82.20 → 82.00 → 84.80 → 83.80 → 83.00, GLM 5.3 88.20 → 88.00 → 88.00 → 88.60 → 90.20; document SHA-256 `199aeb9e…` → `d8505f02…` → `fc1d860c…` → `f3702cad…` → `447f3b99…`); not iterated further.
+**Status:** Draft, 2026-10-26. Operator dravlic, for the product owner's Coinbase document. Text Improvement Harness full gate on 2026-10-26, after four passes: 85.67 (GPT-6 Astra Pro 83.80, Claude Fable 5.1 83.00, GLM 5.3 90.20; 5 runs per judge, scored without the score line).
 
 ## 1. BLUF
 
 1. I recommend "ERC-20 first, bridge at mainnet": a plain fixed-supply ERC-20 PFT on Base now, and a 1:1 bridge into native PFT that opens at this L1's mainnet genesis and never closes.
 2. Coinbase integrates ERC-20 tokens with little engineering work. A native chain without mainnet or post-quantum custody cannot be integrated soon. Injective took this route onto Coinbase. Coinbase custody cannot sign ML-DSA-65 before about mid-2027, so even after mainnet the ERC-20 is most likely Coinbase's listed form for a long time, not a stopgap.
 3. The token costs about two days of engineering plus the audit, the genesis bridge about one to two weeks, and an optional reverse bridge about two weeks; all are my estimates, without audit time.
-4. Only you decide the supply number, the treasury multisig's signers and threshold, the allocation, the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase.
-5. On your word I build the contract with tests and a test-network deploy script, then a one-page note for Coinbase, then the Phase 2 design note.
+4. The four decisions in section 9 are yours: the supply number, the treasury multisig's signers and threshold, the allocation with the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase.
+5. I am writing the contract with tests and a Base Sepolia deploy script today; the one-page note for Coinbase and the Phase 2 design note follow.
 
-This paper extends the "Interim path: PFT as an ERC-20" section of the [integration plan](integration-plan.md) (`integration-plan.md:71-74`, `:719-737`). That section said the route would be scoped only if Coinbase showed interest (`:736-737`). That interest came with the product owner's message of 2026-10-23. Coinbase wants to start getting ramped up, he is assembling a document for them, and in his view Coinbase cannot get this on mainnet imminently. He also asked whether PFT itself could be the first NAVCoin with an ERC-20 form. Section 6 answers that.
+This paper extends the "Interim path: PFT as an ERC-20" section of the [integration plan](integration-plan.md) (`integration-plan.md:71-74`, `:719-737`). That section tied the scoping to Coinbase's interest (`:736-737`), which came with the product owner's message of 2026-10-23. Coinbase wants to start getting ramped up, he is assembling a document for them, and in his view Coinbase cannot get this on mainnet imminently. He also asked whether PFT itself could be the first NAVCoin with an ERC-20 form. Section 6 answers that.
 
 ## 2. Terms
 
 - **PFTL** is this L1, Post Fiat L1, the chain in this repository (`docs/start/glossary.md:12-14`).
-- **PFT Ledger** is the separate, older rippled-fork network run by `postfiatd`, where Task Node pays today (`docs/start/glossary.md:15-22`). My earlier research wording mixed the two; this paper keeps them apart.
+- **PFT Ledger** is the separate, older rippled-fork network run by `postfiatd`, where Task Node pays today (`docs/start/glossary.md:15-22`). This paper keeps the two apart.
 - **Native PFT** is the base asset of PFTL, created only at genesis (`docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`).
 - **Issued asset** is an asset an issuer creates on PFTL, such as pfUSDC; it is not native PFT (`OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:48-49`).
 - **NAVCoin** is an issued asset whose supply, mint and redeem are tied to proven reserve packets and a floating net asset value (`docs/navcoins/index.md:9-12`).
@@ -29,7 +29,7 @@ This paper extends the "Interim path: PFT as an ERC-20" section of the [integrat
 
 **On PFTL's devnet.** The genesis constant is `GENESIS_NATIVE_SUPPLY_ATOMS = 1_000_000_000` (`crates/types/src/core_chain.rs:10`). Wallets show 1 PFT as 1,000,000 atoms, so the devnet holds 1,000 PFT; that decimal convention is not a Rust constant (`docs/listings/coinbase/comparisons.md:96-101`). Genesis is the only creation event, and NAV and bridge records cannot create native PFT. Native PFT has no asset id. PFTL is a controlled devnet, not a production mainnet (see also `OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`, `:69`, `docs/rpc/account-history.md:73`, `integration-plan.md:22-29`).
 
-**On Ethereum or Base.** Nowhere. No wrapped-PFT contract, proof profile or threat model exists (`integration-plan.md:729`). postfiat.org mentions no ERC-20, bridge or migration for PFT (postfiat.org, 2026-10-26).
+**On Base or any other EVM chain.** Nowhere. No wrapped-PFT contract, proof profile or threat model exists (`integration-plan.md:729`). postfiat.org mentions no ERC-20, bridge or migration for PFT (postfiat.org, 2026-10-26).
 
 **The supply number.** 100 billion PFT is a published target, "not a protocol artifact"; no production genesis, allocation table or vesting schedule exists (`integration-plan.md:99-105`). The 2026-10-23 handoff leaves the 100 billion target against the devnet's 1,000 PFT open (`docs/handoffs/2026-10-23___codex__chain_pr_merge_handoff.md:198-200`). Token migration from the PFT Ledger is out of scope of the launch spec and left to "a separate document", which does not exist (see also `docs/architecture/l1v2-testnet-genesis-and-launch-spec.md:27`, `:402`).
 
@@ -69,7 +69,7 @@ Sizes are my estimates in working days, without audit time.
 
 It is a good instinct. The NAVCoin stack is our most finished cross-chain product, and wA666 already lives on Ethereum mainnet (`docs/navcoins/assets-and-venues.md:39`). But native PFT cannot itself be a NAVCoin. NAVCoins are issued by issuers under registered profiles (`docs/whitepaper.md:34`), and a NAV mint names its issuer, while native PFT comes only from genesis (section 3; see also `crates/types/src/transactions_mempool_receipts.rs:1039-1068`).
 
-What could be built is a NAVCoin that holds native PFT in reserve, on the A666 stack. Coinbase would then review an issued, reserve-backed product with issuer and reserve questions. Its value would float with its reserve (`docs/navcoins/index.md:9-12`). The listing would not be PFT itself; our package keeps NAVCoins outside the native PFT integration (`integration-plan.md:66-68`). So the NAVCoin stack stays the product beside PFT, and the ERC-20 question is answered by a plain token.
+What could be built is a NAVCoin that holds native PFT in reserve, on the A666 stack. Coinbase would then review an issued, reserve-backed product with issuer and reserve questions. Its value would float with its reserve (`docs/navcoins/index.md:9-12`). The listing would not be PFT itself; our package keeps NAVCoins outside the native PFT integration (`integration-plan.md:66-68`). So the NAVCoin stack stays the product beside PFT, and PFT's own ERC-20 is a plain token.
 
 ## 7. Recommendation: ERC-20 first, bridge at mainnet
 
@@ -130,11 +130,11 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 3. The allocation and the treatment of PFT Ledger holders.
 4. Whether to tell Coinbase now that the ERC-20 is the path, answering the package's first ask (`integration-plan.md:741-743`).
 
-## 10. What I build on your word
+## 10. What is being built
 
-1. The ERC-20 contract with tests and a deploy script, deployed to Base Sepolia.
-2. A one-page note for Coinbase built from Appendix A.
-3. The Phase 2 design note for the genesis external lane and the lock-and-release path.
+1. The ERC-20 contract, its tests and a Base Sepolia deploy script are being written today in `crates/ethereum-contracts`. The deployment waits for the four decisions in section 9.
+2. Next, a one-page note for Coinbase built from Appendix A.
+3. Then the Phase 2 design note for the genesis external lane and the lock-and-release path.
 
 ## Appendix A: text for the Coinbase document
 

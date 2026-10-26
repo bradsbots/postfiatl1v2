@@ -68,10 +68,10 @@ All repository links in this document point to the public GitHub repository.
      requested their mechanics at the zero-knowledge-proof level.
 
    Section 5 states the trust assumptions for both.
-5. **Interim path.** Until native PFT can be held in Coinbase custody, an
-   ERC-20 representation of PFT on Ethereum or Base could reuse bridge
-   components already deployed for the A666 NAVCoin. The wrapped-PFT contract
-   does not exist yet; its trust model is stated in section 8.
+5. **Interim path.** Until native PFT can be held in Coinbase custody, PFT
+   comes as a fixed-supply ERC-20 on Base, Coinbase's own network, which
+   bridges into native PFT at mainnet. The contract is being written; section
+   8 states the trust model and links the paper that settles the path.
 
 ## 2. What Post Fiat L1 is
 
@@ -718,8 +718,8 @@ the questions in section 9.
 
 ### Interim path: PFT as an ERC-20
 
-Coinbase lists Ethereum and Base tokens with less custom work than a native
-chain. PFTL already runs components a wrapped PFT could reuse:
+Coinbase lists Base tokens with less custom work than a native chain, and
+Base is Coinbase's own network. PFTL already runs components PFT can reuse:
 
 - the route contracts used for the A666 NAVCoin;
 - the governed bridge-signing committee verifier
@@ -728,15 +728,15 @@ chain. PFTL already runs components a wrapped PFT could reuse:
 
 No wrapped-PFT contract, proof profile or threat model exists yet. A
 wrapped PFT route would lock PFT on PFTL and mint an equal amount of an
-ERC-20 on Ethereum or Base against a verified PFTL finality proof.
+ERC-20 on Base against a verified PFTL finality proof.
 
 The trust model would match wA666's: the ERC-20 is only as strong as the PFTL
 validator committee that signs the checkpoints. It therefore does not
 replace phase 4. It would give Coinbase customers access to PFT before native
-custody of ML-DSA-65 is available. Post Fiat will scope this route only if
-Coinbase indicates that it would consider the ERC-20.
+custody of ML-DSA-65 is available. Post Fiat scoped this route once
+Coinbase indicated that it would consider the ERC-20.
 
-The [ERC-20 options paper](pft-erc20-representation-options-20261026.md) scopes this route now and recommends a fixed-supply ERC-20 first, with a bridge into native PFT at mainnet.
+The [ERC-20 options paper](pft-erc20-representation-options-20261026.md) settles the path: a fixed-supply ERC-20 on Base first, with a bridge into native PFT at mainnet.
 
 ## 9. What we ask of Coinbase
 
