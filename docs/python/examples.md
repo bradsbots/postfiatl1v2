@@ -87,13 +87,16 @@ sent = send_payment(
     wallet=wallet,
     destination="pfrecipient...",
     amount=100,
-    memo_type="invoice",
-    memo_format="text/plain",
-    memo_data="INV-1001",
+    memo_type="invoice".encode().hex(),
+    memo_format="text/plain".encode().hex(),
+    memo_data="INV-1001".encode().hex(),
 )
 
 print(sent.tx_id)
 ```
+
+Memo fields are lowercase hex of their UTF-8 bytes: the node refuses any other
+form (`PaymentMemo::validate`), and the web wallet encodes memo text the same way.
 
 ## Create An Issued Token And TrustSet
 
