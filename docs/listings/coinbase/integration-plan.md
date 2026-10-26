@@ -736,6 +736,8 @@ replace phase 4. It would give Coinbase customers access to PFT before native
 custody of ML-DSA-65 is available. Post Fiat will scope this route only if
 Coinbase indicates that it would consider the ERC-20.
 
+The [ERC-20 options paper](pft-erc20-representation-options-20261026.md) scopes this route now and recommends a fixed-supply ERC-20 first, with a bridge into native PFT at mainnet.
+
 ## 9. What we ask of Coinbase
 
 1. **Which route.** Is a native integration through HSM-based ML-DSA-65
