@@ -436,7 +436,7 @@ mod tests {
     const ENVELOPE: &str = "f31b5e66ba4d515cb4b29793c5ee41c8c1cd704c36e916c17a2c4d4ec4eaf735cf7881027460f3debe3da4c7e87fa765";
     const EPOCH_2_ROOT: &str = "72836827f9f3ecd3042261a77abff72235f0238b6a81f673630a62199415021a1be0cbd5451878edca0e110434c1da37";
     /// SHA-256 of the epoch-2 committee domain as canonical JSON, the value
-    /// StakeHub's activation check 0c' expects.
+    /// the activation check 0c' of the committee plan expects.
     const EPOCH_2_DOMAIN_SHA256: &str =
         "b1c5261b5559f2266a4e7620f5945fa250dcea8ad7dd7d2e763a5e7c756b577b";
     /// Bytes of the epoch-1 registry payload written by this tool at `a364eaed`
