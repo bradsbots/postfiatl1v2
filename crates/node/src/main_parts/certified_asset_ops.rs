@@ -814,14 +814,22 @@ fn certified_asset_ops_batch(options: CertifiedAssetOpsBatchOptions) -> Result<C
         })?;
         return Ok(report);
     }
-    prepare_artifact_dir(&options.artifact_dir, options.overwrite, options.resume)?;
-
-    let preflight_start = std::time::Instant::now();
+    // Refuse every flag or request problem before the artifact dir is cleared
+    // and before any operation reaches the mempool.
     if options.prepare_only && options.batch_only {
         return Err("--prepare-only and --batch-only cannot be used together".to_string());
     }
+    let preflight_start = std::time::Instant::now();
     let request = read_certified_asset_ops_request(&options.ops_file)?;
     validate_certified_asset_ops_request(&request)?;
+    let max_transactions = options.max_transactions.unwrap_or(request.operations.len());
+    if max_transactions < request.operations.len() {
+        return Err(format!(
+            "--max-transactions {max_transactions} is smaller than operation count {}",
+            request.operations.len()
+        ));
+    }
+    prepare_artifact_dir(&options.artifact_dir, options.overwrite, options.resume)?;
     let dependency_report = certified_asset_ops_dependency_report(&request);
     let start_status = status(NodeOptions {
         data_dir: options.data_dir.clone(),
@@ -858,16 +866,6 @@ fn certified_asset_ops_batch(options: CertifiedAssetOpsBatchOptions) -> Result<C
         operation_reports.push(report);
     }
     let operations_ms = monotonic_elapsed_ms(operations_start);
-
-    let max_transactions = options
-        .max_transactions
-        .unwrap_or(request.operations.len());
-    if max_transactions < request.operations.len() {
-        return Err(format!(
-            "--max-transactions {max_transactions} is smaller than operation count {}",
-            request.operations.len()
-        ));
-    }
 
     let mut batch_file = None;
     let mut round_artifact_dir = None;
