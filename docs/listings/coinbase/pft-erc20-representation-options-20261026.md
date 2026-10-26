@@ -1,16 +1,16 @@
 # An ERC-20 form of PFT before mainnet: options and a recommended path
 
-**Status:** Draft, 2026-10-26. Operator dravlic, for the product owner's Coinbase document. Text Improvement Harness, one full-gate score of this text without the score line (5 runs per judge, document SHA-256 `199aeb9e…`): 83.27 average (GPT-6 Astra Pro 79.40, Claude Fable 5.1 82.20, GLM 5.3 88.20); not iterated.
+**Status:** Draft, 2026-10-26. Operator dravlic, for the product owner's Coinbase document. Text Improvement Harness full gate, scored without the score line (5 runs per judge): 83.27 → 83.93 after one editing pass (GPT-6 Astra Pro 79.40 → 81.80, Claude Fable 5.1 82.20 → 82.00, GLM 5.3 88.20 → 88.00; document SHA-256 `199aeb9e…` → `d8505f02…`); not iterated further.
 
-## BLUF
+## 1. BLUF
 
 1. I recommend "ERC-20 first, bridge at mainnet": a plain fixed-supply ERC-20 PFT now, and a 1:1 bridge into native PFT that opens at this L1's mainnet genesis and never closes.
-2. Coinbase integrates ERC-20 tokens with little engineering work, while a native chain without mainnet or post-quantum custody cannot be integrated soon, and Injective took exactly this route onto Coinbase.
+2. Coinbase integrates ERC-20 tokens with little engineering work. A native chain without mainnet or post-quantum custody cannot be integrated soon. Injective took this route onto Coinbase.
 3. The token costs about 3 days plus an audit, the genesis bridge about 10–15 days, and an optional reverse bridge about 15–25 days; all are my estimates without audit time.
 4. Only you decide the supply number, Ethereum or Base, the treasury keys, the allocation, the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase.
 5. On your word I build the contract with tests and a test-network deploy script, then a one-page note for Coinbase, then the Phase 2 design note.
 
-This paper extends the "Interim path: PFT as an ERC-20" section of the [integration plan](integration-plan.md) (`integration-plan.md:71-74`, `:719-737`). That section said the route would be scoped only if Coinbase showed interest (`:736-737`). The product owner's message of 2026-10-23 is that interest: Coinbase wants to start getting ramped up, he is assembling a document for them, and in his view Coinbase cannot get this on mainnet imminently. He also asked whether PFT itself could be the first NAVCoin with an ERC-20 form. Section 6 answers that.
+This paper extends the "Interim path: PFT as an ERC-20" section of the [integration plan](integration-plan.md) (`integration-plan.md:71-74`, `:719-737`). That section said the route would be scoped only if Coinbase showed interest (`:736-737`). That interest came with the product owner's message of 2026-10-23. Coinbase wants to start getting ramped up, he is assembling a document for them, and in his view Coinbase cannot get this on mainnet imminently. He also asked whether PFT itself could be the first NAVCoin with an ERC-20 form. Section 6 answers that.
 
 ## 2. Terms
 
@@ -39,7 +39,7 @@ Coinbase's listings page says it can integrate ERC-20 tokens on Base, Ethereum, 
 
 Our listing package assumes the native chain. Coinbase would run its own nodes, treat one commit certificate as final, and sign with ML-DSA-65 (`integration-plan.md:42-47`). Today there is no mainnet and no external audit (`:52`), the validator set is Foundation-run (`:58`), and Coinbase custody cannot sign ML-DSA-65 (`:59`). Coinbase's post-quantum signing pipeline is about mid-2027 (`:343`). The package already names the ERC-20 as the interim path on Ethereum or Base (`:71-74`). Its first ask to Coinbase is which route to plan on (`:741-743`).
 
-Two precedents bracket the choice. INJ ran as an ERC-20 on Ethereum for years and was listed on Coinbase in that form. Coinbase supported the migration to native INJ on the Injective EVM on 2026-07-20..22, converting customer balances 1:1 at no cost and then ending ERC-20 INJ deposits and withdrawals; self-custodied holders used the Injective Bridge (Coinbase Markets on X and Coinbase help centre "Token delistings and migrations", June–July 2026; cryptobriefing.com, 2026-06-18). dYdX moved its ERC-20 to the native chain token through a one-way bridge that closed on 2025-06-13. More than 41.6 million ethDYDX were left behind, unmigratable and unlisted, and holders now ask governance to reopen it (forklog.com, 2025). Fetch.ai keeps a two-way bridge between ERC-20 FET and native FET (fetch.ai docs, 2026-10-26).
+Three precedents bracket the choice. INJ ran as an ERC-20 on Ethereum for years and was listed on Coinbase in that form. Coinbase supported the migration to native INJ on the Injective EVM on 2026-07-20..22. It converted customer balances 1:1 at no cost, then ended ERC-20 INJ deposits and withdrawals; self-custodied holders used the Injective Bridge (Coinbase Markets on X and Coinbase help centre "Token delistings and migrations", June–July 2026; cryptobriefing.com, 2026-06-18). dYdX moved its ERC-20 to the native chain token through a one-way bridge that closed on 2025-06-13. More than 41.6 million ethDYDX were left behind, unmigratable and unlisted, and holders now ask governance to reopen it (forklog.com, 2025). Fetch.ai keeps a two-way bridge between ERC-20 FET and native FET (fetch.ai docs, 2026-10-26).
 
 ## 5. The five technically possible forms
 
@@ -96,7 +96,7 @@ This is the Injective pattern (Coinbase help centre "Token delistings and migrat
 - The reverse direction: native PFT exported as the same ERC-20 through a generalised export route. Today the route requires a NAV asset (`nav_vault_asset_execution.rs:6470-6477`).
 - That makes the token two-way, as Fetch.ai's is (fetch.ai docs, 2026-10-26).
 
-**What this path does not solve.** These belong in the token document. They are your decisions and your lawyers' questions, including the securities framing; I do not decide them.
+**What this path does not solve.** These questions belong in the token document. They are yours to decide, with counsel on the legal ones, including the securities framing; I do not decide them.
 
 - The total supply number (`integration-plan.md:99-105`).
 - The allocation: how much supply is in the ERC-20 at launch, and how much stays in genesis for the Foundation, validators and the Task Node pool (`integration-plan.md:710-711`).
@@ -127,6 +127,8 @@ This is the Injective pattern (Coinbase help centre "Token delistings and migrat
 
 ## Appendix A: text for the Coinbase document
 
+Paste-ready once the decisions in section 9 are made.
+
 PFT will first exist as a standard ERC-20 token. The contract is built from widely used industry-standard libraries. Its whole supply is created once, at deployment. No account can mint more, pause transfers, block addresses or upgrade the contract. The source code will be verified and published. An independent audit will be completed before the token is deployed. The native Post Fiat L1 is not yet on mainnet. When it launches, the genesis supply will reserve native PFT for every ERC-20 PFT in existence. Holders will then be able to move ERC-20 PFT to native PFT one for one. That bridge will stay open, with no closing date. Exchanges holding ERC-20 PFT for customers can convert balances one for one in the same way. Supply and allocation figures will be published in a token document before the ERC-20 is deployed.
 
 ## Appendix B: sources
@@ -145,7 +147,7 @@ Repository:
 - `crates/ethereum-contracts/script/DeployERC20Bridge.s.sol`, `crates/ethereum-contracts/foundry.toml`, `.gitmodules`
 - `docs/plans/completed/tasknode-unl-mvp-plan.md`
 
-Outside, as verified by the user on 2026-10-26:
+Outside sources, as I verified on 2026-10-26:
 
 - Coinbase listings page, coinbase.com/listings (text about two years old).
 - Coinbase Markets on X and Coinbase help centre, "Token delistings and migrations", June–July 2026; cryptobriefing.com, 2026-06-18 (Injective).
