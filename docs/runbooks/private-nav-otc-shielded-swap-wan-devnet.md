@@ -128,6 +128,32 @@ ssh -i ~/.ssh/id_ed25519 -o BatchMode=yes root@<ip> \
   'postfiat-node status --data-dir <data-dir>'
 ```
 
+### Certified batch round delivery
+
+`transport-peer-certified-batch-round` holds the proposer's transactional store
+for the whole round (STO-07). The proposer is therefore never a certified-send
+target: the round sends the certified block to its peers and applies it locally
+through the store it holds. Before the fix, a round without
+`--local-apply-before-certified-send` also sent the block to the proposer's own
+validator service whenever its topology host was not loopback. That service
+could not open the held store, and the round exited 1 after the peers had
+committed (validator-5, height 1144, view 1, 2026-10-23).
+
+The fix keeps both flags and their meaning:
+
+- default: certified sends to peers first, then the local apply;
+  `--allow-peer-failures` still lets a round succeed when a peer send fails;
+- `--local-apply-before-certified-send`: local apply and durable send jobs
+  first, then the sends; a failed peer send leaves the round not ok;
+- `--quorum-early-full-propagation`: sends go to every vote target, including
+  ones that had not answered by quorum.
+
+Making local apply the default was rejected: under that policy a failed peer
+send fails the round even with `--allow-peer-failures`
+(`certified_send_outcomes_are_acceptable`). Sheets that pass
+`--quorum-early-full-propagation --local-apply-before-certified-send` keep
+working unchanged. On binaries without the fix, keep passing both flags.
+
 ## Preflight
 
 Set the common environment.

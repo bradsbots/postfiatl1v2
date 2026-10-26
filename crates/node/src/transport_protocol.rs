@@ -889,8 +889,10 @@ pub(super) fn active_transport_targets(
     Ok(targets)
 }
 
+/// The proposer is never a certified-send target. The round holds its own
+/// store lease (STO-07), so its validator service could not apply a send; the
+/// round applies the block locally through that store instead.
 pub(super) fn certified_send_targets_for_round(
-    topology: &NetworkTopology,
     local_status: &StatusReport,
     vote_targets: &[String],
     unresolved_vote_target_set: &BTreeSet<String>,
@@ -906,16 +908,7 @@ pub(super) fn certified_send_targets_for_round(
             .cloned()
             .collect::<Vec<_>>()
     };
-
-    if !local_apply_before_certified_send {
-        if let Some(local_peer) = topology.peer(&local_status.node_id) {
-            if !transport_peer_host_is_loopback(&local_peer.host)
-                && !targets.iter().any(|target| target == &local_status.node_id)
-            {
-                targets.push(local_status.node_id.clone());
-            }
-        }
-    }
+    targets.retain(|target| target != &local_status.node_id);
     targets
 }
 
@@ -935,15 +928,6 @@ pub(super) fn certified_send_outcomes_are_acceptable(
         return false;
     }
     failed_send_count == 0 || (allow_peer_failures && !local_apply_before_certified_send)
-}
-
-pub(super) fn transport_peer_host_is_loopback(host: &str) -> bool {
-    if host.eq_ignore_ascii_case("localhost") {
-        return true;
-    }
-    host.parse::<std::net::IpAddr>()
-        .map(|addr| addr.is_loopback())
-        .unwrap_or(false)
 }
 
 pub(super) fn validate_transport_hello(
@@ -2415,40 +2399,38 @@ mod transport_cli_tests {
     }
 
     #[test]
-    fn certified_send_targets_include_non_loopback_local_public_peer() {
-        let topology = test_topology("198.51.100.10");
+    fn certified_send_targets_never_include_non_loopback_local_peer_by_default() {
         let status = test_status("validator-0");
         let vote_targets = vec!["validator-1".to_string(), "validator-2".to_string()];
         let unresolved = BTreeSet::new();
 
-        let targets = certified_send_targets_for_round(
-            &topology,
-            &status,
-            &vote_targets,
-            &unresolved,
-            false,
-            false,
-        );
+        // Before the fix, a non-loopback topology entry for the proposer put it
+        // in this list. The round holds the proposer's store lease, so a
+        // certified send to its own validator service cannot be applied there;
+        // the round applies the block locally instead, under every policy.
+        for quorum_early_full_propagation in [false, true] {
+            let targets = certified_send_targets_for_round(
+                &status,
+                &vote_targets,
+                &unresolved,
+                quorum_early_full_propagation,
+                false,
+            );
 
-        assert_eq!(
-            targets,
-            vec![
-                "validator-1".to_string(),
-                "validator-2".to_string(),
-                "validator-0".to_string()
-            ]
-        );
+            assert_eq!(
+                targets,
+                vec!["validator-1".to_string(), "validator-2".to_string()]
+            );
+        }
     }
 
     #[test]
     fn certified_send_targets_skip_non_loopback_local_after_local_apply() {
-        let topology = test_topology("198.51.100.10");
         let status = test_status("validator-0");
         let vote_targets = vec!["validator-1".to_string(), "validator-2".to_string()];
         let unresolved = BTreeSet::new();
 
         let targets = certified_send_targets_for_round(
-            &topology,
             &status,
             &vote_targets,
             &unresolved,
@@ -2463,36 +2445,38 @@ mod transport_cli_tests {
     }
 
     #[test]
-    fn certified_send_targets_do_not_duplicate_loopback_local_peer() {
-        let topology = test_topology("127.0.0.1");
+    fn certified_send_targets_drop_the_local_node_from_vote_targets() {
         let status = test_status("validator-0");
-        let vote_targets = vec!["validator-1".to_string(), "validator-2".to_string()];
+        let vote_targets = vec![
+            "validator-1".to_string(),
+            "validator-0".to_string(),
+            "validator-2".to_string(),
+        ];
         let unresolved = BTreeSet::new();
 
-        let targets = certified_send_targets_for_round(
-            &topology,
-            &status,
-            &vote_targets,
-            &unresolved,
-            false,
-            false,
-        );
+        for local_apply_before_certified_send in [false, true] {
+            let targets = certified_send_targets_for_round(
+                &status,
+                &vote_targets,
+                &unresolved,
+                false,
+                local_apply_before_certified_send,
+            );
 
-        assert_eq!(
-            targets,
-            vec!["validator-1".to_string(), "validator-2".to_string()]
-        );
+            assert_eq!(
+                targets,
+                vec!["validator-1".to_string(), "validator-2".to_string()]
+            );
+        }
     }
 
     #[test]
     fn certified_send_targets_keep_unresolved_vote_target_skipped() {
-        let topology = test_topology("198.51.100.10");
         let status = test_status("validator-0");
         let vote_targets = vec!["validator-1".to_string(), "validator-2".to_string()];
         let unresolved = BTreeSet::from(["validator-2".to_string()]);
 
         let targets = certified_send_targets_for_round(
-            &topology,
             &status,
             &vote_targets,
             &unresolved,
@@ -2500,21 +2484,16 @@ mod transport_cli_tests {
             false,
         );
 
-        assert_eq!(
-            targets,
-            vec!["validator-1".to_string(), "validator-0".to_string()]
-        );
+        assert_eq!(targets, vec!["validator-1".to_string()]);
     }
 
     #[test]
     fn certified_send_targets_include_unresolved_under_all_delivery_policy() {
-        let topology = test_topology("198.51.100.10");
         let status = test_status("validator-0");
         let vote_targets = vec!["validator-1".to_string(), "validator-2".to_string()];
         let unresolved = BTreeSet::from(["validator-2".to_string()]);
 
         let targets = certified_send_targets_for_round(
-            &topology,
             &status,
             &vote_targets,
             &unresolved,

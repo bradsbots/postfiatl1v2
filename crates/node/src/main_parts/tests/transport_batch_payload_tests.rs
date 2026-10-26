@@ -1470,6 +1470,144 @@ mod transport_batch_payload_tests {
         std::fs::remove_dir_all(root).expect("cleanup remote proposer test");
     }
 
+    /// The 2026-10-23 height-1144 failure: the proposer's own topology entry
+    /// is not loopback, and its own validator service cannot serve a certified
+    /// send while the round holds the store lease. Here nothing answers at that
+    /// address at all. The default round (no `--local-apply-before-certified-send`)
+    /// must apply the block through the store it holds and send only to peers.
+    #[test]
+    fn default_peer_round_applies_locally_without_sending_to_its_own_validator() {
+        let _guard = CONSENSUS_V2_TRANSPORT_TEST_LOCK.lock().expect("test lock");
+        prewarm_shielded_verifier_cache("no self-delivery test").expect("prewarm");
+        let fleet = consensus_v2_transport_fleet("certified-round-no-self-send", 4, None);
+        let proposer =
+            postfiat_ordering_fast::leader_for_view(&fleet.validators.validator_ids(), 1, 0)
+                .expect("proposer");
+        let proposer_index = fleet
+            .validators
+            .validator_ids()
+            .iter()
+            .position(|validator| validator == &proposer)
+            .expect("proposer index");
+        let closed_port = TcpListener::bind(("127.0.0.1", 0))
+            .and_then(|listener| listener.local_addr())
+            .expect("pick a closed port")
+            .port();
+        let mut topology_json: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&fleet.topology_file).expect("read topology"),
+        )
+        .expect("parse topology");
+        let proposer_peer = topology_json["peers"]
+            .as_array_mut()
+            .expect("topology peers")
+            .iter_mut()
+            .find(|peer| peer["node_id"] == proposer.as_str())
+            .expect("proposer topology entry");
+        proposer_peer["host"] = serde_json::json!("0.0.0.0");
+        proposer_peer["p2p_port"] = serde_json::json!(closed_port);
+        std::fs::write(
+            &fleet.topology_file,
+            serde_json::to_vec_pretty(&topology_json).expect("serialize topology"),
+        )
+        .expect("write topology");
+
+        let proposer_dir = fleet.data_dirs[proposer_index].clone();
+        let batch = fleet.root.join("height-1.batch.json");
+        create_transfer_batch(BatchTransferOptions {
+            data_dir: proposer_dir.clone(),
+            key_file: Some(fleet.data_dirs[0].join("faucet_key.json")),
+            to: format!("pf{}", "e".repeat(40)),
+            amount: 1_000_000,
+            batch_file: batch.clone(),
+        })
+        .expect("transfer batch");
+        let handles = start_consensus_v2_test_servers(
+            &fleet.data_dirs,
+            &fleet.topology_file,
+            &fleet.listeners,
+            proposer_index,
+            "no-self-send-h1",
+        );
+        let topology = read_topology_file(&fleet.topology_file).expect("read topology");
+        let local_status = status(NodeOptions {
+            data_dir: proposer_dir.clone(),
+        })
+        .expect("proposer status");
+        transport_authenticated_peer_health(&proposer_dir, &topology, &local_status, 60_000)
+            .expect("authenticated peer health");
+        let report =
+            transport_peer_certified_batch_round(TransportPeerCertifiedBatchRoundOptions {
+                data_dir: proposer_dir.clone(),
+                topology_file: fleet.topology_file.clone(),
+                batch_kind: Some("transparent".to_string()),
+                batch_file: batch,
+                key_file: proposer_dir.join(VALIDATOR_KEYS_FILE),
+                proposal_key_file: Some(proposer_dir.join(VALIDATOR_KEYS_FILE)),
+                require_local_proposer: true,
+                require_signed_proposal: true,
+                allow_peer_failures: false,
+                quorum_early_full_propagation: false,
+                artifact_dir: fleet.root.join("height-1-artifacts"),
+                block_height: Some(1),
+                view: Some(0),
+                timeout_certificate_file: None,
+                timeout_ms: 15_000,
+                send_retries: 2,
+                retry_backoff_ms: 50,
+                local_apply_before_certified_send: false,
+                defer_certified_sends: false,
+                commit_processed_dir: None,
+                required_parent: None,
+            })
+            .expect("default round must not depend on a send to its own validator");
+        clear_transport_vote_stream_pool_for_test().expect("close persistent streams");
+        for handle in handles {
+            let service = handle
+                .join()
+                .expect("validator service thread")
+                .expect("validator service");
+            assert_eq!(service.accepted_batch_count, 1);
+            assert!(service.rejected.is_empty(), "{:?}", service.rejected);
+        }
+
+        assert!(
+            report.round_ok,
+            "cert_ok={} votes={} validators={} remote={} all_votes={} vote_failures={:?} all_sends={} local_apply={} send_failures={:?}",
+            report.certification.round_ok,
+            report.certification.vote_count,
+            report.certification.validators.len(),
+            report.remote_vote_count,
+            report.all_vote_requests_verified,
+            report.vote_request_failures,
+            report.all_sends_verified,
+            report.local_apply_verified,
+            report.send_failures
+        );
+        assert!(report.local_apply_verified);
+        assert!(report.send_failures.is_empty(), "{:?}", report.send_failures);
+        assert_eq!(report.sends.len(), fleet.data_dirs.len() - 1);
+        assert!(report.sends.iter().all(|send| send.to != proposer));
+        assert!(report
+            .timings
+            .certified_send_targets
+            .iter()
+            .all(|target| target.target != proposer));
+        let statuses = fleet
+            .data_dirs
+            .iter()
+            .map(|data_dir| status(NodeOptions {
+                data_dir: data_dir.clone(),
+            }))
+            .collect::<io::Result<Vec<_>>>()
+            .expect("fleet statuses");
+        assert_eq!(statuses[proposer_index].block_height, 1);
+        assert!(statuses.windows(2).all(|pair| {
+            pair[0].block_tip_hash == pair[1].block_tip_hash
+                && pair[0].state_root == pair[1].state_root
+        }));
+        std::fs::remove_dir_all(&fleet.root).expect("cleanup no self-delivery fleet");
+    }
+
     #[test]
     fn certified_transport_payload_commits_batch_kind() {
         let payload_json = r#"{"schema":"test-batch","batch_id":"batch-1"}"#;

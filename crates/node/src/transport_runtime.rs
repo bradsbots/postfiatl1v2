@@ -3440,7 +3440,6 @@ pub(super) fn transport_peer_certified_batch_round(
         .cloned()
         .collect::<BTreeSet<_>>();
     let certified_send_targets = certified_send_targets_for_round(
-        &topology,
         &local_status,
         &targets,
         &unresolved_vote_target_set,
@@ -3668,6 +3667,8 @@ pub(super) fn transport_peer_certified_batch_round(
     }
     let certified_sends_ms = monotonic_elapsed_ms(certified_sends_start);
 
+    // The proposer is never a certified-send target: it applies here, through
+    // the store lease this round holds.
     if !options.local_apply_before_certified_send {
         let local_apply_start = Instant::now();
         let apply_result = apply_transport_batch_with_verified_certificate_with_timings(
