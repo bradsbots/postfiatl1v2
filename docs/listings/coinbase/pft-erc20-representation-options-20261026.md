@@ -8,7 +8,8 @@
 2. Coinbase integrates ERC-20 tokens with little engineering work. A native chain without mainnet or post-quantum custody cannot be integrated soon. Injective took this route onto Coinbase. Coinbase custody cannot sign ML-DSA-65 before about mid-2027, so even after mainnet the ERC-20 is most likely Coinbase's listed form for a long time, not a stopgap.
 3. The token costs about two days of engineering plus the audit, the genesis bridge about one to two weeks, and an optional reverse bridge about two weeks; all are my estimates, without audit time.
 4. The four decisions in section 9 are yours: the supply number, the treasury multisig's signers and threshold, the allocation with the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase.
-5. I am writing the contract with tests and a Base Sepolia deploy script today; the one-page note for Coinbase and the Phase 2 design note follow.
+5. The contract, its tests and the Base Sepolia deploy script are on main (`crates/ethereum-contracts/src/PFTToken.sol`, `test/PFTToken.t.sol`, `script/DeployPFTToken.s.sol`); the deployment waits for the four decisions, and the one-page note for Coinbase and the Phase 2 design note follow.
+6. The [milestone](../../plans/active/pft-erc20-base-listing-milestone.md) tracks the work.
 
 This paper extends the "Interim path: PFT as an ERC-20" section of the [integration plan](integration-plan.md) (`integration-plan.md:71-74`, `:719-737`). That section tied the scoping to Coinbase's interest (`:736-737`), which came with the product owner's message of 2026-10-23. Coinbase wants to start getting ramped up, he is assembling a document for them, and in his view Coinbase cannot get this on mainnet imminently. He also asked whether PFT itself could be the first NAVCoin with an ERC-20 form. Section 6 answers that.
 
@@ -29,7 +30,7 @@ This paper extends the "Interim path: PFT as an ERC-20" section of the [integrat
 
 **On PFTL's devnet.** The genesis constant is `GENESIS_NATIVE_SUPPLY_ATOMS = 1_000_000_000` (`crates/types/src/core_chain.rs:10`). Wallets show 1 PFT as 1,000,000 atoms, so the devnet holds 1,000 PFT; that decimal convention is not a Rust constant (`docs/listings/coinbase/comparisons.md:96-101`). Genesis is the only creation event, and NAV and bridge records cannot create native PFT. Native PFT has no asset id. PFTL is a controlled devnet, not a production mainnet (see also `OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`, `:69`, `docs/rpc/account-history.md:73`, `integration-plan.md:22-29`).
 
-**On Base or any other EVM chain.** Nowhere. No wrapped-PFT contract, proof profile or threat model exists (`integration-plan.md:729`). postfiat.org mentions no ERC-20, bridge or migration for PFT (postfiat.org, 2026-10-26).
+**On Base or any other EVM chain.** Nowhere yet. The token contract is written but not deployed (`crates/ethereum-contracts/src/PFTToken.sol`); no bridge, proof profile or threat model exists (`integration-plan.md:729`). postfiat.org mentions no ERC-20, bridge or migration for PFT (postfiat.org, 2026-10-26).
 
 **The supply number.** 100 billion PFT is a published target, "not a protocol artifact"; no production genesis, allocation table or vesting schedule exists (`integration-plan.md:99-105`). The 2026-10-23 handoff leaves the 100 billion target against the devnet's 1,000 PFT open (`docs/handoffs/2026-10-23___codex__chain_pr_merge_handoff.md:198-200`). Token migration from the PFT Ledger is out of scope of the launch spec and left to "a separate document", which does not exist (see also `docs/architecture/l1v2-testnet-genesis-and-launch-spec.md:27`, `:402`).
 
@@ -78,7 +79,7 @@ This is the Injective pattern (Coinbase help centre "Token delistings and migrat
 **Phase 1, now (about two days of engineering plus the audit).**
 
 - One fixed-supply ERC-20 PFT contract on Base, because it is Coinbase's own network and the simplest listing path, its fees are low, and a plain token needs none of our Ethereum-mainnet contracts (coinbase.com/listings, 2026-10-26).
-- Built from the OpenZeppelin `ERC20` and `ERC20Permit` libraries. OpenZeppelin is not vendored today; `foundry.toml` expects a `lib` directory (`crates/ethereum-contracts/foundry.toml:6`) and `.gitmodules` pins only `arc-node` and `sp1-contracts` (`.gitmodules:1-6`). I add it as a pinned submodule.
+- Built from the OpenZeppelin `ERC20` and `ERC20Permit` libraries, pinned as a submodule (`.gitmodules:7-9`) with its remapping in `crates/ethereum-contracts/foundry.toml`.
 - No mint after construction, no pause, no blacklist, no upgrade path and no admin role. That meets Coinbase's four criteria: verified source, standard libraries, no privileged participants, one simple contract (coinbase.com/listings, 2026-10-26).
 - Six decimals, the same unit as native PFT on PFTL (1 PFT = 1,000,000 atoms, `docs/listings/coinbase/comparisons.md:96-101`). One ERC-20 unit equals one atom, so the 1:1 bridge needs no conversion. Coinbase and wallets handle 6-decimal tokens routinely: USDC uses 6 decimals, and pfUSDC's bridge unit matches it (`docs/specs/pfusdc-arc-tier4-spec-20260828.md:47`).
 - The whole supply minted at construction to a multi-signature treasury, a Safe multisig on Base. It holds the product owner's keys with a threshold he sets, and is never a single key. The deployer key is used once and holds nothing afterwards.
@@ -132,7 +133,7 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 ## 10. What is being built
 
-1. The ERC-20 contract, its tests and a Base Sepolia deploy script are being written today in `crates/ethereum-contracts`. The deployment waits for the four decisions in section 9.
+1. The ERC-20 contract, its tests and the Base Sepolia deploy script exist (`crates/ethereum-contracts/src/PFTToken.sol`, `crates/ethereum-contracts/test/PFTToken.t.sol`, `crates/ethereum-contracts/script/DeployPFTToken.s.sol`). The deployment waits for the four decisions in section 9.
 2. Next, a one-page note for Coinbase built from Appendix A.
 3. Then the Phase 2 design note for the genesis external lane and the lock-and-release path.
 

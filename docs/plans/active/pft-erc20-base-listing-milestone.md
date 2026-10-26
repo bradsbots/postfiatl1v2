@@ -1,0 +1,83 @@
+# PFT as an ERC-20 on Base: the Coinbase listing path
+
+**Status:** Active. Priority one for this lane from 2026-10-26. Authorizes no Base mainnet deployment.
+**Date:** 2026-10-26
+**Source paper:** [ERC-20 options paper](../../listings/coinbase/pft-erc20-representation-options-20261026.md), Text Improvement Harness full gate 85.67 on 2026-10-26 after four passes. It is not yet locked as the research specification (M1).
+**Basis:** [Coinbase integration plan](../../listings/coinbase/integration-plan.md), interim path (`integration-plan.md:71-74`, `:719-739`)
+
+## BLUF
+
+PFT goes onto Coinbase first as a fixed-supply ERC-20 on Base, with six
+decimals, the unit of native PFT. A 1:1 bridge into native PFT opens at
+PFTL's mainnet genesis and never closes. The contract, its tests and the
+deploy script are on main (`ad5ba32f`). Base mainnet needs three things from
+the other lane: the token document with the four decisions, the audit, and
+the Safe. Phase 2 waits for the mainnet genesis plan. The estimates are mine,
+optimistic and without audit time: about two days for the token plus the
+audit, one to two weeks for the genesis bridge, and two weeks for the reverse
+bridge.
+
+Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
+
+## Phase 1 — the token on Base
+
+- [x] P1.1 *(this lane)* The contract, its tests and the deploy script (`ad5ba32f`).
+  - `crates/ethereum-contracts/src/PFTToken.sol`: the whole supply is minted once to the treasury, and `decimals()` is fixed at 6. It has no owner, admin, pause, blacklist or upgrade path.
+  - `crates/ethereum-contracts/test/PFTToken.t.sol`: 8 tests.
+  - `crates/ethereum-contracts/script/DeployPFTToken.s.sol`, with `script/pft-token.env.example`.
+- [x] P1.2 *(this lane)* The OpenZeppelin pin (`ad5ba32f`). The submodule `crates/ethereum-contracts/lib/openzeppelin-contracts` is at `cab19933` (`.gitmodules:7-9`), with its remapping in `crates/ethereum-contracts/foundry.toml` and the CI checkout in `.github/workflows/product-security-ci.yml`.
+- [ ] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/ethereum-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source.
+- [ ] P1.4 *(other lane)* The audit, including its budget and the vendor choice. For one contract of this size it typically takes one to three weeks of calendar time. To tick it: the report, with every finding closed.
+- [ ] P1.5 *(other lane)* The token document with the four decisions. To tick it: the published document.
+  - the total supply;
+  - the split at launch between the ERC-20 slice and genesis;
+  - the treatment of PFT already paid on the PFT Ledger;
+  - the treasury signers and threshold.
+- [ ] P1.6 *(other lane)* The Safe multisig on Base, with the other lane's keys. To tick it: the Safe address, its signers and its threshold.
+- [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the total supply.
+- [ ] P1.8 *(this lane)* Source verification on the Base block explorer. To tick it: the verified-source page.
+- [ ] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A. To tick it: the file in `docs/listings/coinbase/`.
+- [ ] P1.10 *(other lane, then Coinbase)* The answer to the listing package's first ask, which route to plan on (`integration-plan.md:741-743`). To tick it: the message sent and Coinbase's reply.
+
+## Phase 2 — the genesis bridge
+
+The order is the design note, then the code, then the qualification.
+
+- [ ] P2.1 *(this lane)* The design note. To tick it: the note in `docs/listings/coinbase/`. It covers:
+  - the genesis external lane (`docs/whitepaper.md:66-70`);
+  - the Base lock contract;
+  - the inbound release path on PFTL and its proof;
+  - the Base checkpoint source, which nothing in the repository provides today (paper, section 7).
+- [ ] P2.2 *(this lane)* The genesis external lane. Genesis reserves exactly the ERC-20 slice there, and the native supply invariant counts it (today it counts only live custody and fee burns, `docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:23`).
+- [ ] P2.3 *(this lane)* The Base lock contract, following `ERC20BridgeVaultL1` (`crates/ethereum-contracts/src/ERC20BridgeVaultL1.sol:6-16`), with no holder snapshot and no closing date.
+- [ ] P2.4 *(this lane)* The inbound release path on PFTL and its proof. It extends the BFT-checkpoint ingress (`docs/status/A666-PFUSDC-PRIVATE-SWAP-CURRENT-STATE-20260730.md:391`) with a Base checkpoint source. The SP1 ingress program is pinned to Sepolia (`programs/pfusdc-eth-ingress/src/lib.rs:19`, `:91`).
+- [ ] P2.5 *(this lane)* Its own qualification before genesis: tests, a devnet run, and an audit of the lock contract. To tick it: the qualification record.
+
+## Phase 3 — the reverse export route (optional)
+
+- [ ] P3.1 *(this lane)* Export native PFT as the same ERC-20, released from the Base lock contract. This needs the export route generalised beyond NAV assets (`crates/execution/src/nav_vault_asset_execution.rs:6470-6477`), and the PFTL finality verifier and relay deployed on Base.
+
+## Mandate deliverables (AGENTS.md)
+
+- [ ] M1 *(this lane)* Lock the source paper as the research specification at 86 or above on the full gate, requested as a Task Node task. It stood at 85.67 on 2026-10-26.
+- [ ] M2 *(this lane)* A Python CLI that reads the token's state: address, total supply, decimals and treasury balance.
+- [ ] M3 *(this lane)* A user-facing interface that consumes the CLI output.
+- [ ] M4 *(this lane)* Retire this document into `docs/plans/completed/` and document the token in the existing documentation.
+
+## Not before
+
+- Nothing is deployed to Base mainnet before the token document (P1.5) and the audit (P1.4).
+- Nothing in Phase 2 starts before the mainnet genesis plan exists.
+
+## Does not change
+
+- **Consensus.** Ordering, certificates and Cobalt stay as they are. Phase 1 is a contract on Base. Phase 2's genesis lane and release path are additions that get their own qualification (P2.5).
+- **The NAVCoin stack.** NAVCoins stay issued assets beside PFT (paper, section 6).
+- **Native PFT's genesis-only creation.** The external lane reserves supply at genesis, and nothing creates PFT later (`docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`).
+
+## References
+
+- [ERC-20 options paper](../../listings/coinbase/pft-erc20-representation-options-20261026.md)
+- [Coinbase integration plan](../../listings/coinbase/integration-plan.md)
+- `crates/ethereum-contracts/README.md` (the PFT token section)
+- `AGENTS.md` (the research specification lock, the CLI and interface, retirement)

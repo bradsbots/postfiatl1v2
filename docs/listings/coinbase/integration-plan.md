@@ -70,7 +70,7 @@ All repository links in this document point to the public GitHub repository.
    Section 5 states the trust assumptions for both.
 5. **Interim path.** Until native PFT can be held in Coinbase custody, PFT
    comes as a fixed-supply ERC-20 on Base, Coinbase's own network, which
-   bridges into native PFT at mainnet. The contract is being written; section
+   bridges into native PFT at mainnet. The token contract now exists; section
    8 states the trust model and links the paper that settles the path.
 
 ## 2. What Post Fiat L1 is
