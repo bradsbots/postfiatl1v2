@@ -3436,14 +3436,14 @@ def _node_bin() -> list[str]:
     binary = REPO_ROOT / "target" / "debug" / "postfiat-node"
     if binary.exists():
         return [str(binary)]
-    return ["cargo", "run", "-p", "postfiat-node", "--"]
+    return ["cargo", "run", "-p", "postfiat-node", "--bin", "postfiat-node", "--"]
 
 
 def _sdk_bin() -> list[str]:
     binary = REPO_ROOT / "target" / "debug" / "postfiat-rpc-sdk"
     if binary.exists():
         return [str(binary)]
-    return ["cargo", "run", "-p", "postfiat-rpc-sdk", "--"]
+    return ["cargo", "run", "-p", "postfiat-rpc-sdk", "--bin", "postfiat-rpc-sdk", "--"]
 
 
 def _work_dir(work_dir: str | Path | None) -> Path:
