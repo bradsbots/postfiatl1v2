@@ -265,6 +265,7 @@ use postfiat_types::{
 use postfiat_types::{AtomicSwapAuthorization, AtomicSwapLeg, UnsignedAtomicSwapTransaction};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
+pub mod block_vote_records;
 pub mod cobalt_authority_certificate;
 pub mod cobalt_e5_live_drill;
 pub mod cobalt_handoff;

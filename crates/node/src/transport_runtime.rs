@@ -2802,6 +2802,208 @@ pub(super) fn transport_certified_batch_round(
     })
 }
 
+static PENDING_BLOCK_VOTE_RECORDS: Mutex<Vec<std::thread::JoinHandle<()>>> = Mutex::new(Vec::new());
+
+/// Joins the vote-record writers that still wait for late answers. The CLI
+/// calls this before it exits; a long-running service lets them finish.
+pub(super) fn wait_for_pending_block_vote_records() {
+    let handles = match PENDING_BLOCK_VOTE_RECORDS.lock() {
+        Ok(mut pending) => std::mem::take(&mut *pending),
+        Err(poisoned) => std::mem::take(&mut *poisoned.into_inner()),
+    };
+    for handle in handles {
+        let _ = handle.join();
+    }
+}
+
+#[derive(Debug, Clone)]
+struct BlockVoteObservation {
+    outcome: postfiat_node::block_vote_records::BlockVoteOutcome,
+    vote_id: Option<String>,
+    refusal_class: Option<String>,
+    duration_ms: f64,
+}
+
+/// An answered request is an accepted vote or a refusal; a request that got no
+/// validator answer (connect, read or parse failure) is `no_answer`.
+fn observe_block_vote_request(
+    target: &str,
+    result: &Result<TransportBlockVoteRequestReport, String>,
+    duration_ms: f64,
+) -> BlockVoteObservation {
+    use postfiat_node::block_vote_records::{vote_refusal_class, BlockVoteOutcome};
+    let (outcome, vote_id, refusal_class) = match result {
+        Ok(report) if report.response.vote.vote.validator != target => (
+            BlockVoteOutcome::Refused,
+            None,
+            Some("invalid_vote_response".to_string()),
+        ),
+        Ok(report) if !report.response.vote.vote.accept => (
+            BlockVoteOutcome::Refused,
+            None,
+            Some("vote_not_accepted".to_string()),
+        ),
+        Ok(report) => (
+            BlockVoteOutcome::Accepted,
+            Some(report.response.vote.vote.vote_id.clone()),
+            None,
+        ),
+        Err(error) if error.contains("transport block vote rejected by") => (
+            BlockVoteOutcome::Refused,
+            None,
+            Some(vote_refusal_class(error)),
+        ),
+        Err(_) => (BlockVoteOutcome::NoAnswer, None, None),
+    };
+    BlockVoteObservation {
+        outcome,
+        vote_id,
+        refusal_class,
+        duration_ms,
+    }
+}
+
+struct RoundBlockVoteRecordInput {
+    data_dir: PathBuf,
+    chain_id: String,
+    block_height: u64,
+    view: u64,
+    block_hash: String,
+    certificate_id: String,
+    proposer: String,
+    proposer_vote_id: String,
+    quorum: usize,
+    required_remote_vote_count: usize,
+    requested_peers: Vec<String>,
+    round_deadline_ms: u64,
+    deadline: Instant,
+    observations: BTreeMap<String, BlockVoteObservation>,
+    late_vote_receiver: Option<mpsc::Receiver<TransportPeerVoteRequestOutcome>>,
+}
+
+/// Writes the height's vote record now when every request has answered, or
+/// from a background writer that waits for late answers until the round
+/// deadline, so the round itself never waits for them.
+fn record_round_block_votes(input: RoundBlockVoteRecordInput) -> String {
+    let waits_for_late_votes = input.late_vote_receiver.is_some()
+        && input
+            .requested_peers
+            .iter()
+            .any(|peer| !input.observations.contains_key(peer));
+    if !waits_for_late_votes {
+        return finish_round_block_vote_record(input);
+    }
+    let handle = std::thread::spawn(move || {
+        let _ = finish_round_block_vote_record(input);
+    });
+    let mut pending = match PENDING_BLOCK_VOTE_RECORDS.lock() {
+        Ok(pending) => pending,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    pending.retain(|writer| !writer.is_finished());
+    pending.push(handle);
+    "pending_late_votes".to_string()
+}
+
+fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> String {
+    use postfiat_node::block_vote_records::{
+        write_block_vote_record, BlockVoteOutcome, BlockVoteRecord, BlockVoteRecordEntry,
+        BLOCK_VOTE_RECORD_SCHEMA,
+    };
+    // The quorum formed when the last vote it needed arrived.
+    let mut accepted_ms = input
+        .observations
+        .values()
+        .filter(|observation| observation.outcome == BlockVoteOutcome::Accepted)
+        .map(|observation| observation.duration_ms)
+        .collect::<Vec<_>>();
+    accepted_ms.sort_by(f64::total_cmp);
+    let quorum_ms = match input.required_remote_vote_count {
+        0 => 0.0,
+        count => accepted_ms.get(count - 1).copied().unwrap_or(f64::INFINITY),
+    };
+    let mut late = BTreeSet::new();
+    if let Some(receiver) = input.late_vote_receiver.take() {
+        while input
+            .requested_peers
+            .iter()
+            .any(|peer| !input.observations.contains_key(peer))
+        {
+            let remaining = input.deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                break;
+            }
+            match receiver.recv_timeout(remaining) {
+                Ok(outcome) => {
+                    let observation = observe_block_vote_request(
+                        &outcome.target,
+                        &outcome.result,
+                        outcome.duration_ms,
+                    );
+                    late.insert(outcome.target.clone());
+                    input.observations.insert(outcome.target, observation);
+                }
+                Err(_) => break,
+            }
+        }
+    }
+    let mut entries = vec![BlockVoteRecordEntry {
+        validator: input.proposer.clone(),
+        outcome: BlockVoteOutcome::Accepted,
+        vote_id: Some(input.proposer_vote_id.clone()),
+        refusal_class: None,
+        answered_after_quorum: false,
+    }];
+    for peer in &input.requested_peers {
+        let entry = match input.observations.get(peer) {
+            Some(observation)
+                if observation.outcome != BlockVoteOutcome::NoAnswer
+                    && observation.duration_ms <= input.round_deadline_ms as f64 =>
+            {
+                BlockVoteRecordEntry {
+                    validator: peer.clone(),
+                    outcome: observation.outcome,
+                    vote_id: observation.vote_id.clone(),
+                    refusal_class: observation.refusal_class.clone(),
+                    answered_after_quorum: late.contains(peer)
+                        || observation.duration_ms > quorum_ms,
+                }
+            }
+            _ => BlockVoteRecordEntry {
+                validator: peer.clone(),
+                outcome: BlockVoteOutcome::NoAnswer,
+                vote_id: None,
+                refusal_class: None,
+                answered_after_quorum: false,
+            },
+        };
+        entries.push(entry);
+    }
+    entries.sort_by(|left, right| left.validator.cmp(&right.validator));
+    let record = BlockVoteRecord {
+        schema: BLOCK_VOTE_RECORD_SCHEMA.to_string(),
+        chain_id: input.chain_id,
+        block_height: input.block_height,
+        view: input.view,
+        block_hash: input.block_hash,
+        certificate_id: input.certificate_id,
+        proposer: input.proposer,
+        quorum: input.quorum,
+        round_deadline_ms: input.round_deadline_ms,
+        entries,
+    };
+    match write_block_vote_record(&input.data_dir, &record) {
+        Ok(write) => write.label(),
+        Err(error) => {
+            eprintln!(
+                "block vote record left unwritten at height {}: {error}",
+                record.block_height
+            );
+            format!("failed:{error}")
+        }
+    }
+}
+
 pub(super) fn transport_peer_certified_batch_round(
     options: TransportPeerCertifiedBatchRoundOptions,
 ) -> Result<TransportPeerCertifiedBatchRoundReport, String> {
@@ -3090,6 +3292,9 @@ pub(super) fn transport_peer_certified_batch_round(
     let vote_requests_start = Instant::now();
     let quorum_early_vote_collection =
         options.allow_peer_failures || options.quorum_early_full_propagation;
+    // Vote requests still open at the quorum keep running; the vote record
+    // collects their answers up to the round deadline (SCT-08 item 4).
+    let mut late_vote_receiver = None;
     let vote_request_outcomes = if quorum_early_vote_collection {
         let (sender, receiver) = mpsc::channel();
         let mut pending = targets.iter().cloned().collect::<BTreeSet<_>>();
@@ -3167,6 +3372,7 @@ pub(super) fn transport_peer_certified_batch_round(
             }
         }
         unresolved_vote_targets = pending.into_iter().collect();
+        late_vote_receiver = Some(receiver);
         outcomes
     } else {
         std::thread::scope(|scope| {
@@ -3239,7 +3445,12 @@ pub(super) fn transport_peer_certified_batch_round(
     let mut consensus_v2_prepare_votes = local_consensus_v2_prepare_vote
         .into_iter()
         .collect::<Vec<_>>();
+    let mut vote_observations = BTreeMap::new();
     for outcome in vote_request_outcomes {
+        vote_observations.insert(
+            outcome.target.clone(),
+            observe_block_vote_request(&outcome.target, &outcome.result, outcome.duration_ms),
+        );
         let request = match outcome.result {
             Ok(request) => request,
             Err(error) => {
@@ -3709,6 +3920,32 @@ pub(super) fn transport_peer_certified_batch_round(
     })?;
     let outbox_maintenance_ms = monotonic_elapsed_ms(outbox_maintenance_start);
 
+    // SCT-08 item 4: after the block and its receipts are durable, keep each
+    // requested validator's vote outcome. Never fails the round.
+    let block_vote_record = if local_state.block_height == certification.block_height
+        && local_state.block_tip_hash != "genesis"
+    {
+        record_round_block_votes(RoundBlockVoteRecordInput {
+            data_dir: options.data_dir.clone(),
+            chain_id: certification.chain_id.clone(),
+            block_height: certification.block_height,
+            view: certification.view,
+            block_hash: local_state.block_tip_hash.clone(),
+            certificate_id: certification.certificate_id.clone(),
+            proposer: local_status.node_id.clone(),
+            proposer_vote_id: local_vote.vote.vote_id.clone(),
+            quorum: certificate.certificate.quorum,
+            required_remote_vote_count,
+            requested_peers: targets.clone(),
+            round_deadline_ms: options.timeout_ms,
+            deadline: vote_requests_start + Duration::from_millis(options.timeout_ms),
+            observations: vote_observations,
+            late_vote_receiver,
+        })
+    } else {
+        "not_recorded:local_apply_missing".to_string()
+    };
+
     let local_hot_finality = transport_hot_finality_reports(
         &topology,
         &proposal,
@@ -3866,6 +4103,7 @@ pub(super) fn transport_peer_certified_batch_round(
         local_apply_before_certified_send: options.local_apply_before_certified_send,
         certified_sends_deferred: options.defer_certified_sends,
         deferred_certified_send_jobs,
+        block_vote_record,
         certification,
         local_vote_file: local_vote_file.display().to_string(),
         vote_requests,

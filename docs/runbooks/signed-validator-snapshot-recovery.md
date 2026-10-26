@@ -97,3 +97,44 @@ fails, keep transport disabled, stop the replacement, preserve its logs and
 directory, and return traffic to the still-fenced known-good validator. Never
 edit the signed snapshot to make import pass; create a new signed export after
 the source problem is understood.
+
+## Vote outcome records (SCT-08 item 4)
+
+For the native reliability input
+([decision](../review/sct08-evidence-campaign-20261023.md#decision-the-native-reliability-input-2026-10-23)),
+the proposer of each certified batch round keeps one vote record per
+finalized height:
+
+```text
+<data-dir>/block-vote-records/height-<20-digit height>.json
+```
+
+Each record (`postfiat.block_vote_record.v1`) names the height, view, block
+hash, certificate ID, proposer, quorum and round deadline (`--timeout-ms`),
+and has one entry per validator the round asked, the proposer included:
+
+- `accepted` with its `vote_id`;
+- `refused` with a `refusal_class`, the validator's reason without paths or
+  quoted values;
+- `no_answer`: no vote reached the proposer by the round deadline.
+
+`answered_after_quorum` marks an answer that arrived after the last vote the
+quorum needed. In a quorum-early round (`--allow-peer-failures` or
+`--quorum-early-full-propagation`), such a vote is recorded but is not in the
+certificate. Only the
+proposer writes the record, after the block and its receipts are durable.
+Each validator therefore holds the records of the heights it proposed. A
+record is written once: a restart never rewrites it, and a failed write never
+fails the round. A height without a record is **not available**; the
+reliability window then holds on `missing_reliability`.
+
+Per validator, count accepted votes over a window of records:
+
+```bash
+jq -r '.entries[] | select(.outcome == "accepted") | .validator' \
+  /var/lib/postfiat/validator-0/block-vote-records/height-*.json | sort | uniq -c
+```
+
+**Not yet in the signed snapshot.** `snapshot-export-signed` does not carry
+these records yet; adding them needs a new snapshot version (follow-up). Until
+then, read them from each validator's data directory.

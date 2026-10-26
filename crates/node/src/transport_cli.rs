@@ -2762,6 +2762,9 @@ struct TransportPeerCertifiedBatchRoundReport {
     local_apply_before_certified_send: bool,
     certified_sends_deferred: bool,
     deferred_certified_send_jobs: Vec<TransportPeerDeferredSendJobReport>,
+    /// SCT-08 item 4 vote record write: `written`, `already_recorded`,
+    /// `pending_late_votes`, `conflict_kept_existing:<hash>` or `failed:<error>`.
+    block_vote_record: String,
     certification: BatchCertificateRoundReport,
     local_vote_file: String,
     vote_requests: Vec<TransportBlockVoteRequestReport>,

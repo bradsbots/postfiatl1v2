@@ -355,6 +355,8 @@ fn main() {
     let is_rpc = args.first().is_some_and(|command| command == "rpc");
     let is_rpc_probe = args.first().is_some_and(|command| command == "rpc-probe");
     let result = run_cli(args.clone());
+    // A round's vote record may still wait for late answers (SCT-08 item 4).
+    transport_runtime::wait_for_pending_block_vote_records();
     let close_result =
         postfiat_storage::transactional::release_inactive_shared_transactional_stores()
             .map_err(|error| format!("transactional storage clean shutdown failed: {error}"));

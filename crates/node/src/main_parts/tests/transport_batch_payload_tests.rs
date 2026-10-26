@@ -1608,6 +1608,319 @@ mod transport_batch_payload_tests {
         std::fs::remove_dir_all(&fleet.root).expect("cleanup no self-delivery fleet");
     }
 
+    /// Forwards one validator's transport port and holds back every reply
+    /// chunk, so that validator answers its vote request after the quorum.
+    fn spawn_delayed_transport_proxy(
+        upstream_port: u16,
+        delay: Duration,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> u16 {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind delayed proxy");
+        let port = listener.local_addr().expect("delayed proxy address").port();
+        listener
+            .set_nonblocking(true)
+            .expect("nonblocking delayed proxy");
+        std::thread::spawn(move || {
+            while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+                let client = match listener.accept() {
+                    Ok((client, _)) => client,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(_) => break,
+                };
+                client.set_nonblocking(false).expect("blocking proxy client");
+                let Ok(upstream) = TcpStream::connect(("127.0.0.1", upstream_port)) else {
+                    continue;
+                };
+                let client_reader = client.try_clone().expect("clone proxy client");
+                let upstream_writer = upstream.try_clone().expect("clone proxy upstream");
+                std::thread::spawn(move || {
+                    let _ = io::copy(&mut &client_reader, &mut &upstream_writer);
+                    let _ = upstream_writer.shutdown(std::net::Shutdown::Write);
+                });
+                std::thread::spawn(move || {
+                    let mut upstream = upstream;
+                    let mut client = client;
+                    let mut buffer = [0u8; 64 * 1024];
+                    loop {
+                        match upstream.read(&mut buffer) {
+                            Ok(0) | Err(_) => break,
+                            Ok(count) => {
+                                std::thread::sleep(delay);
+                                if client.write_all(&buffer[..count]).is_err() {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    let _ = client.shutdown(std::net::Shutdown::Write);
+                });
+            }
+        });
+        port
+    }
+
+    /// Answers every request on one validator's address with the rejection a
+    /// validator service sends when it refuses a vote (same schema and fields
+    /// as `transport_validator_rejection`).
+    fn spawn_refusing_transport_peer(
+        node_id: String,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    ) -> u16 {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind refusing peer");
+        let port = listener.local_addr().expect("refusing peer address").port();
+        listener
+            .set_nonblocking(true)
+            .expect("nonblocking refusing peer");
+        std::thread::spawn(move || {
+            while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+                let stream = match listener.accept() {
+                    Ok((stream, _)) => stream,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                        continue;
+                    }
+                    Err(_) => break,
+                };
+                stream.set_nonblocking(false).expect("blocking refusing stream");
+                let mut request = String::new();
+                if BufReader::new(stream.try_clone().expect("clone refusing stream"))
+                    .read_line(&mut request)
+                    .is_err()
+                {
+                    continue;
+                }
+                let rejection = serde_json::json!({
+                    "schema": "postfiat-transport-validator-serve-rejection-v1",
+                    "node_id": node_id,
+                    "topology_id": "refusing-peer",
+                    "connection_index": 1,
+                    "kind": "block_vote_request",
+                    "error": "transport block vote signing failed: conflicting block proposal vote already recorded",
+                    "state": {
+                        "schema": TRANSPORT_HELLO_SCHEMA,
+                        "node_id": node_id,
+                        "topology_id": "refusing-peer",
+                        "chain_id": "postfiat-consensus-v2-transport-test",
+                        "genesis_hash": "refusing-peer",
+                        "protocol_version": 1,
+                        "state_root": "refusing-peer",
+                        "block_height": 0,
+                        "block_tip_hash": "genesis"
+                    }
+                });
+                let mut stream = stream;
+                let _ = stream.write_all(format!("{rejection}\n").as_bytes());
+            }
+        });
+        port
+    }
+
+    /// SCT-08 item 4: the proposer keeps one vote outcome per requested
+    /// validator for the finalized height: accepted votes with their ids, a
+    /// refusal with its reason class, a validator that never answers, and a
+    /// vote that arrives after the quorum.
+    #[test]
+    fn peer_round_keeps_a_vote_outcome_record_for_every_requested_validator() {
+        let _guard = CONSENSUS_V2_TRANSPORT_TEST_LOCK.lock().expect("test lock");
+        prewarm_shielded_verifier_cache("vote record test").expect("prewarm");
+        // Ten validators: a quorum of seven still forms with one refusing,
+        // one silent and one late validator.
+        let fleet = consensus_v2_transport_fleet("certified-round-vote-records", 10, None);
+        let ids = fleet.validators.validator_ids();
+        let proposer = postfiat_ordering_fast::leader_for_view(&ids, 1, 0).expect("proposer");
+        let proposer_index = ids
+            .iter()
+            .position(|validator| validator == &proposer)
+            .expect("proposer index");
+        let silent_index = (proposer_index + 1) % ids.len();
+        let late_index = (proposer_index + 2) % ids.len();
+        let refusing_index = (proposer_index + 3) % ids.len();
+        let silent = ids[silent_index].clone();
+        let late = ids[late_index].clone();
+        let refusing = ids[refusing_index].clone();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let refusing_port = spawn_refusing_transport_peer(refusing.clone(), stop.clone());
+        let late_port = fleet.listeners[late_index]
+            .local_addr()
+            .expect("late validator port")
+            .port();
+        let proxy_port =
+            spawn_delayed_transport_proxy(late_port, Duration::from_millis(1_500), stop.clone());
+        let closed_port = TcpListener::bind(("127.0.0.1", 0))
+            .and_then(|listener| listener.local_addr())
+            .expect("pick a closed port")
+            .port();
+        let mut topology_json: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&fleet.topology_file).expect("read topology"),
+        )
+        .expect("parse topology");
+        for peer in topology_json["peers"]
+            .as_array_mut()
+            .expect("topology peers")
+            .iter_mut()
+        {
+            if peer["node_id"] == silent.as_str() {
+                peer["p2p_port"] = serde_json::json!(closed_port);
+            } else if peer["node_id"] == late.as_str() {
+                peer["p2p_port"] = serde_json::json!(proxy_port);
+            } else if peer["node_id"] == refusing.as_str() {
+                peer["p2p_port"] = serde_json::json!(refusing_port);
+            }
+        }
+        std::fs::write(
+            &fleet.topology_file,
+            serde_json::to_vec_pretty(&topology_json).expect("serialize topology"),
+        )
+        .expect("write topology");
+
+        let mut handles = Vec::new();
+        for (index, data_dir) in fleet.data_dirs.iter().enumerate() {
+            if index == proposer_index || index == silent_index || index == refusing_index {
+                continue;
+            }
+            let data_dir = data_dir.clone();
+            let topology_file = fleet.topology_file.clone();
+            let listener = fleet.listeners[index]
+                .try_clone()
+                .expect("clone reserved listener");
+            let stop = stop.clone();
+            handles.push(std::thread::spawn(move || {
+                crate::transport_runtime::transport_validator_serve_inner(
+                    data_dir.clone(),
+                    topology_file,
+                    data_dir.join(VALIDATOR_KEYS_FILE),
+                    data_dir.join("vote-record-transport-votes"),
+                    Some("127.0.0.1".to_string()),
+                    16,
+                    15_000,
+                    None,
+                    true,
+                    Some(TransportShieldedVerifierPrewarmReport {
+                        schema: "postfiat-transport-shielded-verifier-prewarm-v1".to_string(),
+                        requested: true,
+                        total_ms: 0.0,
+                        asset_orchard_swap_verifier_warm: true,
+                        asset_orchard_swap_verifier_ms: Some(0.0),
+                        asset_orchard_private_egress_verifier_warm: true,
+                        asset_orchard_private_egress_verifier_ms: Some(0.0),
+                        asset_orchard_private_egress_verifier_breakdown: None,
+                    }),
+                    Some(listener),
+                    &stop,
+                )
+            }));
+        }
+
+        let proposer_dir = fleet.data_dirs[proposer_index].clone();
+        let batch = fleet.root.join("height-1.batch.json");
+        create_transfer_batch(BatchTransferOptions {
+            data_dir: proposer_dir.clone(),
+            key_file: Some(fleet.data_dirs[0].join("faucet_key.json")),
+            to: format!("pf{}", "f".repeat(40)),
+            amount: 1_000_000,
+            batch_file: batch.clone(),
+        })
+        .expect("transfer batch");
+        let report =
+            transport_peer_certified_batch_round(TransportPeerCertifiedBatchRoundOptions {
+                data_dir: proposer_dir.clone(),
+                topology_file: fleet.topology_file.clone(),
+                batch_kind: Some("transparent".to_string()),
+                batch_file: batch,
+                key_file: proposer_dir.join(VALIDATOR_KEYS_FILE),
+                proposal_key_file: Some(proposer_dir.join(VALIDATOR_KEYS_FILE)),
+                require_local_proposer: true,
+                require_signed_proposal: true,
+                allow_peer_failures: true,
+                quorum_early_full_propagation: false,
+                artifact_dir: fleet.root.join("height-1-artifacts"),
+                block_height: Some(1),
+                view: Some(0),
+                timeout_certificate_file: None,
+                timeout_ms: 15_000,
+                send_retries: 1,
+                retry_backoff_ms: 50,
+                local_apply_before_certified_send: false,
+                defer_certified_sends: false,
+                commit_processed_dir: None,
+                required_parent: None,
+            })
+            .expect("round with one refusing, one silent and one late validator");
+        assert!(report.round_ok, "send_failures={:?}", report.send_failures);
+        crate::transport_runtime::wait_for_pending_block_vote_records();
+        clear_transport_vote_stream_pool_for_test().expect("close persistent streams");
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        for handle in handles {
+            let _ = handle.join();
+        }
+
+        let certificate: BlockCertificateFile = read_transport_json_file(
+            Path::new(&report.certification.certificate_file),
+            "round certificate",
+        )
+        .expect("read certificate");
+        let proposer_status = status(NodeOptions {
+            data_dir: proposer_dir.clone(),
+        })
+        .expect("proposer status");
+        let record = postfiat_node::block_vote_records::read_block_vote_record(&proposer_dir, 1)
+            .expect("read vote record")
+            .expect("the finalized height has a vote record");
+        assert_eq!(record.block_hash, proposer_status.block_tip_hash);
+        assert_eq!(record.certificate_id, report.certification.certificate_id);
+        assert_eq!(record.proposer, proposer);
+        assert_eq!(record.round_deadline_ms, 15_000);
+        assert_eq!(
+            record
+                .entries
+                .iter()
+                .map(|entry| entry.validator.clone())
+                .collect::<Vec<_>>(),
+            ids
+        );
+        use postfiat_node::block_vote_records::BlockVoteOutcome;
+        for entry in &record.entries {
+            if entry.validator == silent {
+                assert_eq!(entry.outcome, BlockVoteOutcome::NoAnswer, "{entry:?}");
+                assert!(entry.vote_id.is_none());
+                continue;
+            }
+            if entry.validator == refusing {
+                assert_eq!(entry.outcome, BlockVoteOutcome::Refused, "{entry:?}");
+                assert_eq!(
+                    entry.refusal_class.as_deref(),
+                    Some("conflicting_block_proposal_vote_already_recorded")
+                );
+                assert!(entry.vote_id.is_none());
+                continue;
+            }
+            assert_eq!(entry.outcome, BlockVoteOutcome::Accepted, "{entry:?}");
+            assert_eq!(entry.answered_after_quorum, entry.validator == late, "{entry:?}");
+            let certificate_vote = certificate
+                .certificate
+                .votes
+                .iter()
+                .find(|vote| vote.validator == entry.validator);
+            if entry.validator == late {
+                assert!(
+                    certificate_vote.is_none(),
+                    "a vote after the quorum is not in the certificate"
+                );
+                assert!(entry.vote_id.as_deref().is_some_and(|id| !id.is_empty()));
+            } else {
+                assert_eq!(
+                    entry.vote_id.as_deref(),
+                    certificate_vote.map(|vote| vote.vote_id.as_str()),
+                    "{entry:?}"
+                );
+            }
+        }
+        std::fs::remove_dir_all(&fleet.root).expect("cleanup vote record fleet");
+    }
+
     #[test]
     fn certified_transport_payload_commits_batch_kind() {
         let payload_json = r#"{"schema":"test-batch","batch_id":"batch-1"}"#;
