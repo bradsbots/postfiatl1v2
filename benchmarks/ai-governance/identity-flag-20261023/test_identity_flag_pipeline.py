@@ -545,12 +545,14 @@ def test_admissibility_cli_writes_both_artifacts(round28, tmp_path, capsys):
     args += ["--section", str(section)]
     for index, run in enumerate(make_runs(requests, all_flag)):
         path = tmp_path / f"run{index}.json"
-        path.write_text(json.dumps({"results": run["results"]}))
+        host = {"owner": run["owner"], "provider_host_id": f"host-{run['owner']}", "run_index": index % 2 + 1}
+        path.write_text(json.dumps({"host": host, "results": run["results"]}))
         args += ["--run", f"{run['owner']}={path}"]
     capsys.readouterr()
     assert admissibility.main(args) == 0
     printed = json.loads(capsys.readouterr().out)
     assert printed["flags"] == 0 and printed["packet_coverage"]["missing_packet"] == 41
+    assert printed["run_file_problems"] == [] and printed["counts_by_class"]["admissible"] == 20
     flags = json.loads((tmp_path / "out/flags.json").read_text())
     assert flags["shadow_only"] is True and len(flags["operators"]) == 61
     assert (tmp_path / "out/admissibility.json").exists()

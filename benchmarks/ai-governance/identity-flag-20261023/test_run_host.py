@@ -313,3 +313,90 @@ def test_runner_pins_are_the_package_and_spec_pins():
     runner_sha = pl.file_sha256(HERE / "run_host.py")
     assert runner_sha not in json.dumps(pl.manifest_section()) and "run_host" not in json.dumps(pl.execution_profile())
     assert "**Decision, 2026-10-26.**" in readme
+
+
+# --- run-file owners, run indexes and provider hosts (spec §5, §9) -----------------
+
+@pytest.fixture(scope="module")
+def worked_round(tmp_path_factory):
+    """The worked example as a round file, its request rows, and four clean run files from the runner."""
+    data, _ = worked_packets()
+    score_zero = {r["validator_id"] for r in data["validators"] if r["legitimacy_score"] == 0}
+    tmp = tmp_path_factory.mktemp("worked_round")
+    round_path = tmp / "round.json"
+    round_path.write_text(json.dumps({"round": WORKED_ROUND, "candidates": [
+        {key: r[key] for key in ("validator_id", "domain_verified", "network", "packet_path", "packet_sha256")}
+        for r in data["validators"]]}))
+    requests_path = tmp / "requests.json"
+    assert admissibility.main(["--round", str(round_path), "--requests-out", str(requests_path)]) == 0
+    rows = json.loads(requests_path.read_text())
+    decide = lambda vid: "flag" if vid in score_zero else "clear"  # noqa: E731
+    paths = four_runs(requests_path, tmp / "outputs",
+                      {owner: StubBackend(rows, decide) for owner in ("ownerA", "ownerB")})
+    section = tmp / "section.json"
+    section.write_text(json.dumps(pl.manifest_section()))
+    return round_path, section, paths
+
+
+def run_admissibility(worked_round, tmp_path, capsys, runs) -> tuple[dict, dict]:
+    """``admissibility.py`` over ``runs = [(owner_label, path)]``; returns the printed summary and admissibility.json."""
+    round_path, section, _ = worked_round
+    args = ["--round", str(round_path), "--section", str(section), "--out", str(tmp_path / "out")]
+    for owner, path in runs:
+        args += ["--run", f"{owner}={path}"]
+    capsys.readouterr()
+    assert admissibility.main(args) == 0
+    return json.loads(capsys.readouterr().out), json.loads((tmp_path / "out/admissibility.json").read_text())
+
+
+def clean_runs(worked_round) -> list:
+    return [(owner, path) for owner, paths in worked_round[2].items() for path in paths]
+
+
+def assert_outage(printed: dict, adm: dict, problem: str) -> None:
+    assert printed["flags"] == 0 and adm["outage"] is True
+    assert printed["counts_by_class"]["outage"] == 55 and printed["counts_by_class"]["admissible"] == 0
+    assert any(problem in line for line in printed["run_file_problems"]), printed["run_file_problems"]
+
+
+def test_four_clean_run_files_give_the_fixture_flags(worked_round, tmp_path, capsys):
+    printed, adm = run_admissibility(worked_round, tmp_path, capsys, clean_runs(worked_round))
+    assert printed["flags"] == 13 and printed["run_file_problems"] == [] and adm["outage"] is False
+
+
+def test_owner_label_that_differs_from_the_files_host_owner_is_an_outage(worked_round, tmp_path, capsys):
+    (a1, a2), (b1, b2) = worked_round[2]["ownerA"], worked_round[2]["ownerB"]
+    swapped = [("ownerA", a1), ("ownerB", a2), ("ownerA", b1), ("ownerB", b2)]
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, swapped), "host.owner")
+
+
+def test_same_provider_host_id_across_owners_is_an_outage(worked_round, tmp_path, capsys):
+    runs = []
+    for owner, path in clean_runs(worked_round):
+        record = json.loads(path.read_text())
+        record["host"]["provider_host_id"] = "445596"
+        copy = tmp_path / path.name
+        copy.write_text(json.dumps(record))
+        runs.append((owner, copy))
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, runs), "provider host")
+
+
+def test_duplicated_or_out_of_range_run_index_is_an_outage(worked_round, tmp_path, capsys):
+    (a1, _a2), (b1, b2) = worked_round[2]["ownerA"], worked_round[2]["ownerB"]
+    duplicated = [("ownerA", a1), ("ownerA", a1), ("ownerB", b1), ("ownerB", b2)]
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, duplicated), "run index")
+    record = json.loads(b2.read_text())
+    record["host"]["run_index"] = 3
+    out_of_range = tmp_path / "ownerB-run3.json"
+    out_of_range.write_text(json.dumps(record))
+    runs = [("ownerA", a1), ("ownerA", _a2), ("ownerB", b1), ("ownerB", out_of_range)]
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, runs), "run index")
+
+
+def test_run_file_without_a_host_record_is_an_outage(worked_round, tmp_path, capsys):
+    runs = []
+    for owner, path in clean_runs(worked_round):
+        copy = tmp_path / path.name
+        copy.write_text(json.dumps({"results": json.loads(path.read_text())["results"]}))
+        runs.append((owner, copy))
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, runs), "host")

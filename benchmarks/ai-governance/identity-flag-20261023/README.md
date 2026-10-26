@@ -35,8 +35,9 @@ Only `run_host.py` calls a model, on a GPU host. No GPU run has used it yet.
   packet, a missing slot, a divergent slot, a truncated or invalid response, a
   wrong echo, a run that replayed other request bytes, and a packet outside the
   frozen packet set. These cases give zero flags for the round: an outage (not
-  exactly two owners × two runs), a manifest section that differs from the
-  package's, and a changed sub-scorer or entry-profile file.
+  exactly two owners × two runs, or a run file that fails the checks under
+  [Run](#run)), a manifest section that differs from the package's, and a
+  changed sub-scorer or entry-profile file.
 - **Padding slots.** The spec requires that a divergent padding slot voids its
   batch. The skeleton applies the same rule to a padding slot that is
   inadmissible for any reason. A voided operator takes the padding slot's class,
@@ -86,7 +87,16 @@ python3 admissibility.py --round round.json --section section.json --out out/ \
 Each `results` row has `slot`, `request_sha256`, `content` and `finish_reason`,
 plus `content_sha256` and `slot_check`. A truncated or invalid reply is written as
 received. The `host` record holds the owner, provider host ID, run index, GPU,
-Python and server settings. `admissibility.py` takes the owner from `--run OWNER=PATH`.
+Python and server settings.
+
+`admissibility.py` checks the run files against spec §5. Each file's `host.owner`
+must be the `--run OWNER=` label. Its run index must be 1 or 2, and differ from
+the owner's other file. The two owners' provider host IDs must differ, and a file
+without a `host` record fails. Any problem voids every run: the round is an outage
+with zero flags, and the CLI prints the problems as `run_file_problems`.
+
+**Decision, 2026-10-26.** These checks live in `admissibility.py`, so
+`identity_flag_pipeline.py` and its SHA-256 are unchanged.
 
 The runner refuses to start, before it sends any request, when:
 

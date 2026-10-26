@@ -11,6 +11,10 @@ the frozen packet corpus, the round manifest's flag section and four run files
 
 ``--requests-out requests.json`` writes the request rows for the host runner
 instead (no runs needed).
+
+Each run file's ``host`` record must name the ``--run`` owner and a run index of 1
+or 2, distinct within the owner, and the two owners' provider host IDs must differ
+(spec §5). Any problem voids every run, so the round is an outage with zero flags.
 """
 
 from __future__ import annotations
@@ -41,6 +45,37 @@ def load_round(path: Path, corpus: Path) -> tuple[dict[str, Any], list[dict[str,
     return data["round"], candidates, packets
 
 
+def run_file_problems(runs: list[dict[str, Any]]) -> list[str]:
+    """Spec §5: two distinct-owner hosts, two runs each, as the run files' ``host`` records state."""
+    problems = []
+    indexes: dict[str, list[Any]] = {}
+    hosts: dict[str, set[str]] = {}
+    for run in runs:
+        name, host = run["path"], run.get("host")
+        if not isinstance(host, dict):
+            problems.append(f"{name}: no host record")
+            continue
+        if host.get("owner") != run["owner"]:
+            problems.append(f"{name}: host.owner {host.get('owner')!r} is not the --run owner {run['owner']!r}")
+        index = host.get("run_index")
+        if type(index) is not int or not 1 <= index <= pipeline.RUNS_PER_OWNER:
+            problems.append(f"{name}: run index {index!r} is not 1..{pipeline.RUNS_PER_OWNER}")
+        elif index in indexes.setdefault(run["owner"], []):
+            problems.append(f"{name}: run index {index} repeats for owner {run['owner']!r}")
+        indexes.setdefault(run["owner"], []).append(index)
+        host_id = host.get("provider_host_id")
+        if not isinstance(host_id, str) or not host_id:
+            problems.append(f"{name}: no provider host ID")
+        else:
+            hosts.setdefault(run["owner"], set()).add(host_id)
+    owners = sorted(hosts)
+    for i, first in enumerate(owners):
+        for second in owners[i + 1:]:
+            for host_id in sorted(hosts[first] & hosts[second]):
+                problems.append(f"owners {first!r} and {second!r} share provider host {host_id!r}")
+    return problems
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--round", type=Path, required=True)
@@ -59,18 +94,20 @@ def main(argv: list[str] | None = None) -> int:
     runs = []
     for spec in args.run:
         owner, _, path = spec.partition("=")
-        runs.append({"owner": owner, **json.loads(Path(path).read_text())})
+        runs.append({**json.loads(Path(path).read_text()), "owner": owner, "path": path})
+    problems = run_file_problems(runs)
     flags, admissibility = pipeline.build_flags(
         round_info=round_info,
         candidates=candidates,
         packets=packets,
-        runs=runs,
+        runs=[] if problems else runs,
         expected_section=json.loads(args.section.read_text()),
     )
     pipeline.write_artifacts(args.out, flags, admissibility)
     summary = flags["admissibility_summary"]
     flagged = sum(op["identity_flag"] == "flag" for op in flags["operators"])
-    print(json.dumps({"flags": flagged, "replay_unreliable": flags["replay_unreliable"], **summary}, sort_keys=True))
+    print(json.dumps({"flags": flagged, "replay_unreliable": flags["replay_unreliable"],
+                      "run_file_problems": problems, **summary}, sort_keys=True))
     return 0
 
 
