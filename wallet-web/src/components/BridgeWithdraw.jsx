@@ -12,7 +12,7 @@ import {
   retryPfusdcWithdrawalJob,
   waitForPfusdcWithdrawalJob,
 } from '../lib/pfusdc-withdrawal.js';
-import { CHAIN_ID, formatBalance, GENESIS_HASH, PFUSDC_ASSET_ID, truncateMiddle } from '../lib/utils.js';
+import { CHAIN_ID, formatAmountInput, formatBalance, GENESIS_HASH, PFUSDC_ASSET_ID, truncateMiddle } from '../lib/utils.js';
 import { acquireAutoLockLease } from '../lib/vault.js';
 
 const USDC = '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48';
@@ -230,7 +230,7 @@ export default function BridgeWithdraw({ address, rpc, txBuilder, backupJson, pr
       {phase === 'complete' ? <><div className="pfb-card-head"><Check size={15}/> Complete</div><h2>USDC received on Ethereum</h2><p>{progress}</p><button className="pfb-secondary" onClick={() => { setReview(null); setPhase('ready'); }}>Make another withdrawal</button></> : phase === 'running' ? <><div className="pfb-card-head"><Loader2 size={15} className="pfb-spin"/> Withdrawal in progress</div><h2>Keep this page open or return later</h2><div className="pfb-progress-card"><strong><Clock size={14}/> {progress}</strong><span>The accepted PFTL burn and relay job are durable. Retrying the same job cannot withdraw twice.</span></div></> : <>
         <div className="pfb-card-head"><Wallet size={15}/> {review ? 'Review withdrawal' : 'Choose amount'}</div><h2>{review ? `${units(review.operation.amount_atoms)} pfUSDC → ${units(review.operation.amount_atoms)} USDC` : 'Withdraw to Ethereum mainnet'}</h2>
         {!ethereumAddress ? <button className="pfb-secondary" onClick={connect}>Connect MetaMask</button> : <p>Destination: {truncateMiddle(ethereumAddress, 9)} on Ethereum mainnet</p>}
-        <label className="pfb-field"><span>Amount to withdraw</span><div className="pfb-amount"><input inputMode="decimal" value={amount} disabled={!!review} onChange={event => setAmount(event.target.value.replace(/[^0-9.]/g, ''))}/><span>pfUSDC</span><button className="pfb-secondary small" disabled={!!review || maximum <= 0n} onClick={() => setAmount(units(maximum))}>Max</button></div></label>
+        <label className="pfb-field"><span>Amount to withdraw</span><div className="pfb-amount"><input inputMode="decimal" value={amount} disabled={!!review} onChange={event => setAmount(event.target.value.replace(/[^0-9.]/g, ''))}/><span>pfUSDC</span><button className="pfb-secondary small" disabled={!!review || maximum <= 0n} onClick={() => setAmount(formatAmountInput(maximum, 6))}>Max</button></div></label>
         <div className="pfb-progress-card"><strong>{availability}</strong><span>Your wallet has {units(pfusdc)} pfUSDC. The currently available amount is limited by USDC held in the active Ethereum reserve.</span></div>
         {review && <div className="pfb-readout"><span>You receive</span><strong>{units(review.operation.amount_atoms)} USDC</strong><span>PFTL network fee</span><strong>{formatBalance(review.fee)} PFT</strong><span>Ethereum gas</span><strong>Included</strong><span>Timing</span><strong>Local verification usually takes 20–40 minutes, then Ethereum confirms; progress is saved</strong></div>}
         <button className="pfb-primary" disabled={!ethereumAddress || phase === 'loading' || !jobsChecked || !serviceReady || maximum <= 0n} onClick={review ? execute : prepare}>{review ? 'Confirm and withdraw' : jobsChecked ? 'Review withdrawal' : 'Checking saved progress…'}</button>
