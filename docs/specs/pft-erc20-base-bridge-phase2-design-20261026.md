@@ -1,0 +1,148 @@
+# Phase 2 design: ERC-20 PFT on Base into native PFT at genesis
+
+This is a draft research specification, written on 2026-10-26 by operator dravlic for the lead developer; it is not locked and authorizes no code, deployment or genesis change. The Text Improvement Harness full gate scored it once, without this paragraph, at 85.93/100 (GPT-6 Astra Pro 83.60, Claude Fable 5.1 84.80, GLM 5.3 89.40; five runs per judge; run group `pft-erc20-base-bridge-phase2-20261026`; scored content SHA-256 `c20f627c0212d33e…`). It was not iterated; the improvement loop to 86 and the lock are a later Task Node task.
+
+## 1. BLUF
+
+1. Phase 2 builds an ownerless lock contract on Base, an "external" lane created at PFTL's mainnet genesis that holds native PFT equal to the whole ERC-20 supply, and a PFTL operation that releases native PFT from that lane one for one against a proven Lock on Base (`docs/whitepaper.md:66-70`, `docs/listings/coinbase/pft-erc20-representation-options-20261026.md:89-96`).
+2. I lean to a BFT-checkpoint proof, in which the bridge committee signs a Base block and PFTL checks the Lock event's receipt against it, because consensus already runs exactly this check for Ethereum events (`crates/execution/src/pftl_uniswap_ethereum_verification.rs:340-378`), while the trustless route through Base's dispute games has no code here and waits days for each lock.
+3. Genesis changes from giving the faucet the whole supply to giving it the supply minus the lane (`crates/node/src/lifecycle_queries.rs:3`), and the lane counts as native supply that is not in circulation, so the per-block conservation check keeps its form (`crates/node/src/block_replay_wallet.rs:2841-2864`).
+4. My optimistic estimate is one to two weeks of engineering once the mainnet genesis plan exists, without audit time (`pft-erc20-representation-options-20261026.md:9`, `:89`).
+5. The product owner still decides the supply number and the audit budget, and the lead developer decides the proof style and whether the lock contract ships a dormant Phase 3 release path.
+
+## 2. Terms
+
+- **PFTL** is Post Fiat L1, the chain in this repository (`docs/start/glossary.md:12-14`).
+- **Native PFT** is PFTL's base asset; genesis creates it once and no later record can create more (`docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`, `:69-73`).
+- **The external lane** is a genesis-created state entry holding the native PFT whose claim currently lives outside PFTL as ERC-20 PFT, the $s_{\text{external}}$ term of the four-way partition (`docs/whitepaper.md:66-70`).
+- **The lock contract** is the Phase 2 contract on Base that takes ERC-20 PFT and records each Lock (section 3).
+- **Base** is Coinbase's Ethereum layer-2 network, where the ERC-20 PFT lives (`crates/ethereum-contracts/src/PFTToken.sol:7-8`); its chain id is 8453, and its testnet Base Sepolia, 84532, is the id the token's dry run uses (`crates/ethereum-contracts/README.md:37`).
+- **OP Stack** is the rollup software Base runs: Base posts commitments to its state on Ethereum, and Ethereum contracts settle disputes about them (`pft-erc20-representation-options-20261026.md:24`, docs.base.org).
+- **An output root** is a proposer's hash commitment to one Base block, covering its state root and block hash; **a dispute game** is the Ethereum contract in which that claim can be challenged until it resolves (docs.base.org, withdrawals page, 2026-10-26).
+- **A BFT checkpoint** is an EVM chain's block number, block hash and receipts or state root, signed by a quorum of a committee registered on PFTL (`crates/types/src/ethereum_bridge_types.rs:46-63`, `tools/nav-reserve-proof/README.md:31-40`).
+- **The SP1 ingress program** is the zero-knowledge program that proves a pfUSDC deposit on Ethereum Sepolia under beacon-chain finality; PFTL verifies it as a bounded SP1 Groth16 proof (`programs/pfusdc-eth-ingress/src/lib.rs:84-122`, `crates/execution/src/nav_vault_asset_execution.rs:7576-7628`).
+
+## 3. The lock contract on Base
+
+The lock contract does one thing. It pulls ERC-20 PFT from the holder with `transferFrom`, assigns the next nonce, writes a permanent record, emits one `Locked` event and keeps the tokens. It has no owner, no pause and no setter. The pfUSDC vault it borrows from does have an owner and a pause switch (`crates/ethereum-contracts/src/ERC20BridgeVaultL1.sol:77-78`, `:116-125`), and the lock contract drops both.
+
+It writes a storage record as well as emitting an event, as the vault does (`ERC20BridgeVaultL1.sol:157-166`, `:177-188`), because the two proof styles read different things. The SP1 ingress program proves storage slots and treats permanent storage as the admission authority (`programs/pfusdc-eth-ingress/src/lib.rs:124-175`, `:177-180`), while the in-consensus checkpoint route proves a receipt log (`pftl_uniswap_ethereum_verification.rs:374-377`). Keeping both leaves either proof open.
+
+Four details come from the vault. The token address and its runtime code hash are fixed at construction (`ERC20BridgeVaultL1.sol:106-108`), the token balance delta is checked on every pull (`:153-156`), the recipient text is bounded at 256 bytes (`:55`, `:134-136`), and the amount is capped at `uint64` (`:56`) because native balances on PFTL are `u64` (`crates/types/src/account_owned_asset_types.rs:10`). One detail differs. The vault takes a caller-chosen nonce and hashes it into a deposit id (`ERC20BridgeVaultL1.sol:127`, `:139-152`); the lock contract counts nonces itself from zero, so each Lock is unique by construction and PFTL can check that a nonce is not reused.
+
+```solidity
+interface IPFTLockV1 {
+    event Locked(uint64 indexed nonce, address indexed holder,
+                 bytes32 indexed pftlRecipientHash, bytes pftlRecipient, uint64 amount);
+    function token() external view returns (address);          // immutable PFTToken
+    function nextNonce() external view returns (uint64);
+    function totalLocked() external view returns (uint256);    // sum of all Lock amounts
+    function totalReleased() external view returns (uint256);  // Phase 3 only; zero in Phase 2
+    function lockRecord(uint64 nonce) external view
+        returns (address holder, uint64 amount, bytes32 pftlRecipientHash);
+    function lock(uint64 amount, bytes calldata pftlRecipient) external returns (uint64 nonce);
+    function lockWithPermit(uint64 amount, bytes calldata pftlRecipient, uint256 deadline,
+                            uint8 v, bytes32 r, bytes32 s) external returns (uint64 nonce);
+}
+```
+
+`lockWithPermit` exists because the token supports EIP-2612 permits (`crates/ethereum-contracts/src/PFTToken.sol:15-16`), which saves the holder a separate approval transaction.
+
+The contract keeps four invariants.
+
+1. `totalLocked - totalReleased` equals the sum of `Locked` amounts minus Phase 3 releases, and `token.balanceOf(lock)` is at least that. The two differ only by tokens sent with a plain transfer, which no Lock records and nothing can ever release.
+2. Nonces run from 0 to `nextNonce - 1`, each with exactly one record and one event.
+3. No function lowers the contract's token balance except the Phase 3 release path of section 6.
+4. `totalLocked` cannot exceed the token's fixed supply (`PFTToken.sol:9-10`, `:34`), so releases on PFTL cannot exceed the lane.
+
+## 4. Proving a Base Lock on PFTL
+
+The repository has two working proof styles for EVM events and one signature pattern for the other direction. None of them reads Base today. The SP1 program is pinned to Sepolia's chain id, genesis validators root and fork schedule (`programs/pfusdc-eth-ingress/src/lib.rs:18-23`, `:90-97`, `:286-299`). A search for output roots, dispute games or chain id 8453 finds no code; the only Base reference is the token's local dry run on 84532 (`crates/ethereum-contracts/README.md:37`). The repository therefore holds no OP Stack facts of its own, and the latency figures below come from Base's documentation.
+
+**(a) Extend the SP1 ingress program.** Today the guest verifies Ethereum beacon finality with Helios and then proves storage slots against the finalized execution state root (`lib.rs:108-122`, `:232-284`), and PFTL verifies the result through `verify_bounded_sp1_groth16` and consumes a deposit nullifier (`nav_vault_asset_execution.rs:7608-7627`). For Base the guest would add three steps after L1 finality: a storage proof on Ethereum that a dispute game for a Base output root has resolved in the claim's favour and passed its finalization window, the opening of that output root to Base's state root, and a storage proof of the lock record in Base's state. The trust base is Ethereum consensus plus Base's proof system. The latency is the dispute game's finalization window, which Base documents as five days for a single-proof game and one day on the dual-proof fast path (docs.base.org, withdrawals page, 2026-10-26); Base's earlier withdrawal guidance said seven days (github.com/base/withdrawer). The work is a new guest, mainnet chain parameters and parsing of OP Stack contract storage, and it does not fit the estimate.
+
+**(b) BFT-checkpoint attestation of Base.** Consensus already accepts an `EthereumExternalEventProofV1`, which is a checkpoint certificate plus a receipt proof and a log index (`crates/types/src/ethereum_bridge_types.rs:239-243`). Execution checks the certificate against a committee registered on PFTL, then checks the log against the checkpoint's receipts root (`pftl_uniswap_ethereum_verification.rs:357-377`, `crates/bridge/src/ethereum_checkpoint.rs:23`, `crates/bridge/src/ethereum_receipt.rs:133`). The checkpoint already carries a `u64` chain id and a confirmation depth (`ethereum_bridge_types.rs:51-56`), but its other fields bind the PFTL-Uniswap route's controller and wrapped token (`:59-62`, `pftl_uniswap_ethereum_verification.rs:423-440`). The reserve-proof adapter `evm-erc20-bft-checkpoint-mpt-v1` does the same for balances under ML-DSA-65 quorums and names its chain as `eip155:<chain id>` (`tools/nav-reserve-proof/crates/reserve-proof-types/src/evm_checkpoint.rs:153-170`, `:291-294`). Its README says plainly that this is not trustless consensus finality (`tools/nav-reserve-proof/README.md:37-40`). The trust base is a quorum of the PFTL committee, which is already the trust base of any later export (`docs/listings/coinbase/integration-plan.md:733-734`). The latency is the confirmation policy plus one signing round, minutes rather than days, provided the policy signs only Base blocks derived from finalized Ethereum data. The work is a lock-route checkpoint schema in place of the Uniswap-specific fields, a Base observer for committee members, and the release operation.
+
+**(c) Threshold-signed statement.** `PFTLWithdrawalVerifier` lets anyone relay a packet signed by a threshold of approved signers and lets a challenge authority freeze it before a delay closes (`crates/ethereum-contracts/src/PFTLWithdrawalVerifier.sol:4-7`, `:159-198`). An owner manages the signers and the threshold (`:78-87`, `:140-149`). Mirrored onto PFTL, the committee would sign "Lock n of amount x to recipient r happened" and PFTL would check only the signatures. The trust base is the committee and whoever manages it, with no Merkle link to Base state. Latency is minutes plus any challenge delay. The work is small, but option (b) costs little more and binds every Lock to a signed Base block.
+
+| Option | Trust base | Latency per Lock | Exists today | New work |
+| --- | --- | --- | --- | --- |
+| (a) SP1 through dispute games | Ethereum consensus and Base proofs | 1–5 days | Helios guest, storage proofs, Groth16 verifier | OP Stack steps in a new guest |
+| (b) BFT checkpoint | PFTL committee quorum | minutes | Checkpoint certificate, receipt-log verifier | Lock-route schema, Base observer |
+| (c) Threshold statement | Committee and its manager | minutes | Pattern on the EVM side only | Signer set and verifier on PFTL |
+
+My lean is (b), for the lead developer to confirm. It is the only option that fits the estimate, it reuses code that consensus already runs, and its trust base is the committee that any later export already depends on. It also leaves (a) open as an upgrade, because the lock contract keeps the permanent storage record that a later SP1 guest would prove.
+
+## 5. The genesis external lane and the release path on PFTL
+
+`Genesis` rejects unknown fields and accepts a native supply only if it equals `GENESIS_NATIVE_SUPPLY_ATOMS` (`crates/types/src/core_chain.rs:10`, `:300-306`, `:379-385`). The faucet receives that whole amount (`crates/node/src/lifecycle_queries.rs:3`), and height-zero replay requires live native supply to equal it (`crates/node/src/block_replay_wallet.rs:1838-1857`). Phase 2 adds an optional `external_lanes` list to `Genesis`. Each entry names a lane id, the source chain id (8453), the lock contract and token addresses with their code hashes, the proof policy (committee epoch and root, confirmation depth) and `reserved_atoms`. Validation requires `reserved_atoms` to equal the ERC-20 total supply fixed in the token document, the lanes' sum to be at most the native supply, and the faucet and allocations to hold the rest. The constant becomes the mainnet supply. Because genesis names the lock contract's address, the lock contract is deployed before genesis.
+
+`LedgerState` (`crates/types/src/market_nav_asset_types.rs:3644`) gains the lane's live record: `reserved_atoms`, `released_atoms` and the set of released Lock nonces. The new operation is `external_lane_release_v1`, carrying the lane id, the Lock nonce, the amount, the recipient and the proof. Execution does five things in order.
+
+1. It verifies the proof under the lane's genesis policy and checks the chain id, lock contract, token and code hashes.
+2. It rejects a nonce already in the released set with `external_lane_nonce_already_released`.
+3. It rejects an amount above `reserved_atoms - released_atoms`.
+4. It credits the recipient named in the proven record, creating the account if needed.
+5. It adds the nonce to the set and the amount to `released_atoms`.
+
+A rejected release leaves every lane and balance unchanged, as the inventory requires of every rejected transaction (`OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:71-73`). A repeated submission is rejected, not credited twice, so the operation is idempotent. Anyone may submit it, because the recipient comes from the proven record and a submitter cannot redirect it. A new recipient holds no native PFT for the fee, so any relayer, such as the exchange or the CLI's operator, may pay it. No governance or operator path writes to the lane; only a valid proof moves PFT out of it.
+
+The invariant changes in what it counts, not in its form. Today every block satisfies "live before minus fee burns equals live after", and a checkpoint satisfies "live plus cumulative burns equals genesis supply" (`OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:16-24`, `block_replay_wallet.rs:2841-2864`, `crates/node/src/history.rs:1337-1357`). Phase 2 counts `reserved_atoms - released_atoms` inside `native_pft_live_total`, whose exhaustive destructure of `LedgerState` fails the build until a new field is classified (`block_replay_wallet.rs:2664-2721`, `OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:31-34`). A release then moves atoms from the lane to an account inside live custody, and both checks hold unchanged. The four terms stay consistent: native custody (accounts, escrows, offers, owned objects, FastLane reserves) plus shielded (the Orchard pool) plus external (the lane's remainder) plus in-flight (zero until Phase 3) equals genesis supply minus cumulative burns (`docs/whitepaper.md:66-70`, `OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:36-43`). Across chains, `released_atoms` never exceeds the lock contract's `totalLocked`, because every release consumes one proven Lock.
+
+The consensus code touched is in `crates/types` (`core_chain.rs` for `Genesis`, `market_nav_asset_types.rs` for `LedgerState`, `ethereum_bridge_types.rs` for the checkpoint schema, and the operation and receipt types in `transactions_mempool_receipts.rs`), a new execution module dispatched from `crates/execution/src/entrypoints.rs`, and in `crates/node` the live-supply total, the faucet and checkpoint replay (`block_replay_wallet.rs:2664`, `lifecycle_queries.rs:3`, `history.rs:1337-1357`). A search of `crates/execution` and `crates/types` for "external" finds only NAV and PFTL-Uniswap uses (`crates/execution/src/issued_asset_ledger_helpers.rs:692-741`, `ethereum_bridge_types.rs:239`); no native external lane exists today.
+
+## 6. Phase 3 hooks kept open
+
+Phase 3 exports native PFT back to Base by releasing ERC-20 PFT that was bridged in, from this same lock contract (`pft-erc20-representation-options-20261026.md:98-104`). The lock contract has no admin, so a release path added later could never reach tokens locked before it. Phase 2 therefore either deploys the release function now, dormant and bound at construction to a PFTL finality verifier on Base, or gives Phase 3 up. The vault shows the pattern: it releases against `PFTLFinalityVerifierV1`, fixed at construction, and rejects replayed withdrawal and burn commitments (`ERC20BridgeVaultL1.sol:13-16`, `:81-83`, `:110`, `:191-203`). The verifier and relay run on Ethereum mainnet today, so Base needs its own deployment (`deployments/a666-export-relay-mainnet-20260731/README.md:7-12`).
+
+On PFTL, Phase 2 must not preclude three things. The lane must be able to grow again when an export moves PFT from native through in-flight to external (`docs/whitepaper.md:70`), so it records released and exported atoms separately. Release nonces on Base must stay distinct from Lock nonces. And the six-decimal unit must hold on both sides (`PFTToken.sol:11-12`, `:37-40`).
+
+## 7. Operator and user flows
+
+A holder takes five steps.
+
+1. Check the PFTL recipient address in the Python CLI before locking, since the contract checks only its length.
+2. Call `lockWithPermit`, or approve and then call `lock`, on Base.
+3. Wait for a committee checkpoint covering that block.
+4. Submit `external_lane_release_v1`, or let a relayer submit it.
+5. See native PFT on PFTL under an accepted receipt.
+
+An exchange holding ERC-20 PFT for customers locks the customers' total in one transaction to its own PFTL address, submits one release, and credits each customer natively one for one. Coinbase converted INJ balances 1:1 the same way when Injective moved to its native chain (`pft-erc20-representation-options-20261026.md:44`). The exchange may end ERC-20 deposits on its own schedule, while the bridge itself stays open with no closing date (`:96`). Committee members run Base observers and sign checkpoints, and none of them can release PFT without a proof.
+
+## 8. Tests, qualification and "not before" rules
+
+The tests are written before the code.
+
+- The Foundry tests for the lock contract are `test_lock_pulls_tokens_and_records_nonce`, `test_lock_nonces_are_sequential`, `test_lock_rejects_zero_amount`, `test_lock_rejects_amount_above_uint64`, `test_lock_rejects_empty_or_oversized_recipient`, `test_lock_with_permit_matches_lock`, `test_total_locked_equals_sum_of_lock_events`, `test_plain_transfer_is_not_a_lock`, and `test_contract_has_no_owner_pause_or_withdraw`.
+- The type tests are `genesis_external_lane_requires_reserved_equal_to_erc20_supply`, `genesis_rejects_lanes_above_native_supply`, `genesis_faucet_holds_supply_minus_lanes` and `genesis_rejects_unknown_lane_fields`.
+- The execution tests are `external_lane_release_credits_recipient_once`, `external_lane_release_rejects_replayed_nonce_without_mutation`, `external_lane_release_rejects_wrong_chain_contract_or_token`, `external_lane_release_rejects_checkpoint_below_quorum`, `external_lane_release_rejects_amount_above_lane_remainder`, `external_lane_release_creates_missing_recipient_account` and `rejected_release_in_accepted_block_leaves_supply_unchanged`.
+- The node tests are `native_live_total_counts_external_lane_remainder`, `replay_from_genesis_preserves_supply_across_releases` and `checkpoint_snapshot_restore_preserves_lane_and_nonce_set`.
+
+The release changes a state result, so it needs its own qualification, as a consensus change did on 2026-10-08 (`docs/handoffs/2026-10-08___dravlic__conference_day_two_friday_ready.md:68`). That qualification repeats the native inventory's gates: genesis-to-tip replay, checkpoint, prune, and snapshot and restore (`OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:6-8`, `:77-80`).
+
+Three "not before" rules apply. No genesis code merges before the token document fixes the supply number (`docs/listings/coinbase/integration-plan.md:99-105`). No lane is configured before a mainnet genesis plan exists; the launch spec leaves token migration to a separate document that does not exist yet (`docs/architecture/l1v2-testnet-genesis-and-launch-spec.md:27`, `:402`). And the lock contract is not deployed on Base mainnet before its audit is complete (`pft-erc20-representation-options-20261026.md:87`).
+
+## 9. Risks
+
+- A colluding committee quorum could sign a false Base block and release native PFT with no Lock behind it, up to the whole lane. A per-period release cap would bound the damage; it is not yet designed.
+- Base blocks can reorganise before their data is final on Ethereum. A checkpoint policy that signs only blocks derived from finalized Ethereum data avoids this.
+- A Lock to a mistyped PFTL address is lost for good, because the lock contract has no admin. The CLI must validate the address first.
+- ERC-20 PFT sent to the lock contract by plain transfer is also lost for good.
+- If the lane's `reserved_atoms` differs from the token's constructor supply (`crates/ethereum-contracts/README.md:20-24`), the one-for-one claim breaks.
+- A dormant Phase 3 release path enlarges the Phase 2 audit, and leaving it out gives up Phase 3.
+- Generalising the checkpoint schema touches the PFTL-Uniswap verification path (`pftl_uniswap_ethereum_verification.rs:411-440`), so that route's tests must stay green.
+
+## 10. Decisions
+
+The product owner decides the supply number, which the token document fixes (`integration-plan.md:99-105`), and the audit budget for the lock contract and any release path in it. The lead developer decides the proof style, where I lean to (b), and whether the lock contract ships the dormant Phase 3 release path of section 6.
+
+## 11. Sources
+
+- `docs/listings/coinbase/pft-erc20-representation-options-20261026.md`, `docs/listings/coinbase/integration-plan.md`, `docs/whitepaper.md`, `docs/start/glossary.md`
+- `docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md`, `docs/architecture/l1v2-testnet-genesis-and-launch-spec.md`, `docs/handoffs/2026-10-08___dravlic__conference_day_two_friday_ready.md`
+- `crates/ethereum-contracts/src/PFTToken.sol`, `crates/ethereum-contracts/src/ERC20BridgeVaultL1.sol`, `crates/ethereum-contracts/src/PFTLWithdrawalVerifier.sol`, `crates/ethereum-contracts/README.md`
+- `programs/pfusdc-eth-ingress/src/lib.rs`, `tools/nav-reserve-proof/README.md`, `tools/nav-reserve-proof/crates/reserve-proof-types/src/evm_checkpoint.rs`
+- `crates/types/src/core_chain.rs`, `crates/types/src/ethereum_bridge_types.rs`, `crates/types/src/market_nav_asset_types.rs`, `crates/types/src/account_owned_asset_types.rs`
+- `crates/execution/src/nav_vault_asset_execution.rs`, `crates/execution/src/pftl_uniswap_ethereum_verification.rs`, `crates/execution/src/issued_asset_ledger_helpers.rs`, `crates/bridge/src/ethereum_checkpoint.rs`, `crates/bridge/src/ethereum_receipt.rs`
+- `crates/node/src/block_replay_wallet.rs`, `crates/node/src/history.rs`, `crates/node/src/lifecycle_queries.rs`, `deployments/a666-export-relay-mainnet-20260731/README.md`
+- Base documentation, "Withdrawals", <https://docs.base.org/specifications/base-protocol/bridging/withdrawals>, and the `base/withdrawer` README, <https://github.com/base/withdrawer>, both read on 2026-10-26.
