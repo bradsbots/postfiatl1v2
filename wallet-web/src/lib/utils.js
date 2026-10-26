@@ -27,6 +27,17 @@ export function formatBalance(raw) {
   return `${pft.toLocaleString()}.${trimmed}`;
 }
 
+// Amount fields take a plain decimal (no grouping, '.' as the decimal
+// point), so a value a MAX button writes must not use the display format.
+export function formatAmountInput(raw, decimals = 6) {
+  const n = BigInt(raw ?? 0);
+  const scale = 10n ** BigInt(decimals);
+  const fraction = decimals > 0
+    ? (n % scale).toString().padStart(decimals, '0').replace(/0+$/, '')
+    : '';
+  return fraction ? `${n / scale}.${fraction}` : `${n / scale}`;
+}
+
 export function formatAssetBalance(assetId, raw) {
   if (raw === null || raw === undefined) return '0';
   return formatBalance(raw);

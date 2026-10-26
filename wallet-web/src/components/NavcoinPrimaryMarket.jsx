@@ -10,7 +10,7 @@ import {
   finalizeNavcoinIssueExportOperations,
   parseNavcoinUnits,
 } from '../lib/navcoin-primary-route.js';
-import { ETH_MAINNET_USDC, truncateMiddle } from '../lib/utils.js';
+import { ETH_MAINNET_USDC, formatAmountInput, truncateMiddle } from '../lib/utils.js';
 import { createNavcoinExportJob, loadNavcoinExportReadiness, waitForNavcoinExportJob } from '../lib/navcoin-export-relay.js';
 import {
   buildNavcoinReturnBurnCalldata,
@@ -710,7 +710,7 @@ export default function NavcoinPrimaryMarket({
                 : (BigInt(redeemBalance || 0) < BigInt(route?.available_redeem_atoms || 0)
                   ? redeemBalance
                   : route?.available_redeem_atoms);
-              if (maximum) setAmount(formatNavcoinUnits(maximum, market.decimals));
+              if (maximum) setAmount(formatAmountInput(maximum, market.decimals));
             }}>MAX</button>
           </div>
 
