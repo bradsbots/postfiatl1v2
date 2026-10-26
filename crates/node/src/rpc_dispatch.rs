@@ -1653,12 +1653,19 @@ pub(super) fn run_rpc(flags: &[String]) -> Result<(), String> {
         "verify_bridge" => {
             let report = verify_bridge(NodeOptions { data_dir })
                 .map_err(|error| format!("rpc verify_bridge failed: {error}"))?;
+            // An event subject must not be empty, and `latest_transfer_id`
+            // is empty until the first bridge transfer.
+            let subject = if report.latest_transfer_id.is_empty() {
+                "bridge".to_string()
+            } else {
+                report.latest_transfer_id.clone()
+            };
             print_rpc_success(
                 id,
                 &report,
                 vec![RpcEvent::new(
                     "verify_bridge",
-                    report.latest_transfer_id.clone(),
+                    subject,
                     "bridge state verified",
                 )],
             )
