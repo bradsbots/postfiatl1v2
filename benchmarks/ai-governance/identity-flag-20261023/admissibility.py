@@ -13,8 +13,8 @@ the frozen packet corpus, the round manifest's flag section and four run files
 instead (no runs needed).
 
 Each run file's ``host`` record must name the ``--run`` owner and a run index of 1
-or 2, distinct within the owner, and the two owners' provider host IDs must differ
-(spec §5). Any problem voids every run, so the round is an outage with zero flags.
+or 2, distinct within the owner. One owner's two runs must share a provider host ID,
+and the two owners' IDs must differ (spec §5). Any problem voids every run, so the round is an outage with zero flags.
 """
 
 from __future__ import annotations
@@ -69,6 +69,9 @@ def run_file_problems(runs: list[dict[str, Any]]) -> list[str]:
         else:
             hosts.setdefault(run["owner"], set()).add(host_id)
     owners = sorted(hosts)
+    for owner in owners:
+        if len(hosts[owner]) > 1:
+            problems.append(f"owner {owner!r} ran on more than one provider host: {sorted(hosts[owner])}")
     for i, first in enumerate(owners):
         for second in owners[i + 1:]:
             for host_id in sorted(hosts[first] & hosts[second]):

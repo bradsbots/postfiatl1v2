@@ -400,3 +400,13 @@ def test_run_file_without_a_host_record_is_an_outage(worked_round, tmp_path, cap
         copy.write_text(json.dumps({"results": json.loads(path.read_text())["results"]}))
         runs.append((owner, copy))
     assert_outage(*run_admissibility(worked_round, tmp_path, capsys, runs), "host")
+
+
+def test_one_owners_two_runs_on_different_provider_hosts_is_an_outage(worked_round, tmp_path, capsys):
+    (a1, a2), (b1, b2) = worked_round[2]["ownerA"], worked_round[2]["ownerB"]
+    record = json.loads(a2.read_text())
+    record["host"]["provider_host_id"] = "host-ownerA-second"
+    moved = tmp_path / a2.name
+    moved.write_text(json.dumps(record))
+    runs = [("ownerA", a1), ("ownerA", moved), ("ownerB", b1), ("ownerB", b2)]
+    assert_outage(*run_admissibility(worked_round, tmp_path, capsys, runs), "more than one provider host")

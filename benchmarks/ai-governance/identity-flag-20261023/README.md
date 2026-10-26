@@ -91,8 +91,8 @@ Python and server settings.
 
 `admissibility.py` checks the run files against spec §5. Each file's `host.owner`
 must be the `--run OWNER=` label. Its run index must be 1 or 2, and differ from
-the owner's other file. The two owners' provider host IDs must differ, and a file
-without a `host` record fails. Any problem voids every run: the round is an outage
+the owner's other file. One owner's two runs must come from the same provider
+host, the two owners' host IDs must differ, and a file without a `host` record fails. Any problem voids every run: the round is an outage
 with zero flags, and the CLI prints the problems as `run_file_problems`.
 
 **Decision, 2026-10-26.** These checks live in `admissibility.py`, so
