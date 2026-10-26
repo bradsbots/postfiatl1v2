@@ -272,20 +272,22 @@ fn run() -> io::Result<()> {
                 continue;
             }
         };
+        // A refusal is best effort: a client that already closed must not
+        // stop the daemon.
         if !stream.peer_addr().is_ok_and(|peer| peer.ip().is_loopback()) {
-            write_json_response(
+            let _ = write_json_response(
                 &mut stream,
                 403,
                 &json!({"ok": false, "error": "non_loopback_peer"}),
-            )?;
+            );
             continue;
         }
         let Some(permit) = try_acquire_connection(&state) else {
-            write_json_response(
+            let _ = write_json_response(
                 &mut stream,
                 503,
                 &json!({"ok": false, "error": "connection_capacity_exhausted"}),
-            )?;
+            );
             continue;
         };
         let child_state = Arc::clone(&state);
