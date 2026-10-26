@@ -4,3 +4,6 @@
 [submodule "external/sp1-contracts"]
 	path = external/sp1-contracts
 	url = https://github.com/succinctlabs/sp1-contracts.git
+[submodule "crates/ethereum-contracts/lib/openzeppelin-contracts"]
+	path = crates/ethereum-contracts/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git

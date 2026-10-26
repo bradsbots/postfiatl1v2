@@ -448,6 +448,8 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
           version: v1.7.1
+      - name: Check out the pinned OpenZeppelin submodule
+        run: git submodule update --init --depth 1 crates/ethereum-contracts/lib/openzeppelin-contracts
       - name: Offline contract suite
         working-directory: crates/ethereum-contracts
         run: forge test --no-match-path 'test/*Fork.t.sol'
@@ -483,6 +485,9 @@ jobs:
         uses: foundry-rs/foundry-toolchain@82dee4ba654bd2146511f85f0d013af94670c4de # v1.4.0
         with:
           version: v1.7.1
+      - name: Check out the pinned OpenZeppelin submodule
+        if: env.ETHEREUM_MAINNET_RPC_URL != ''
+        run: git submodule update --init --depth 1 crates/ethereum-contracts/lib/openzeppelin-contracts
       - name: Verify official deployments at the pinned mainnet block
         if: env.ETHEREUM_MAINNET_RPC_URL != ''
         working-directory: crates/ethereum-contracts
