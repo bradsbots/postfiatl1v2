@@ -135,6 +135,11 @@ jq -r '.entries[] | select(.outcome == "accepted") | .validator' \
   /var/lib/postfiat/validator-0/block-vote-records/height-*.json | sort | uniq -c
 ```
 
+That counts one proposer's records. For the reliability window over all six
+directories, with the not-available rule, use `python -m
+postfiat_rpc.vote_reliability`
+([campaign](../review/sct08-evidence-campaign-20261023.md#deriving-the-fact-from-the-vote-records-2026-10-26)).
+
 **Not yet in the signed snapshot.** `snapshot-export-signed` does not carry
 these records yet; adding them needs a new snapshot version (follow-up). Until
 then, read them from each validator's data directory.

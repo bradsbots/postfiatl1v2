@@ -145,6 +145,30 @@ validators:
 
 No node code changed today. Until a release carries vote records, the
 native reliability fact stays not available.
+
+#### Deriving the fact from the vote records (2026-10-26)
+
+Commit `1432b8e0` keeps the vote records (point 4; next-release candidate).
+The fact is now derivable from them with a read-only command. Each validator
+holds only the records of the heights it proposed, so a window needs all six
+record directories: data directories, their `block-vote-records/` folders, or
+one parent folder of them.
+
+```bash
+PYTHONPATH=python python3 -m postfiat_rpc.vote_reliability \
+  --records DATA_DIR_0 --records DATA_DIR_1 ... --records DATA_DIR_5 \
+  --from-height FROM --to-height TO [--validators validator-0,...] [--table]
+```
+
+Per validator it reports the heights it was asked, its accepted, refused (by
+reason class) and unanswered votes, its answers after the quorum, and
+`uptime_window_bps`: accepted votes × 10,000 ÷ heights in the window, rounded
+down (point 1). A height without a record makes every validator **not
+available**, and so does, for one validator, a record that does not list it
+(point 2); the runner then holds on `missing_reliability`. Two records for one
+height that disagree, such as two proposers, are refused and listed (exit 1).
+JSON is the default output. Until a release carries the records on the six
+validators, the fact stays not available.
 - **Cobalt linkedness: NOT RUNNABLE HERE.** The native trust state verifies,
   but linkedness is a property of a candidate's admission, and no candidate has
   a binding (item 1).

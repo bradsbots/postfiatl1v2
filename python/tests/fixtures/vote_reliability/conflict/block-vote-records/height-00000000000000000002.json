@@ -1,0 +1,37 @@
+{
+  "schema": "postfiat.block_vote_record.v1",
+  "chain_id": "postfiat-fixture",
+  "block_height": 2,
+  "view": 0,
+  "block_hash": "hash-2-other",
+  "certificate_id": "cert-2",
+  "proposer": "validator-3",
+  "quorum": 3,
+  "round_deadline_ms": 60000,
+  "entries": [
+    {
+      "validator": "validator-0",
+      "outcome": "accepted",
+      "vote_id": "vote-validator-0",
+      "answered_after_quorum": false
+    },
+    {
+      "validator": "validator-1",
+      "outcome": "accepted",
+      "vote_id": "vote-validator-1",
+      "answered_after_quorum": false
+    },
+    {
+      "validator": "validator-2",
+      "outcome": "accepted",
+      "vote_id": "vote-validator-2",
+      "answered_after_quorum": false
+    },
+    {
+      "validator": "validator-3",
+      "outcome": "accepted",
+      "vote_id": "vote-validator-3",
+      "answered_after_quorum": false
+    }
+  ]
+}

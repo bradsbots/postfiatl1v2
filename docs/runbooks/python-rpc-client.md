@@ -148,6 +148,8 @@ public read as a `--method` value, with the node's parameter names as flags
 - `owned_unwrap_sign(order_json, validator_id)`
 - `owned_unwrap_apply(cert_json)`
 
+`python -m postfiat_rpc.vote_reliability` reads only files: it derives the SCT-08 reliability window from the per-height vote records ([runbook](signed-validator-snapshot-recovery.md#vote-outcome-records-sct-08-item-4)).
+
 ## Wallet Helpers
 
 Canonical helper functions:
