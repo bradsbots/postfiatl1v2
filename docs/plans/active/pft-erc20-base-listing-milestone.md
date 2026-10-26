@@ -26,7 +26,7 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
   - `crates/ethereum-contracts/test/PFTToken.t.sol`: 8 tests.
   - `crates/ethereum-contracts/script/DeployPFTToken.s.sol`, with `script/pft-token.env.example`.
 - [x] P1.2 *(this lane)* The OpenZeppelin pin (`ad5ba32f`). The submodule `crates/ethereum-contracts/lib/openzeppelin-contracts` is at `cab19933` (`.gitmodules:7-9`), with its remapping in `crates/ethereum-contracts/foundry.toml` and the CI checkout in `.github/workflows/product-security-ci.yml`.
-- [ ] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/ethereum-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source.
+- [ ] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/ethereum-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source. The anvil dry run (chain id 84532) ran today and is recorded in [pft-token-dry-run-20261026.md](../../listings/coinbase/pft-token-dry-run-20261026.md); the Base Sepolia deployment is still open.
 - [ ] P1.4 *(other lane)* The audit, including its budget and the vendor choice. For one contract of this size it typically takes one to three weeks of calendar time. To tick it: the report, with every finding closed.
 - [ ] P1.5 *(other lane)* The token document with the four decisions. To tick it: the published document.
   - the total supply;
@@ -36,14 +36,16 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
 - [ ] P1.6 *(other lane)* The Safe multisig on Base, with the other lane's keys. To tick it: the Safe address, its signers and its threshold.
 - [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the total supply.
 - [ ] P1.8 *(this lane)* Source verification on the Base block explorer. To tick it: the verified-source page.
-- [ ] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A. To tick it: the file in `docs/listings/coinbase/`.
+- [ ] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A. To tick it: the file in `docs/listings/coinbase/`. The note [pft-erc20-one-pager.md](../../listings/coinbase/pft-erc20-one-pager.md) was written today (`66326c6d`).
 - [ ] P1.10 *(other lane, then Coinbase)* The answer to the listing package's first ask, which route to plan on (`integration-plan.md:741-743`). To tick it: the message sent and Coinbase's reply.
 
 ## Phase 2 — the genesis bridge
 
 The order is the design note, then the code, then the qualification.
 
-- [ ] P2.1 *(this lane)* The design note. To tick it: the note in `docs/listings/coinbase/`. It covers:
+The lead developer decided two things on 2026-10-26, to be revisited only if the code shows a reason. The proof is a bridge-committee-signed BFT checkpoint of a Base block plus a receipt-log proof of the Lock event, with the SP1 path through Base's dispute games kept as a later upgrade, and the lock contract ships the dormant Phase 3 release path in Phase 2, with the PFTL finality verifier's address fixed at construction.
+
+- [x] P2.1 *(this lane)* The design note, [docs/specs/pft-erc20-base-bridge-phase2-design-20261026.md](../../specs/pft-erc20-base-bridge-phase2-design-20261026.md) (`e48c99f4`; the two decisions recorded in `13240104`). It is not locked: the full gate scored 84.93 on 2026-10-26, below 86 (Task Node `task_f1528ebca6a6c5ae613d776328561724`). It covers:
   - the genesis external lane (`docs/whitepaper.md:66-70`);
   - the Base lock contract;
   - the inbound release path on PFTL and its proof;
