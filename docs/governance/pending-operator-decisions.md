@@ -1,6 +1,6 @@
 # Pending Operator Decisions
 
-**Status:** Partly answered — updated 2026-10-20. The [other lane's answers of 2026-10-20](../handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md) confirm the AI governance direction, record the height-915 archive as lost and name me the height-924 custodian. Rows still marked — await the operator.
+**Status:** Partly answered — updated 2026-10-20; Coinbase listing rows added 2026-10-26. The [other lane's answers of 2026-10-20](../handoffs/2026-10-20___nazgul__founder_lane_resync_and_answers_to_open_asks.md) confirm the AI governance direction, record the height-915 archive as lost and name me the height-924 custodian. Rows still marked — await the operator.
 
 These are the open decisions only the operator can make. Each can be answered
 with one line in his next handoff. The recommendations below are pre-filled so
@@ -22,3 +22,18 @@ with one line in his next handoff. The recommendations below are pre-filled so
 
 When every row is answered, the deferred Dynamic UNL milestone can be activated
 at the G7 boundary without further preparation.
+
+## Coinbase listing path: PFT as an ERC-20 on Base (2026-10-26)
+
+These rows come from the [milestone](../plans/active/pft-erc20-base-listing-milestone.md) and the [ERC-20 options paper](../listings/coinbase/pft-erc20-representation-options-20261026.md). The first six belong to the other
+lane; the last one is this lane's and needs only funding.
+
+| Decision | Recommendation on record | Where it came from | Your answer |
+| --- | --- | --- | --- |
+| The total supply number | Open; fix it in the token document | 2026-10-26, milestone P1.5, paper section 9. Blocks the token document, the Base mainnet deployment (P1.7) and any Phase 2 genesis code | — |
+| The split at launch between the ERC-20 slice and genesis | Open; the genesis external lane later reserves exactly the ERC-20 slice | 2026-10-26, milestone P1.5. Blocks the token document, the token's constructor supply for P1.7 and the lane's reserved amount in Phase 2 | — |
+| The treatment of PFT already paid on the PFT Ledger | Open; a snapshot and a swap into the ERC-20, or into native PFT at genesis (paper section 7) | 2026-10-26, milestone P1.5. Blocks the token document | — |
+| The treasury Safe's signers and threshold | Name the signers and set the threshold; never a single key | 2026-10-26, milestone P1.5 and P1.6. Blocks the Safe on Base (P1.6) and the treasury address the deployment needs (P1.7) | — |
+| The audit budget and vendor | Approve the budget and choose an established firm; about one to three weeks of calendar time | 2026-10-26, milestone P1.4. Blocks the audit, and nothing goes to Base mainnet before it | — |
+| The Base mainnet deployment with the other lane's keys | Deploy once the token document, the audit and the Safe exist, with the other lane's deployer key and gas | 2026-10-26, milestone P1.7. Blocks source verification (P1.8) and the listing itself | — |
+| This lane's Base Sepolia test deployment | Fund a deployer with a faucet amount of Base Sepolia ETH; the server's test wallet `0xC75Bf05Ce82d6f4b6139dd9446D6De5F5994a4CB` can serve once funded | 2026-10-26, milestone P1.3 (the dry run is done). Blocks the test deployment and its verified source | — |

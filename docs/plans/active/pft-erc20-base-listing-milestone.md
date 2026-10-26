@@ -36,7 +36,7 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
 - [ ] P1.6 *(other lane)* The Safe multisig on Base, with the other lane's keys. To tick it: the Safe address, its signers and its threshold.
 - [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the total supply.
 - [ ] P1.8 *(this lane)* Source verification on the Base block explorer. To tick it: the verified-source page.
-- [ ] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A. To tick it: the file in `docs/listings/coinbase/`. The note [pft-erc20-one-pager.md](../../listings/coinbase/pft-erc20-one-pager.md) was written today (`66326c6d`).
+- [x] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A: [pft-erc20-one-pager.md](../../listings/coinbase/pft-erc20-one-pager.md) (`66326c6d`). It is final for now; its figures change only when the token document is published.
 - [ ] P1.10 *(other lane, then Coinbase)* The answer to the listing package's first ask, which route to plan on (`integration-plan.md:741-743`). To tick it: the message sent and Coinbase's reply.
 
 ## Phase 2 — the genesis bridge
