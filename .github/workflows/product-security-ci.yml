@@ -178,6 +178,8 @@ jobs:
           POSTFIAT_NAV_FUZZ_SECONDS: 10
           POSTFIAT_NAV_FUZZ_TOOLCHAIN: nightly-2026-07-15
         run: scripts/check-nav-reserve-proof-fuzz-smoke
+      - name: Check out the pinned OpenZeppelin submodule
+        run: git submodule update --init --depth 1 crates/ethereum-contracts/lib/openzeppelin-contracts
       - name: Rebuild A666 public reader deployment candidates
         run: |
           scripts/check-a666-public-reader-candidates

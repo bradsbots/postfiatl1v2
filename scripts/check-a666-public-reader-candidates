@@ -23,7 +23,11 @@ jq -e '
   (.near.historical_reader_is_candidate | not)
 ' "$identity" >/dev/null
 
-forge build --root "$repo_root/crates/ethereum-contracts" >/dev/null 2>&1
+if ! forge_build_output="$(forge build --root "$repo_root/crates/ethereum-contracts" 2>&1)"; then
+  printf '%s\n' "$forge_build_output" >&2
+  echo "forge build failed in crates/ethereum-contracts" >&2
+  exit 1
+fi
 hyper_runtime="$(
   forge inspect \
     --root "$repo_root/crates/ethereum-contracts" \
