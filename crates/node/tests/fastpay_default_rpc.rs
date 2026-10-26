@@ -7,7 +7,10 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use postfiat_node::{init, InitOptions};
-use postfiat_rpc_sdk::{server_info_request, RpcRequest, RpcResponse};
+use postfiat_rpc_sdk::{
+    server_info_request, validate_response_kind, verify_bridge_request, RpcRequest, RpcResponse,
+    RpcResponseKind,
+};
 
 fn node_bin() -> &'static str {
     env!("CARGO_BIN_EXE_postfiat-node")
@@ -207,6 +210,45 @@ fn rpc_child_dispatch_works_with_relative_data_and_spool_directories() {
         );
         fs::remove_file(&ready).expect("remove readiness file between runs");
     }
+
+    fs::remove_dir_all(root).expect("remove RPC test directory");
+}
+
+/// Regression for issue #160: with no bridge transfer, `verify_bridge`'s
+/// report has an empty `latest_transfer_id`. Using it as the event subject
+/// made the worker's response fail `rpc-serve`'s protocol check, so the
+/// public read always answered `rpc_server_error` "RPC worker failed".
+#[test]
+fn verify_bridge_answers_over_rpc_serve_without_bridge_transfers() {
+    let root = unique_root();
+    let data_dir = root.join("node");
+    init(InitOptions {
+        data_dir: data_dir.clone(),
+        chain_id: "postfiat-verify-bridge-rpc-test".to_string(),
+        node_id: "validator-0".to_string(),
+        validator_count: 1,
+    })
+    .expect("initialize RPC test node");
+
+    let port = free_port();
+    let ready = root.join("verify-bridge.ready.json");
+    let mut child = spawn_rpc(&data_dir, &ready, port, false);
+    wait_for_file(&ready);
+    let request_id = "verify-bridge-no-transfers";
+    let response = rpc_call(port, &verify_bridge_request(request_id));
+    let status = child.wait().expect("wait for RPC server");
+    assert!(status.success(), "RPC server failed with {status}");
+
+    assert!(response.ok, "verify_bridge failed: {:?}", response.error);
+    assert_eq!(response.id, request_id);
+    response
+        .validate_protocol()
+        .expect("verify_bridge response is protocol valid");
+    validate_response_kind(&response, RpcResponseKind::VerifyBridge)
+        .expect("verify_bridge result validates");
+    let result = response.result.as_ref().expect("verify_bridge result");
+    assert_eq!(result["transfer_count"], 0);
+    assert_eq!(result["latest_transfer_id"], "");
 
     fs::remove_dir_all(root).expect("remove RPC test directory");
 }
