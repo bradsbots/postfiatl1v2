@@ -57,6 +57,9 @@ for ((i = 1; i < VALIDATORS; i++)); do
   cp "$BASE_DIR/node0/faucet_account.json" "$node_dir/faucet_account.json"
   copy_private_file "$BASE_DIR/node0/faucet_key.json" "$node_dir/faucet_key.json"
   copy_private_file "$BASE_DIR/node0/validator_keys.json" "$node_dir/validator_keys.json"
+  # The copied state files carry node0's integrity tags, so each node needs
+  # node0's integrity key (as scripts/testnet-local-harness does).
+  copy_private_file "$BASE_DIR/node0/.integrity.key" "$node_dir/.integrity.key"
   cp "$BASE_DIR/node0/validator_registry.json" "$node_dir/validator_registry.json"
   cat >"$node_dir/node_state.json" <<EOF
 {
@@ -65,6 +68,9 @@ for ((i = 1; i < VALIDATORS; i++)); do
   "last_run_unix": 0
 }
 EOF
+  target/debug/postfiat-node storage-integrity-migrate-legacy \
+    --data-dir "$node_dir" \
+    --offline-confirmed >"$LOG_DIR/validator-$i.integrity-migrate.log"
 done
 
 for ((i = 0; i < VALIDATORS; i++)); do
