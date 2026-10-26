@@ -146,16 +146,10 @@ fn save_disk_index(data_dir: &Path, label: &str) -> PathBuf {
         saved.join(ACCOUNT_TX_DISK_INDEX_FILE),
     )
     .expect("save disk meta");
-    for entry in fs::read_dir(account_tx_account_shards_dir(data_dir)).expect("shards") {
-        let entry = entry.expect("shard entry");
-        fs::copy(
-            entry.path(),
-            saved
-                .join(ACCOUNT_TX_ACCOUNT_SHARDS_DIR)
-                .join(entry.file_name()),
-        )
-        .expect("save shard");
-    }
+    copy_dir(
+        &account_tx_account_shards_dir(data_dir),
+        &saved.join(ACCOUNT_TX_ACCOUNT_SHARDS_DIR),
+    );
     saved
 }
 
@@ -172,11 +166,7 @@ fn restore_disk_index(data_dir: &Path, saved: &Path, meta_only: bool) {
     }
     let shards = account_tx_account_shards_dir(data_dir);
     fs::remove_dir_all(&shards).expect("remove shards");
-    fs::create_dir_all(&shards).expect("shards dir");
-    for entry in fs::read_dir(saved.join(ACCOUNT_TX_ACCOUNT_SHARDS_DIR)).expect("saved shards") {
-        let entry = entry.expect("saved shard");
-        fs::copy(entry.path(), shards.join(entry.file_name())).expect("restore shard");
-    }
+    copy_dir(&saved.join(ACCOUNT_TX_ACCOUNT_SHARDS_DIR), &shards);
 }
 
 #[test]
@@ -506,8 +496,8 @@ fn status_reports_both_indexes_usable_while_following_and_the_lag_when_behind() 
         assert_eq!(status.index_lag_blocks, Some(0));
         assert_eq!(status.disk_index_lag_blocks, Some(0));
 
-        // The aggregate holds the new rows too, not only a new tip: with the
-        // disk index gone, reads answer from it.
+        // The aggregate follows too and vouches for the same account files:
+        // with the disk metadata gone, reads answer through it.
         let disk_meta = account_tx_disk_index_path(&data_dir);
         let saved_meta = fs::read(&disk_meta).expect("disk meta");
         fs::remove_file(&disk_meta).expect("hide disk meta");

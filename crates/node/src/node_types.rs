@@ -3745,7 +3745,12 @@ pub struct AccountTxIndex {
     pub indexed_row_count: u64,
     pub account_count: u64,
     pub tip_hash: String,
-    pub accounts: BTreeMap<String, Vec<AccountTxRow>>,
+    /// Directory of the per-account head and chunk files (schema v3).
+    #[serde(default)]
+    pub shard_dir: String,
+    /// Rows per account chunk (schema v3).
+    #[serde(default)]
+    pub chunk_rows: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

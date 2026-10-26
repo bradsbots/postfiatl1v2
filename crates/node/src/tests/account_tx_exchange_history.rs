@@ -441,22 +441,33 @@ fn account_tx_index_rebuild_backfills_memos_and_shielded_withdrawals_over_a_v1_i
     // Rewrite the cache as the pre-upgrade binary left it at the same tip:
     // v1 schemas, no memo contents, and no shielded rows.
     let index_path = account_tx_index_path(&data_dir);
-    let mut legacy = read_account_tx_index_file(&index_path).expect("read index");
-    legacy.schema = "postfiat-account-tx-index-v1".to_string();
-    for rows in legacy.accounts.values_mut() {
-        rows.retain(|row| row.batch_kind != BATCH_KIND_SHIELDED);
+    for file in [ACCOUNT_TX_INDEX_FILE, ACCOUNT_TX_DISK_INDEX_FILE] {
+        fs::remove_file(data_dir.join(file)).expect("remove v3 metadata");
+    }
+    fs::remove_dir_all(data_dir.join(ACCOUNT_TX_ACCOUNT_SHARDS_DIR)).expect("remove v3 files");
+    super::account_tx_chunked_index::write_v2_account_tx_index(&data_dir);
+    let mut legacy: serde_json::Value =
+        serde_json::from_slice(&fs::read(&index_path).expect("read index")).expect("index json");
+    legacy["schema"] = "postfiat-account-tx-index-v1".into();
+    let accounts = legacy["accounts"].as_object_mut().expect("v1 accounts");
+    for rows in accounts.values_mut() {
+        let rows = rows.as_array_mut().expect("rows");
+        rows.retain(|row| row["batch_kind"] != BATCH_KIND_SHIELDED);
         for row in rows.iter_mut() {
-            row.memos = None;
+            row.as_object_mut().expect("row").remove("memos");
         }
     }
-    legacy.accounts.retain(|_, rows| !rows.is_empty());
-    legacy.account_count = legacy.accounts.len() as u64;
-    legacy.indexed_row_count = 1;
-    write_account_tx_index_file(&index_path, &legacy).expect("write v1 index");
+    accounts.retain(|_, rows| !rows.as_array().expect("rows").is_empty());
+    legacy["account_count"] = accounts.len().into();
+    legacy["indexed_row_count"] = 1.into();
+    fs::write(&index_path, serde_json::to_vec_pretty(&legacy).expect("v1 json"))
+        .expect("write v1 index");
     let disk_path = account_tx_disk_index_path(&data_dir);
-    let mut legacy_disk = read_account_tx_disk_index_file(&disk_path).expect("read disk index");
-    legacy_disk.schema = "postfiat-account-tx-disk-index-v1".to_string();
-    write_account_tx_disk_index_file(&disk_path, &legacy_disk).expect("write v1 disk index");
+    let mut legacy_disk: serde_json::Value =
+        serde_json::from_slice(&fs::read(&disk_path).expect("read disk index")).expect("disk json");
+    legacy_disk["schema"] = "postfiat-account-tx-disk-index-v1".into();
+    fs::write(&disk_path, serde_json::to_vec_pretty(&legacy_disk).expect("v1 disk json"))
+        .expect("write v1 disk index");
 
     let status = account_tx_index_status(AccountTxIndexOptions {
         data_dir: data_dir.clone(),
@@ -494,7 +505,7 @@ fn account_tx_index_rebuild_backfills_memos_and_shielded_withdrawals_over_a_v1_i
     assert_eq!(egress.rows, expected_egress_rows);
     assert_shielded_withdrawal_rows(&shielded, &withdraw.rows, &egress.rows);
     let rebuilt = read_account_tx_index_file(&index_path).expect("read rebuilt index");
-    assert_eq!(rebuilt.schema, "postfiat-account-tx-index-v2");
+    assert_eq!(rebuilt.schema, "postfiat-account-tx-index-v3");
 
     fs::remove_dir_all(data_dir).expect("remove test data dir");
 }
@@ -686,5 +697,98 @@ fn repeated_ordinary_receipt_ids_are_still_rejected() {
     .map_err(duplicate)
     .expect_err("index build refuses an id repeated outside governance blocks");
     assert!(build.contains("receipt log contains duplicate tx_id"), "{build}");
+    fs::remove_dir_all(data_dir).expect("remove test data dir");
+}
+
+/// The `account_tx` results of a v2 index and of the v3 index rebuilt from
+/// it are the same bytes, for every indexed account and an unknown one, with
+/// and without height bounds and truncation. The v2 result is what the v2
+/// read path returned: the account's whole shard through
+/// `account_tx_from_rows`.
+#[test]
+fn account_tx_results_are_byte_identical_after_the_v3_rebuild() {
+    let (data_dir, signed, _) = payment_v2_memo_chain("postfiat-account-tx-v3-bytes");
+    for (index, to) in [
+        "pf00000000000000000000000000000000000000a1",
+        "pf00000000000000000000000000000000000000b2",
+        "pf00000000000000000000000000000000000000a1",
+        PAYMENT_RECIPIENT,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let batch_file = data_dir.join(format!("transfer-{index}.batch.json"));
+        create_transfer_batch(BatchTransferOptions {
+            data_dir: data_dir.clone(),
+            key_file: None,
+            to: to.to_string(),
+            amount: ACCOUNT_RESERVE + index as u64,
+            batch_file: batch_file.clone(),
+        })
+        .expect("transfer batch");
+        let receipts = apply_batch(ApplyBatchOptions {
+            data_dir: data_dir.clone(),
+            batch_file,
+            certificate_file: None,
+        })
+        .expect("apply transfer");
+        assert!(receipts.iter().all(|receipt| receipt.accepted));
+    }
+    append_shielded_withdrawal_block(&data_dir);
+    let v2_rows = super::account_tx_chunked_index::write_v2_account_tx_index(&data_dir);
+    let genesis = NodeStore::new(&data_dir).read_genesis().expect("genesis");
+    let mut addresses = v2_rows.keys().cloned().collect::<Vec<_>>();
+    assert!(addresses.contains(&signed.unsigned.from) && addresses.len() >= 6);
+    addresses.push("pf00000000000000000000000000000000000000ff".to_string());
+    let queries: [(Option<u64>, Option<u64>, Option<usize>); 5] = [
+        (None, None, Some(100)),
+        (Some(1), None, Some(2)),
+        (None, None, Some(1)),
+        (Some(2), Some(4), None),
+        (None, Some(3), Some(2)),
+    ];
+    let options = |address: &str, (from_height, to_height, limit)| AccountTxQueryOptions {
+        data_dir: data_dir.clone(),
+        address: address.to_string(),
+        from_height,
+        to_height,
+        limit,
+    };
+    let v2_results = addresses
+        .iter()
+        .flat_map(|address| queries.map(|bounds| (address.clone(), bounds)))
+        .map(|(address, bounds)| {
+            let request = options(&address, bounds);
+            let scan_limit = bounded_read_query_limit(request.limit, "account_tx").expect("limit");
+            let rows = v2_rows.get(&address).cloned().unwrap_or_default();
+            serde_json::to_vec(&account_tx_from_rows(request, scan_limit, &genesis, rows))
+                .expect("v2 result")
+        })
+        .collect::<Vec<_>>();
+
+    let build = rebuild_account_tx_index(AccountTxIndexOptions {
+        data_dir: data_dir.clone(),
+    })
+    .expect("v3 rebuild");
+    assert!(build.index_usable && build.disk_index_usable, "{build:?}");
+    let meta: serde_json::Value = serde_json::from_slice(
+        &fs::read(data_dir.join(ACCOUNT_TX_DISK_INDEX_FILE)).expect("meta"),
+    )
+    .expect("meta json");
+    assert_eq!(meta["schema"], "postfiat-account-tx-disk-index-v3");
+    let v3_results = addresses
+        .iter()
+        .flat_map(|address| queries.map(|bounds| (address.clone(), bounds)))
+        .map(|(address, bounds)| {
+            let report = account_tx(options(&address, bounds)).expect("v3 account tx");
+            assert!(report.index_used, "{address}");
+            serde_json::to_vec(&report).expect("v3 result")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(v2_results.len(), v3_results.len());
+    for (index, (v2, v3)) in v2_results.iter().zip(&v3_results).enumerate() {
+        assert!(v2 == v3, "result {index} differs after the v3 rebuild");
+    }
+
     fs::remove_dir_all(data_dir).expect("remove test data dir");
 }

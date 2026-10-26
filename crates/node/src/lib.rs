@@ -376,6 +376,7 @@ include!("privacy.rs");
 mod vote_locks;
 use vote_locks::reserve_block_proposal_vote_lock;
 include!("block_finality.rs");
+include!("account_tx_disk_index.rs");
 mod block_replay_wallet;
 pub use block_replay_wallet::*;
 mod pftl_swap_service;

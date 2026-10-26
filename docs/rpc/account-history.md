@@ -194,11 +194,13 @@ postfiat-node account-tx-index-build --data-dir <validator-data>
 The build extends a current index from its tip, or rebuilds it from every
 retained block when it cannot be extended.
 
-Rows with memo contents and shielded withdrawals use index schema
-`postfiat-account-tx-index-v2`. An index written before this change
-(`postfiat-account-tx-index-v1`) is never extended. After upgrading, run
-`account-tx-index-build` once: it rebuilds the index from all retained blocks,
-which backfills memo contents and historical shielded withdrawals. Until then,
+The current index schema is `postfiat-account-tx-index-v3`: rows in bounded
+per-account chunks and metadata-only aggregate files, with the same rows and
+results as v2. Schema v2 added memo contents and shielded withdrawals. An index
+written with an older schema (v1 or v2) is never read or extended. After
+upgrading, run `account-tx-index-build` once: it rebuilds the index from all
+retained blocks, which for a v1 index also backfills memo contents and
+historical shielded withdrawals. Until then,
 `account_tx_index_status` reports the index unusable with
 `unsupported account_tx index schema`, and `account_tx` answers from the
 bounded archive scan, which already returns the new rows. History pruned below
