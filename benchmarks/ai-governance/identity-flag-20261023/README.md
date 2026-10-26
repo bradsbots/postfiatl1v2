@@ -4,7 +4,7 @@
 [identity flag pipeline specification](../../../docs/specs/identity-flag-pipeline-spec-20261023.md),
 with the decisions of its Appendix A (2026-10-23). It is step 2 of the
 [Z2 plan](../../../docs/plans/active/z2-advisory-flag-execution-plan-20261022.md).
-It calls no model. No GPU run has used it yet.
+Only `run_host.py` calls a model, on a GPU host. No GPU run has used it yet.
 
 | File | What it is |
 | --- | --- |
@@ -12,10 +12,12 @@ It calls no model. No GPU run has used it yet.
 | `response_schema_v1.json` | `postfiat.identity_flag.model_response.v1`: five required fields, no others. Canonical-JSON SHA-256 `2e383bc3057b1ce7f9a66f351286640470645893c57be8e2a8addc6825b8a609` |
 | `identity_flag_pipeline.py` | The typed flag, the execution profile and manifest section, the request builder, the slot checks, the four-run comparison, the failure table, `flags.json` and `admissibility.json`, and the `SHADOW_ONLY` guard |
 | `admissibility.py` | CLI. It writes a round's request rows for the host runner, or the round's `flags.json` and `admissibility.json` from four run files |
+| `run_host.py` | The host runner: the flag variant of the 2026-09-03 `run_host.py`, with the same execution profile. It posts a round's request rows to the loopback SGLang server and writes one run file `<owner>-run<index>.json` |
 | `build_fixtures.py` | Rebuilds `fixtures/` from committed data (`--check` reports drift) |
 | `fixtures/worked_example_20260903.json` | The spec's §4.1 corpus: 55 validators with their legitimacy score, "not established" and domain-verified facts |
 | `fixtures/round_28_candidates.json` | Testnet round 28's 61 candidates: incumbent, `domain_verified`, and the 2026-09-01 packet where one exists (20) |
 | `test_identity_flag_pipeline.py` | Offline tests with stubbed model outputs |
+| `test_run_host.py` | Offline tests of the runner with a stubbed backend |
 
 ## Rules as implemented
 
@@ -56,12 +58,44 @@ It calls no model. No GPU run has used it yet.
 It adds the SHA-256 of `identity_flag_pipeline.py` itself, so any edit to the
 module makes earlier pins stale.
 
+`run_host.py` has no pin of its own, because neither §6 nor `manifest_section()`
+pins a runner; the request echo and the four-run byte comparison check its output.
+
+**Decision, 2026-10-26.** The runner's SHA-256 is not added to the pins.
+
 ## Run
 
 ```bash
 python3 -m pytest benchmarks/ai-governance/identity-flag-20261023 -q
 python3 benchmarks/ai-governance/identity-flag-20261023/build_fixtures.py --check
 ```
+
+A round, from this directory. On each GPU host, start the server with the
+2026-09-03 `bootstrap_host.sh`, then run the round's requests twice:
+
+```bash
+python3 admissibility.py --round round.json --requests-out requests.json
+python3 run_host.py --requests requests.json --owner ownerA --provider-host-id <id> --run-index 1
+python3 run_host.py --requests requests.json --owner ownerA --provider-host-id <id> --run-index 2
+# the same on the second owner's host, then, with the four files in outputs/:
+python3 admissibility.py --round round.json --section section.json --out out/ \
+    --run ownerA=outputs/ownerA-run1.json --run ownerA=outputs/ownerA-run2.json \
+    --run ownerB=outputs/ownerB-run1.json --run ownerB=outputs/ownerB-run2.json
+```
+
+Each `results` row has `slot`, `request_sha256`, `content` and `finish_reason`,
+plus `content_sha256` and `slot_check`. A truncated or invalid reply is written as
+received. The `host` record holds the owner, provider host ID, run index, GPU,
+Python and server settings. `admissibility.py` takes the owner from `--run OWNER=PATH`.
+
+The runner refuses to start, before it sends any request, when:
+
+- `prompt_v1.txt` or `response_schema_v1.json` does not have its pinned SHA-256;
+- the request rows are not whole batches of 32, a row's body does not hash to its
+  `request_sha256`, or the rows are not exactly what `build_requests` gives for
+  their embedded packets (another prompt, schema or sampling setting);
+- the owner label is not a plain name, the run index is not 1 or 2, or the run file
+  already exists.
 
 ## Results on the fixtures (stubbed model outputs)
 
@@ -75,10 +109,8 @@ python3 benchmarks/ai-governance/identity-flag-20261023/build_fixtures.py --chec
 
 ## Before the first GPU run
 
-- **Host runner.** The 2026-09-03 `run_host.py` checks its own legitimacy prompt
-  and response schema, so the flag requests need a variant of it. Its output
-  shape (`slot`, `request_sha256`, `content`, `finish_reason`) is what
-  `admissibility.py --run` reads.
-- **Packets.** A packet set is needed that covers the round's candidates and is
+- [x] **Host runner.** `run_host.py` is the flag variant of the 2026-09-03
+  runner. Its run files are what `admissibility.py --run` reads.
+- [ ] **Packets.** A packet set is needed that covers the round's candidates and is
   frozen by the input freeze.
-- **Cost owner.** The inference-cost owner must be named in the decision sheet.
+- [x] **Cost owner.** Named in the decision sheet on 2026-10-23.
