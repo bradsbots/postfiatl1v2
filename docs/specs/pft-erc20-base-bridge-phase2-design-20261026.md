@@ -17,7 +17,7 @@ This is a draft research specification, written on 2026-10-26 by operator dravli
 - **Native PFT** is PFTL's base asset; genesis creates it once and no later record can create more (`docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md:12-13`, `:69-73`).
 - **The external lane** is a genesis-created state entry holding the native PFT whose claim currently lives outside PFTL as ERC-20 PFT, the $s_{\text{external}}$ term of the four-way partition (`docs/whitepaper.md:66-70`).
 - **The lock contract** is the Phase 2 contract on Base that takes ERC-20 PFT and records each Lock (section 3).
-- **Base** is Coinbase's Ethereum layer-2 network, where the ERC-20 PFT lives (`crates/ethereum-contracts/src/PFTToken.sol:7-8`); its chain id is 8453, and its testnet Base Sepolia, 84532, is the id the token's dry run uses (`crates/ethereum-contracts/README.md:37`).
+- **Base** is Coinbase's Ethereum layer-2 network, where the ERC-20 PFT lives (`crates/pft-token-contracts/src/PFTToken.sol:7-8`); its chain id is 8453, and its testnet Base Sepolia, 84532, is the id the token's dry run uses (`crates/pft-token-contracts/README.md:39`).
 - **OP Stack** is the rollup software Base runs: Base posts commitments to its state on Ethereum, and Ethereum contracts settle disputes about them (`pft-erc20-representation-options-20261026.md:24`, docs.base.org).
 - **An output root** is a proposer's hash commitment to one Base block, covering its state root and block hash; **a dispute game** is the Ethereum contract in which that claim can be challenged until it resolves (docs.base.org, withdrawals page, 2026-10-26).
 - **A BFT checkpoint** is an EVM chain's block number, block hash and receipts or state root, signed by a quorum of a committee registered on PFTL (`crates/types/src/ethereum_bridge_types.rs:46-63`, `tools/nav-reserve-proof/README.md:31-40`).
@@ -50,7 +50,7 @@ interface IPFTLockV1 {
 }
 ```
 
-`lockWithPermit` exists because the token supports EIP-2612 permits (`crates/ethereum-contracts/src/PFTToken.sol:15-16`), which saves the holder a separate approval transaction.
+`lockWithPermit` exists because the token supports EIP-2612 permits (`crates/pft-token-contracts/src/PFTToken.sol:15-16`), which saves the holder a separate approval transaction.
 
 The contract keeps four invariants.
 
@@ -61,7 +61,7 @@ The contract keeps four invariants.
 
 ## 4. Proving a Base Lock on PFTL
 
-The repository has two working proof styles for EVM events and one signature pattern for the other direction. None of them reads Base today. The SP1 program is pinned to Sepolia's chain id, genesis validators root and fork schedule (`programs/pfusdc-eth-ingress/src/lib.rs:18-23`, `:90-97`, `:286-299`). A search for output roots, dispute games or chain id 8453 finds no code; the only Base reference is the token's local dry run on 84532 (`crates/ethereum-contracts/README.md:37`). The repository therefore holds no OP Stack facts of its own, and the latency figures below come from Base's documentation.
+The repository has two working proof styles for EVM events and one signature pattern for the other direction. None of them reads Base today. The SP1 program is pinned to Sepolia's chain id, genesis validators root and fork schedule (`programs/pfusdc-eth-ingress/src/lib.rs:18-23`, `:90-97`, `:286-299`). A search for output roots, dispute games or chain id 8453 finds no code; the only Base reference is the token's local dry run on 84532 (`crates/pft-token-contracts/README.md:39`). The repository therefore holds no OP Stack facts of its own, and the latency figures below come from Base's documentation.
 
 **(a) Extend the SP1 ingress program.** Today the guest verifies Ethereum beacon finality with Helios and then proves storage slots against the finalized execution state root (`lib.rs:108-122`, `:232-284`), and PFTL verifies the result through `verify_bounded_sp1_groth16` and consumes a deposit nullifier (`nav_vault_asset_execution.rs:7608-7627`). For Base the guest would add three steps after L1 finality: a storage proof on Ethereum that a dispute game for a Base output root has resolved in the claim's favour and passed its finalization window, the opening of that output root to Base's state root, and a storage proof of the lock record in Base's state. The trust base is Ethereum consensus plus Base's proof system. The latency is the dispute game's finalization window, which Base documents as five days for a single-proof game and one day on the dual-proof fast path (docs.base.org, withdrawals page, 2026-10-26); Base's earlier withdrawal guidance said seven days (github.com/base/withdrawer). The work is a new guest, mainnet chain parameters and parsing of OP Stack contract storage, and it does not fit the estimate.
 
@@ -153,7 +153,7 @@ Three "not before" rules apply. No genesis code merges before the token document
 - Base blocks can reorganise before their data is final on Ethereum. A checkpoint policy that signs only blocks derived from finalized Ethereum data avoids this.
 - A Lock to a mistyped PFTL address is lost for good, because the lock contract has no admin. The CLI must validate the address first.
 - ERC-20 PFT sent to the lock contract by plain transfer is also lost for good.
-- If the lane's `reserved_atoms` differs from the token's constructor supply (`crates/ethereum-contracts/README.md:20-24`), the one-for-one claim breaks.
+- If the lane's `reserved_atoms` differs from the token's constructor supply (`crates/pft-token-contracts/README.md:23-26`), the one-for-one claim breaks.
 - The dormant Phase 3 release path enlarges the Phase 2 audit.
 - Generalising the checkpoint schema touches the PFTL-Uniswap verification path (`pftl_uniswap_ethereum_verification.rs:411-440`), so that route's tests must stay green.
 
@@ -174,7 +174,7 @@ The lead developer decided four things on 2026-10-26. All are revisited only if 
 
 - `docs/listings/coinbase/pft-erc20-representation-options-20261026.md`, `docs/listings/coinbase/integration-plan.md`, `docs/whitepaper.md`, `docs/start/glossary.md`
 - `docs/status/OPEN-SOURCE-NATIVE-SUPPLY-INVENTORY-20260716.md`, `docs/architecture/l1v2-testnet-genesis-and-launch-spec.md`, `docs/handoffs/2026-10-08___dravlic__conference_day_two_friday_ready.md`
-- `crates/ethereum-contracts/src/PFTToken.sol`, `crates/ethereum-contracts/src/ERC20BridgeVaultL1.sol`, `crates/ethereum-contracts/src/PFTLWithdrawalVerifier.sol`, `crates/ethereum-contracts/README.md`
+- `crates/pft-token-contracts/src/PFTToken.sol`, `crates/ethereum-contracts/src/ERC20BridgeVaultL1.sol`, `crates/ethereum-contracts/src/PFTLWithdrawalVerifier.sol`, `crates/pft-token-contracts/README.md`
 - `programs/pfusdc-eth-ingress/src/lib.rs`, `tools/nav-reserve-proof/README.md`, `tools/nav-reserve-proof/crates/reserve-proof-types/src/evm_checkpoint.rs`
 - `crates/types/src/core_chain.rs`, `crates/types/src/ethereum_bridge_types.rs`, `crates/types/src/market_nav_asset_types.rs`, `crates/types/src/account_owned_asset_types.rs`
 - `crates/execution/src/nav_vault_asset_execution.rs`, `crates/execution/src/pftl_uniswap_ethereum_verification.rs`, `crates/execution/src/issued_asset_ledger_helpers.rs`, `crates/bridge/src/ethereum_checkpoint.rs`, `crates/bridge/src/ethereum_receipt.rs`

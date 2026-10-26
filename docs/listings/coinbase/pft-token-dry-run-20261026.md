@@ -6,7 +6,8 @@ transaction was broadcast, and nothing exists on any network.
 
 ## Command
 
-The run used forge 1.8.1 in `crates/ethereum-contracts`.
+The run used forge 1.8.1 in `crates/ethereum-contracts`, where the token then
+lived; it has since moved unchanged to `crates/pft-token-contracts`.
 
 ```bash
 anvil --port 18547 --chain-id 84532 --silent &
@@ -51,7 +52,7 @@ OpenZeppelin is pinned as the submodule `lib/openzeppelin-contracts` at tag
 
 P1.3 still needs the test deployment on Base Sepolia. It needs a deployer key
 funded with Base Sepolia ETH and a treasury there, either the Safe or a
-placeholder address. The command is the one in `crates/ethereum-contracts/README.md`,
+placeholder address. The command is the one in `crates/pft-token-contracts/README.md`,
 with `--rpc-url <base-sepolia-rpc-url> --interactives 1 --broadcast`. After
 it, the source must be verified on the Base Sepolia block explorer; the item
 is ticked with the deployed address and the verified-source page.

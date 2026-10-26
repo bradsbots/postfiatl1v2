@@ -41,9 +41,9 @@ did when INJ moved from its ERC-20 to the native Injective chain in July 2026
 ## Source
 
 The contract is public on GitHub at
-[crates/ethereum-contracts/src/PFTToken.sol](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/ethereum-contracts/src/PFTToken.sol),
+[crates/pft-token-contracts/src/PFTToken.sol](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/pft-token-contracts/src/PFTToken.sol),
 with its tests in
-[test/PFTToken.t.sol](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/ethereum-contracts/test/PFTToken.t.sol).
+[test/PFTToken.t.sol](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/pft-token-contracts/test/PFTToken.t.sol).
 
 Supply and allocation figures will be published in the token document before
 the ERC-20 is deployed.

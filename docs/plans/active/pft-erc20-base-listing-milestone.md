@@ -22,11 +22,12 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
 ## Phase 1 — the token on Base
 
 - [x] P1.1 *(this lane)* The contract, its tests and the deploy script (`ad5ba32f`).
-  - `crates/ethereum-contracts/src/PFTToken.sol`: the whole supply is minted once to the treasury, and `decimals()` is fixed at 6. It has no owner, admin, pause, blacklist or upgrade path.
-  - `crates/ethereum-contracts/test/PFTToken.t.sol`: 8 tests.
-  - `crates/ethereum-contracts/script/DeployPFTToken.s.sol`, with `script/pft-token.env.example`.
-- [x] P1.2 *(this lane)* The OpenZeppelin pin (`ad5ba32f`). The submodule `crates/ethereum-contracts/lib/openzeppelin-contracts` is at `cab19933` (`.gitmodules:7-9`), with its remapping in `crates/ethereum-contracts/foundry.toml` and the CI checkout in `.github/workflows/product-security-ci.yml`.
-- [ ] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/ethereum-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source. The anvil dry run (chain id 84532) ran today and is recorded in [pft-token-dry-run-20261026.md](../../listings/coinbase/pft-token-dry-run-20261026.md); the Base Sepolia deployment is still open.
+  - `crates/pft-token-contracts/src/PFTToken.sol`: the whole supply is minted once to the treasury, and `decimals()` is fixed at 6. It has no owner, admin, pause, blacklist or upgrade path.
+  - `crates/pft-token-contracts/test/PFTToken.t.sol`: 8 tests.
+  - `crates/pft-token-contracts/script/DeployPFTToken.s.sol`, with `script/pft-token.env.example`.
+  - The token is its own Foundry project, so `crates/ethereum-contracts` compiles as before and the pinned A666 public reader build stays reproducible.
+- [x] P1.2 *(this lane)* The OpenZeppelin pin (`ad5ba32f`). The submodule `crates/pft-token-contracts/lib/openzeppelin-contracts` is at `cab19933` (`.gitmodules:7-9`), with its remapping in `crates/pft-token-contracts/foundry.toml`; the CI `evm-contracts` job fetches it and runs `forge test` there (`.github/workflows/product-security-ci.yml`).
+- [ ] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/pft-token-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source. The anvil dry run (chain id 84532) ran today and is recorded in [pft-token-dry-run-20261026.md](../../listings/coinbase/pft-token-dry-run-20261026.md); the Base Sepolia deployment is still open.
 - [ ] P1.4 *(other lane)* The audit, including its budget and the vendor choice. For one contract of this size it typically takes one to three weeks of calendar time. To tick it: the report, with every finding closed.
 - [ ] P1.5 *(other lane)* The token document with the four decisions. To tick it: the published document.
   - the total supply;
@@ -81,5 +82,5 @@ The lead developer decided two things on 2026-10-26, to be revisited only if the
 
 - [ERC-20 options paper](../../listings/coinbase/pft-erc20-representation-options-20261026.md)
 - [Coinbase integration plan](../../listings/coinbase/integration-plan.md)
-- `crates/ethereum-contracts/README.md` (the PFT token section)
+- `crates/pft-token-contracts/README.md` (the PFT token section)
 - `AGENTS.md` (the research specification lock, the CLI and interface, retirement)

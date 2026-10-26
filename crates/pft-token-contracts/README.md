@@ -1,9 +1,11 @@
-# Ethereum contracts
+# PFT token contracts
 
-Foundry project for the Solidity contracts, tests and deploy scripts. CI's
-`evm-contracts` job runs `forge test --no-match-path 'test/*Fork.t.sol'` here
-with Foundry v1.7.1 and solc 0.8.24 (`foundry.toml`). Bridge deployment is
-described in [script/README.md](script/README.md).
+Stand-alone Foundry project for the PFT token. It is kept apart from
+`crates/ethereum-contracts` so that project's library directory and compiler
+remappings, and with them the pinned A666 public reader build
+(`scripts/check-a666-public-reader-candidates`), stay unchanged. Same solc
+0.8.24 and optimizer settings (`foundry.toml`); CI's `evm-contracts` job runs
+`forge test` here after fetching the OpenZeppelin submodule.
 
 ## PFT token (Base)
 
@@ -26,9 +28,9 @@ receives the whole supply. A zero treasury (`ZeroTreasury()`) or a zero supply
 Tests:
 
 ```bash
-cd crates/ethereum-contracts
-git submodule update --init lib/openzeppelin-contracts
-forge test --match-contract PFTToken
+git submodule update --init --depth 1 crates/pft-token-contracts/lib/openzeppelin-contracts
+cd crates/pft-token-contracts
+forge test
 ```
 
 Dry run of the deploy script against a local anvil, with no key and no broadcast:
