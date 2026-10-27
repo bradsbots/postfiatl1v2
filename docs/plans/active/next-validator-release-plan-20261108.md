@@ -43,15 +43,22 @@ Included only when ready and reviewed by the cut; none is promised.
 
 - [x] `exchange-readiness-20261023` deployed on all six validators, with `account-tx-index-build` run on each. Done 2026-10-23: deployed at 1143 (07:37Z); index built 08:02–08:23Z and rebuilt to 1153 on all six after the activation.
 - [x] Its three activations done: `recipient_format_activation_height` (#143), `rejected_tx_fee_activation_height` and `require_memo_activation_height` (#144). Done 2026-10-23: set at blocks 1144–1146, active from 1153.
-- [ ] CI green on main at the cut commit (`docs-build`, `rust-ci`, `product-security-ci`).
-- [ ] Full workspace suite at the cut commit (the release gate for the full suite; `rust-ci` `test` runs `cargo test --workspace --locked`).
+- [x] CI green on main at the cut commit (`docs-build`, `rust-ci`, `product-security-ci`). `d728f895`: docs-build `40335966553`, rust-ci `40335966336`, product-security-ci `40335966335`, all success (2026-10-26T14:02Z).
+- [x] Full workspace suite at the cut commit (the release gate for the full suite; `rust-ci` `test` runs `cargo test --workspace --locked`). Green in rust-ci `40335966336` on `d728f895`.
 
 ## Qualification and rollout
 
 As in the current plan: [Qualification](next-validator-release-plan-20261005.md#qualification) (~90 min after the suite) and [Rollout](next-validator-release-plan-20261005.md#rollout) (~60 min, one validator at a time, `rollback-one.sh` back to `exchange-readiness-20261023`). A consensus candidate adds its own qualification before the cut.
 
-- [ ] Cut: release name, main commit, branch, two identical clean builds.
-- [ ] History: signed canaries and their exact replays, checkpoint and full replay, recorded roots.
-- [ ] Six new-build services on disposable copies; the rollback build reads them.
-- [ ] Signed manifest, units, `systemd-analyze verify`, focused suites of this release's changes.
-- [ ] Canary backup, fleet before-state, rollout (release day, operator's go).
+Cut 2026-10-27: `index-v3-20261027`, main at `d728f895`, branch `release/index-v3-20261027`
+([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/index-v3-20261027/deployments/index-v3-20261027/README.md),
+[qualification packet](https://github.com/postfiatorg/postfiatl1v2/blob/release/index-v3-20261027/deployments/index-v3-20261027/qualification/README.md)).
+Local checks only. Crates changed since `d9260e93`: `node` and `consensus_cobalt` (not called by consensus); `types`, `execution`, `storage` and `Cargo.lock` unchanged; no governance step.
+
+- [x] Cut: release name, main commit, branch, two identical clean builds (`b5cf3ce4bc046e6338beca6d5ead6fd0343426ddb01ac2f461c31e2775f9c8eb`).
+- [x] History: signed canaries and their exact replays, checkpoint and full replay, recorded roots. Signed 1137, 1131 and 1123 imports: checkpoint and full replay at the recorded roots (the rollback build also replays the new 1137 import); the six 2026-09-28 copies at 1021; exact replays PASS for 924 (legacy source, every recorded manifest field) and the 1137 signed export (`18a4dc86…`, `1277c76c…`, archive tree unchanged).
+- [x] Six new-build services on disposable copies; the rollback build reads them. Startup and restart on the six 1021 copies; rollback build `4085ac70…` checkpoint on six, full replay and the `rollback-one.sh` core PASS.
+- [x] Signed manifest, units, `systemd-analyze verify`, focused suites of this release's changes. Manifest `a61e290a…` (publisher `pfc531e0…`); 33 generated files byte-identical to `exchange-readiness-20261023` after the release-ID change; `systemd-analyze verify` clean; account_tx, transport, vote-record and `fastpay_default_rpc` suites pass.
+- [x] Index v2 → v3 on the signed 1137 import: v2 reported unsupported, scan answers until the build, rebuild 6.83 s for 1,137 blocks, 20/20 `account_tx` answers byte-identical; after a rollback the old executable serves from the scan and needs its own `account-tx-index-build` (sheet Rollback).
+- [ ] A two-process local devnet round through the built executable writing `block-vote-records` (covered in-process by `transport_batch_payload_tests`; the release-day §8 check is the first executable-level evidence).
+- [ ] Canary backup, fleet before-state, rollout, index build (release day, operator's go; [sheet](https://github.com/postfiatorg/postfiatl1v2/blob/release/index-v3-20261027/deployments/index-v3-20261027/DEPLOY-SHEET.md)).

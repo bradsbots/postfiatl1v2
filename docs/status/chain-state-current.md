@@ -4,6 +4,15 @@ Updated: `2026-10-23T10:40:00Z` (release `exchange-readiness-20261023` deployed 
 
 Status: **canonical operational-state reference**
 
+!!! note "2026-10-27: index-v3 candidate cut, not deployed"
+
+    On 2026-10-27 the next candidate, `index-v3-20261027` (`main` at `d728f895`, executable
+    `b5cf3ce4…`), which carries the account history index v3 that follows commits, the certified round's local
+    apply and the proposer's vote outcome records, was cut and qualified locally; it is cut, not deployed
+    ([release inputs](https://github.com/postfiatorg/postfiatl1v2/blob/release/index-v3-20261027/deployments/index-v3-20261027/README.md)).
+    It has no governance step. After the rollout, `account-tx-index-build` must run on every validator: until
+    then the v2 index is reported unsupported and `account_tx` answers from the archive scan.
+
 !!! success "2026-10-23: exchange-readiness release deployed to all six validators"
 
     Release `exchange-readiness-20261023` runs on all six validators: source `6b1a0585` on branch
