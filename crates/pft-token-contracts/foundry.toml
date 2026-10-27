@@ -15,11 +15,12 @@ evm_version = "cancun"
 # verification cannot drift.
 bytecode_hash = "ipfs"
 cbor_metadata = true
-# The deploy script reads the compiler settings and writes the deployment record;
-# its tests write their records under cache/deploy-test.
+# The deploy script reads the effective compiler settings from out/ and writes the
+# deployment record; its tests read the Safe bytecode fixtures and write their
+# records under cache/deploy-test.
 fs_permissions = [
-    { access = "read", path = "./foundry.toml" },
     { access = "read", path = "./out" },
+    { access = "read", path = "./test/fixtures" },
     { access = "read-write", path = "./deployments" },
     { access = "read-write", path = "./cache/deploy-test" },
 ]

@@ -54,7 +54,9 @@ runs); `test/PFTTokenInvariant.t.sol` checks that the balances sum to the fixed
 supply over random transfers, approvals and permits (64 runs, depth 32,
 `fail_on_revert`). `test/DeployPFTToken.t.sol` covers every refusal of the
 deploy script and its accepted path; `test/deploy-script-cli.sh` runs the
-script through `forge script` with a code-bearing treasury.
+script through `forge script` with a real Safe treasury, a wrong singleton and
+a lookalike, hermetically offline (`env -i`, `FOUNDRY_OFFLINE=true`, no RPC
+variable, URLs redacted from the output).
 
 ## Deployment
 
@@ -68,11 +70,14 @@ outside the repository, `*.env` is ignored) and refuses, before the broadcast:
 | name and symbol are not empty, blank or `replace...` (any casing); name at most 31 bytes | `PlaceholderValue(name)`, `NameTooLong(length)` |
 | `PFT_TOKEN_TOTAL_SUPPLY` (units) equals `PFT_TOKEN_TOTAL_SUPPLY_PFT` (whole PFT) × 1,000,000 | `SupplyMismatch(units, pft)` |
 | the treasury is not the deployer and has code on the target chain | `TreasuryIsDeployer`, `TreasuryNotAContract` |
-| the treasury's storage slot 0 (the Safe proxy's singleton) is a pinned official Safe singleton | `UnofficialSafeSingleton(treasury, singleton)` |
+| the treasury's code hash is the pinned SafeProxy 1.4.1 or GnosisSafeProxy 1.3.0 runtime code | `ProxyCodeMismatch(treasury, codehash)` |
+| its storage slot 0 (the proxy's singleton) is a pinned official Safe singleton | `UnofficialSafeSingleton(treasury, singleton)` |
+| its `masterCopy()` (staticcall) returns the slot 0 address | `MasterCopyMismatch(treasury, singleton)` |
+| the singleton's code hash on the chain is its pinned runtime code hash | `SingletonCodeMismatch(singleton, codehash)` |
 | `getThreshold()` and `getOwners()` answer (checked staticcalls) | `TreasuryIsNotASafe` |
 | threshold >= 2; owners distinct, non-zero, at least the threshold | `SafeThresholdTooLow`, `SafeOwnersInvalid` |
 | the deployer's nonce on the target chain is 0 (a one-time key) | `DeployerAlreadyUsed(deployer, nonce)` |
-| a real deployment sets no test switch and has no record yet | `RealDeploymentWithTestSwitch`, `RecordExists(path)` |
+| a real deployment sets no test switch, sets `PFT_TOKEN_SOURCE_COMMIT` and has no record yet | `RealDeploymentWithTestSwitch`, `SourceCommitMissing`, `RecordExists(path)` |
 
 The Safe checks fail closed on both chains. Pinned singletons (the canonical
 deployments in safe-global/safe-deployments, commit `b45417dd`, listed there
@@ -128,34 +133,53 @@ PFT_TOKEN_REAL_DEPLOYMENT=1 forge script script/DeployPFTToken.s.sol:DeployPFTTo
 Only a broadcast with `PFT_TOKEN_REAL_DEPLOYMENT=1` writes the durable
 `deployments/pft-token-base-<chain id>/deployment.json`, and never over an
 existing one; every other broadcast (a local anvil) writes under the ignored
-`cache/deploy-test/`, and a dry run writes none. The record holds the mode
-(`real`/`test`), token, chain id, constructor arguments, deployer, Safe
-singleton, threshold and owners, and the build provenance (solc version,
-optimizer runs, `evm_version`, `bytecode_hash`, `cbor_metadata`, OpenZeppelin
-commit, `PFT_TOKEN_SOURCE_COMMIT`). The script runs before the transaction is
-sent, so `tx_hash` and `block_number` are `pending`: copy them in from
-`broadcast/DeployPFTToken.s.sol/<chain id>/run-latest.json`, then commit the
-record. If the broadcast fails, delete the uncommitted record before retrying.
+`cache/deploy-test/`, and a dry run writes none. A real deployment is refused
+without `PFT_TOKEN_SOURCE_COMMIT`. The record holds the mode (`real`/`test`),
+token, chain id, constructor arguments, deployer, Safe singleton, threshold and
+owners, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin commit and the effective
+compiler settings of the build (solc version, optimizer and runs,
+`evm_version`, `bytecode_hash`), read from the metadata of
+`out/PFTToken.sol/PFTToken.json`, so a command-line override such as
+`--optimizer-runs` is what the record shows. The script runs before the
+transaction is sent, so `tx_hash` and `block_number` are `pending`.
 `broadcast/` stays ignored.
 
-Verification on Basescan (`BASESCAN_API_KEY` exported in the shell, never in a
-file; `foundry.toml` reads it for chain ids 8453 and 84532):
+The treasury check fails closed unless the treasury's code hash is the pinned
+SafeProxy 1.4.1 or GnosisSafeProxy 1.3.0 runtime code, its slot 0 and its
+`masterCopy()` name the same pinned singleton, and that singleton carries its
+pinned runtime code on the chain (hashes and their source in
+`script/DeployPFTToken.s.sol`; the real bytecodes the tests run are in
+`test/fixtures/safe/`).
 
-```bash
-forge verify-contract <address> src/PFTToken.sol:PFTToken --chain <8453|84532> \
-  --constructor-args $(cast abi-encode "constructor(string,string,uint256,address)" \
-    "$PFT_TOKEN_NAME" "$PFT_TOKEN_SYMBOL" "$PFT_TOKEN_TOTAL_SUPPLY" "$PFT_TOKEN_TREASURY") \
-  --compiler-version v0.8.24+commit.e11b9ed9 --num-of-optimizations 200 --evm-version cancun
-```
+After the broadcast, in this order:
 
-The encoded arguments equal `constructor_args` in the deployment record.
+1. Confirm the receipt: the transaction in
+   `broadcast/DeployPFTToken.s.sol/<chain id>/run-latest.json` is mined with
+   status 1 on the explorer, and the token address it created has the code.
+2. Verify the source on Basescan (`BASESCAN_API_KEY` exported in the shell,
+   never in a file; `foundry.toml` reads it for chain ids 8453 and 84532):
 
-Post-deployment checks:
+   ```bash
+   forge verify-contract <address> src/PFTToken.sol:PFTToken --chain <8453|84532> \
+     --constructor-args $(cast abi-encode "constructor(string,string,uint256,address)" \
+       "$PFT_TOKEN_NAME" "$PFT_TOKEN_SYMBOL" "$PFT_TOKEN_TOTAL_SUPPLY" "$PFT_TOKEN_TREASURY") \
+     --compiler-version v0.8.24+commit.e11b9ed9 --num-of-optimizations 200 --evm-version cancun
+   ```
 
-- [ ] On the explorer, `totalSupply()` equals `PFT_TOKEN_TOTAL_SUPPLY` and the
-      treasury Safe holds all of it; the source is verified.
-- [ ] The deployment record is committed.
-- [ ] The deployer key is retired; it holds nothing and is never used again.
+   The encoded arguments equal `constructor_args` in the deployment record,
+   and the compiler settings equal the record's.
+3. On the explorer, `totalSupply()` equals `PFT_TOKEN_TOTAL_SUPPLY` and the
+   treasury Safe holds all of it.
+4. Finalise the record: copy `tx_hash` and `block_number` in from
+   `run-latest.json`, then commit it.
+5. Retire the deployer key; it holds nothing and is never used again.
+
+If the broadcast fails ambiguously (a timeout, a dropped connection, an
+unknown receipt), reconcile on the explorer first: look up the deployer's
+transactions and nonce. If the creation transaction was mined, continue from
+step 1 with that transaction and keep the record. Only when the explorer shows
+no transaction from the deployer is the uncommitted record deleted and the
+deployment retried. Never delete or retry before that check.
 
 OpenZeppelin pin: `lib/openzeppelin-contracts` is a git submodule at tag
 `v5.7.0`, commit `cab19933c33c2ad1d4c7a84864a3601dddfd16f3`. `foundry.toml`

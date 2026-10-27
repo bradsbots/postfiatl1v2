@@ -80,8 +80,11 @@ test switch was set; the deployer was the fresh account 2.
 | 3, `--broadcast` | SafeL2 v1.4.1 | `PFTToken deployed at 0x663F3ad617193148711d28f5334eE4Ed07016602`, `ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.`; record under `cache/deploy-test/` with mode `test`, threshold 2, three owners, `tx_hash` `pending` |
 | 4, dry run | `0x…0bad` | `Error: script failed: UnofficialSafeSingleton(0x8464135c8F25Da09e49BC8782676a84730C318bC, 0x0000000000000000000000000000000000000Bad)` |
 
-`crates/pft-token-contracts/test/deploy-script-cli.sh` repeats both cases
-through `forge script` on forge's in-process chain.
+The script has since been tightened to authenticate the proxy code,
+`masterCopy()` and the singleton's code, so the `FakeSafe` of run 3 is now
+refused (`ProxyCodeMismatch`). `crates/pft-token-contracts/test/deploy-script-cli.sh`
+repeats the cases through `forge script` on forge's in-process chain with a
+real SafeL2 v1.4.1 proxy and that lookalike.
 
 ## Results, 2026-10-26
 

@@ -1,0 +1,18 @@
+{
+  "_comment": "metadata of out/PFTToken.sol/PFTToken.json from: forge build --optimizer-runs 201 (trimmed to the fields the deploy record reads)",
+  "metadata": {
+    "compiler": {
+      "version": "0.8.24+commit.e11b9ed9"
+    },
+    "settings": {
+      "optimizer": {
+        "enabled": true,
+        "runs": 201
+      },
+      "metadata": {
+        "bytecodeHash": "ipfs"
+      },
+      "evmVersion": "cancun"
+    }
+  }
+}

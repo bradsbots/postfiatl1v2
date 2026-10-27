@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 import {PFTToken} from "../src/PFTToken.sol";
 import {DeployPFTToken, ISafeProbe} from "../script/DeployPFTToken.s.sol";
+import {SafeFixtures} from "./SafeFixtures.sol";
 
 interface IDeployTestVm {
     function chainId(uint256 newChainId) external;
@@ -16,16 +17,21 @@ interface IDeployTestVm {
     function setNonceUnsafe(address account, uint64 newNonce) external;
     function setEnv(string calldata name, string calldata value) external;
     function expectRevert(bytes calldata revertData) external;
+    function expectRevert(bytes4 revertData) external;
     function readFile(string calldata path) external view returns (string memory data);
     function parseJsonUint(string calldata json, string calldata key) external pure returns (uint256);
     function parseJsonString(string calldata json, string calldata key) external pure returns (string memory);
     function parseJsonAddress(string calldata json, string calldata key) external pure returns (address);
     function toString(address value) external pure returns (string memory);
     function toString(bytes calldata value) external pure returns (string memory);
+    function load(address target, bytes32 slot) external view returns (bytes32);
+    function mockCall(address callee, bytes calldata data, bytes calldata returnData) external;
+    function mockCallRevert(address callee, bytes calldata data, bytes calldata revertData) external;
+    function clearMockedCalls() external;
 }
 
-/// A Safe as far as the probe can tell: threshold 2 of 3 owners. Slot 0 is the
-/// proxy's singleton slot; a test or the CLI fixture sets it with vm.store.
+/// A Safe lookalike: answers the probe with threshold 2 of 3 owners; the CLI
+/// fixture writes an allowed singleton into its slot 0.
 contract FakeSafe is ISafeProbe {
     function getThreshold() external pure returns (uint256) {
         return 2;
@@ -39,7 +45,8 @@ contract FakeSafe is ISafeProbe {
     }
 }
 
-/// Answers the probe with the values it is built with; slot 0 is the singleton.
+/// Answers the probe with the values it is built with; its constructor writes
+/// slot 0, so no cheatcode is needed to fake the singleton.
 contract ConfigurableSafe is ISafeProbe {
     address private singleton;
     uint256 private threshold;
@@ -57,30 +64,6 @@ contract ConfigurableSafe is ISafeProbe {
 
     function getOwners() external view returns (address[] memory) {
         return owners;
-    }
-}
-
-/// Answers getOwners with returndata that is not an address[] encoding.
-contract MalformedOwnersSafe {
-    function getThreshold() external pure returns (uint256) {
-        return 2;
-    }
-
-    fallback() external {
-        assembly {
-            mstore(0, 0x40) // wrong offset
-            mstore(0x20, 1)
-            return(0, 0x40)
-        }
-    }
-}
-
-/// Answers getThreshold with a short word.
-contract ShortThresholdSafe {
-    fallback() external {
-        assembly {
-            return(0, 1)
-        }
     }
 }
 
@@ -103,7 +86,7 @@ contract Broadcaster {
     }
 }
 
-contract DeployPFTTokenTest {
+contract DeployPFTTokenTest is SafeFixtures {
     IDeployTestVm private constant VM = IDeployTestVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     uint256 private constant BASE = 8453;
@@ -116,6 +99,7 @@ contract DeployPFTTokenTest {
     /// Safe v1.4.1 SafeL2, the canonical deployment of safe-global/safe-deployments.
     address private constant SAFE_L2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     string private constant COMMIT = "0123456789abcdef0123456789abcdef01234567";
+    string private constant ARTIFACT = "out/PFTToken.sol/PFTToken.json";
 
     DeployPFTToken private script;
     Broadcaster private broadcaster;
@@ -123,8 +107,8 @@ contract DeployPFTTokenTest {
     function setUp() public {
         script = new DeployPFTToken();
         broadcaster = new Broadcaster();
-        VM.etch(TREASURY, address(new FakeSafe()).code);
-        VM.store(TREASURY, bytes32(0), bytes32(uint256(uint160(SAFE_L2))));
+        _installSafeCode();
+        _installSafe(TREASURY, FACTORY_1_4_1, SAFE_L2, _threeOwners(), 2);
         VM.setNonceUnsafe(address(broadcaster), 0);
         VM.chainId(BASE_SEPOLIA);
     }
@@ -179,6 +163,7 @@ contract DeployPFTTokenTest {
         _assertTrue(!cfg.writeRecord, "no record outside a broadcast");
         _assertTrue(_eq(cfg.recordDir, "cache/deploy-test/pft-token-base-84532"), "test record path");
         _assertTrue(_eq(cfg.sourceCommit, COMMIT), "source commit");
+        _assertTrue(_eq(cfg.artifact, ARTIFACT), "token artifact");
         // The real-deployment switch alone selects the durable path.
         VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "true");
         _assertTrue(!script.readConfig().realDeployment, "only exactly 1 is on");
@@ -186,6 +171,10 @@ contract DeployPFTTokenTest {
         cfg = script.readConfig();
         _assertTrue(cfg.realDeployment, "real deployment");
         _assertTrue(_eq(cfg.recordDir, "deployments/pft-token-base-84532"), "durable record path");
+        VM.setEnv("PFT_TOKEN_SOURCE_COMMIT", "");
+        VM.expectRevert(DeployPFTToken.SourceCommitMissing.selector);
+        broadcaster.run(script);
+        VM.setEnv("PFT_TOKEN_SOURCE_COMMIT", COMMIT);
         VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "");
         _checkToken(broadcaster.run(script), NAME, SUPPLY);
 
@@ -348,16 +337,15 @@ contract DeployPFTTokenTest {
     }
 
     function testAcceptsEveryPinnedSingletonOnBothChains() public view {
-        address[4] memory singletons = [
-            0x41675C099F32341bf84BFc5382aF534df5C7461a,
-            0x29fcB43b46531BcA003ddC8FCB67FFE91900C762,
-            0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552,
-            0x3E5c63644E683549055b9Be8653de26E0B4CD36E
-        ];
+        address[4] memory singletons = [SINGLETON_1_4_1, SINGLETON_L2_1_4_1, SINGLETON_1_3_0, SINGLETON_L2_1_3_0];
+        bytes32[4] memory hashes =
+            [SINGLETON_1_4_1_HASH, SINGLETON_L2_1_4_1_HASH, SINGLETON_1_3_0_HASH, SINGLETON_L2_1_3_0_HASH];
         uint256[2] memory chains = [BASE, BASE_SEPOLIA];
         for (uint256 c = 0; c < chains.length; c++) {
             for (uint256 i = 0; i < singletons.length; i++) {
                 _assertTrue(script.isOfficialSafeSingleton(chains[c], singletons[i]), "pinned singleton");
+                _assertTrue(script.singletonCodeHash(chains[c], singletons[i]) == hashes[i], "pinned code hash");
+                _assertTrue(singletons[i].codehash == hashes[i], "fixture code is the pinned code");
             }
             // The v1.3.0 eip155 deployment is listed for both chains but not pinned.
             _assertTrue(
@@ -366,6 +354,43 @@ contract DeployPFTTokenTest {
             _assertTrue(!script.isOfficialSafeSingleton(chains[c], address(0)), "zero singleton");
         }
         _assertTrue(!script.isOfficialSafeSingleton(1, singletons[0]), "other chain");
+        _assertTrue(script.singletonCodeHash(1, singletons[0]) == bytes32(0), "no hash on another chain");
+    }
+
+    function testPinnedProxyCodeIsWhatTheCanonicalFactoriesDeploy() public {
+        address p141 = _newProxy(FACTORY_1_4_1, SINGLETON_1_4_1);
+        address p130 = _newProxy(FACTORY_1_3_0, SINGLETON_1_3_0);
+        _assertTrue(p141.codehash == script.SAFE_PROXY_1_4_1_CODEHASH(), "SafeProxy 1.4.1 code hash");
+        _assertTrue(p130.codehash == script.SAFE_PROXY_1_3_0_CODEHASH(), "GnosisSafeProxy 1.3.0 code hash");
+        _assertTrue(
+            p141.codehash == 0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c, "1.4.1 literal"
+        );
+        _assertTrue(
+            p130.codehash == 0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000, "1.3.0 literal"
+        );
+        (bool ok, bytes memory ret) = p141.staticcall(abi.encodeWithSelector(script.MASTER_COPY_SELECTOR()));
+        _assertTrue(ok && abi.decode(ret, (address)) == SINGLETON_1_4_1, "proxy answers masterCopy()");
+    }
+
+    function testAcceptsARealSafeOfEveryPinnedVersionOnBothChains() public {
+        address[4] memory singletons = [SINGLETON_1_4_1, SINGLETON_L2_1_4_1, SINGLETON_1_3_0, SINGLETON_L2_1_3_0];
+        address[4] memory factories = [FACTORY_1_4_1, FACTORY_1_4_1, FACTORY_1_3_0, FACTORY_1_3_0];
+        uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+        for (uint256 c = 0; c < chains.length; c++) {
+            VM.chainId(chains[c]);
+            for (uint256 i = 0; i < singletons.length; i++) {
+                address treasury = address(uint160(0x5AFE00 + c * 16 + i));
+                _installSafe(treasury, factories[i], singletons[i], _threeOwners(), 2);
+                DeployPFTToken.SafeInfo memory safe = script.checkSafe(chains[c], treasury);
+                _assertTrue(safe.singleton == singletons[i], "singleton");
+                DeployPFTToken.Config memory cfg = _config(chains[c]);
+                cfg.treasury = treasury;
+                Broadcaster fresh = new Broadcaster(); // nonce 0, as the script requires
+                VM.setNonceUnsafe(address(fresh), 0);
+                PFTToken token = fresh.deploy(script, cfg);
+                _assertEq(token.balanceOf(treasury), SUPPLY, "Safe holds the supply");
+            }
+        }
     }
 
     function testCheckSafeReadsTheSafe() public view {
@@ -376,8 +401,32 @@ contract DeployPFTTokenTest {
         _assertTrue(safe.owners[2] == address(0x0A3), "third owner");
     }
 
+    function testRefusesAConstructorDeployedLookalikeOnBothChains() public {
+        // The review's case: no cheatcode; the constructor writes an allowed
+        // singleton into slot 0 and the probe answers look right.
+        address safe = address(new ConfigurableSafe(SAFE_L2, 2, _threeOwners()));
+        _assertTrue(uint256(VM.load(safe, bytes32(0))) == uint256(uint160(SAFE_L2)), "slot 0 names the singleton");
+        bytes[3] memory codes = [address(new FakeSafe()).code, address(new NotASafe()).code, bytes(hex"00")];
+        uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+        for (uint256 c = 0; c < chains.length; c++) {
+            VM.chainId(chains[c]);
+            DeployPFTToken.Config memory cfg = _config(chains[c]);
+            cfg.treasury = safe;
+            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ProxyCodeMismatch.selector, safe, safe.codehash));
+            broadcaster.deploy(script, cfg);
+            for (uint256 i = 0; i < codes.length; i++) {
+                VM.etch(TREASURY, codes[i]);
+                VM.store(TREASURY, bytes32(0), bytes32(uint256(uint160(SAFE_L2))));
+                VM.expectRevert(
+                    abi.encodeWithSelector(DeployPFTToken.ProxyCodeMismatch.selector, TREASURY, keccak256(codes[i]))
+                );
+                broadcaster.deploy(script, _config(chains[c]));
+            }
+        }
+    }
+
     function testRefusesALookalikeWithAWrongSingletonOnBothChains() public {
-        address wrong = address(new FakeSafe()); // right answers, wrong singleton
+        address wrong = address(new FakeSafe()); // real proxy code, wrong singleton
         uint256[2] memory chains = [BASE, BASE_SEPOLIA];
         for (uint256 c = 0; c < chains.length; c++) {
             VM.chainId(chains[c]);
@@ -391,12 +440,41 @@ contract DeployPFTTokenTest {
         }
     }
 
+    function testRefusesAMasterCopyThatIsNotSlotZero() public {
+        bytes memory call = abi.encodeWithSelector(script.MASTER_COPY_SELECTOR());
+        bytes memory mismatch = abi.encodeWithSelector(DeployPFTToken.MasterCopyMismatch.selector, TREASURY, SAFE_L2);
+        VM.mockCall(TREASURY, call, abi.encode(SINGLETON_1_4_1));
+        VM.expectRevert(mismatch);
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+        VM.clearMockedCalls();
+        VM.mockCall(TREASURY, call, hex"01");
+        VM.expectRevert(mismatch);
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+        VM.clearMockedCalls();
+        VM.mockCallRevert(TREASURY, call, "");
+        VM.expectRevert(mismatch);
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+    }
+
+    function testRefusesASingletonWithoutItsPinnedCode() public {
+        // The claimed singleton has another Safe's code, then no code at all.
+        VM.etch(SAFE_L2, address(SINGLETON_1_4_1).code);
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.SingletonCodeMismatch.selector, SAFE_L2, SINGLETON_1_4_1_HASH)
+        );
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+        VM.etch(SAFE_L2, "");
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.SingletonCodeMismatch.selector, SAFE_L2, SAFE_L2.codehash)
+        );
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+    }
+
     function testRefusesAThresholdBelowTwoOnBothChains() public {
-        address[] memory owners = new address[](3);
-        (owners[0], owners[1], owners[2]) = (address(0x0A1), address(0x0A2), address(0x0A3));
         for (uint256 threshold = 0; threshold < 2; threshold++) {
-            address safe = address(new ConfigurableSafe(SAFE_L2, threshold, owners));
-            _assertTrue(script.isOfficialSafeSingleton(BASE, SAFE_L2), "fixture singleton");
+            // Threshold 0: a proxy that was never set up.
+            address safe = address(uint160(0x5AFE10 + threshold));
+            _installSafe(safe, FACTORY_1_4_1, SAFE_L2, _threeOwners(), threshold);
             uint256[2] memory chains = [BASE, BASE_SEPOLIA];
             for (uint256 c = 0; c < chains.length; c++) {
                 VM.chainId(chains[c]);
@@ -409,6 +487,7 @@ contract DeployPFTTokenTest {
     }
 
     function testRefusesSafeOwnersThatAreTooFewZeroRepeatedOrBelowTheThreshold() public {
+        // A real Safe cannot hold these; the answers are mocked to keep the check honest.
         address[][4] memory sets;
         sets[0] = new address[](1);
         sets[0][0] = address(0x0A1);
@@ -421,33 +500,50 @@ contract DeployPFTTokenTest {
         uint256[4] memory thresholds = [uint256(2), 2, 2, 3];
         uint256[4] memory distinct = [uint256(1), 1, 1, 2];
         for (uint256 i = 0; i < sets.length; i++) {
-            DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
-            cfg.treasury = address(new ConfigurableSafe(SAFE_L2, thresholds[i], sets[i]));
+            VM.mockCall(TREASURY, abi.encodeCall(ISafeProbe.getThreshold, ()), abi.encode(thresholds[i]));
+            VM.mockCall(TREASURY, abi.encodeCall(ISafeProbe.getOwners, ()), abi.encode(sets[i]));
             VM.expectRevert(
                 abi.encodeWithSelector(
                     DeployPFTToken.SafeOwnersInvalid.selector, sets[i].length, distinct[i], thresholds[i]
                 )
             );
-            broadcaster.deploy(script, cfg);
+            broadcaster.deploy(script, _config(BASE_SEPOLIA));
+            VM.clearMockedCalls();
         }
     }
 
-    function testRefusesATreasuryThatDoesNotAnswerTheProbeOnBothChains() public {
-        bytes[4] memory codes = [
-            address(new NotASafe()).code,
-            address(new MalformedOwnersSafe()).code,
-            address(new ShortThresholdSafe()).code,
-            bytes(hex"00")
+    function testRefusesASafeThatDoesNotAnswerTheProbeOnBothChains() public {
+        bytes memory threshold = abi.encodeCall(ISafeProbe.getThreshold, ());
+        bytes memory owners = abi.encodeCall(ISafeProbe.getOwners, ());
+        bytes[4] memory badOwners = [
+            abi.encode(uint256(0x20)), // shorter than an array head
+            abi.encode(uint256(0x40), uint256(1)), // wrong offset
+            abi.encode(uint256(0x20), uint256(5)), // count beyond the data
+            abi.encode(uint256(0x20), uint256(0), uint256(7)) // trailing word
         ];
         uint256[2] memory chains = [BASE, BASE_SEPOLIA];
         for (uint256 c = 0; c < chains.length; c++) {
             VM.chainId(chains[c]);
-            for (uint256 i = 0; i < codes.length; i++) {
-                VM.etch(TREASURY, codes[i]);
-                VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryIsNotASafe.selector, TREASURY));
-                broadcaster.deploy(script, _config(chains[c]));
+            VM.mockCallRevert(TREASURY, threshold, "");
+            _expectNotASafe(chains[c]);
+            VM.clearMockedCalls();
+            VM.mockCall(TREASURY, threshold, hex"02");
+            _expectNotASafe(chains[c]);
+            VM.clearMockedCalls();
+            VM.mockCallRevert(TREASURY, owners, "");
+            _expectNotASafe(chains[c]);
+            VM.clearMockedCalls();
+            for (uint256 i = 0; i < badOwners.length; i++) {
+                VM.mockCall(TREASURY, owners, badOwners[i]);
+                _expectNotASafe(chains[c]);
+                VM.clearMockedCalls();
             }
         }
+    }
+
+    function _expectNotASafe(uint256 chainId) private {
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryIsNotASafe.selector, TREASURY));
+        broadcaster.deploy(script, _config(chainId));
     }
 
     // ------------------------------------------------------- deployment record
@@ -468,6 +564,30 @@ contract DeployPFTTokenTest {
             )
         );
         broadcaster.deploy(script, cfg);
+    }
+
+    function testRefusesARealDeploymentWithoutASourceCommit() public {
+        string[3] memory commits = ["", " ", "replace_with_the_deployed_git_commit"];
+        for (uint256 i = 0; i < commits.length; i++) {
+            DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+            cfg.realDeployment = true;
+            cfg.sourceCommit = commits[i];
+            VM.expectRevert(DeployPFTToken.SourceCommitMissing.selector);
+            broadcaster.deploy(script, cfg);
+        }
+    }
+
+    function testRecordsTheCompilerSettingsOfTheBuildNotOfFoundryToml() public {
+        // The metadata of a `forge build --optimizer-runs 201` artifact; foundry.toml says 200.
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.artifact = "test/fixtures/PFTToken.optimizer-runs-201.json";
+        cfg.recordDir = "cache/deploy-test/runs-201";
+        cfg.writeRecord = true;
+        broadcaster.deploy(script, cfg);
+        string memory json = VM.readFile(string.concat(cfg.recordDir, "/deployment.json"));
+        _assertEq(VM.parseJsonUint(json, ".optimizer_runs"), 201, "record optimizer runs");
+        _assertTrue(VM.parseJsonBool(json, ".optimizer"), "record optimizer");
+        _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "record solc");
     }
 
     function testRealDeploymentWritesOnceAndRefusesToOverwrite() public {
@@ -517,6 +637,7 @@ contract DeployPFTTokenTest {
         cfg.totalSupply = SUPPLY;
         cfg.totalSupplyPft = SUPPLY_PFT;
         cfg.treasury = TREASURY;
+        cfg.artifact = ARTIFACT;
     }
 
     function _placeholder(string memory name) private pure returns (bytes memory) {
@@ -552,7 +673,6 @@ contract DeployPFTTokenTest {
         _assertTrue(_eq(VM.parseJsonString(json, ".tx_hash"), "pending"), "record tx hash");
         _assertTrue(_eq(VM.parseJsonString(json, ".block_number"), "pending"), "record block number");
         _assertTrue(_eq(VM.parseJsonString(json, ".bytecode_hash"), "ipfs"), "record bytecode hash");
-        _assertTrue(VM.parseJsonBool(json, ".cbor_metadata"), "record cbor metadata");
         _assertTrue(VM.parseJsonAddress(json, ".token") == address(token), "record token");
         _assertEq(VM.parseJsonUint(json, ".chain_id"), chainId, "record chain id");
         _assertTrue(_eq(VM.parseJsonString(json, ".name"), token.name()), "record name");
@@ -563,9 +683,18 @@ contract DeployPFTTokenTest {
         _assertTrue(VM.parseJsonAddress(json, ".deployer") == address(broadcaster), "record deployer");
         _assertEq(VM.parseJsonUint(json, ".treasury_safe_threshold"), threshold, "record threshold");
         _assertEq(VM.parseJsonUint(json, ".treasury_safe_owner_count"), owners, "record owners");
-        _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24"), "record solc");
+        string memory artifact = VM.readFile(ARTIFACT);
+        _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "record solc");
         _assertTrue(_eq(VM.parseJsonString(json, ".evm_version"), "cancun"), "record evm version");
-        _assertEq(VM.parseJsonUint(json, ".optimizer_runs"), 200, "record optimizer runs");
+        _assertEq(
+            VM.parseJsonUint(json, ".optimizer_runs"),
+            VM.parseJsonUint(artifact, ".metadata.settings.optimizer.runs"),
+            "record optimizer runs"
+        );
+        _assertTrue(
+            VM.parseJsonBool(json, ".optimizer") == VM.parseJsonBool(artifact, ".metadata.settings.optimizer.enabled"),
+            "record optimizer"
+        );
         _assertTrue(
             _eq(VM.parseJsonString(json, ".openzeppelin_commit"), "cab19933c33c2ad1d4c7a84864a3601dddfd16f3"),
             "record OpenZeppelin commit"
