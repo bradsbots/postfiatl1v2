@@ -22,7 +22,7 @@ This paper extends the "Interim path: PFT as an ERC-20" section of the [integrat
 - **NAVCoin** is an issued asset whose supply, mint and redeem are tied to proven reserve packets and a floating net asset value (`docs/navcoins/index.md:9-12`).
 - **wA666** is the ERC-20 on Ethereum mainnet that represents the A666 NAVCoin (`docs/navcoins/assets-and-venues.md:29-33`).
 - **ERC-20** is the standard fungible-token interface on Ethereum and other EVM chains.
-- **Base** is Coinbase's own Ethereum layer-2 network, built on the OP Stack and named on its listings page (coinbase.com/listings, 2026-10-26). The ERC-20 PFT is deployed there.
+- **Base** is Coinbase's own Ethereum layer-2 network, built on the OP Stack and named on its listings page (coinbase.com/listings, 2026-10-26). The ERC-20 PFT is to be deployed there.
 
 ## 3. Where PFT exists today
 
@@ -80,9 +80,9 @@ This is the Injective pattern (Coinbase help centre "Token delistings and migrat
 
 - One fixed-supply ERC-20 PFT contract on Base, because it is Coinbase's own network and the simplest listing path, its fees are low, and a plain token needs none of our Ethereum-mainnet contracts (coinbase.com/listings, 2026-10-26).
 - Built from the OpenZeppelin `ERC20` and `ERC20Permit` libraries, pinned as a submodule (`.gitmodules:7-9`) with its remapping in `crates/pft-token-contracts/foundry.toml`.
-- No mint after construction, no pause, no blacklist, no upgrade path and no admin role. That meets Coinbase's four criteria: verified source, standard libraries, no privileged participants, one simple contract (coinbase.com/listings, 2026-10-26).
+- No mint after construction, no pause, no blacklist, no upgrade path and no admin role. These properties are meant to address Coinbase's four published criteria (verified source, standard libraries, no privileged participants, one simple contract; coinbase.com/listings, 2026-10-26); the source verification and Coinbase's own assessment are still to come.
 - Six decimals, the same unit as native PFT on PFTL (1 PFT = 1,000,000 atoms, `docs/listings/coinbase/comparisons.md:96-101`). One ERC-20 unit equals one atom, so the 1:1 bridge needs no conversion. Coinbase and wallets handle 6-decimal tokens routinely: USDC uses 6 decimals, and pfUSDC's bridge unit matches it (`docs/specs/pfusdc-arc-tier4-spec-20260828.md:47`).
-- The whole supply minted at construction to a multi-signature treasury, a Safe multisig on Base. It holds the product owner's keys with a threshold he sets, and is never a single key. The deployer key is used once and holds nothing afterwards.
+- The whole supply minted at construction to a multi-signature treasury, a Safe multisig on Base. It holds the product owner's keys with a threshold he sets, and is never a single key. The deployer key receives no tokens and has no privilege; the deployment procedure requires a fresh key and retires it afterwards.
 - Source verified on the block explorer.
 - Deployed first on Base Sepolia with a deploy script and tests in their own Foundry project, `crates/pft-token-contracts`, built like the existing scripts and tests (`crates/ethereum-contracts/script/DeployERC20Bridge.s.sol:38-67`, `crates/ethereum-contracts/test/ERC20BridgeVaultL1.t.sol`).
 - An audit before mainnet deployment. An audit of one ~100-line fixed-supply ERC-20 by an established firm typically takes one to three weeks of calendar time and is the product owner's budget item; the two days are our engineering time only.
@@ -141,7 +141,7 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 Paste-ready once the decisions in section 9 are made.
 
-PFT will first exist as a standard ERC-20 token on Base. The contract is built from widely used industry-standard libraries. The token uses the same six-decimal unit as native PFT, so amounts match one for one. Its whole supply is created once, at deployment. No account can mint more, pause transfers, block addresses or upgrade the contract. The source code will be verified and published. An independent audit will be completed before the token is deployed. The native Post Fiat L1 is not yet on mainnet. At mainnet, the genesis supply is designed to reserve native PFT for every ERC-20 PFT in existence. Holders will then be able to move ERC-20 PFT to native PFT one for one. The bridge is designed to stay open with no closing date. Exchanges holding ERC-20 PFT for customers can convert balances one for one in the same way. Supply and allocation figures will be published in a token document before the ERC-20 is deployed.
+On Base, PFT is to exist as a standard ERC-20 token built only from OpenZeppelin ERC20 and ERC20Permit, release v5.7.0. It has no owner or admin role and no further mint, pause, blacklist or upgrade path. Wallets show native PFT with six decimals (1,000,000 atoms per PFT); one ERC-20 PFT is likewise 1,000,000 base units. The whole supply is minted at deployment to a treasury planned to be a Safe multisig, which the deployment procedure checks; the contract gives it no privilege. An independent audit is planned before the Base mainnet deployment, its report to be published; the source will be verified on the block explorer. Post Fiat L1 is not yet on mainnet; its genesis is designed to reserve, in the supply partition's external category, one native atom per ERC-20 base unit. A bridge is designed to exchange ERC-20 PFT for native PFT one for one in quantity, relying on signed validator-committee checkpoints and governed release limits, with no planned closing date; the reverse direction is optional. Launch quantity and allocation are undecided; the ERC-20 is designed as a slice of native genesis supply, not additional supply; the token document will fix both before any Base mainnet deployment.
 
 ## Appendix B: sources
 
