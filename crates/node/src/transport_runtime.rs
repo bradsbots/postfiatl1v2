@@ -2817,11 +2817,11 @@ pub(super) fn wait_for_pending_block_vote_records() {
 }
 
 #[derive(Debug, Clone)]
-struct BlockVoteObservation {
-    outcome: postfiat_node::block_vote_records::BlockVoteOutcome,
-    vote_id: Option<String>,
-    refusal_class: Option<String>,
-    duration_ms: f64,
+pub(super) struct BlockVoteObservation {
+    pub(super) outcome: postfiat_node::block_vote_records::BlockVoteOutcome,
+    pub(super) vote_id: Option<String>,
+    pub(super) refusal_class: Option<String>,
+    pub(super) duration_ms: f64,
 }
 
 /// An answered request is an accepted vote or a refusal; a request that got no
@@ -2863,22 +2863,22 @@ fn observe_block_vote_request(
     }
 }
 
-struct RoundBlockVoteRecordInput {
-    data_dir: PathBuf,
-    chain_id: String,
-    block_height: u64,
-    view: u64,
-    block_hash: String,
-    certificate_id: String,
-    proposer: String,
-    proposer_vote_id: String,
-    quorum: usize,
-    required_remote_vote_count: usize,
-    requested_peers: Vec<String>,
-    round_deadline_ms: u64,
-    deadline: Instant,
-    observations: BTreeMap<String, BlockVoteObservation>,
-    late_vote_receiver: Option<mpsc::Receiver<TransportPeerVoteRequestOutcome>>,
+pub(super) struct RoundBlockVoteRecordInput {
+    pub(super) data_dir: PathBuf,
+    pub(super) chain_id: String,
+    pub(super) block_height: u64,
+    pub(super) view: u64,
+    pub(super) block_hash: String,
+    pub(super) certificate_id: String,
+    pub(super) proposer: String,
+    pub(super) proposer_vote_id: String,
+    pub(super) quorum: usize,
+    pub(super) required_remote_vote_count: usize,
+    pub(super) requested_peers: Vec<String>,
+    pub(super) round_deadline_ms: u64,
+    pub(super) deadline: Instant,
+    pub(super) observations: BTreeMap<String, BlockVoteObservation>,
+    pub(super) late_vote_receiver: Option<mpsc::Receiver<TransportPeerVoteRequestOutcome>>,
 }
 
 /// Writes the height's vote record now when every request has answered, or
@@ -2905,7 +2905,7 @@ fn record_round_block_votes(input: RoundBlockVoteRecordInput) -> String {
     "pending_late_votes".to_string()
 }
 
-fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> String {
+pub(super) fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> String {
     use postfiat_node::block_vote_records::{
         write_block_vote_record, BlockVoteOutcome, BlockVoteRecord, BlockVoteRecordEntry,
         BLOCK_VOTE_RECORD_SCHEMA,
@@ -2924,26 +2924,37 @@ fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> Strin
     };
     let mut late = BTreeSet::new();
     if let Some(receiver) = input.late_vote_receiver.take() {
-        while input
-            .requested_peers
-            .iter()
-            .any(|peer| !input.observations.contains_key(peer))
-        {
+        let missing = |observations: &BTreeMap<String, BlockVoteObservation>| {
+            input
+                .requested_peers
+                .iter()
+                .any(|peer| !observations.contains_key(peer))
+        };
+        let mut take = |outcome: TransportPeerVoteRequestOutcome,
+                        observations: &mut BTreeMap<String, BlockVoteObservation>| {
+            let observation =
+                observe_block_vote_request(&outcome.target, &outcome.result, outcome.duration_ms);
+            late.insert(outcome.target.clone());
+            observations.insert(outcome.target, observation);
+        };
+        loop {
+            // VR-01: answers already received are taken first, also when the
+            // writer runs at or after the deadline, so a vote that arrived
+            // after the quorum is never classified as no answer.
+            while let Ok(outcome) = receiver.try_recv() {
+                take(outcome, &mut input.observations);
+            }
+            if !missing(&input.observations) {
+                break;
+            }
             let remaining = input.deadline.saturating_duration_since(Instant::now());
             if remaining.is_zero() {
                 break;
             }
             match receiver.recv_timeout(remaining) {
-                Ok(outcome) => {
-                    let observation = observe_block_vote_request(
-                        &outcome.target,
-                        &outcome.result,
-                        outcome.duration_ms,
-                    );
-                    late.insert(outcome.target.clone());
-                    input.observations.insert(outcome.target, observation);
-                }
-                Err(_) => break,
+                Ok(outcome) => take(outcome, &mut input.observations),
+                Err(mpsc::RecvTimeoutError::Timeout) => continue,
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
     }
@@ -2955,10 +2966,13 @@ fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> Strin
         answered_after_quorum: false,
     }];
     for peer in &input.requested_peers {
+        let after_deadline = |observation: &BlockVoteObservation| {
+            observation.duration_ms > input.round_deadline_ms as f64
+        };
         let entry = match input.observations.get(peer) {
             Some(observation)
                 if observation.outcome != BlockVoteOutcome::NoAnswer
-                    && observation.duration_ms <= input.round_deadline_ms as f64 =>
+                    && !after_deadline(observation) =>
             {
                 BlockVoteRecordEntry {
                     validator: peer.clone(),
@@ -2967,6 +2981,19 @@ fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInput) -> Strin
                     refusal_class: observation.refusal_class.clone(),
                     answered_after_quorum: late.contains(peer)
                         || observation.duration_ms > quorum_ms,
+                }
+            }
+            // An accepted vote the writer still sees but that came after the
+            // deadline keeps its vote id.
+            Some(observation)
+                if observation.outcome == BlockVoteOutcome::Accepted && after_deadline(observation) =>
+            {
+                BlockVoteRecordEntry {
+                    validator: peer.clone(),
+                    outcome: BlockVoteOutcome::LateAfterDeadline,
+                    vote_id: observation.vote_id.clone(),
+                    refusal_class: None,
+                    answered_after_quorum: true,
                 }
             }
             _ => BlockVoteRecordEntry {

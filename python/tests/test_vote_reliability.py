@@ -37,6 +37,22 @@ def _by_validator(report: dict) -> dict[str, dict]:
 
 
 class VoteReliabilityWindowTests(unittest.TestCase):
+    def test_late_after_deadline_keeps_its_vote_id_and_does_not_count_as_accepted(self) -> None:
+        # VR-01: a vote the writer still saw after the round deadline.
+        record = json.loads((WINDOW / "validator-1" / "block-vote-records" / "height-00000000000000000002.json").read_text())
+        for entry in record["entries"]:
+            if entry["validator"] == "validator-3":
+                entry["outcome"] = "late_after_deadline"
+        with tempfile.TemporaryDirectory() as root:
+            records = Path(root) / "block-vote-records"
+            records.mkdir()
+            (records / "height-00000000000000000002.json").write_text(json.dumps(record))
+            rows = _by_validator(derive_reliability([records], 2, 2))
+        self.assertEqual(rows["validator-3"]["late_after_deadline"], 1)
+        self.assertEqual(rows["validator-3"]["accepted"], 0)
+        self.assertEqual(rows["validator-3"]["no_answer"], 0)
+        self.assertEqual(rows["validator-3"]["uptime_window_bps"], 0)
+
     def test_counts_per_validator(self) -> None:
         rows = _by_validator(derive_reliability([str(WINDOW)], 1, 3))
         self.assertEqual(sorted(rows), ["validator-0", "validator-1", "validator-2", "validator-3"])

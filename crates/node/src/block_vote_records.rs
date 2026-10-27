@@ -4,8 +4,11 @@
 //!
 //! A record lists every validator the proposer's round asked for a block vote
 //! and the outcome: an accepted vote with its vote id, a refusal with a reason
-//! class, or no answer by the round deadline. Votes that arrive after the
-//! quorum are included and marked. The record is an observation kept beside
+//! class, an accepted vote that arrived after the round deadline
+//! (`late_after_deadline`, with its vote id), or no answer. Votes that arrive
+//! after the quorum are included and marked. The writer takes every answer it
+//! has received when it runs, even after the deadline; an answer that arrives
+//! after the record is written is not seen and the entry stays `no_answer`. The record is an observation kept beside
 //! the block: it is never read by consensus, voting, certificate or state
 //! commitment code, and a failed write never fails the round or the commit.
 
@@ -28,6 +31,9 @@ pub enum BlockVoteOutcome {
     Accepted,
     Refused,
     NoAnswer,
+    /// An accepted vote that arrived after the round deadline but before the
+    /// record was written; it keeps its vote id.
+    LateAfterDeadline,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,8 +58,9 @@ pub struct BlockVoteRecord {
     pub certificate_id: String,
     pub proposer: String,
     pub quorum: usize,
-    /// Answers later than this many milliseconds after the vote requests
-    /// started are recorded as `no_answer`.
+    /// Accepted votes later than this many milliseconds after the vote
+    /// requests started are recorded as `late_after_deadline`; a validator
+    /// whose answer the writer has not received is `no_answer`.
     pub round_deadline_ms: u64,
     /// One entry per requested validator, sorted by validator id; the
     /// proposer's own vote is included.
@@ -134,6 +141,11 @@ pub fn validate_block_vote_record(record: &BlockVoteRecord) -> io::Result<()> {
                 entry.vote_id.is_none()
                     && entry.refusal_class.is_none()
                     && !entry.answered_after_quorum
+            }
+            BlockVoteOutcome::LateAfterDeadline => {
+                entry.vote_id.as_deref().is_some_and(|id| !id.is_empty())
+                    && entry.refusal_class.is_none()
+                    && entry.answered_after_quorum
             }
         };
         if entry.validator.trim().is_empty() || !consistent {

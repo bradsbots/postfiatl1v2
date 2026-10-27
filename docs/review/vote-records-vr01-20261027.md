@@ -1,6 +1,6 @@
-# VR-01: first observations of the vote record defect (2026-10-27)
+# VR-01: the vote record defect, observations and fix (2026-10-27)
 
-Read-only observations after the `index-v3-20261027` rollout. No host was changed; no fix is proposed here.
+Read-only observations after the `index-v3-20261027` rollout, then the fix on `main`. No host was changed.
 Code references are at `main` `d728f895` (the deployed source). Records:
 [release branch `observed/vote-record/`](https://github.com/postfiatorg/postfiatl1v2/tree/release/index-v3-20261027/deployments/index-v3-20261027/observed/vote-record).
 
@@ -53,7 +53,34 @@ the deadline handling as its trigger. Not yet established: why the round reached
 certificate (the CLI's report is not kept by StakeHub), and whether validator-2's absence from the 1155–1159
 certificates is the same late-answer pattern under the old executable.
 
-## Next
+## Cause confirmed and fixed
 
-A next-release fix with a test that queues a late answer and reaches the writer after the deadline. Consensus
-never reads the record, so the deployed release stays.
+The fix is on `main` in the commit "Record votes that arrive after the quorum but inside the deadline instead of
+marking them as no answer" (`crates/node/src/transport_runtime.rs`, `finish_round_block_vote_record`). At every
+pass, including at and after the deadline, the writer first takes the answers already received without blocking;
+it waits only while the deadline has not passed. An accepted vote after the quorum and inside the deadline is
+`accepted` with its vote id and `answered_after_quorum: true`; an accepted vote the writer still sees after the
+deadline is the new outcome `late_after_deadline` with its vote id; only a validator with no answer received is
+`no_answer`. `crates/node/src/block_vote_records.rs` validates the new outcome and
+`python/postfiat_rpc/vote_reliability.py` counts it separately (not as accepted). No consensus, voting,
+certificate or state-commitment code changed.
+
+Tests (`crates/node/src/main_parts/tests/transport_batch_payload_tests.rs`):
+
+- `peer_round_records_a_vote_after_the_quorum_when_the_writer_runs_at_the_deadline`: seven validators, one that
+  never answers (its full-propagation send holds the round past the 4 s deadline) and one 1 s late. Before the
+  fix the late validator was `no_answer`, as at 1160; after it, `accepted` with `answered_after_quorum: true`.
+- `vote_record_marks_an_answer_after_the_deadline_late_after_deadline`: an accepted answer at 4.6 s with a 4 s
+  deadline was `no_answer` before the fix and is `late_after_deadline` with its vote id after it.
+
+The 40-second gap between the 1160 certificate and the writer is the deadline wait by design: with
+`--quorum-early-full-propagation` the round sends the block to every validator and waits for those sends up to
+the timeout before it writes the record. validator-2's absence from the 1155–1159 certificates is the late voter
+the records exist to capture, the reliability signal, not a defect.
+
+## Next release
+
+The next release carries the fix. The record schema stays `postfiat.block_vote_record.v1` with one added
+outcome; the deployed `index-v3-20261027` executable cannot read records that contain it
+([runbook](../runbooks/signed-validator-snapshot-recovery.md#vote-outcome-records-sct-08-item-4)). Consensus never
+reads the record, so the deployed release stays until then.

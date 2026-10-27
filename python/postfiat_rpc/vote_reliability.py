@@ -37,7 +37,7 @@ MAX_RECORD_ENTRIES = 1024
 MAX_REFUSAL_CLASS_CHARS = 64
 MAX_WINDOW_HEIGHTS = 1_000_000
 RECORD_FILE = re.compile(r"^height-(\d+)\.json$")
-OUTCOMES = ("accepted", "refused", "no_answer")
+OUTCOMES = ("accepted", "refused", "no_answer", "late_after_deadline")
 
 
 class VoteRecordError(ValueError):
@@ -118,6 +118,13 @@ def _validate_record(record: Any, height: int, path: Path) -> dict[str, Any]:
                 and 0 < len(refusal) <= MAX_REFUSAL_CLASS_CHARS
             )
             or (outcome == "no_answer" and vote_id is None and refusal is None and late is False)
+            or (
+                outcome == "late_after_deadline"
+                and isinstance(vote_id, str)
+                and vote_id != ""
+                and refusal is None
+                and late is True
+            )
         )
         if not consistent:
             raise fail(f"entry for `{validator}` is inconsistent")
@@ -247,6 +254,7 @@ def derive_reliability(
                 "refused": counts["refused"],
                 "refused_by_class": dict(sorted(refused_by_class.items())),
                 "no_answer": counts["no_answer"],
+                "late_after_deadline": counts["late_after_deadline"],
                 "answered_after_quorum": late,
                 "heights_without_entry": _ranges(without_entry),
                 "uptime_window_bps": counts["accepted"] * BPS // window_heights if available else NOT_AVAILABLE,

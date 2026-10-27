@@ -1921,6 +1921,291 @@ mod transport_batch_payload_tests {
         std::fs::remove_dir_all(&fleet.root).expect("cleanup vote record fleet");
     }
 
+    /// Accepts connections on one validator's address and never answers, so
+    /// every vote request and certified send to it runs into its timeout.
+    fn spawn_hanging_transport_peer(stop: std::sync::Arc<std::sync::atomic::AtomicBool>) -> u16 {
+        let listener = TcpListener::bind(("127.0.0.1", 0)).expect("bind hanging peer");
+        let port = listener.local_addr().expect("hanging peer address").port();
+        listener
+            .set_nonblocking(true)
+            .expect("nonblocking hanging peer");
+        std::thread::spawn(move || {
+            let mut held = Vec::new();
+            while !stop.load(std::sync::atomic::Ordering::SeqCst) {
+                match listener.accept() {
+                    Ok((client, _)) => held.push(client),
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(Duration::from_millis(10));
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+        port
+    }
+
+    /// VR-01: a vote that arrives after the quorum but inside the round
+    /// deadline is recorded as accepted with its vote id and
+    /// `answered_after_quorum`, even when the round reaches the record writer
+    /// only after the deadline (here: a validator that never answers holds the
+    /// round's certified send to its timeout).
+    #[test]
+    fn peer_round_records_a_vote_after_the_quorum_when_the_writer_runs_at_the_deadline() {
+        let _guard = CONSENSUS_V2_TRANSPORT_TEST_LOCK.lock().expect("test lock");
+        prewarm_shielded_verifier_cache("vote record deadline test").expect("prewarm");
+        // Seven validators: a quorum of five forms from the proposer and four
+        // prompt validators, before the late one and without the hanging one.
+        let fleet = consensus_v2_transport_fleet("certified-round-vote-record-deadline", 7, None);
+        let ids = fleet.validators.validator_ids();
+        let proposer = postfiat_ordering_fast::leader_for_view(&ids, 1, 0).expect("proposer");
+        let proposer_index = ids
+            .iter()
+            .position(|validator| validator == &proposer)
+            .expect("proposer index");
+        let hanging_index = (proposer_index + 1) % ids.len();
+        let late_index = (proposer_index + 2) % ids.len();
+        let hanging = ids[hanging_index].clone();
+        let late = ids[late_index].clone();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let hanging_port = spawn_hanging_transport_peer(stop.clone());
+        let late_port = fleet.listeners[late_index]
+            .local_addr()
+            .expect("late validator port")
+            .port();
+        let proxy_port =
+            spawn_delayed_transport_proxy(late_port, Duration::from_millis(1_000), stop.clone());
+        let mut topology_json: serde_json::Value = serde_json::from_slice(
+            &std::fs::read(&fleet.topology_file).expect("read topology"),
+        )
+        .expect("parse topology");
+        for peer in topology_json["peers"]
+            .as_array_mut()
+            .expect("topology peers")
+            .iter_mut()
+        {
+            if peer["node_id"] == hanging.as_str() {
+                peer["p2p_port"] = serde_json::json!(hanging_port);
+            } else if peer["node_id"] == late.as_str() {
+                peer["p2p_port"] = serde_json::json!(proxy_port);
+            }
+        }
+        std::fs::write(
+            &fleet.topology_file,
+            serde_json::to_vec_pretty(&topology_json).expect("serialize topology"),
+        )
+        .expect("write topology");
+
+        let mut handles = Vec::new();
+        for (index, data_dir) in fleet.data_dirs.iter().enumerate() {
+            if index == proposer_index || index == hanging_index {
+                continue;
+            }
+            let data_dir = data_dir.clone();
+            let topology_file = fleet.topology_file.clone();
+            let listener = fleet.listeners[index]
+                .try_clone()
+                .expect("clone reserved listener");
+            let stop = stop.clone();
+            handles.push(std::thread::spawn(move || {
+                crate::transport_runtime::transport_validator_serve_inner(
+                    data_dir.clone(),
+                    topology_file,
+                    data_dir.join(VALIDATOR_KEYS_FILE),
+                    data_dir.join("vote-record-transport-votes"),
+                    Some("127.0.0.1".to_string()),
+                    16,
+                    15_000,
+                    None,
+                    true,
+                    Some(TransportShieldedVerifierPrewarmReport {
+                        schema: "postfiat-transport-shielded-verifier-prewarm-v1".to_string(),
+                        requested: true,
+                        total_ms: 0.0,
+                        asset_orchard_swap_verifier_warm: true,
+                        asset_orchard_swap_verifier_ms: Some(0.0),
+                        asset_orchard_private_egress_verifier_warm: true,
+                        asset_orchard_private_egress_verifier_ms: Some(0.0),
+                        asset_orchard_private_egress_verifier_breakdown: None,
+                    }),
+                    Some(listener),
+                    &stop,
+                )
+            }));
+        }
+
+        let proposer_dir = fleet.data_dirs[proposer_index].clone();
+        let batch = fleet.root.join("height-1.batch.json");
+        create_transfer_batch(BatchTransferOptions {
+            data_dir: proposer_dir.clone(),
+            key_file: Some(fleet.data_dirs[0].join("faucet_key.json")),
+            to: format!("pf{}", "f".repeat(40)),
+            amount: 1_000_000,
+            batch_file: batch.clone(),
+        })
+        .expect("transfer batch");
+        let deadline_ms = 4_000;
+        let round_start = std::time::Instant::now();
+        let report =
+            transport_peer_certified_batch_round(TransportPeerCertifiedBatchRoundOptions {
+                data_dir: proposer_dir.clone(),
+                topology_file: fleet.topology_file.clone(),
+                batch_kind: Some("transparent".to_string()),
+                batch_file: batch,
+                key_file: proposer_dir.join(VALIDATOR_KEYS_FILE),
+                proposal_key_file: Some(proposer_dir.join(VALIDATOR_KEYS_FILE)),
+                require_local_proposer: true,
+                require_signed_proposal: true,
+                allow_peer_failures: true,
+                // Full propagation sends the block to the hanging validator too, as
+                // the live faucet rounds do; that send holds the round to its timeout.
+                quorum_early_full_propagation: true,
+                artifact_dir: fleet.root.join("height-1-artifacts"),
+                block_height: Some(1),
+                view: Some(0),
+                timeout_certificate_file: None,
+                timeout_ms: deadline_ms,
+                send_retries: 1,
+                retry_backoff_ms: 50,
+                local_apply_before_certified_send: false,
+                defer_certified_sends: false,
+                commit_processed_dir: None,
+                required_parent: None,
+            })
+            .expect("round with one hanging and one late validator");
+        // Only the send to the validator that never answers fails.
+        assert!(
+            report.send_failures.iter().all(|failure| failure.to == hanging),
+            "send_failures={:?}",
+            report.send_failures
+        );
+        let round_elapsed = round_start.elapsed();
+        crate::transport_runtime::wait_for_pending_block_vote_records();
+        clear_transport_vote_stream_pool_for_test().expect("close persistent streams");
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        for handle in handles {
+            let _ = handle.join();
+        }
+        // The scenario: the round reached the writer only after the deadline.
+        assert!(
+            round_elapsed >= Duration::from_millis(deadline_ms),
+            "the round finished before the deadline ({round_elapsed:?}), so the writer did not run at it"
+        );
+
+        let record = postfiat_node::block_vote_records::read_block_vote_record(&proposer_dir, 1)
+            .expect("read vote record")
+            .expect("the finalized height has a vote record");
+        assert_eq!(record.round_deadline_ms, deadline_ms);
+        let entry = |validator: &str| {
+            record
+                .entries
+                .iter()
+                .find(|entry| entry.validator == validator)
+                .cloned()
+                .expect("an entry per requested validator")
+        };
+        let late_entry = entry(&late);
+        assert_eq!(
+            serde_json::to_value(late_entry.outcome).expect("outcome"),
+            serde_json::json!("accepted"),
+            "a vote after the quorum and inside the deadline: {late_entry:?}"
+        );
+        assert!(late_entry.answered_after_quorum, "{late_entry:?}");
+        assert!(late_entry.vote_id.as_deref().is_some_and(|id| !id.is_empty()));
+        let hanging_entry = entry(&hanging);
+        assert_eq!(
+            serde_json::to_value(hanging_entry.outcome).expect("outcome"),
+            serde_json::json!("no_answer"),
+            "a validator that never answered: {hanging_entry:?}"
+        );
+        assert!(hanging_entry.vote_id.is_none());
+        for validator in ids.iter().filter(|v| **v != late && **v != hanging) {
+            let entry = entry(validator);
+            assert_eq!(
+                serde_json::to_value(entry.outcome).expect("outcome"),
+                serde_json::json!("accepted"),
+                "{entry:?}"
+            );
+        }
+        std::fs::remove_dir_all(&fleet.root).expect("cleanup vote record deadline fleet");
+    }
+
+    /// VR-01: an answer the writer still sees but that arrived after the round
+    /// deadline is recorded as `late_after_deadline` with its vote id; a
+    /// validator with no answer at all stays `no_answer`.
+    #[test]
+    fn vote_record_marks_an_answer_after_the_deadline_late_after_deadline() {
+        use crate::transport_runtime::{
+            finish_round_block_vote_record, BlockVoteObservation, RoundBlockVoteRecordInput,
+        };
+        use postfiat_node::block_vote_records::BlockVoteOutcome;
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-vote-record-after-deadline-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&data_dir).expect("data dir");
+        let observation = |outcome, vote_id: Option<&str>, duration_ms| BlockVoteObservation {
+            outcome,
+            vote_id: vote_id.map(str::to_string),
+            refusal_class: None,
+            duration_ms,
+        };
+        let observations = [
+            ("validator-1", observation(BlockVoteOutcome::Accepted, Some("vote-1"), 900.0)),
+            ("validator-2", observation(BlockVoteOutcome::Accepted, Some("vote-2"), 1_100.0)),
+            ("validator-3", observation(BlockVoteOutcome::Accepted, Some("vote-3"), 2_500.0)),
+            ("validator-4", observation(BlockVoteOutcome::Accepted, Some("vote-4"), 4_600.0)),
+        ]
+        .into_iter()
+        .map(|(validator, observation)| (validator.to_string(), observation))
+        .collect();
+        let written = finish_round_block_vote_record(RoundBlockVoteRecordInput {
+            data_dir: data_dir.clone(),
+            chain_id: "postfiat-vote-record-test".to_string(),
+            block_height: 7,
+            view: 0,
+            block_hash: "b".repeat(96),
+            certificate_id: "c".repeat(96),
+            proposer: "validator-0".to_string(),
+            proposer_vote_id: "vote-0".to_string(),
+            quorum: 4,
+            required_remote_vote_count: 3,
+            requested_peers: (1..=5).map(|index| format!("validator-{index}")).collect(),
+            round_deadline_ms: 4_000,
+            deadline: std::time::Instant::now(),
+            observations,
+            late_vote_receiver: None,
+        });
+        assert_eq!(written, "written");
+        let record = postfiat_node::block_vote_records::read_block_vote_record(&data_dir, 7)
+            .expect("read record")
+            .expect("record written");
+        let outcome = |validator: &str| {
+            let entry = record
+                .entries
+                .iter()
+                .find(|entry| entry.validator == validator)
+                .expect("entry");
+            (
+                serde_json::to_value(entry.outcome).expect("outcome"),
+                entry.vote_id.clone(),
+                entry.answered_after_quorum,
+            )
+        };
+        assert_eq!(outcome("validator-2"), (serde_json::json!("accepted"), Some("vote-2".to_string()), false));
+        assert_eq!(outcome("validator-3"), (serde_json::json!("accepted"), Some("vote-3".to_string()), false));
+        assert_eq!(
+            outcome("validator-4"),
+            (serde_json::json!("late_after_deadline"), Some("vote-4".to_string()), true),
+            "an answer after the deadline that the writer still sees"
+        );
+        assert_eq!(outcome("validator-5"), (serde_json::json!("no_answer"), None, false));
+        std::fs::remove_dir_all(&data_dir).expect("cleanup");
+    }
+
     #[test]
     fn certified_transport_payload_commits_batch_kind() {
         let payload_json = r#"{"schema":"test-batch","batch_id":"batch-1"}"#;

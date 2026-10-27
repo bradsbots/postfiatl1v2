@@ -116,12 +116,24 @@ and has one entry per validator the round asked, the proposer included:
 - `accepted` with its `vote_id`;
 - `refused` with a `refusal_class`, the validator's reason without paths or
   quoted values;
-- `no_answer`: no vote reached the proposer by the round deadline.
+- `late_after_deadline` with its `vote_id`: an accepted vote that arrived
+  after the round deadline but before the record was written;
+- `no_answer`: the writer received no answer from the validator (no
+  connection, a failed read, or nothing by the time the record was written).
 
 `answered_after_quorum` marks an answer that arrived after the last vote the
 quorum needed. In a quorum-early round (`--allow-peer-failures` or
 `--quorum-early-full-propagation`), such a vote is recorded but is not in the
-certificate. Only the
+certificate. The record writer waits for missing answers until the round
+deadline and then takes every answer already received before it classifies
+them, so a vote that arrived after the quorum and inside the deadline is
+`accepted` with `answered_after_quorum: true`, also when the round reaches the
+writer only at the deadline (a full-propagation send to a slow validator holds
+the round up to its timeout). An answer that arrives after the record is
+written is not seen: the record is written once and that entry stays
+`no_answer`. Records that contain `late_after_deadline` (written by builds with
+the VR-01 fix) cannot be read by the `index-v3-20261027` executable or an older
+`vote_reliability.py`. Only the
 proposer writes the record, after the block and its receipts are durable.
 Each validator therefore holds the records of the heights it proposed. A
 record is written once: a restart never rewrites it, and a failed write never
