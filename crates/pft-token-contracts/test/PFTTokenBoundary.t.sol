@@ -13,6 +13,10 @@ interface IBoundaryVm {
     function expectRevert(bytes calldata revertData) external;
     function expectPartialRevert(bytes4 selector) external;
     function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData) external;
+    function isContext(uint8 context) external view returns (bool);
+    function exists(string calldata path) external view returns (bool);
+    function readFile(string calldata path) external view returns (string memory);
+    function parseJsonKeys(string calldata json, string calldata key) external pure returns (string[] memory);
 }
 
 /// The 13 functions the token is allowed to expose; its interfaceId is the XOR
@@ -51,6 +55,10 @@ contract PFTTokenBoundaryTest {
     // Foundry test keys; they never hold value outside the test EVM.
     uint256 private constant OWNER_KEY = 0x5EED;
     uint256 private constant OTHER_KEY = 0xBAD;
+    /// `ForgeContext.Coverage` in forge-std's Vm.
+    uint8 private constant COVERAGE = 2;
+    address private constant CONSOLE = 0x000000000000000000636F6e736F6c652e6c6f67;
+    string private constant ARTIFACT = "out/PFTToken.sol/PFTToken.json";
     uint256 private constant SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
 
     bytes32 private constant PERMIT_TYPEHASH =
@@ -160,9 +168,7 @@ contract PFTTokenBoundaryTest {
         // The owner's permit, signed with another key.
         (uint8 v, bytes32 r, bytes32 s) =
             VM.sign(OTHER_KEY, _permitDigest(address(token), block.chainid, BOB, 1, 0, deadline));
-        VM.expectRevert(
-            abi.encodeWithSignature("ERC2612InvalidSigner(address,address)", VM.addr(OTHER_KEY), owner)
-        );
+        VM.expectRevert(abi.encodeWithSignature("ERC2612InvalidSigner(address,address)", VM.addr(OTHER_KEY), owner));
         token.permit(owner, BOB, 1, deadline, v, r, s);
         _assertEq(token.nonces(owner), 0, "nonce after failed permit");
     }
@@ -289,6 +295,39 @@ contract PFTTokenBoundaryTest {
             }
             _assertTrue(seen, "an allowed function is not dispatched");
         }
+
+        // The compiler's own list. Coverage builds without the optimizer and
+        // does not refresh this artifact, so the check is skipped there.
+        if (VM.isContext(COVERAGE)) {
+            _log("note: methodIdentifiers check skipped under forge coverage");
+            return;
+        }
+        _assertTrue(VM.exists(ARTIFACT), "artifact out/PFTToken.sol/PFTToken.json missing");
+        string[] memory signatures = VM.parseJsonKeys(VM.readFile(ARTIFACT), ".methodIdentifiers");
+        _assertEq(signatures.length, expected.length, "number of methodIdentifiers");
+        for (uint256 i = 0; i < signatures.length; i++) {
+            bytes4 selector = bytes4(keccak256(bytes(signatures[i])));
+            bool allowed = false;
+            for (uint256 j = 0; j < expected.length; j++) {
+                allowed = allowed || selector == expected[j];
+            }
+            _assertTrue(allowed, string.concat("method not in the allowlist: ", signatures[i]));
+        }
+    }
+
+    /// A hand-built dispatcher: `name()` with PUSH4, the 0x00-prefixed
+    /// hiddenMint178(address,uint256) (0x00fefee5) as solc emits it, PUSH3 0xfefee5,
+    /// and a 0x0000-prefixed selector with PUSH2, followed by an empty CBOR length.
+    function testScannerFindsSelectorsWithLeadingZeroBytes() public pure {
+        _assertTrue(bytes4(keccak256("hiddenMint178(address,uint256)")) == bytes4(0x00fefee5), "fixture selector");
+        bytes memory code = hex"60003560e01c80" hex"6306fdde03" hex"14" hex"610040" hex"57" hex"80" hex"62fefee5"
+            hex"14" hex"610050" hex"57" hex"80" hex"611234" hex"14" hex"610060" hex"57" hex"6001" hex"6002" hex"00"
+            hex"0000";
+        (bytes4[] memory found, uint256 count) = _dispatchedSelectors(code);
+        _assertEq(count, 3, "selectors found");
+        _assertTrue(found[0] == bytes4(0x06fdde03), "PUSH4 selector");
+        _assertTrue(found[1] == bytes4(0x00fefee5), "PUSH3 selector");
+        _assertTrue(found[2] == bytes4(0x00001234), "PUSH2 selector");
     }
 
     // ------------------------------------------------------------------ fuzz
@@ -338,7 +377,8 @@ contract PFTTokenBoundaryTest {
         deadline = block.timestamp + deadline % (type(uint256).max - block.timestamp);
         address signer = VM.addr(key);
         uint256 nonce = token.nonces(signer);
-        (uint8 v, bytes32 r, bytes32 s) = _signPermit(key, address(token), block.chainid, spender, value, nonce, deadline);
+        (uint8 v, bytes32 r, bytes32 s) =
+            _signPermit(key, address(token), block.chainid, spender, value, nonce, deadline);
         token.permit(signer, spender, value, deadline, v, r, s);
         _assertEq(token.allowance(signer, spender), value, "permit allowance");
         _assertEq(token.nonces(signer), nonce + 1, "nonce after permit");
@@ -379,8 +419,9 @@ contract PFTTokenBoundaryTest {
         uint256 nonce,
         uint256 deadline
     ) private pure returns (bytes32) {
-        bytes32 domain =
-            keccak256(abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), keccak256("1"), chainId, verifyingContract));
+        bytes32 domain = keccak256(
+            abi.encode(DOMAIN_TYPEHASH, keccak256(bytes(NAME)), keccak256("1"), chainId, verifyingContract)
+        );
         bytes32 structHash = keccak256(abi.encode(PERMIT_TYPEHASH, signer, spender, value, nonce, deadline));
         return keccak256(abi.encodePacked("\x19\x01", domain, structHash));
     }
@@ -399,7 +440,9 @@ contract PFTTokenBoundaryTest {
     }
 
     /// Walks the runtime code (without the CBOR metadata) and collects every
-    /// `PUSH4 <selector> EQ`, the dispatcher's comparison of the call selector.
+    /// `PUSHn <selector> EQ` (n = 1..4), the dispatcher's comparison of the call
+    /// selector, normalised to 4 bytes: solc drops a selector's leading zero
+    /// bytes, so 0x00fefee5 is pushed with PUSH3.
     function _dispatchedSelectors(bytes memory code) private pure returns (bytes4[] memory found, uint256 count) {
         uint256 end = code.length;
         uint256 metadata = (uint256(uint8(code[end - 2])) << 8) | uint8(code[end - 1]);
@@ -409,16 +452,25 @@ contract PFTTokenBoundaryTest {
         found = new bytes4[](64);
         for (uint256 i = 0; i < end; i++) {
             uint8 op = uint8(code[i]);
-            if (op == 0x63 && i + 5 < end && uint8(code[i + 5]) == 0x14) {
-                found[count++] = bytes4(
-                    uint32(uint8(code[i + 1])) << 24 | uint32(uint8(code[i + 2])) << 16
-                        | uint32(uint8(code[i + 3])) << 8 | uint32(uint8(code[i + 4]))
-                );
+            if (op >= 0x60 && op <= 0x63) {
+                uint256 n = op - 0x5f;
+                if (i + n + 1 < end && uint8(code[i + n + 1]) == 0x14) {
+                    uint32 value = 0;
+                    for (uint256 k = 1; k <= n; k++) {
+                        value = (value << 8) | uint8(code[i + k]);
+                    }
+                    found[count++] = bytes4(value);
+                }
             }
             if (op >= 0x60 && op <= 0x7f) {
                 i += op - 0x5f; // skip the push data
             }
         }
+    }
+
+    function _log(string memory message) private view {
+        (bool ok,) = CONSOLE.staticcall(abi.encodeWithSignature("log(string)", message));
+        ok;
     }
 
     function _assertTrue(bool value, string memory message) private pure {

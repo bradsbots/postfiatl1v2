@@ -115,6 +115,14 @@ contract PFTTokenInvariantTest {
         _assertEq(token.totalSupply(), SUPPLY, "total supply");
     }
 
+    /// With fail_on_revert every handler call must succeed; this proves calls
+    /// were made. Forge also checks each invariant_* once after setUp, before
+    /// any call, so this one runs from the afterInvariant hook, at the end of
+    /// every run (HandlerMadeCalls).
+    function afterInvariant() public view {
+        _assertTrue(handler.calls() > 0, "the handler made no calls");
+    }
+
     function invariant_TreasuryBalancePlusNetOutflowEqualsSupply() public view {
         uint256 treasury = token.balanceOf(handler.actors(0));
         _assertEq(treasury + handler.sentFromTreasury() - handler.receivedByTreasury(), SUPPLY, "treasury flow");
@@ -122,6 +130,12 @@ contract PFTTokenInvariantTest {
 
     function _assertEq(uint256 actual, uint256 expected, string memory message) private pure {
         if (actual != expected) {
+            revert(message);
+        }
+    }
+
+    function _assertTrue(bool value, string memory message) private pure {
+        if (!value) {
             revert(message);
         }
     }

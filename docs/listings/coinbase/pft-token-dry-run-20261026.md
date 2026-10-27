@@ -62,6 +62,27 @@ Sepolia record. The script now writes the record of a broadcast made with a
 test-only switch to the ignored `cache/deploy-test/` instead. The runs above
 used that version.
 
+## Anvil runs with a code-bearing treasury, 2026-10-27
+
+The guards above probed a Safe treasury through a self-call, which forge
+1.8.1 refuses inside a script ("Usage of address(this) detected in script
+contract"), so a contract treasury blocked the script; the EOA runs never
+reached that branch. The script now reads the proxy's singleton from storage
+slot 0 and probes with direct staticcalls. Setup: `anvil --chain-id 84532`,
+no network, unlocked development accounts (no key given). `FakeSafe` (2 of 3
+owners, from `test/DeployPFTToken.t.sol`) was deployed with `forge create`
+and its slot 0 set to SafeL2 v1.4.1
+(`0x29fcB43b46531BcA003ddC8FCB67FFE91900C762`) with `anvil_setStorageAt`. No
+test switch was set; the deployer was the fresh account 2.
+
+| Run | Treasury slot 0 | Outcome |
+| --- | --- | --- |
+| 3, `--broadcast` | SafeL2 v1.4.1 | `PFTToken deployed at 0x663F3ad617193148711d28f5334eE4Ed07016602`, `ONCHAIN EXECUTION COMPLETE & SUCCESSFUL.`; record under `cache/deploy-test/` with mode `test`, threshold 2, three owners, `tx_hash` `pending` |
+| 4, dry run | `0x…0bad` | `Error: script failed: UnofficialSafeSingleton(0x8464135c8F25Da09e49BC8782676a84730C318bC, 0x0000000000000000000000000000000000000Bad)` |
+
+`crates/pft-token-contracts/test/deploy-script-cli.sh` repeats both cases
+through `forge script` on forge's in-process chain.
+
 ## Results, 2026-10-26
 
 The run printed `Script ran successfully`, then `PFTToken deployed at
@@ -91,8 +112,9 @@ OpenZeppelin is pinned as the submodule `lib/openzeppelin-contracts` at tag
 ## What remains for P1.3
 
 P1.3 still needs the test deployment on Base Sepolia. It needs the treasury
-Safe deployed there and a fresh deployer key funded with Base Sepolia ETH,
-with no test-only switch set. The commands and checklists are in
+Safe (v1.4.1, threshold at least 2) deployed there and a fresh deployer key
+funded with Base Sepolia ETH, with no test-only switch set and
+`PFT_TOKEN_REAL_DEPLOYMENT=1`. The commands and checklists are in
 `crates/pft-token-contracts/README.md` (`--rpc-url <base-sepolia-rpc-url>
 --ledger --sender <deployer-address> --broadcast`). After it, the source must
 be verified on the Base Sepolia block explorer and the deployment record

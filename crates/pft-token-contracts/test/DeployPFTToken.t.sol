@@ -2,11 +2,16 @@
 pragma solidity ^0.8.24;
 
 import {PFTToken} from "../src/PFTToken.sol";
-import {DeployPFTToken} from "../script/DeployPFTToken.s.sol";
+import {DeployPFTToken, ISafeProbe} from "../script/DeployPFTToken.s.sol";
 
 interface IDeployTestVm {
     function chainId(uint256 newChainId) external;
     function etch(address target, bytes calldata newRuntimeBytecode) external;
+    function store(address target, bytes32 slot, bytes32 value) external;
+    function exists(string calldata path) external view returns (bool);
+    function removeFile(string calldata path) external;
+    function parseJsonBool(string calldata json, string calldata key) external pure returns (bool);
+    function parseJsonAddressArray(string calldata json, string calldata key) external pure returns (address[] memory);
     function setNonce(address account, uint64 newNonce) external;
     function setNonceUnsafe(address account, uint64 newNonce) external;
     function setEnv(string calldata name, string calldata value) external;
@@ -19,8 +24,9 @@ interface IDeployTestVm {
     function toString(bytes calldata value) external pure returns (string memory);
 }
 
-/// A Safe as far as the read-only probe can tell: threshold 2 of 3 owners.
-contract FakeSafe {
+/// A Safe as far as the probe can tell: threshold 2 of 3 owners. Slot 0 is the
+/// proxy's singleton slot; a test or the CLI fixture sets it with vm.store.
+contract FakeSafe is ISafeProbe {
     function getThreshold() external pure returns (uint256) {
         return 2;
     }
@@ -33,14 +39,48 @@ contract FakeSafe {
     }
 }
 
-/// Answers the probe with a threshold no Safe can have.
-contract ZeroThresholdSafe {
-    function getThreshold() external pure returns (uint256) {
-        return 0;
+/// Answers the probe with the values it is built with; slot 0 is the singleton.
+contract ConfigurableSafe is ISafeProbe {
+    address private singleton;
+    uint256 private threshold;
+    address[] private owners;
+
+    constructor(address singleton_, uint256 threshold_, address[] memory owners_) {
+        singleton = singleton_;
+        threshold = threshold_;
+        owners = owners_;
     }
 
-    function getOwners() external pure returns (address[] memory owners) {
-        owners = new address[](1);
+    function getThreshold() external view returns (uint256) {
+        return threshold;
+    }
+
+    function getOwners() external view returns (address[] memory) {
+        return owners;
+    }
+}
+
+/// Answers getOwners with returndata that is not an address[] encoding.
+contract MalformedOwnersSafe {
+    function getThreshold() external pure returns (uint256) {
+        return 2;
+    }
+
+    fallback() external {
+        assembly {
+            mstore(0, 0x40) // wrong offset
+            mstore(0x20, 1)
+            return(0, 0x40)
+        }
+    }
+}
+
+/// Answers getThreshold with a short word.
+contract ShortThresholdSafe {
+    fallback() external {
+        assembly {
+            return(0, 1)
+        }
     }
 }
 
@@ -73,6 +113,9 @@ contract DeployPFTTokenTest {
     string private constant SYMBOL = "PFT";
     uint256 private constant SUPPLY_PFT = 1_000_000;
     uint256 private constant SUPPLY = SUPPLY_PFT * 1_000_000;
+    /// Safe v1.4.1 SafeL2, the canonical deployment of safe-global/safe-deployments.
+    address private constant SAFE_L2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
+    string private constant COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
     DeployPFTToken private script;
     Broadcaster private broadcaster;
@@ -81,6 +124,7 @@ contract DeployPFTTokenTest {
         script = new DeployPFTToken();
         broadcaster = new Broadcaster();
         VM.etch(TREASURY, address(new FakeSafe()).code);
+        VM.store(TREASURY, bytes32(0), bytes32(uint256(uint160(SAFE_L2))));
         VM.setNonceUnsafe(address(broadcaster), 0);
         VM.chainId(BASE_SEPOLIA);
     }
@@ -90,18 +134,20 @@ contract DeployPFTTokenTest {
     function testDeploysOnBaseSepoliaAndWritesTheRecord() public {
         DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
         cfg.recordDir = "cache/deploy-test/base-sepolia";
+        cfg.writeRecord = true;
         PFTToken token = broadcaster.deploy(script, cfg);
         _checkToken(token, NAME, SUPPLY);
-        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, 2, 3);
+        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, "test", SAFE_L2, 2, 3);
     }
 
     function testDeploysOnBaseMainnetAndWritesTheRecord() public {
         VM.chainId(BASE);
         DeployPFTToken.Config memory cfg = _config(BASE);
         cfg.recordDir = "cache/deploy-test/base";
+        cfg.writeRecord = true;
         PFTToken token = broadcaster.deploy(script, cfg);
         _checkToken(token, NAME, SUPPLY);
-        _checkRecord(cfg.recordDir, token, BASE, 2, 3);
+        _checkRecord(cfg.recordDir, token, BASE, "test", SAFE_L2, 2, 3);
     }
 
     function testAcceptsAThirtyOneByteName() public {
@@ -122,19 +168,37 @@ contract DeployPFTTokenTest {
         VM.setEnv("PFT_TOKEN_TREASURY", VM.toString(TREASURY));
         VM.setEnv("PFT_TOKEN_ALLOW_EOA_TREASURY", "");
         VM.setEnv("PFT_TOKEN_ALLOW_USED_DEPLOYER", "0");
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "");
+        VM.setEnv("PFT_TOKEN_SOURCE_COMMIT", COMMIT);
 
         DeployPFTToken.Config memory cfg = script.readConfig();
         _assertEq(cfg.chainId, BASE_SEPOLIA, "chain id");
         _assertEq(cfg.totalSupplyPft, SUPPLY_PFT, "supply in PFT");
         _assertTrue(cfg.treasury == TREASURY, "treasury");
-        _assertTrue(!cfg.allowEoaTreasury && !cfg.allowUsedDeployer, "switches off");
-        _assertEq(bytes(cfg.recordDir).length, 0, "no record outside a broadcast");
+        _assertTrue(!cfg.allowEoaTreasury && !cfg.allowUsedDeployer && !cfg.realDeployment, "switches off");
+        _assertTrue(!cfg.writeRecord, "no record outside a broadcast");
+        _assertTrue(_eq(cfg.recordDir, "cache/deploy-test/pft-token-base-84532"), "test record path");
+        _assertTrue(_eq(cfg.sourceCommit, COMMIT), "source commit");
+        // The real-deployment switch alone selects the durable path.
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "true");
+        _assertTrue(!script.readConfig().realDeployment, "only exactly 1 is on");
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "1");
+        cfg = script.readConfig();
+        _assertTrue(cfg.realDeployment, "real deployment");
+        _assertTrue(_eq(cfg.recordDir, "deployments/pft-token-base-84532"), "durable record path");
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "");
         _checkToken(broadcaster.run(script), NAME, SUPPLY);
 
         VM.setEnv("PFT_TOKEN_ALLOW_EOA_TREASURY", "1");
         VM.setEnv("PFT_TOKEN_ALLOW_USED_DEPLOYER", "1");
         cfg = script.readConfig();
         _assertTrue(cfg.allowEoaTreasury && cfg.allowUsedDeployer, "switches on");
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "1");
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.RealDeploymentWithTestSwitch.selector, "PFT_TOKEN_ALLOW_EOA_TREASURY")
+        );
+        broadcaster.run(script);
+        VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "");
 
         VM.setEnv("PFT_TOKEN_TOTAL_SUPPLY_PFT", "REPLACE_with_whole_pft");
         VM.expectRevert(_placeholder("PFT_TOKEN_TOTAL_SUPPLY_PFT"));
@@ -269,35 +333,161 @@ contract DeployPFTTokenTest {
         cfg.treasury = address(0xE0A);
         cfg.allowEoaTreasury = true;
         cfg.recordDir = "cache/deploy-test/eoa-treasury";
+        cfg.writeRecord = true;
         PFTToken token = broadcaster.deploy(script, cfg);
         _assertEq(token.balanceOf(address(0xE0A)), SUPPLY, "EOA treasury balance");
-        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, 0, 0);
+        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, "test", address(0), 0, 0);
     }
 
-    function testRefusesATreasuryThatIsNotASafeOnBaseMainnet() public {
-        VM.chainId(BASE);
-        bytes[3] memory codes =
-            [address(new NotASafe()).code, address(new ZeroThresholdSafe()).code, bytes(hex"00")];
-        for (uint256 i = 0; i < codes.length; i++) {
-            VM.etch(TREASURY, codes[i]);
-            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryIsNotASafe.selector, TREASURY));
-            broadcaster.deploy(script, _config(BASE));
+    function testTheEoaSwitchDoesNotRelaxTheSafeCheckOfAContract() public {
+        VM.store(TREASURY, bytes32(0), bytes32(0));
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.allowEoaTreasury = true;
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.UnofficialSafeSingleton.selector, TREASURY, address(0)));
+        broadcaster.deploy(script, cfg);
+    }
+
+    function testAcceptsEveryPinnedSingletonOnBothChains() public view {
+        address[4] memory singletons = [
+            0x41675C099F32341bf84BFc5382aF534df5C7461a,
+            0x29fcB43b46531BcA003ddC8FCB67FFE91900C762,
+            0xd9Db270c1B5E3Bd161E8c8503c55cEABeE709552,
+            0x3E5c63644E683549055b9Be8653de26E0B4CD36E
+        ];
+        uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+        for (uint256 c = 0; c < chains.length; c++) {
+            for (uint256 i = 0; i < singletons.length; i++) {
+                _assertTrue(script.isOfficialSafeSingleton(chains[c], singletons[i]), "pinned singleton");
+            }
+            // The v1.3.0 eip155 deployment is listed for both chains but not pinned.
+            _assertTrue(
+                !script.isOfficialSafeSingleton(chains[c], 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA), "eip155 L2"
+            );
+            _assertTrue(!script.isOfficialSafeSingleton(chains[c], address(0)), "zero singleton");
+        }
+        _assertTrue(!script.isOfficialSafeSingleton(1, singletons[0]), "other chain");
+    }
+
+    function testCheckSafeReadsTheSafe() public view {
+        DeployPFTToken.SafeInfo memory safe = script.checkSafe(BASE_SEPOLIA, TREASURY);
+        _assertTrue(safe.singleton == SAFE_L2, "singleton");
+        _assertEq(safe.threshold, 2, "threshold");
+        _assertEq(safe.owners.length, 3, "owners");
+        _assertTrue(safe.owners[2] == address(0x0A3), "third owner");
+    }
+
+    function testRefusesALookalikeWithAWrongSingletonOnBothChains() public {
+        address wrong = address(new FakeSafe()); // right answers, wrong singleton
+        uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+        for (uint256 c = 0; c < chains.length; c++) {
+            VM.chainId(chains[c]);
+            VM.store(TREASURY, bytes32(0), bytes32(uint256(uint160(wrong))));
+            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.UnofficialSafeSingleton.selector, TREASURY, wrong));
+            broadcaster.deploy(script, _config(chains[c]));
+            // An official address with dirty upper bits is not the singleton.
+            VM.store(TREASURY, bytes32(0), bytes32(uint256(uint160(SAFE_L2)) | (uint256(1) << 160)));
+            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.UnofficialSafeSingleton.selector, TREASURY, SAFE_L2));
+            broadcaster.deploy(script, _config(chains[c]));
         }
     }
 
-    function testWarnsOnATreasuryThatIsNotASafeOnBaseSepolia() public {
-        VM.etch(TREASURY, address(new NotASafe()).code);
-        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
-        cfg.recordDir = "cache/deploy-test/not-a-safe";
-        PFTToken token = broadcaster.deploy(script, cfg);
-        _checkToken(token, NAME, SUPPLY);
-        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, 0, 0);
+    function testRefusesAThresholdBelowTwoOnBothChains() public {
+        address[] memory owners = new address[](3);
+        (owners[0], owners[1], owners[2]) = (address(0x0A1), address(0x0A2), address(0x0A3));
+        for (uint256 threshold = 0; threshold < 2; threshold++) {
+            address safe = address(new ConfigurableSafe(SAFE_L2, threshold, owners));
+            _assertTrue(script.isOfficialSafeSingleton(BASE, SAFE_L2), "fixture singleton");
+            uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+            for (uint256 c = 0; c < chains.length; c++) {
+                VM.chainId(chains[c]);
+                DeployPFTToken.Config memory cfg = _config(chains[c]);
+                cfg.treasury = safe;
+                VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.SafeThresholdTooLow.selector, threshold));
+                broadcaster.deploy(script, cfg);
+            }
+        }
     }
 
-    function testProbeReadsTheSafe() public view {
-        (uint256 threshold, uint256 owners) = script.probeSafe(TREASURY);
-        _assertEq(threshold, 2, "threshold");
-        _assertEq(owners, 3, "owners");
+    function testRefusesSafeOwnersThatAreTooFewZeroRepeatedOrBelowTheThreshold() public {
+        address[][4] memory sets;
+        sets[0] = new address[](1);
+        sets[0][0] = address(0x0A1);
+        sets[1] = new address[](2);
+        sets[1][0] = address(0x0A1); // sets[1][1] stays zero
+        sets[2] = new address[](2);
+        (sets[2][0], sets[2][1]) = (address(0x0A1), address(0x0A1));
+        sets[3] = new address[](2);
+        (sets[3][0], sets[3][1]) = (address(0x0A1), address(0x0A2));
+        uint256[4] memory thresholds = [uint256(2), 2, 2, 3];
+        uint256[4] memory distinct = [uint256(1), 1, 1, 2];
+        for (uint256 i = 0; i < sets.length; i++) {
+            DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+            cfg.treasury = address(new ConfigurableSafe(SAFE_L2, thresholds[i], sets[i]));
+            VM.expectRevert(
+                abi.encodeWithSelector(
+                    DeployPFTToken.SafeOwnersInvalid.selector, sets[i].length, distinct[i], thresholds[i]
+                )
+            );
+            broadcaster.deploy(script, cfg);
+        }
+    }
+
+    function testRefusesATreasuryThatDoesNotAnswerTheProbeOnBothChains() public {
+        bytes[4] memory codes = [
+            address(new NotASafe()).code,
+            address(new MalformedOwnersSafe()).code,
+            address(new ShortThresholdSafe()).code,
+            bytes(hex"00")
+        ];
+        uint256[2] memory chains = [BASE, BASE_SEPOLIA];
+        for (uint256 c = 0; c < chains.length; c++) {
+            VM.chainId(chains[c]);
+            for (uint256 i = 0; i < codes.length; i++) {
+                VM.etch(TREASURY, codes[i]);
+                VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryIsNotASafe.selector, TREASURY));
+                broadcaster.deploy(script, _config(chains[c]));
+            }
+        }
+    }
+
+    // ------------------------------------------------------- deployment record
+
+    function testRefusesARealDeploymentWithATestSwitch() public {
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.realDeployment = true;
+        cfg.allowEoaTreasury = true;
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.RealDeploymentWithTestSwitch.selector, "PFT_TOKEN_ALLOW_EOA_TREASURY")
+        );
+        broadcaster.deploy(script, cfg);
+        cfg.allowEoaTreasury = false;
+        cfg.allowUsedDeployer = true;
+        VM.expectRevert(
+            abi.encodeWithSelector(
+                DeployPFTToken.RealDeploymentWithTestSwitch.selector, "PFT_TOKEN_ALLOW_USED_DEPLOYER"
+            )
+        );
+        broadcaster.deploy(script, cfg);
+    }
+
+    function testRealDeploymentWritesOnceAndRefusesToOverwrite() public {
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.realDeployment = true;
+        cfg.recordDir = "cache/deploy-test/real-once";
+        cfg.writeRecord = true;
+        cfg.sourceCommit = COMMIT;
+        string memory path = string.concat(cfg.recordDir, "/deployment.json");
+        if (VM.exists(path)) VM.removeFile(path);
+        PFTToken token = broadcaster.deploy(script, cfg);
+        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, "real", SAFE_L2, 2, 3);
+        string memory json = VM.readFile(path);
+        _assertTrue(_eq(VM.parseJsonString(json, ".source_commit"), COMMIT), "record source commit");
+
+        // A second run, even a dry run that writes nothing, stops before deploying.
+        VM.setNonceUnsafe(address(broadcaster), 0);
+        cfg.writeRecord = false;
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.RecordExists.selector, path));
+        broadcaster.deploy(script, cfg);
     }
 
     // -------------------------------------------------------------- deployer
@@ -346,11 +536,23 @@ contract DeployPFTTokenTest {
         return token.balanceOf(TREASURY) > 0 ? TREASURY : address(0xE0A);
     }
 
-    function _checkRecord(string memory dir, PFTToken token, uint256 chainId, uint256 threshold, uint256 owners)
-        private
-        view
-    {
+    function _checkRecord(
+        string memory dir,
+        PFTToken token,
+        uint256 chainId,
+        string memory mode,
+        address singleton,
+        uint256 threshold,
+        uint256 owners
+    ) private view {
         string memory json = VM.readFile(string.concat(dir, "/deployment.json"));
+        _assertTrue(_eq(VM.parseJsonString(json, ".mode"), mode), "record mode");
+        _assertTrue(VM.parseJsonAddress(json, ".treasury_safe_singleton") == singleton, "record singleton");
+        _assertEq(VM.parseJsonAddressArray(json, ".treasury_safe_owners").length, owners, "record owner list");
+        _assertTrue(_eq(VM.parseJsonString(json, ".tx_hash"), "pending"), "record tx hash");
+        _assertTrue(_eq(VM.parseJsonString(json, ".block_number"), "pending"), "record block number");
+        _assertTrue(_eq(VM.parseJsonString(json, ".bytecode_hash"), "ipfs"), "record bytecode hash");
+        _assertTrue(VM.parseJsonBool(json, ".cbor_metadata"), "record cbor metadata");
         _assertTrue(VM.parseJsonAddress(json, ".token") == address(token), "record token");
         _assertEq(VM.parseJsonUint(json, ".chain_id"), chainId, "record chain id");
         _assertTrue(_eq(VM.parseJsonString(json, ".name"), token.name()), "record name");
