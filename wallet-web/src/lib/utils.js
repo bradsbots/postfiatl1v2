@@ -13,18 +13,20 @@ export function isValidAddress(addr) {
 // 1 PFT = 1,000,000 atoms (PFTL_PRECISION)
 const PFTL_PRECISION = 1_000_000n;
 
+// Fixed en-US grouping: the browser locale would change what the number reads
+// as ("5.000" in de-DE), and the wrap Max/Half fills strip only ",".
 export function formatBalance(raw) {
   if (raw === null || raw === undefined) return '0';
   const n = BigInt(raw);
   const pft = n / PFTL_PRECISION;
   const remainder = n % PFTL_PRECISION;
   if (remainder === 0n) {
-    return pft.toLocaleString();
+    return pft.toLocaleString('en-US');
   }
   // Show fractional PFT (e.g. "1.5" for 1,500,000 atoms)
   const fracStr = remainder.toString().padStart(6, '0');
   const trimmed = fracStr.replace(/0+$/, '');
-  return `${pft.toLocaleString()}.${trimmed}`;
+  return `${pft.toLocaleString('en-US')}.${trimmed}`;
 }
 
 // Amount fields take a plain decimal (no grouping, '.' as the decimal
