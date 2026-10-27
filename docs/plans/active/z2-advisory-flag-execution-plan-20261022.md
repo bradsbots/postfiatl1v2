@@ -202,6 +202,11 @@
         - The offline harness is `fetch_rounds.py:38-40` (fork clone path, rounds 12–19 by default; `--rounds 28` fetched the first v12-era round), which drives the fork's `scripts/replay_model_candidate.py`, and `shadow_eval.py:662` (`--scorer-version`, 1–3). Since 2026-10-23 the local fork clone is at `e70515d`, and `_verify_code_pins` (`:197-220`) also checks the `diversity_formula` pin, so v12-era rounds can be evaluated (step 1a record).
         - The rollout pattern exists: diversity formula v1 went main → devnet manual round → testnet slot, deployed outside the three-hour `AWAITING_COMMIT_CLOSE` window, with the sidecar image, explorer and governance row shipped alongside (fork `docs/DeterministicDiversity.md:77`).
         - Fork dry runs (`docs/ScoringOperations.md:136-166`) stop after selection and publish nothing.
+    - *Counted rounds:*
+        - [ ] Round 1 of 4 (Tuesday 2026-10-27): **not published yet.** Checked 2026-10-27 12:55Z, read-only, on the public testnet scoring service: `/api/scoring/rounds` lists round 28 as the newest (complete, input started 2026-10-20 16:07Z, completed 19:20Z), `/api/scoring/rounds/29` returns 404 ("Round 29 not found"), and `/api/scoring/health` reports the scheduler's next run due at 2026-10-27 16:03Z. `fetch_rounds.py --rounds 29` at 12:57Z found all six required files and `outputs/validator_scores.json` missing ("round not replayable"); its empty round-29 entry was not kept, so `rounds-manifest.json` and `results-v3.json` are unchanged. Rounds 23–28 completed about three hours after they started. Nothing was evaluated. Next check: 2026-10-27 after 19:30Z; then `fetch_rounds.py --rounds 29` and `shadow_eval.py --scorer-version 3`, and this box with the round number, the input freeze date and the numbers.
+        - [ ] Round 2 of 4 (Tuesday 2026-11-03).
+        - [ ] Round 3 of 4 (Tuesday 2026-11-10).
+        - [ ] Round 4 of 4 (Tuesday 2026-11-17).
     - *Missing:* counted rounds, a weekly record and the switch.
     - *Deliverable:*
         - For each counted round: `results-<round>.json`, plus a dated row in `docs/governance/dunl-subscorer-shadow-weekly-2026.md` (new) with flips, overlap, per-dimension deltas and the internal-control result.
