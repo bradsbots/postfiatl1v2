@@ -170,8 +170,12 @@ For a one-line human amount wrapper, use:
 ```bash
 scripts/pftl-transfer.py faucet \
   --to pfde0ba09f38b1748f8d77709715e1095a0ff74d0f \
-  --amount 20
+  --amount 20 \
+  --allow-faucet-apply
 ```
+
+`--allow-faucet-apply` is required: the faucet changes validator state, and the
+wrapper refuses to run without it.
 
 ### WAN/Testnet Wallet Send (No apply-batch)
 
