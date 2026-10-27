@@ -111,7 +111,9 @@ forge script script/DeployPFTToken.s.sol:DeployPFTToken \
 The broadcast writes `deployments/pft-token-base-<chain id>/deployment.json`
 (token address, chain id, constructor arguments, deployer, Safe threshold and
 owner count, solc version and settings, OpenZeppelin commit); a dry run writes
-none. Commit it once the transaction is confirmed. `broadcast/` stays ignored.
+none, and a broadcast with a test-only switch (a local anvil) writes it under
+the ignored `cache/deploy-test/`. Commit it once the transaction is confirmed.
+`broadcast/` stays ignored.
 
 Verification on Basescan (`BASESCAN_API_KEY` exported in the shell, never in a
 file; `foundry.toml` reads it for chain ids 8453 and 84532):

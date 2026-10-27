@@ -91,7 +91,8 @@ contract DeployPFTToken {
     }
 
     /// Reads the deployment values from the environment. The record is written
-    /// only by `forge script --broadcast`, never by a dry run.
+    /// only by `forge script --broadcast`, never by a dry run; a broadcast with a
+    /// test-only switch (a local anvil) writes it under the ignored cache/deploy-test.
     function readConfig() public view returns (Config memory cfg) {
         cfg.chainId = VM.parseUint(_required("PFT_TOKEN_CHAIN_ID"));
         cfg.name = _required("PFT_TOKEN_NAME");
@@ -102,7 +103,8 @@ contract DeployPFTToken {
         cfg.allowEoaTreasury = _switch("PFT_TOKEN_ALLOW_EOA_TREASURY");
         cfg.allowUsedDeployer = _switch("PFT_TOKEN_ALLOW_USED_DEPLOYER");
         if (VM.isContext(SCRIPT_BROADCAST)) {
-            cfg.recordDir = string.concat("deployments/pft-token-base-", VM.toString(block.chainid));
+            string memory root = cfg.allowEoaTreasury || cfg.allowUsedDeployer ? "cache/deploy-test/" : "deployments/";
+            cfg.recordDir = string.concat(root, "pft-token-base-", VM.toString(block.chainid));
         }
     }
 
