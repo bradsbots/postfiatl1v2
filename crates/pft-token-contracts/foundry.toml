@@ -23,3 +23,10 @@ fs_permissions = [
 [etherscan]
 base = { key = "${BASESCAN_API_KEY}", chain = 8453 }
 base-sepolia = { key = "${BASESCAN_API_KEY}", chain = 84532 }
+
+[fuzz]
+runs = 1000
+
+[invariant]
+runs = 64
+depth = 32

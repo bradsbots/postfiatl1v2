@@ -45,8 +45,12 @@ cd crates/pft-token-contracts
 forge test
 ```
 
-`test/DeployPFTToken.t.sol` covers every refusal of the deploy script and its
-accepted path.
+`test/PFTTokenBoundary.t.sol` holds the ERC-20 and permit boundary cases, the
+exact 13-function allowlist (read from the deployed dispatcher) and the fuzz
+tests (1000 runs); `test/PFTTokenInvariant.t.sol` checks that the balances sum
+to the fixed supply over random transfers, approvals and permits (64 runs,
+depth 32). `test/DeployPFTToken.t.sol` covers every refusal of the deploy
+script and its accepted path.
 
 ## Deployment
 
