@@ -77,7 +77,7 @@ The ERC-20 launch quantity and allocation are not yet decided.
 - Supply and allocation: per the token document (not yet decided).
 - Treasury: planned to be a Safe multisig; address to be published.
 - Admin keys: none; not upgradeable; no pause or blacklist.
-- Audit: planned before the Base mainnet deployment; report to be published.
+- Audit: planned before the Base mainnet deployment; report planned to be shared with Coinbase.
 - Source: to be verified on the Base block explorer at deployment.
 - Contract address: to be published.
 - Issuer: to be named in the token document.
