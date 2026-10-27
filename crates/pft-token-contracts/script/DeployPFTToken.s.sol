@@ -20,6 +20,7 @@ interface IPFTTokenDeployVm {
     function parseJsonString(string calldata json, string calldata key) external pure returns (string memory);
     function parseJsonUint(string calldata json, string calldata key) external pure returns (uint256);
     function parseJsonBool(string calldata json, string calldata key) external pure returns (bool);
+    function parseJsonBytes(string calldata json, string calldata key) external pure returns (bytes memory);
     function serializeString(string calldata objectKey, string calldata valueKey, string calldata value)
         external
         returns (string memory);
@@ -30,6 +31,9 @@ interface IPFTTokenDeployVm {
         external
         returns (string memory);
     function serializeBool(string calldata objectKey, string calldata valueKey, bool value)
+        external
+        returns (string memory);
+    function serializeBytes32(string calldata objectKey, string calldata valueKey, bytes32 value)
         external
         returns (string memory);
     function serializeAddress(string calldata objectKey, string calldata valueKey, address[] calldata values)
@@ -43,6 +47,14 @@ interface IPFTTokenDeployVm {
 interface ISafeProbe {
     function getThreshold() external view returns (uint256);
     function getOwners() external view returns (address[] memory);
+}
+
+/// The module list of a Safe (1.3.0 and 1.4.1), read with a checked staticcall.
+interface ISafeModulesProbe {
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory array, address next);
 }
 
 /// @notice Foundry deployment script for the fixed-supply PFT token on Base.
@@ -94,9 +106,18 @@ contract DeployPFTToken {
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
     /// `masterCopy()`, answered by the proxy itself with its singleton.
     bytes4 public constant MASTER_COPY_SELECTOR = 0xa619486e;
-    /// The compiled token whose metadata is the record's build provenance.
-    string public constant TOKEN_ARTIFACT = "out/PFTToken.sol/PFTToken.json";
+    /// The compiled token, under forge's output directory (FOUNDRY_OUT, else out),
+    /// whose metadata is the record's build provenance. Its creation code must
+    /// be the code this script deploys.
+    string public constant TOKEN_ARTIFACT = "/PFTToken.sol/PFTToken.json";
     uint256 public constant MIN_SAFE_THRESHOLD = 2;
+    /// A module executes through the Safe without owner signatures, so the
+    /// treasury must have none. SENTINEL_MODULES heads the Safe's module list.
+    address public constant SENTINEL_MODULES = address(0x1);
+    uint256 public constant MODULE_PAGE_SIZE = 10;
+    /// GuardManager's storage slot in Safe 1.3.0 and 1.4.1. A guard can only
+    /// add conditions to owner transactions; it is reported, not refused.
+    bytes32 public constant GUARD_STORAGE_SLOT = keccak256("guard_manager.guard.address");
 
     struct Config {
         uint256 chainId;
@@ -111,13 +132,15 @@ contract DeployPFTToken {
         string recordDir; // deployments/... for a real deployment, else cache/deploy-test/...
         bool writeRecord; // only `forge script --broadcast` writes the record
         string sourceCommit; // PFT_TOKEN_SOURCE_COMMIT, required for a real deployment
-        string artifact; // the compiled token whose metadata the record copies
+        string artifact; // the compiled token; must be the code deployed, its metadata goes in the record
     }
 
     struct SafeInfo {
         address singleton;
         uint256 threshold;
         address[] owners;
+        address[] modules; // always empty for an accepted Safe
+        address guard; // reported, not refused
     }
 
     error PlaceholderValue(string name);
@@ -139,6 +162,8 @@ contract DeployPFTToken {
     error DeployerAlreadyUsed(address deployer, uint256 nonce);
     error RealDeploymentWithTestSwitch(string name);
     error RecordExists(string path);
+    error ModulesEnabled(uint256 count);
+    error ArtifactMismatch(string path, bytes32 artifactCodeHash, bytes32 compiledCodeHash);
 
     event PFTTokenDeployed(
         address indexed token, address indexed treasury, uint256 total_supply, string name, string symbol
@@ -166,7 +191,8 @@ contract DeployPFTToken {
         cfg.recordDir = string.concat(root, "pft-token-base-", VM.toString(block.chainid));
         cfg.writeRecord = VM.isContext(SCRIPT_BROADCAST);
         cfg.sourceCommit = VM.envOr("PFT_TOKEN_SOURCE_COMMIT", string(""));
-        cfg.artifact = TOKEN_ARTIFACT;
+        string memory out = VM.envOr("FOUNDRY_OUT", string(""));
+        cfg.artifact = string.concat(bytes(out).length == 0 ? "out" : out, TOKEN_ARTIFACT);
     }
 
     /// Checks `cfg` against the target chain, then deploys from `msg.sender`
@@ -183,6 +209,7 @@ contract DeployPFTToken {
         }
         string memory recordPath = string.concat(cfg.recordDir, "/deployment.json");
         if (cfg.realDeployment && VM.exists(recordPath)) revert RecordExists(recordPath);
+        string memory artifact = _checkArtifact(cfg);
 
         _log("chain id", block.chainid);
         _log("name", cfg.name);
@@ -193,6 +220,10 @@ contract DeployPFTToken {
         _log("treasury Safe singleton", safe.singleton);
         _log("treasury Safe threshold", safe.threshold);
         _log("treasury Safe owners", safe.owners.length);
+        _log("treasury Safe modules", safe.modules.length);
+        _log("treasury Safe guard", safe.guard);
+        if (safe.guard != address(0)) _log("WARNING: the treasury Safe has a guard; review it before deploying");
+        _log("token artifact", cfg.artifact);
         _log("deployment record", cfg.realDeployment ? "real" : "test");
         _log("total supply (six-decimal units)", cfg.totalSupply);
         _log("total supply (whole PFT)", cfg.totalSupplyPft);
@@ -204,7 +235,7 @@ contract DeployPFTToken {
         emit PFTTokenDeployed(address(token), cfg.treasury, cfg.totalSupply, cfg.name, cfg.symbol);
         _log("PFTToken deployed at", address(token));
         if (cfg.writeRecord) {
-            _writeRecord(cfg, token, deployer, safe, recordPath);
+            _writeRecord(cfg, token, deployer, safe, artifact, recordPath);
         }
     }
 
@@ -227,8 +258,9 @@ contract DeployPFTToken {
     /// Fails closed unless `treasury` carries the pinned Safe proxy code, its
     /// slot 0 and its `masterCopy()` name the same pinned singleton, that
     /// singleton carries its pinned code on this chain, and the Safe has
-    /// threshold >= 2 with at least that many distinct non-zero owners. Uses
-    /// checked staticcalls only (no self-call).
+    /// threshold >= 2 with at least that many distinct non-zero owners, and no
+    /// module (getModulesPaginated(0x1, 10) is an empty page ending at 0x1).
+    /// A guard is read and reported. Uses checked staticcalls only (no self-call).
     function checkSafe(uint256 chainId, address treasury) public view returns (SafeInfo memory safe) {
         bytes32 proxyHash = treasury.codehash;
         if (proxyHash != SAFE_PROXY_1_4_1_CODEHASH && proxyHash != SAFE_PROXY_1_3_0_CODEHASH) {
@@ -262,6 +294,24 @@ contract DeployPFTToken {
         if (distinct != count || distinct < MIN_SAFE_THRESHOLD || safe.threshold > distinct) {
             revert SafeOwnersInvalid(count, distinct, safe.threshold);
         }
+        (ok, ret) = treasury.staticcall(
+            abi.encodeCall(ISafeModulesProbe.getModulesPaginated, (SENTINEL_MODULES, MODULE_PAGE_SIZE))
+        );
+        if (!ok || ret.length < 96) revert TreasuryIsNotASafe(treasury);
+        if (keccak256(ret) != keccak256(abi.encode(safe.modules, SENTINEL_MODULES))) {
+            (,, uint256 modules) = abi.decode(ret, (uint256, uint256, uint256));
+            revert ModulesEnabled(modules);
+        }
+        safe.guard = address(uint160(uint256(VM.load(treasury, GUARD_STORAGE_SLOT))));
+    }
+
+    /// The artifact whose metadata goes in the record must be this build of the
+    /// token: its creation code is the code `deploy` sends.
+    function _checkArtifact(Config memory cfg) private view returns (string memory artifact) {
+        artifact = VM.readFile(cfg.artifact);
+        bytes32 built = keccak256(VM.parseJsonBytes(artifact, ".bytecode.object"));
+        bytes32 compiled = keccak256(type(PFTToken).creationCode);
+        if (built != compiled) revert ArtifactMismatch(cfg.artifact, built, compiled);
     }
 
     function _checkChain(Config memory cfg) private view {
@@ -324,13 +374,17 @@ contract DeployPFTToken {
     /// The broadcast transaction hash and block are not known while the script
     /// runs; they are "pending" here and copied in from broadcast/.../run-latest.json.
     /// The compiler settings are the effective ones of this build, read from the
-    /// compiled artifact's metadata (so `--optimizer-runs` and other overrides
-    /// are recorded), not from foundry.toml.
-    function _writeRecord(Config memory cfg, PFTToken token, address deployer, SafeInfo memory safe, string memory path)
-        private
-    {
+    /// metadata of the artifact `_checkArtifact` bound to the deployed code (so
+    /// `--optimizer-runs` and other overrides are recorded), not from foundry.toml.
+    function _writeRecord(
+        Config memory cfg,
+        PFTToken token,
+        address deployer,
+        SafeInfo memory safe,
+        string memory artifact,
+        string memory path
+    ) private {
         string memory o = "pft_token_deployment";
-        string memory artifact = VM.readFile(cfg.artifact);
         VM.serializeString(o, "mode", cfg.realDeployment ? "real" : "test");
         VM.serializeString(o, "tx_hash", "pending");
         VM.serializeString(o, "block_number", "pending");
@@ -349,6 +403,10 @@ contract DeployPFTToken {
         VM.serializeUint(o, "treasury_safe_threshold", safe.threshold);
         VM.serializeUint(o, "treasury_safe_owner_count", safe.owners.length);
         VM.serializeAddress(o, "treasury_safe_owners", safe.owners);
+        VM.serializeAddress(o, "treasury_safe_modules", safe.modules);
+        VM.serializeAddress(o, "treasury_safe_guard", safe.guard);
+        VM.serializeString(o, "artifact", cfg.artifact);
+        VM.serializeBytes32(o, "creation_code_keccak256", keccak256(type(PFTToken).creationCode));
         VM.serializeString(o, "solc_version", VM.parseJsonString(artifact, ".metadata.compiler.version"));
         VM.serializeBool(o, "optimizer", VM.parseJsonBool(artifact, ".metadata.settings.optimizer.enabled"));
         VM.serializeUint(o, "optimizer_runs", VM.parseJsonUint(artifact, ".metadata.settings.optimizer.runs"));

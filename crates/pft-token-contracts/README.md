@@ -54,9 +54,11 @@ runs); `test/PFTTokenInvariant.t.sol` checks that the balances sum to the fixed
 supply over random transfers, approvals and permits (64 runs, depth 32,
 `fail_on_revert`). `test/DeployPFTToken.t.sol` covers every refusal of the
 deploy script and its accepted path; `test/deploy-script-cli.sh` runs the
-script through `forge script` with a real Safe treasury, a wrong singleton and
-a lookalike, hermetically offline (`env -i`, `FOUNDRY_OFFLINE=true`, no RPC
-variable, URLs redacted from the output).
+script through `forge script` with a real Safe treasury, a wrong singleton, a
+lookalike, an enabled module and the artifact of a `--optimizer-runs 201` build,
+offline and isolated (`env -i`, `FOUNDRY_OFFLINE=true`, no RPC variable,
+`FOUNDRY_CONFIG` unset, a temporary `HOME`, URLs redacted from the output; the
+project's `foundry.toml` is used on purpose).
 
 ## Deployment
 
@@ -76,6 +78,9 @@ outside the repository, `*.env` is ignored) and refuses, before the broadcast:
 | the singleton's code hash on the chain is its pinned runtime code hash | `SingletonCodeMismatch(singleton, codehash)` |
 | `getThreshold()` and `getOwners()` answer (checked staticcalls) | `TreasuryIsNotASafe` |
 | threshold >= 2; owners distinct, non-zero, at least the threshold | `SafeThresholdTooLow`, `SafeOwnersInvalid` |
+| no module: `getModulesPaginated(0x1, 10)` returns an empty list and next `0x1` (a module spends without owner signatures) | `ModulesEnabled(count)` |
+| the guard slot (`keccak256("guard_manager.guard.address")`) is read; a non-zero guard is printed and recorded, not refused | — |
+| the artifact under `$FOUNDRY_OUT` (else `out`) `/PFTToken.sol/PFTToken.json` has `bytecode.object` equal to the deployed creation code | `ArtifactMismatch(path, artifact hash, compiled hash)` |
 | the deployer's nonce on the target chain is 0 (a one-time key) | `DeployerAlreadyUsed(deployer, nonce)` |
 | a real deployment sets no test switch, sets `PFT_TOKEN_SOURCE_COMMIT` and has no record yet | `RealDeploymentWithTestSwitch`, `SourceCommitMissing`, `RecordExists(path)` |
 
@@ -111,6 +116,8 @@ Pre-deployment checklist:
 
 - [ ] The treasury Safe is deployed on the target chain and its address,
       owners and threshold are checked on the explorer.
+- [ ] The treasury Safe has no module (the script refuses one) and its guard,
+      printed by the dry run, is zero or reviewed.
 - [ ] `PFT_TOKEN_CHAIN_ID` is the target chain (84532 first; 8453 only after
       the audit below).
 - [ ] The supply pair `PFT_TOKEN_TOTAL_SUPPLY` / `PFT_TOKEN_TOTAL_SUPPLY_PFT`
@@ -135,12 +142,15 @@ Only a broadcast with `PFT_TOKEN_REAL_DEPLOYMENT=1` writes the durable
 existing one; every other broadcast (a local anvil) writes under the ignored
 `cache/deploy-test/`, and a dry run writes none. A real deployment is refused
 without `PFT_TOKEN_SOURCE_COMMIT`. The record holds the mode (`real`/`test`),
-token, chain id, constructor arguments, deployer, Safe singleton, threshold and
-owners, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin commit and the effective
-compiler settings of the build (solc version, optimizer and runs,
-`evm_version`, `bytecode_hash`), read from the metadata of
-`out/PFTToken.sol/PFTToken.json`, so a command-line override such as
-`--optimizer-runs` is what the record shows. The script runs before the
+token, chain id, constructor arguments, deployer, Safe singleton, threshold,
+owners, modules (empty) and guard, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin
+commit, the artifact path, the keccak256 of the deployed creation code and the
+effective compiler settings of the build (solc version, optimizer and runs,
+`evm_version`, `bytecode_hash`), read from the metadata of that artifact
+(`$FOUNDRY_OUT/PFTToken.sol/PFTToken.json`, else `out/...`), which must carry
+the deployed creation code, so a command-line override such as
+`--optimizer-runs` is what the record shows and an artifact of another build is
+refused. The script runs before the
 transaction is sent, so `tx_hash` and `block_number` are `pending`.
 `broadcast/` stays ignored.
 

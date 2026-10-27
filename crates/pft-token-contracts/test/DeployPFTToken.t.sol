@@ -28,6 +28,23 @@ interface IDeployTestVm {
     function mockCall(address callee, bytes calldata data, bytes calldata returnData) external;
     function mockCallRevert(address callee, bytes calldata data, bytes calldata revertData) external;
     function clearMockedCalls() external;
+    function prank(address msgSender) external;
+    function isContext(uint8 context) external view returns (bool);
+    function randomUint() external returns (uint256);
+    function writeFile(string calldata path, string calldata data) external;
+    function writeJson(string calldata json, string calldata path, string calldata valueKey) external;
+    function createDir(string calldata path, bool recursive) external;
+    function parseJsonBytes(string calldata json, string calldata key) external pure returns (bytes memory);
+    function parseJsonBytes32(string calldata json, string calldata key) external pure returns (bytes32);
+}
+
+/// The module surface of a real Safe; only the Safe itself may call it.
+interface ISafeModuleAdmin {
+    function enableModule(address module) external;
+    function getModulesPaginated(address start, uint256 pageSize)
+        external
+        view
+        returns (address[] memory array, address next);
 }
 
 /// A Safe lookalike: answers the probe with threshold 2 of 3 owners; the CLI
@@ -100,9 +117,15 @@ contract DeployPFTTokenTest is SafeFixtures {
     address private constant SAFE_L2 = 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762;
     string private constant COMMIT = "0123456789abcdef0123456789abcdef01234567";
     string private constant ARTIFACT = "out/PFTToken.sol/PFTToken.json";
+    /// `ForgeContext.Coverage` in forge-std's Vm.
+    uint8 private constant COVERAGE = 2;
+    address private constant MODULE = address(0xD0D0);
+    address private constant GUARD = address(0x6A2D);
 
     DeployPFTToken private script;
     Broadcaster private broadcaster;
+    /// The output directory whose PFTToken artifact is this build's token.
+    string private outDir = "out";
 
     function setUp() public {
         script = new DeployPFTToken();
@@ -111,6 +134,19 @@ contract DeployPFTTokenTest is SafeFixtures {
         _installSafe(TREASURY, FACTORY_1_4_1, SAFE_L2, _threeOwners(), 2);
         VM.setNonceUnsafe(address(broadcaster), 0);
         VM.chainId(BASE_SEPOLIA);
+        if (VM.isContext(COVERAGE)) outDir = _coverageOutDir();
+    }
+
+    /// `forge coverage` builds without the optimizer and writes no artifact, so
+    /// out/ is not this build. A copy of out/'s artifact carrying this build's
+    /// creation code stands in for it, in a directory of its own because the
+    /// tests run in parallel.
+    function _coverageOutDir() private returns (string memory dir) {
+        dir = string.concat("cache/deploy-test/coverage-out-", VM.toString(abi.encode(VM.randomUint())));
+        string memory path = string.concat(dir, "/PFTToken.sol/PFTToken.json");
+        VM.createDir(string.concat(dir, "/PFTToken.sol"), true);
+        VM.writeFile(path, VM.readFile(ARTIFACT));
+        VM.writeJson(string.concat('"', VM.toString(type(PFTToken).creationCode), '"'), path, ".bytecode.object");
     }
 
     // ---------------------------------------------------------------- accepted
@@ -154,6 +190,15 @@ contract DeployPFTTokenTest is SafeFixtures {
         VM.setEnv("PFT_TOKEN_ALLOW_USED_DEPLOYER", "0");
         VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "");
         VM.setEnv("PFT_TOKEN_SOURCE_COMMIT", COMMIT);
+        // The artifact follows FOUNDRY_OUT, the output directory forge itself uses.
+        VM.setEnv("FOUNDRY_OUT", "");
+        _assertTrue(_eq(script.readConfig().artifact, ARTIFACT), "default artifact");
+        VM.setEnv("FOUNDRY_OUT", "cache/deploy-test/elsewhere");
+        _assertTrue(
+            _eq(script.readConfig().artifact, "cache/deploy-test/elsewhere/PFTToken.sol/PFTToken.json"),
+            "FOUNDRY_OUT artifact"
+        );
+        VM.setEnv("FOUNDRY_OUT", outDir);
 
         DeployPFTToken.Config memory cfg = script.readConfig();
         _assertEq(cfg.chainId, BASE_SEPOLIA, "chain id");
@@ -163,7 +208,7 @@ contract DeployPFTTokenTest is SafeFixtures {
         _assertTrue(!cfg.writeRecord, "no record outside a broadcast");
         _assertTrue(_eq(cfg.recordDir, "cache/deploy-test/pft-token-base-84532"), "test record path");
         _assertTrue(_eq(cfg.sourceCommit, COMMIT), "source commit");
-        _assertTrue(_eq(cfg.artifact, ARTIFACT), "token artifact");
+        _assertTrue(_eq(cfg.artifact, _artifact()), "token artifact");
         // The real-deployment switch alone selects the durable path.
         VM.setEnv("PFT_TOKEN_REAL_DEPLOYMENT", "true");
         _assertTrue(!script.readConfig().realDeployment, "only exactly 1 is on");
@@ -541,6 +586,56 @@ contract DeployPFTTokenTest is SafeFixtures {
         }
     }
 
+    function testRefusesARealSafeWithAModuleOfEveryPinnedVersion() public {
+        // The review's case: a genuine Safe, threshold 2, with an EOA module
+        // that could move the treasury without owner signatures, in a
+        // real-deployment dry run.
+        address[4] memory singletons = [SINGLETON_1_4_1, SINGLETON_L2_1_4_1, SINGLETON_1_3_0, SINGLETON_L2_1_3_0];
+        address[4] memory factories = [FACTORY_1_4_1, FACTORY_1_4_1, FACTORY_1_3_0, FACTORY_1_3_0];
+        for (uint256 i = 0; i < singletons.length; i++) {
+            address treasury = address(uint160(0x5AFE40 + i));
+            _installSafe(treasury, factories[i], singletons[i], _threeOwners(), 2);
+            DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+            cfg.treasury = treasury;
+            cfg.realDeployment = true;
+            cfg.sourceCommit = COMMIT;
+            script.checkSafe(BASE_SEPOLIA, treasury); // the clean Safe passes
+            VM.prank(treasury);
+            ISafeModuleAdmin(treasury).enableModule(MODULE);
+            (address[] memory modules,) = ISafeModuleAdmin(treasury).getModulesPaginated(address(0x1), 10);
+            _assertTrue(modules.length == 1 && modules[0] == MODULE, "module enabled");
+            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ModulesEnabled.selector, 1));
+            broadcaster.deploy(script, cfg);
+        }
+    }
+
+    function testRefusesAModuleListThatIsNotEmpty() public {
+        bytes memory call = abi.encodeCall(ISafeModuleAdmin.getModulesPaginated, (address(0x1), 10));
+        address[] memory none = new address[](0);
+        // Empty page whose next pointer is not the sentinel: more modules follow.
+        VM.mockCall(TREASURY, call, abi.encode(none, address(0xD0D1)));
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ModulesEnabled.selector, 0));
+        broadcaster.deploy(script, _config(BASE_SEPOLIA));
+        VM.clearMockedCalls();
+        VM.mockCallRevert(TREASURY, call, "");
+        _expectNotASafe(BASE_SEPOLIA);
+        VM.clearMockedCalls();
+        VM.mockCall(TREASURY, call, abi.encode(uint256(0x40), uint256(1)));
+        _expectNotASafe(BASE_SEPOLIA);
+    }
+
+    function testReportsAGuardWithoutRefusing() public {
+        VM.store(TREASURY, script.GUARD_STORAGE_SLOT(), bytes32(uint256(uint160(GUARD))));
+        _assertTrue(script.checkSafe(BASE_SEPOLIA, TREASURY).guard == GUARD, "guard read");
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.recordDir = "cache/deploy-test/guard";
+        cfg.writeRecord = true;
+        PFTToken token = broadcaster.deploy(script, cfg);
+        _checkRecord(cfg.recordDir, token, BASE_SEPOLIA, "test", SAFE_L2, 2, 3);
+        string memory json = VM.readFile(string.concat(cfg.recordDir, "/deployment.json"));
+        _assertTrue(VM.parseJsonAddress(json, ".treasury_safe_guard") == GUARD, "record guard");
+    }
+
     function _expectNotASafe(uint256 chainId) private {
         VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryIsNotASafe.selector, TREASURY));
         broadcaster.deploy(script, _config(chainId));
@@ -577,17 +672,35 @@ contract DeployPFTTokenTest is SafeFixtures {
         }
     }
 
-    function testRecordsTheCompilerSettingsOfTheBuildNotOfFoundryToml() public {
-        // The metadata of a `forge build --optimizer-runs 201` artifact; foundry.toml says 200.
+    function testRefusesAnArtifactOfAnotherBuild() public {
+        // out/PFTToken.sol/PFTToken.json of `forge build --optimizer-runs 201`;
+        // this build uses foundry.toml's 200, so its metadata would misdescribe
+        // the deployed code. A dry run refuses it too.
+        string memory other = "test/fixtures/PFTToken.optimizer-runs-201.json";
+        bytes memory code = VM.parseJsonBytes(VM.readFile(other), ".bytecode.object");
         DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
-        cfg.artifact = "test/fixtures/PFTToken.optimizer-runs-201.json";
-        cfg.recordDir = "cache/deploy-test/runs-201";
-        cfg.writeRecord = true;
+        cfg.artifact = other;
+        VM.expectRevert(
+            abi.encodeWithSelector(
+                DeployPFTToken.ArtifactMismatch.selector, other, keccak256(code), keccak256(type(PFTToken).creationCode)
+            )
+        );
         broadcaster.deploy(script, cfg);
-        string memory json = VM.readFile(string.concat(cfg.recordDir, "/deployment.json"));
-        _assertEq(VM.parseJsonUint(json, ".optimizer_runs"), 201, "record optimizer runs");
-        _assertTrue(VM.parseJsonBool(json, ".optimizer"), "record optimizer");
-        _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "record solc");
+        cfg.realDeployment = true;
+        cfg.sourceCommit = COMMIT;
+        cfg.writeRecord = true;
+        cfg.recordDir = "cache/deploy-test/stale-artifact"; // never written
+        VM.expectRevert(
+            abi.encodeWithSelector(
+                DeployPFTToken.ArtifactMismatch.selector, other, keccak256(code), keccak256(type(PFTToken).creationCode)
+            )
+        );
+        broadcaster.deploy(script, cfg);
+    }
+
+    function testTheArtifactUnderTestIsThisBuild() public view {
+        bytes memory code = VM.parseJsonBytes(VM.readFile(_artifact()), ".bytecode.object");
+        _assertTrue(keccak256(code) == keccak256(type(PFTToken).creationCode), "artifact is this build");
     }
 
     function testRealDeploymentWritesOnceAndRefusesToOverwrite() public {
@@ -630,14 +743,18 @@ contract DeployPFTTokenTest is SafeFixtures {
 
     // --------------------------------------------------------------- helpers
 
-    function _config(uint256 chainId) private pure returns (DeployPFTToken.Config memory cfg) {
+    function _artifact() private view returns (string memory) {
+        return string.concat(outDir, "/PFTToken.sol/PFTToken.json");
+    }
+
+    function _config(uint256 chainId) private view returns (DeployPFTToken.Config memory cfg) {
         cfg.chainId = chainId;
         cfg.name = NAME;
         cfg.symbol = SYMBOL;
         cfg.totalSupply = SUPPLY;
         cfg.totalSupplyPft = SUPPLY_PFT;
         cfg.treasury = TREASURY;
-        cfg.artifact = ARTIFACT;
+        cfg.artifact = _artifact();
     }
 
     function _placeholder(string memory name) private pure returns (bytes memory) {
@@ -683,7 +800,16 @@ contract DeployPFTTokenTest is SafeFixtures {
         _assertTrue(VM.parseJsonAddress(json, ".deployer") == address(broadcaster), "record deployer");
         _assertEq(VM.parseJsonUint(json, ".treasury_safe_threshold"), threshold, "record threshold");
         _assertEq(VM.parseJsonUint(json, ".treasury_safe_owner_count"), owners, "record owners");
-        string memory artifact = VM.readFile(ARTIFACT);
+        _assertEq(VM.parseJsonAddressArray(json, ".treasury_safe_modules").length, 0, "record modules");
+        if (_treasuryOf(token) == TREASURY && VM.load(TREASURY, script.GUARD_STORAGE_SLOT()) == 0) {
+            _assertTrue(VM.parseJsonAddress(json, ".treasury_safe_guard") == address(0), "record no guard");
+        }
+        _assertTrue(
+            VM.parseJsonBytes32(json, ".creation_code_keccak256") == keccak256(type(PFTToken).creationCode),
+            "record creation code"
+        );
+        _assertTrue(_eq(VM.parseJsonString(json, ".artifact"), _artifact()), "record artifact");
+        string memory artifact = VM.readFile(_artifact());
         _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "record solc");
         _assertTrue(_eq(VM.parseJsonString(json, ".evm_version"), "cancun"), "record evm version");
         _assertEq(
