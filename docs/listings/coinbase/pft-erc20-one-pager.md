@@ -74,7 +74,7 @@ The ERC-20 launch quantity and allocation are not yet decided.
 - Network: Base (chain id 8453); test network Base Sepolia (chain id 84532).
 - Standard: ERC-20 with EIP-2612 permit.
 - Decimals: 6.
-- Supply and allocation: per the token document (not yet decided).
+- Supply and allocation: total supply 100 billion PFT, fixed, decided 2026-10-28; the Base slice, the launch allocation and the issuer per the token document (open).
 - Treasury: planned to be a Safe multisig; address to be published.
 - Admin keys: none; not upgradeable; no pause or blacklist.
 - Audit: planned before the Base mainnet deployment; report planned to be shared with Coinbase.

@@ -108,7 +108,7 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 **What this path does not solve.** These questions belong in the token document. They are yours to decide, with counsel on the legal ones, including the securities framing; I do not decide them.
 
-- The total supply number (`integration-plan.md:99-105`).
+- The total supply number (`integration-plan.md:99-105`): decided 2026-10-28, 100 billion PFT, fixed.
 - The allocation, that is, how much supply is in the ERC-20 at launch and how much stays in genesis for the Foundation, validators and the Task Node pool (`integration-plan.md:710-711`). The ERC-20 supply at launch is one slice of the total supply the token document fixes, and the genesis lane reserves exactly that slice, so the ERC-20 never exceeds its share of genesis.
 - Whether PFT already paid on the PFT Ledger is swapped, after a snapshot, into the ERC-20 or into native PFT at genesis. If you choose that one-time swap, it follows the frozen-snapshot pattern of `A651ToA666MigrationV1` (`A651ToA666MigrationV1.sol:14-18`), which the ERC-20 bridge does not use.
 - PFT's legal classification, which the package already lists as a question for counsel (`integration-plan.md:749-751`).
@@ -126,10 +126,12 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 ## 9. Decisions for the product owner
 
-1. The total supply number.
+1. The total supply number: decided 2026-10-28, 100 billion PFT, fixed.
 2. The treasury multisig's signers and threshold; they are your keys.
 3. The allocation and the treatment of PFT Ledger holders.
 4. Whether to tell Coinbase now that the ERC-20 is the path, answering the package's first ask (`integration-plan.md:741-743`).
+
+On 2026-10-28 the product owner also decided that PFT gets an SPL version on Solana alongside the Base ERC-20; it is not this lane's work, and no bridge route for it is designed.
 
 ## 10. What is being built
 
@@ -141,7 +143,7 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 Paste-ready once the decisions in section 9 are made.
 
-On Base, PFT is to exist as a standard ERC-20 token built only from OpenZeppelin ERC20 and ERC20Permit, release v5.7.0. It has no owner or admin role and no further mint, pause, blacklist or upgrade path. Wallets show native PFT with six decimals (1,000,000 base units per whole PFT); one whole ERC-20 PFT is likewise 1,000,000 base units. The whole ERC-20 supply, the slice, is minted once at deployment to a treasury planned to be a Safe multisig, which the deployment procedure checks; the contract gives it no privilege beyond holding the supply. An independent audit is planned before the Base mainnet deployment, and its report is planned to be shared with Coinbase; the source is to be verified on the Base block explorer at deployment. Post Fiat L1 is not yet on mainnet; its genesis is designed to reserve, in the supply partition's external category, one native base unit per ERC-20 base unit. A bridge is designed to exchange ERC-20 PFT for native PFT one for one in quantity, relying on signed validator-committee checkpoints and governed release limits, with no planned closing date; the reverse direction is optional. Launch quantity and allocation are undecided; the ERC-20 is designed as a slice of native genesis supply, not additional supply; the token document will fix both before any Base mainnet deployment.
+On Base, PFT is to exist as a standard ERC-20 token built only from OpenZeppelin ERC20 and ERC20Permit, release v5.7.0. It has no owner or admin role and no further mint, pause, blacklist or upgrade path. Wallets show native PFT with six decimals (1,000,000 base units per whole PFT); one whole ERC-20 PFT is likewise 1,000,000 base units. The whole ERC-20 supply, the slice, is minted once at deployment to a treasury planned to be a Safe multisig, which the deployment procedure checks; the contract gives it no privilege beyond holding the supply. An independent audit is planned before the Base mainnet deployment, and its report is planned to be shared with Coinbase; the source is to be verified on the Base block explorer at deployment. Post Fiat L1 is not yet on mainnet; its genesis is designed to reserve, in the supply partition's external category, one native base unit per ERC-20 base unit. A bridge is designed to exchange ERC-20 PFT for native PFT one for one in quantity, relying on signed validator-committee checkpoints and governed release limits, with no planned closing date; the reverse direction is optional. The total supply of PFT is 100 billion, fixed, decided on 2026-10-28. Launch quantity and allocation are undecided; the ERC-20 is designed as a slice of native genesis supply, not additional supply; the token document will fix both before any Base mainnet deployment.
 
 ## Appendix B: sources
 

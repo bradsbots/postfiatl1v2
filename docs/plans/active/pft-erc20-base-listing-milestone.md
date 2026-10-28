@@ -30,10 +30,10 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
 - [x] P1.3 *(this lane)* The dry run against anvil with chain id 84532, as `crates/pft-token-contracts/README.md` describes, then a test deployment on Base Sepolia. To tick it: the dry-run output, the Base Sepolia address and its verified source. Both are recorded in [pft-token-dry-run-20261026.md](../../listings/coinbase/pft-token-dry-run-20261026.md). The Base Sepolia test token is `0x18fE4ca51A0cE042688D5A54917319d03B527D92` (2026-10-28), with its supply held by the test Safe `0x7424F4F4A620d37CFB54A4558a1Ec7f60b71A0CB`; record `crates/pft-token-contracts/deployments/pft-token-base-84532/deployment.json`.
 - [ ] P1.4 *(other lane)* The audit, including its budget and the vendor choice. For one contract of this size it typically takes one to three weeks of calendar time. To tick it: the report, with every finding closed.
 - [ ] P1.5 *(other lane)* The token document with the four decisions. To tick it: the published document.
-  - the total supply;
-  - the split at launch between the ERC-20 slice and genesis;
-  - the treatment of PFT already paid on the PFT Ledger;
-  - the treasury signers and threshold.
+  - [x] the total supply: 100 billion PFT, fixed, decided 2026-10-28;
+  - [ ] the split at launch between the ERC-20 slice and genesis;
+  - [ ] the treatment of PFT already paid on the PFT Ledger;
+  - [ ] the treasury signers and threshold.
 - [ ] P1.6 *(other lane)* The Safe multisig on Base, with the other lane's keys. To tick it: the Safe address, its signers and its threshold.
 - [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the total supply.
 - [ ] P1.8 *(this lane)* Source verification on the Base block explorer. To tick it: the verified-source page.
