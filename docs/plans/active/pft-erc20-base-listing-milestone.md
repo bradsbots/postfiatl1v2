@@ -47,6 +47,8 @@ The order is the design note, then the code, then the qualification.
 
 The lead developer decided two things on 2026-10-26, to be revisited only if the code shows a reason. The proof is a bridge-committee-signed BFT checkpoint of a Base block plus a receipt-log proof of the Lock event, with the SP1 path through Base's dispute games kept as a later upgrade, and the lock contract ships the dormant Phase 3 release path in Phase 2, with the PFTL finality verifier's address fixed at construction.
 
+Decided by the product owner 2026-10-28: total supply 100 billion PFT; the Base ERC-20 is a slice of it and the rest is native PFT at genesis; the slice size fixes `reserved_atoms` and is still open.
+
 - [x] P2.1 *(this lane)* The design note, [docs/specs/pft-erc20-base-bridge-phase2-design-20261026.md](../../specs/pft-erc20-base-bridge-phase2-design-20261026.md) (`e48c99f4`; the two decisions recorded in `13240104`). It is not locked: the full gate scored 84.93 on 2026-10-26 (Task Node `task_f1528ebca6a6c5ae613d776328561724`) and 84.73 once the release cap and the committee lifecycle were in, then 85.67 on 2026-10-28 and 85.27 after one more pass, below 86. It covers:
   - the genesis external lane (`docs/whitepaper.md:66-70`);
   - the Base lock contract;

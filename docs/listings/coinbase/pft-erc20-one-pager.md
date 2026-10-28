@@ -67,7 +67,8 @@ The contract is public on GitHub at
 with its tests in
 [test/PFTToken.t.sol](https://github.com/postfiatorg/postfiatl1v2/blob/main/crates/pft-token-contracts/test/PFTToken.t.sol).
 
-The ERC-20 launch quantity and allocation are not yet decided.
+The total supply is 100 billion PFT, fixed, decided 2026-10-28; the ERC-20
+launch quantity and allocation are not yet decided.
 
 ## Facts at a glance
 
