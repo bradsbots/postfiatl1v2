@@ -269,6 +269,13 @@ contract PFTLockV1AccountingTest {
         _assertPermitRefusedByLock(deadline, v, r, s);
     }
 
+    function test_lock_with_permit_of_another_signer_uses_sufficient_allowance() public {
+        _fund(holder);
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(OTHER_KEY, address(lockC), deadline);
+        _assertLockedWithAllowance(deadline, v, r, s);
+    }
+
     function test_lock_with_permit_for_another_spender_reverts() public {
         _fund(holder);
         uint256 deadline = block.timestamp + 1 hours;
@@ -278,6 +285,13 @@ contract PFTLockV1AccountingTest {
         VM.expectRevert(abi.encodeWithSelector(ERC20Permit.ERC2612InvalidSigner.selector, recovered, holder));
         token.permit(holder, address(lockC), AMOUNT, deadline, v, r, s);
         _assertPermitRefusedByLock(deadline, v, r, s);
+    }
+
+    function test_lock_with_permit_for_another_spender_uses_sufficient_allowance() public {
+        _fund(holder);
+        uint256 deadline = block.timestamp + 1 hours;
+        (uint8 v, bytes32 r, bytes32 s) = _signPermit(HOLDER_KEY, BOB, deadline);
+        _assertLockedWithAllowance(deadline, v, r, s);
     }
 
     function test_lock_with_expired_permit_and_no_allowance_reverts() public {
@@ -372,6 +386,24 @@ contract PFTLockV1AccountingTest {
         lockC.lockWithPermit(AMOUNT, RECIPIENT, deadline, v, r, s);
         _assertEq(token.nonces(holder), 0, "permit nonce moved");
         _assertNothingLocked();
+    }
+
+    /// The token refuses the permit; the lock falls back to the allowance already
+    /// given and spends exactly the amount of it.
+    function _assertLockedWithAllowance(uint256 deadline, uint8 v, bytes32 r, bytes32 s) private {
+        _approve(holder, lockC, 2 * uint256(AMOUNT));
+
+        VM.prank(holder);
+        _assertEq(lockC.lockWithPermit(AMOUNT, RECIPIENT, deadline, v, r, s), 0, "nonce");
+        _assertEq(token.nonces(holder), 0, "permit nonce moved");
+        _assertEq(token.allowance(holder, address(lockC)), AMOUNT, "allowance spent by the amount");
+        _assertEq(lockC.nextNonce(), 1, "next nonce");
+        _assertEq(lockC.totalLocked(), AMOUNT, "total locked");
+        _assertEq(lockC.totalReleased(), 0, "total released");
+        _assertEq(token.balanceOf(address(lockC)), AMOUNT, "lock balance");
+        _assertEq(token.balanceOf(holder), HOLDING - AMOUNT, "holder balance");
+        (address recordHolder, uint64 recordAmount,) = lockC.lockRecord(0);
+        _assertTrue(recordHolder == holder && recordAmount == AMOUNT, "record");
     }
 
     function _assertNothingLocked() private view {
