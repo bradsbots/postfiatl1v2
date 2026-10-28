@@ -2,8 +2,8 @@
 
 This records the local dry runs of `DeployPFTToken` for milestone item P1.3:
 the first on 2026-10-26 against commit `ad5ba32f`, and two on 2026-10-27 after
-the deploy-script guards (commit `5d6e6709`). All ran on a local anvil only;
-nothing exists on any network.
+the deploy-script guards (commit `5d6e6709`). All ran on a local anvil only.
+The Base Sepolia test deployment of 2026-10-28 is recorded at the end.
 
 ## Command
 
@@ -112,14 +112,60 @@ release binary on a fresh clone, after CI's own submodule step.
 OpenZeppelin is pinned as the submodule `lib/openzeppelin-contracts` at tag
 `v5.7.0`, commit `cab19933c33c2ad1d4c7a84864a3601dddfd16f3`.
 
-## What remains for P1.3
+## Base Sepolia test deployment, 2026-10-28
 
-P1.3 still needs the test deployment on Base Sepolia. It needs the treasury
-Safe (v1.4.1, threshold at least 2) deployed there and a fresh deployer key
-funded with Base Sepolia ETH, with no test-only switch set and
-`PFT_TOKEN_REAL_DEPLOYMENT=1`. The commands and checklists are in
-`crates/pft-token-contracts/README.md` (`--rpc-url <base-sepolia-rpc-url>
---ledger --sender <deployer-address> --broadcast`). After it, the source must
-be verified on the Base Sepolia block explorer and the deployment record
-committed; the item is ticked with the deployed address and the
-verified-source page.
+This is a test deployment on the Base Sepolia test network (chain id 84532),
+paid with test ETH. The token has no value.
+
+- Token: `0x18fE4ca51A0cE042688D5A54917319d03B527D92`, name `Post Fiat Token`,
+  symbol `PFT`, 6 decimals.
+- Treasury: Safe 1.4.1 `0x7424F4F4A620d37CFB54A4558a1Ec7f60b71A0CB`
+  (singleton SafeL2 v1.4.1 `0x29fcB43b46531BcA003ddC8FCB67FFE91900C762`),
+  created in transaction
+  `0x41b12d27346f0ff305c1da85205d800ab8f066964d78500bbb943fdc5bdc31d2` through
+  the canonical SafeProxyFactory `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67`.
+  Owners `0xC75Bf05Ce82d6f4b6139dd9446D6De5F5994a4CB` and
+  `0x36b554946e43620Cc52CAe1b1A374fD808469A55`, threshold 2, no module, no guard.
+- Deployer: the one-time key `0xDEe78dB2bC6f5EFCcAB7A046997E5c413C26316D`,
+  nonce 0 before the deployment. Its leftover test ETH went back to
+  `0xC75B…a4CB` in
+  `0xb65b0194ec42242d082fc5213811b1f92288cc9183c03001b25172cd09aadc7e`; the
+  key is retired.
+- Transaction:
+  `0xbf8e1a1900e03b1bcf06d7be93809d90a22b89adc922f2076efa2fe028336102`,
+  block 51305977, status 1, 947,741 gas.
+- Supply: 100,000,000,000 PFT (`100000000000000000` six-decimal units), all
+  held by the Safe. This is a test figure; the real slice is fixed by the
+  token document (P1.5).
+- Code: runtime keccak256
+  `0xb0939a2407cd571d158498ba0f405f4ddb3857e688d2bc5ada170dcc655903df`;
+  creation code keccak256
+  `0xef4e1b797c1dcc3a66a9d7ba5a933edc7fe38e9fcab0d294347e855df56548c6`, equal
+  to the transaction input without the constructor arguments.
+- Source verified:
+  [Sourcify](https://repo.sourcify.dev/84532/0x18fE4ca51A0cE042688D5A54917319d03B527D92)
+  (exact match) and
+  [Blockscout](https://base-sepolia.blockscout.com/address/0x18fE4ca51A0cE042688D5A54917319d03B527D92?tab=contract)
+  (verified). Basescan: not verified (no key).
+- Record: `crates/pft-token-contracts/deployments/pft-token-base-84532/deployment.json`
+  (mode `real`, source commit `8bf0fafa`, solc 0.8.24, optimizer 200 runs,
+  `cancun`).
+
+Run from `crates/pft-token-contracts` after `forge clean && forge build` and
+`forge test` (71 passed), first without and then with `--broadcast`, and no
+test-only switch:
+
+```bash
+PFT_TOKEN_CHAIN_ID=84532 PFT_TOKEN_NAME="Post Fiat Token" PFT_TOKEN_SYMBOL=PFT \
+PFT_TOKEN_TOTAL_SUPPLY=100000000000000000 PFT_TOKEN_TOTAL_SUPPLY_PFT=100000000000 \
+PFT_TOKEN_TREASURY=0x7424F4F4A620d37CFB54A4558a1Ec7f60b71A0CB \
+PFT_TOKEN_REAL_DEPLOYMENT=1 PFT_TOKEN_SOURCE_COMMIT=$(git rev-parse HEAD) \
+  forge script script/DeployPFTToken.s.sol:DeployPFTToken \
+  --rpc-url https://sepolia.base.org --sender 0xDEe78dB2bC6f5EFCcAB7A046997E5c413C26316D \
+  --keystore <deployer keystore> --password-file <password file> --broadcast
+```
+
+The script printed the Safe singleton, threshold 2, two owners, zero modules,
+a zero guard and deployment record `real`. After the broadcast,
+`totalSupply()` and the Safe's `balanceOf` were both `100000000000000000`, and
+the deployer's nonce was 1.
