@@ -2206,6 +2206,95 @@ mod transport_batch_payload_tests {
         std::fs::remove_dir_all(&data_dir).expect("cleanup");
     }
 
+    /// A refusal the writer received after the round deadline is an answer:
+    /// it stays `refused` with its class (only a validator with no answer
+    /// received is `no_answer`, docs/review/vote-records-vr01-20261027.md).
+    #[test]
+    fn vote_record_keeps_a_refusal_after_the_deadline_refused() {
+        use crate::transport_runtime::{
+            finish_round_block_vote_record, BlockVoteObservation, RoundBlockVoteRecordInput,
+        };
+        use postfiat_node::block_vote_records::BlockVoteOutcome;
+        let data_dir = std::env::temp_dir().join(format!(
+            "postfiat-vote-record-refusal-after-deadline-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        std::fs::create_dir_all(&data_dir).expect("data dir");
+        let observation = |outcome, vote_id: Option<&str>, refusal: Option<&str>, duration_ms| {
+            BlockVoteObservation {
+                outcome,
+                vote_id: vote_id.map(str::to_string),
+                refusal_class: refusal.map(str::to_string),
+                duration_ms,
+            }
+        };
+        let observations = [
+            ("validator-1", observation(BlockVoteOutcome::Accepted, Some("vote-1"), None, 900.0)),
+            ("validator-2", observation(BlockVoteOutcome::Accepted, Some("vote-2"), None, 1_100.0)),
+            ("validator-3", observation(BlockVoteOutcome::Accepted, Some("vote-3"), None, 2_500.0)),
+            (
+                "validator-4",
+                observation(BlockVoteOutcome::Refused, None, Some("block_view_is_stale"), 4_600.0),
+            ),
+            (
+                "validator-5",
+                observation(BlockVoteOutcome::Refused, None, Some("block_view_is_stale"), 3_200.0),
+            ),
+        ]
+        .into_iter()
+        .map(|(validator, observation)| (validator.to_string(), observation))
+        .collect();
+        let written = finish_round_block_vote_record(RoundBlockVoteRecordInput {
+            data_dir: data_dir.clone(),
+            chain_id: "postfiat-vote-record-test".to_string(),
+            block_height: 8,
+            view: 0,
+            block_hash: "b".repeat(96),
+            certificate_id: "c".repeat(96),
+            proposer: "validator-0".to_string(),
+            proposer_vote_id: "vote-0".to_string(),
+            quorum: 4,
+            required_remote_vote_count: 3,
+            requested_peers: (1..=6).map(|index| format!("validator-{index}")).collect(),
+            round_deadline_ms: 4_000,
+            deadline: std::time::Instant::now(),
+            observations,
+            late_vote_receiver: None,
+        });
+        assert_eq!(written, "written");
+        let record = postfiat_node::block_vote_records::read_block_vote_record(&data_dir, 8)
+            .expect("read record")
+            .expect("record written");
+        let outcome = |validator: &str| {
+            let entry = record
+                .entries
+                .iter()
+                .find(|entry| entry.validator == validator)
+                .expect("entry");
+            (
+                serde_json::to_value(entry.outcome).expect("outcome"),
+                entry.refusal_class.clone(),
+                entry.answered_after_quorum,
+            )
+        };
+        assert_eq!(
+            outcome("validator-5"),
+            (serde_json::json!("refused"), Some("block_view_is_stale".to_string()), true),
+            "a refusal inside the deadline"
+        );
+        assert_eq!(
+            outcome("validator-4"),
+            (serde_json::json!("refused"), Some("block_view_is_stale".to_string()), true),
+            "a refusal after the deadline that the writer still sees"
+        );
+        assert_eq!(outcome("validator-6"), (serde_json::json!("no_answer"), None, false));
+        std::fs::remove_dir_all(&data_dir).expect("cleanup");
+    }
+
     #[test]
     fn certified_transport_payload_commits_batch_kind() {
         let payload_json = r#"{"schema":"test-batch","batch_id":"batch-1"}"#;
