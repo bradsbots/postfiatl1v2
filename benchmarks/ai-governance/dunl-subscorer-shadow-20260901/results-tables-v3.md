@@ -1,6 +1,6 @@
 # Deterministic sub-scorer v3 shadow evaluation — per-round tables
 
-Rounds evaluated: 9; fetch/evaluation failures: none.
+Rounds evaluated: 10; fetch/evaluation failures: none.
 
 ### testnet-r12 (prompt v5, baseline: model overall score, gap 5)
 
@@ -176,6 +176,25 @@ No cutoff-boundary cases.
 | Cutoff flips (out / in) | 0 / 0 |
 | Baseline reproduces published UNL | True |
 | UNL overlap / seats changed | 24/25 / 1 |
+| Diversity source | code.diversity_formula |
+| Automated acceptance (control, no in-flip, overlap >= 24) | pass |
+
+No cutoff-boundary cases.
+
+### testnet-r29 (prompt v12, baseline: formula(model sub-scores, formula diversity), gap 3)
+
+| Metric | Value |
+|---|---|
+| Validators compared | 61 |
+| consensus mean/max abs delta | 0.49 / 1 |
+| reliability mean/max abs delta | 1.15 / 10 |
+| software mean/max abs delta | 0 / 0 |
+| diversity mean/max abs delta | 14.46 / 44 |
+| identity mean/max abs delta | 0.49 / 10 |
+| Final score mean/max abs delta | 0.34 / 2 |
+| Cutoff flips (out / in) | 0 / 0 |
+| Baseline reproduces published UNL | True |
+| UNL overlap / seats changed | 25/25 / 0 |
 | Diversity source | code.diversity_formula |
 | Automated acceptance (control, no in-flip, overlap >= 24) | pass |
 
