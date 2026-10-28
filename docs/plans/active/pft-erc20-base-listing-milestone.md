@@ -2,7 +2,7 @@
 
 **Status:** Active. Priority one for this lane from 2026-10-26. Authorizes no Base mainnet deployment.
 **Date:** 2026-10-26
-**Source paper:** [ERC-20 options paper](../../listings/coinbase/pft-erc20-representation-options-20261026.md), Text Improvement Harness full gate 85.67 on 2026-10-26 after four passes. It is not yet locked as the research specification (M1).
+**Source paper:** [ERC-20 options paper](../../listings/coinbase/pft-erc20-representation-options-20261026.md), Text Improvement Harness full gate 85.67 on 2026-10-26 after four passes, 82.60 on 2026-10-28 as it stood and 84.00 after one more pass. It is not yet locked as the research specification (M1).
 **Basis:** [Coinbase integration plan](../../listings/coinbase/integration-plan.md), interim path (`integration-plan.md:71-74`, `:719-739`)
 
 ## BLUF
@@ -63,7 +63,7 @@ The lead developer decided two things on 2026-10-26, to be revisited only if the
 
 ## Mandate deliverables (AGENTS.md)
 
-- [ ] M1 *(this lane)* Lock the source paper as the research specification at 86 or above on the full gate, requested as a Task Node task. It stood at 85.67 on 2026-10-26.
+- [ ] M1 *(this lane)* Lock the source paper as the research specification at 86 or above on the full gate, requested as a Task Node task. It stood at 85.67 on 2026-10-26, then at 82.60 on 2026-10-28 and 84.00 after one more pass.
 - [ ] M2 *(this lane)* A Python CLI that reads the token's state: address, total supply, decimals and treasury balance.
 - [ ] M3 *(this lane)* A user-facing interface that consumes the CLI output.
 - [ ] M4 *(this lane)* Retire this document into `docs/plans/completed/` and document the token in the existing documentation.
