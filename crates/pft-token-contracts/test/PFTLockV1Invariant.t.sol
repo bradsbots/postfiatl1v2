@@ -16,8 +16,7 @@ interface ILockInvariantVm {
 /// Random locks, permit locks (some front-run), and plain transfers to the lock
 /// by five holders; the Phase 2 regime, where nothing is released.
 contract PFTLockV1Handler {
-    ILockInvariantVm internal constant VM =
-        ILockInvariantVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    ILockInvariantVm internal constant VM = ILockInvariantVm(address(uint160(uint256(keccak256("hevm cheat code")))));
     bytes32 private constant PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
     uint64 public constant MAX_LOCK = 20_000_000_000;
@@ -80,9 +79,7 @@ contract PFTLockV1Handler {
             abi.encodePacked(
                 "\x19\x01",
                 token.DOMAIN_SEPARATOR(),
-                keccak256(
-                    abi.encode(PERMIT_TYPEHASH, holder, address(lockC), bounded, token.nonces(holder), deadline)
-                )
+                keccak256(abi.encode(PERMIT_TYPEHASH, holder, address(lockC), bounded, token.nonces(holder), deadline))
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = VM.sign(keys[i], digest);

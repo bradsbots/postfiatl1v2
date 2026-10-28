@@ -202,9 +202,8 @@ contract PFTLockV1AccountingTest {
         PFTLockV1 broken = _lockWith(address(new ShortAnswerFinalityVerifier()));
         bytes32 before = _snapshot(broken);
         // The ABI decoder refuses the four-word answer with empty revert data.
-        (bool ok, bytes memory reason) = address(broken).call(
-            abi.encodeCall(PFTLockV1.release, (_answer(PAYEE, 100, keccak256("w1"), keccak256("b1")), "proof"))
-        );
+        (bool ok, bytes memory reason) = address(broken)
+            .call(abi.encodeCall(PFTLockV1.release, (_answer(PAYEE, 100, keccak256("w1"), keccak256("b1")), "proof")));
         _assertTrue(!ok && reason.length == 0, "short answer decoded");
         _assertTrue(_snapshot(broken) == before, "state changed");
         _assertNotConsumed(broken, keccak256("w1"), keccak256("b1"));
@@ -348,7 +347,11 @@ contract PFTLockV1AccountingTest {
         return keccak256(abi.encodePacked("\x19\x01", token.DOMAIN_SEPARATOR(), structHash));
     }
 
-    function _signPermit(uint256 key, address spender, uint256 deadline) private view returns (uint8, bytes32, bytes32) {
+    function _signPermit(uint256 key, address spender, uint256 deadline)
+        private
+        view
+        returns (uint8, bytes32, bytes32)
+    {
         return VM.sign(key, _permitDigest(spender, deadline));
     }
 

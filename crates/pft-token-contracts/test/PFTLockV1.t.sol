@@ -19,8 +19,7 @@ interface ILockVm {
     function warp(uint256 timestamp) external;
     function etch(address target, bytes calldata code) external;
     function expectRevert(bytes calldata revertData) external;
-    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter)
-        external;
+    function expectEmit(bool checkTopic1, bool checkTopic2, bool checkTopic3, bool checkData, address emitter) external;
     function recordLogs() external;
     function getRecordedLogs() external returns (VmLog[] memory);
     function isContext(uint8 context) external view returns (bool);
@@ -186,12 +185,12 @@ contract PFTLockV1Test {
         uint256 tooLarge = uint256(type(uint64).max) + 1;
         _approve(holder, tooLarge);
         VM.prank(holder);
-        (bool ok, bytes memory reason) = address(lockC).call(abi.encodeWithSelector(lockC.lock.selector, tooLarge, RECIPIENT));
+        (bool ok, bytes memory reason) =
+            address(lockC).call(abi.encodeWithSelector(lockC.lock.selector, tooLarge, RECIPIENT));
         _assertTrue(!ok && reason.length == 0, "lock above uint64 decoded");
         VM.prank(holder);
-        (ok, reason) = address(lockC).call(
-            abi.encodeWithSelector(lockC.lockWithPermit.selector, tooLarge, RECIPIENT, 0, 0, 0, 0)
-        );
+        (ok, reason) =
+            address(lockC).call(abi.encodeWithSelector(lockC.lockWithPermit.selector, tooLarge, RECIPIENT, 0, 0, 0, 0));
         _assertTrue(!ok && reason.length == 0, "lockWithPermit above uint64 decoded");
         _assertUnchanged();
 
