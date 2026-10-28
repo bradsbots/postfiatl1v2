@@ -36,6 +36,10 @@ interface IDeployTestVm {
     function createDir(string calldata path, bool recursive) external;
     function parseJsonBytes(string calldata json, string calldata key) external pure returns (bytes memory);
     function parseJsonBytes32(string calldata json, string calldata key) external pure returns (bytes32);
+    function replace(string calldata input, string calldata from, string calldata to)
+        external
+        pure
+        returns (string memory);
 }
 
 /// The module surface of a real Safe; only the Safe itself may call it.
@@ -624,10 +628,16 @@ contract DeployPFTTokenTest is SafeFixtures {
         _expectNotASafe(BASE_SEPOLIA);
     }
 
-    function testReportsAGuardWithoutRefusing() public {
+    function testRefusesAGuardUnlessItIsNamed() public {
         VM.store(TREASURY, script.GUARD_STORAGE_SLOT(), bytes32(uint256(uint160(GUARD))));
         _assertTrue(script.checkSafe(BASE_SEPOLIA, TREASURY).guard == GUARD, "guard read");
         DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.GuardEnabled.selector, GUARD));
+        broadcaster.deploy(script, cfg);
+        cfg.allowedGuard = address(0x6A2E);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.GuardEnabled.selector, GUARD));
+        broadcaster.deploy(script, cfg);
+        cfg.allowedGuard = GUARD;
         cfg.recordDir = "cache/deploy-test/guard";
         cfg.writeRecord = true;
         PFTToken token = broadcaster.deploy(script, cfg);
@@ -698,6 +708,53 @@ contract DeployPFTTokenTest is SafeFixtures {
         broadcaster.deploy(script, cfg);
     }
 
+    function testRefusesAnArtifactWithoutTheIpfsMetadataHash() public {
+        string memory path = _artifactCopy("no-metadata");
+        VM.writeJson('"none"', path, ".metadata.settings.metadata.bytecodeHash");
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.artifact = path;
+        VM.expectRevert(DeployPFTToken.MetadataHashDisabled.selector);
+        broadcaster.deploy(script, cfg);
+    }
+
+    function testRefusesAnArtifactWhoseMetadataIsFromAnotherBuild() public {
+        // The code of this build with the metadata of a build with other optimizer runs.
+        string memory path = _artifactCopy("spliced");
+        string memory raw = VM.parseJsonString(VM.readFile(path), ".rawMetadata");
+        string memory spliced = VM.replace(raw, '"runs":200', '"runs":201');
+        _assertTrue(!_eq(raw, spliced), "spliced metadata differs");
+        VM.writeJson(string.concat('"', _escape(spliced), '"'), path, ".rawMetadata");
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.artifact = path;
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ArtifactMetadataMismatch.selector, path));
+        broadcaster.deploy(script, cfg);
+        // A runtime code that is not the end of the creation code.
+        path = _artifactCopy("runtime");
+        VM.writeJson(string.concat('"', VM.toString(hex"00"), '"'), path, ".deployedBytecode.object");
+        cfg.artifact = path;
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ArtifactMetadataMismatch.selector, path));
+        broadcaster.deploy(script, cfg);
+    }
+
+    function testMetadataDigestReadsTheCborTrailer() public view {
+        bytes32 digest = sha256("metadata");
+        bytes memory cbor = abi.encodePacked(hex"a264697066735822", hex"1220", digest, hex"64736f6c6343000818");
+        bytes memory code = abi.encodePacked(hex"6080", cbor, uint16(cbor.length));
+        _assertTrue(script.metadataDigest(code) == digest, "digest");
+        _assertTrue(script.metadataDigest(hex"00") == 0, "too short");
+        _assertTrue(script.metadataDigest(hex"ffff") == 0, "length beyond the code");
+        _assertTrue(script.metadataDigest(abi.encodePacked(hex"6080", uint16(1))) == 0, "no ipfs key");
+        bytes memory other = abi.encodePacked(hex"a264697066735822", hex"1221", digest);
+        _assertTrue(script.metadataDigest(abi.encodePacked(other, uint16(other.length))) == 0, "not sha256");
+        _assertTrue(script.endsWith(hex"010203", hex"0203") && !script.endsWith(hex"0203", hex"010203"), "ends");
+        _assertTrue(!script.endsWith(hex"010203", "") && !script.endsWith(hex"010203", hex"0103"), "ends not");
+        // `ipfs add --only-hash` of a file holding "hello\n" is QmZULkCELmmk5XNfCgTnCyFgAVxBRBXyDHGGMVoLFLiXEN.
+        _assertTrue(
+            script.ipfsDigest("hello\n") == 0xa568e404d8eadaec925ac3bc1b36259c0f6d70000d729cd918c46a836f497657, "ipfs"
+        );
+        _assertTrue(script.ipfsDigest(new bytes(262145)) == 0, "one chunk only");
+    }
+
     function testTheArtifactUnderTestIsThisBuild() public view {
         bytes memory code = VM.parseJsonBytes(VM.readFile(_artifact()), ".bytecode.object");
         _assertTrue(keccak256(code) == keccak256(type(PFTToken).creationCode), "artifact is this build");
@@ -742,6 +799,30 @@ contract DeployPFTTokenTest is SafeFixtures {
     }
 
     // --------------------------------------------------------------- helpers
+
+    /// A copy of the artifact under test, to be altered by the caller.
+    function _artifactCopy(string memory name) private returns (string memory path) {
+        string memory dir =
+            string.concat("cache/deploy-test/artifact-", name, "-", VM.toString(abi.encode(VM.randomUint())));
+        VM.createDir(dir, true);
+        path = string.concat(dir, "/PFTToken.json");
+        VM.writeFile(path, VM.readFile(_artifact()));
+    }
+
+    /// `value` as the inside of a JSON string.
+    function _escape(string memory value) private pure returns (string memory) {
+        bytes memory raw = bytes(value);
+        bytes memory out = new bytes(raw.length * 2);
+        uint256 n = 0;
+        for (uint256 i = 0; i < raw.length; i++) {
+            if (raw[i] == '"' || raw[i] == "\\") out[n++] = "\\";
+            out[n++] = raw[i];
+        }
+        assembly {
+            mstore(out, n)
+        }
+        return string(out);
+    }
 
     function _artifact() private view returns (string memory) {
         return string.concat(outDir, "/PFTToken.sol/PFTToken.json");

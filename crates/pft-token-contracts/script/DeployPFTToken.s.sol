@@ -115,8 +115,9 @@ contract DeployPFTToken {
     /// treasury must have none. SENTINEL_MODULES heads the Safe's module list.
     address public constant SENTINEL_MODULES = address(0x1);
     uint256 public constant MODULE_PAGE_SIZE = 10;
-    /// GuardManager's storage slot in Safe 1.3.0 and 1.4.1. A guard can only
-    /// add conditions to owner transactions; it is reported, not refused.
+    /// GuardManager's storage slot in Safe 1.3.0 and 1.4.1. A reverting guard
+    /// blocks every owner transaction, its own removal included, so a guard is
+    /// refused unless PFT_TOKEN_ALLOW_GUARD names exactly that address.
     bytes32 public constant GUARD_STORAGE_SLOT = keccak256("guard_manager.guard.address");
 
     struct Config {
@@ -133,6 +134,7 @@ contract DeployPFTToken {
         bool writeRecord; // only `forge script --broadcast` writes the record
         string sourceCommit; // PFT_TOKEN_SOURCE_COMMIT, required for a real deployment
         string artifact; // the compiled token; must be the code deployed, its metadata goes in the record
+        address allowedGuard; // PFT_TOKEN_ALLOW_GUARD: the one guard accepted after an independent review
     }
 
     struct SafeInfo {
@@ -140,7 +142,7 @@ contract DeployPFTToken {
         uint256 threshold;
         address[] owners;
         address[] modules; // always empty for an accepted Safe
-        address guard; // reported, not refused
+        address guard; // refused unless named by PFT_TOKEN_ALLOW_GUARD
     }
 
     error PlaceholderValue(string name);
@@ -164,6 +166,9 @@ contract DeployPFTToken {
     error RecordExists(string path);
     error ModulesEnabled(uint256 count);
     error ArtifactMismatch(string path, bytes32 artifactCodeHash, bytes32 compiledCodeHash);
+    error GuardEnabled(address guard);
+    error MetadataHashDisabled();
+    error ArtifactMetadataMismatch(string path);
 
     event PFTTokenDeployed(
         address indexed token, address indexed treasury, uint256 total_supply, string name, string symbol
@@ -193,6 +198,8 @@ contract DeployPFTToken {
         cfg.sourceCommit = VM.envOr("PFT_TOKEN_SOURCE_COMMIT", string(""));
         string memory out = VM.envOr("FOUNDRY_OUT", string(""));
         cfg.artifact = string.concat(bytes(out).length == 0 ? "out" : out, TOKEN_ARTIFACT);
+        cfg.allowedGuard =
+            VM.parseAddress(VM.envOr("PFT_TOKEN_ALLOW_GUARD", string("0x0000000000000000000000000000000000000000")));
     }
 
     /// Checks `cfg` against the target chain, then deploys from `msg.sender`
@@ -222,7 +229,7 @@ contract DeployPFTToken {
         _log("treasury Safe owners", safe.owners.length);
         _log("treasury Safe modules", safe.modules.length);
         _log("treasury Safe guard", safe.guard);
-        if (safe.guard != address(0)) _log("WARNING: the treasury Safe has a guard; review it before deploying");
+        if (safe.guard != address(0)) _log("WARNING: the treasury Safe has a guard named by PFT_TOKEN_ALLOW_GUARD");
         _log("token artifact", cfg.artifact);
         _log("deployment record", cfg.realDeployment ? "real" : "test");
         _log("total supply (six-decimal units)", cfg.totalSupply);
@@ -260,7 +267,7 @@ contract DeployPFTToken {
     /// singleton carries its pinned code on this chain, and the Safe has
     /// threshold >= 2 with at least that many distinct non-zero owners, and no
     /// module (getModulesPaginated(0x1, 10) is an empty page ending at 0x1).
-    /// A guard is read and reported. Uses checked staticcalls only (no self-call).
+    /// The guard is read; _checkTreasury refuses one that is not named. Uses checked staticcalls only (no self-call).
     function checkSafe(uint256 chainId, address treasury) public view returns (SafeInfo memory safe) {
         bytes32 proxyHash = treasury.codehash;
         if (proxyHash != SAFE_PROXY_1_4_1_CODEHASH && proxyHash != SAFE_PROXY_1_3_0_CODEHASH) {
@@ -307,11 +314,76 @@ contract DeployPFTToken {
 
     /// The artifact whose metadata goes in the record must be this build of the
     /// token: its creation code is the code `deploy` sends.
+    /// Its recorded metadata must be the metadata of that code: the build keeps
+    /// the IPFS metadata hash (`--no-metadata` and bytecode_hash = "none" drop
+    /// it, and two builds with other settings would then share one code), the
+    /// creation code ends with the artifact's runtime code (PFTToken has
+    /// immutables, so `type(PFTToken).runtimeCode` does not exist), and the
+    /// IPFS digest of the artifact's rawMetadata is the digest in that runtime
+    /// code's CBOR trailer.
     function _checkArtifact(Config memory cfg) private view returns (string memory artifact) {
         artifact = VM.readFile(cfg.artifact);
         bytes32 built = keccak256(VM.parseJsonBytes(artifact, ".bytecode.object"));
-        bytes32 compiled = keccak256(type(PFTToken).creationCode);
-        if (built != compiled) revert ArtifactMismatch(cfg.artifact, built, compiled);
+        bytes memory creation = type(PFTToken).creationCode;
+        if (built != keccak256(creation)) revert ArtifactMismatch(cfg.artifact, built, keccak256(creation));
+        string memory hashKind = VM.parseJsonString(artifact, ".metadata.settings.metadata.bytecodeHash");
+        if (keccak256(bytes(hashKind)) != keccak256("ipfs")) revert MetadataHashDisabled();
+        bytes memory runtime = VM.parseJsonBytes(artifact, ".deployedBytecode.object");
+        bytes32 digest = metadataDigest(runtime);
+        if (
+            digest == 0 || !endsWith(creation, runtime)
+                || ipfsDigest(bytes(VM.parseJsonString(artifact, ".rawMetadata"))) != digest
+        ) revert ArtifactMetadataMismatch(cfg.artifact);
+    }
+
+    /// The sha256 digest of the IPFS multihash (0x12 0x20 <digest>) under the
+    /// "ipfs" key of the CBOR trailer of `code` (the trailer's length is the
+    /// last two bytes), zero if there is none.
+    function metadataDigest(bytes memory code) public pure returns (bytes32 digest) {
+        if (code.length < 2) return 0;
+        uint256 cborLength = uint16(bytes2(abi.encodePacked(code[code.length - 2], code[code.length - 1])));
+        if (cborLength + 2 > code.length) return 0;
+        uint256 start = code.length - 2 - cborLength;
+        // map key text(4) "ipfs", value bytes(34) = 0x12 0x20 <32-byte digest>
+        bytes memory key = hex"6469706673582212";
+        for (uint256 i = start; i + key.length + 33 <= code.length - 2; i++) {
+            uint256 j = 0;
+            while (j < key.length && code[i + j] == key[j]) j++;
+            if (j == key.length && code[i + j] == 0x20) {
+                assembly {
+                    digest := mload(add(add(code, 0x20), add(i, 9)))
+                }
+                return digest;
+            }
+        }
+    }
+
+    /// The sha256 IPFS (CIDv0) digest solc embeds for a metadata file: the
+    /// sha256 of the dag-pb node wrapping a single UnixFS file chunk, not of
+    /// the bytes themselves. Zero beyond one chunk (262144 bytes).
+    function ipfsDigest(bytes memory content) public pure returns (bytes32) {
+        if (content.length > 262144) return 0;
+        bytes memory size = _varint(content.length);
+        bytes memory file = abi.encodePacked(hex"080212", size, content, hex"18", size);
+        return sha256(abi.encodePacked(hex"0a", _varint(file.length), file));
+    }
+
+    function _varint(uint256 value) private pure returns (bytes memory out) {
+        while (value >= 0x80) {
+            out = abi.encodePacked(out, bytes1(uint8(value & 0x7f) | 0x80));
+            value >>= 7;
+        }
+        out = abi.encodePacked(out, bytes1(uint8(value)));
+    }
+
+    /// True when `code` ends with the non-empty `tail`.
+    function endsWith(bytes memory code, bytes memory tail) public pure returns (bool) {
+        if (tail.length == 0 || tail.length > code.length) return false;
+        uint256 offset = code.length - tail.length;
+        for (uint256 i = 0; i < tail.length; i++) {
+            if (code[offset + i] != tail[i]) return false;
+        }
+        return true;
     }
 
     function _checkChain(Config memory cfg) private view {
@@ -358,7 +430,8 @@ contract DeployPFTToken {
             _log("WARNING: test-only PFT_TOKEN_ALLOW_EOA_TREASURY; the treasury has no code");
             return safe;
         }
-        return checkSafe(cfg.chainId, cfg.treasury);
+        safe = checkSafe(cfg.chainId, cfg.treasury);
+        if (safe.guard != address(0) && safe.guard != cfg.allowedGuard) revert GuardEnabled(safe.guard);
     }
 
     function _distinctNonZero(address[] memory owners) private pure returns (uint256 distinct) {
