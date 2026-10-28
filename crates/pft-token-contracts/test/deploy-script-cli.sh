@@ -45,11 +45,12 @@ run() {
     PFT_TOKEN_CHAIN_ID=84532 PFT_TOKEN_NAME="Post Fiat Token" PFT_TOKEN_SYMBOL=PFT \
     PFT_TOKEN_TOTAL_SUPPLY=1000000000000 PFT_TOKEN_TOTAL_SUPPLY_PFT=1000000 \
     PFT_TOKEN_TREASURY=0x0000000000000000000000000000000000005AFE \
-    PFT_TOKEN_ALLOW_USED_DEPLOYER=1 "$@" \
+    PFT_TOKEN_ALLOW_USED_DEPLOYER=1 PFT_TOKEN_ALLOW_EOA_TREASURY=1 "$@" \
     "$FORGE" script test/DeployPFTTokenCli.s.sol:DeployPFTTokenWithFakeSafe --chain-id 84532 --use "$SOLC" 2>&1 | redact
   return "${PIPESTATUS[0]}"
 }
-# The in-process chain starts the sender at nonce 1, hence PFT_TOKEN_ALLOW_USED_DEPLOYER.
+# The in-process chain starts the sender at nonce 1, hence PFT_TOKEN_ALLOW_USED_DEPLOYER;
+# it has no RPC for the creation transaction, hence the test mode (the Safe checks still run).
 
 out="$(run)" || { printf '%s\n' "$out"; echo "FAIL: the script refused a real Safe" >&2; exit 1; }
 grep -q "PFTToken deployed at" <<<"$out"

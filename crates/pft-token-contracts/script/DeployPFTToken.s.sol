@@ -8,6 +8,10 @@ interface IPFTTokenDeployVm {
     function envOr(string calldata name, string calldata defaultValue) external view returns (string memory);
     function parseUint(string calldata value) external pure returns (uint256);
     function parseAddress(string calldata value) external pure returns (address);
+    function parseBytes(string calldata value) external pure returns (bytes memory);
+    function parseBytes32(string calldata value) external pure returns (bytes32);
+    function rpc(string calldata method, string calldata params) external returns (bytes memory data);
+    function toString(bytes32 value) external pure returns (string memory);
     function getNonce(address account) external view returns (uint64);
     function load(address target, bytes32 slot) external view returns (bytes32 data);
     function exists(string calldata path) external view returns (bool);
@@ -57,6 +61,28 @@ interface ISafeModulesProbe {
         returns (address[] memory array, address next);
 }
 
+/// The canonical SafeProxyFactory (1.3.0 and 1.4.1), read with a checked staticcall.
+interface ISafeProxyFactoryProbe {
+    function proxyCreationCode() external pure returns (bytes memory);
+    function createProxyWithNonce(address singleton, bytes memory initializer, uint256 saltNonce)
+        external
+        returns (address proxy);
+}
+
+/// The Safe initializer (1.3.0 and 1.4.1) a treasury must have been created with.
+interface ISafeSetupCall {
+    function setup(
+        address[] calldata owners,
+        uint256 threshold,
+        address to,
+        bytes calldata data,
+        address fallbackHandler,
+        address paymentToken,
+        uint256 payment,
+        address payable paymentReceiver
+    ) external;
+}
+
 /// @notice Foundry deployment script for the fixed-supply PFT token on Base.
 /// @dev No forge-std dependency is required; the script declares only the
 ///      cheatcodes it uses. The values come from the environment (see
@@ -75,6 +101,8 @@ contract DeployPFTToken {
     string public constant OPENZEPPELIN_COMMIT = "cab19933c33c2ad1d4c7a84864a3601dddfd16f3";
     /// `ForgeContext.ScriptBroadcast` in forge-std's Vm.
     uint8 private constant SCRIPT_BROADCAST = 6;
+    /// `ForgeContext.Coverage` in forge-std's Vm.
+    uint8 private constant COVERAGE = 2;
 
     /// Official Safe singletons, the address a Safe proxy keeps in storage slot 0,
     /// and the keccak256 of their runtime code.
@@ -104,6 +132,23 @@ contract DeployPFTToken {
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
     bytes32 public constant SAFE_PROXY_1_3_0_CODEHASH =
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
+    /// The canonical SafeProxyFactory and CompatibilityFallbackHandler of each
+    /// version and the keccak256 of their runtime code, from the "canonical"
+    /// deployment in safe-deployments b45417dd (src/assets/v1.4.1/safe_proxy_factory.json,
+    /// src/assets/v1.3.0/proxy_factory.json, src/assets/v1.4.1/compatibility_fallback_handler.json,
+    /// src/assets/v1.3.0/compatibility_fallback_handler.json), listed there for 8453 and 84532.
+    address public constant SAFE_PROXY_FACTORY_1_4_1 = 0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67;
+    address public constant SAFE_PROXY_FACTORY_1_3_0 = 0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2;
+    bytes32 public constant SAFE_PROXY_FACTORY_1_4_1_CODEHASH =
+        0x50c3cdc4074750a7a974204a716c999edd37482f907608d960b2b025ee0b3317;
+    bytes32 public constant SAFE_PROXY_FACTORY_1_3_0_CODEHASH =
+        0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
+    address public constant FALLBACK_HANDLER_1_4_1 = 0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99;
+    address public constant FALLBACK_HANDLER_1_3_0 = 0xf48f2B2d2a534e402487b3ee7C18c33Aec0Fe5e4;
+    bytes32 public constant FALLBACK_HANDLER_1_4_1_CODEHASH =
+        0x7c6007a5d711cea8dfd5d91f5940ec29c7f200fe511eb1fc1397b367af3c42f9;
+    bytes32 public constant FALLBACK_HANDLER_1_3_0_CODEHASH =
+        0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
     /// `masterCopy()`, answered by the proxy itself with its singleton.
     bytes4 public constant MASTER_COPY_SELECTOR = 0xa619486e;
     /// The compiled token, under forge's output directory (FOUNDRY_OUT, else out),
@@ -135,6 +180,8 @@ contract DeployPFTToken {
         string sourceCommit; // PFT_TOKEN_SOURCE_COMMIT, required for a real deployment
         string artifact; // the compiled token; must be the code deployed, its metadata goes in the record
         address allowedGuard; // PFT_TOKEN_ALLOW_GUARD: the one guard accepted after an independent review
+        bytes32 creationTx; // PFT_TOKEN_TREASURY_CREATION_TX: the treasury Safe's creation transaction
+        bytes creationRawTx; // PFT_TOKEN_TREASURY_CREATION_RAW_TX, else read by eth_getRawTransactionByHash
     }
 
     struct SafeInfo {
@@ -143,6 +190,18 @@ contract DeployPFTToken {
         address[] owners;
         address[] modules; // always empty for an accepted Safe
         address guard; // refused unless named by PFT_TOKEN_ALLOW_GUARD
+        bytes32 creationTx; // the verified creation transaction, zero in test mode without one
+        address factory; // the canonical factory that created the Safe
+        address fallbackHandler; // zero or the canonical CompatibilityFallbackHandler
+    }
+
+    /// The decoded `setup` call a Safe was created with.
+    struct SafeSetup {
+        address[] owners;
+        uint256 threshold;
+        address to;
+        bytes data;
+        address fallbackHandler;
     }
 
     error PlaceholderValue(string name);
@@ -169,6 +228,11 @@ contract DeployPFTToken {
     error GuardEnabled(address guard);
     error MetadataHashDisabled();
     error ArtifactMetadataMismatch(string path);
+    error TreasuryCreationUnknown(bytes32 txHash);
+    error TreasuryCreationUnreadable();
+    error TreasuryCreationNotFromFactory(address to);
+    error TreasuryInitializerDelegates(address to, uint256 dataLength);
+    error TreasuryCreationMismatch(string field);
 
     event PFTTokenDeployed(
         address indexed token, address indexed treasury, uint256 total_supply, string name, string symbol
@@ -198,8 +262,14 @@ contract DeployPFTToken {
         cfg.sourceCommit = VM.envOr("PFT_TOKEN_SOURCE_COMMIT", string(""));
         string memory out = VM.envOr("FOUNDRY_OUT", string(""));
         cfg.artifact = string.concat(bytes(out).length == 0 ? "out" : out, TOKEN_ARTIFACT);
-        cfg.allowedGuard =
-            VM.parseAddress(VM.envOr("PFT_TOKEN_ALLOW_GUARD", string("0x0000000000000000000000000000000000000000")));
+        string memory creation = cfg.allowEoaTreasury
+            ? VM.envOr("PFT_TOKEN_TREASURY_CREATION_TX", string(""))
+            : _required("PFT_TOKEN_TREASURY_CREATION_TX");
+        if (bytes(creation).length != 0) cfg.creationTx = VM.parseBytes32(creation);
+        string memory raw = VM.envOr("PFT_TOKEN_TREASURY_CREATION_RAW_TX", string(""));
+        if (bytes(raw).length != 0) cfg.creationRawTx = VM.parseBytes(raw);
+        string memory guard = VM.envOr("PFT_TOKEN_ALLOW_GUARD", string(""));
+        if (bytes(guard).length != 0) cfg.allowedGuard = VM.parseAddress(guard);
     }
 
     /// Checks `cfg` against the target chain, then deploys from `msg.sender`
@@ -210,6 +280,7 @@ contract DeployPFTToken {
         _checkMetadata(cfg);
         _checkSupply(cfg);
         SafeInfo memory safe = _checkTreasury(cfg, deployer);
+        if (cfg.treasury.code.length != 0) _checkCreation(cfg, safe);
         uint256 nonce = VM.getNonce(deployer);
         if (nonce != 0 && !cfg.allowUsedDeployer) {
             revert DeployerAlreadyUsed(deployer, nonce);
@@ -230,6 +301,9 @@ contract DeployPFTToken {
         _log("treasury Safe modules", safe.modules.length);
         _log("treasury Safe guard", safe.guard);
         if (safe.guard != address(0)) _log("WARNING: the treasury Safe has a guard named by PFT_TOKEN_ALLOW_GUARD");
+        _log("treasury Safe creation tx", VM.toString(safe.creationTx));
+        _log("treasury Safe factory", safe.factory);
+        _log("treasury Safe fallback handler", safe.fallbackHandler);
         _log("token artifact", cfg.artifact);
         _log("deployment record", cfg.realDeployment ? "real" : "test");
         _log("total supply (six-decimal units)", cfg.totalSupply);
@@ -312,6 +386,190 @@ contract DeployPFTToken {
         safe.guard = address(uint160(uint256(VM.load(treasury, GUARD_STORAGE_SLOT))));
     }
 
+    /// The Safe's creation, from its signed creation transaction (not from the
+    /// RPC's JSON, which forge hands over as a node-specific tuple): the raw
+    /// bytes from PFT_TOKEN_TREASURY_CREATION_RAW_TX, else eth_getRawTransactionByHash,
+    /// must hash to PFT_TOKEN_TREASURY_CREATION_TX. A `setup` delegatecall can
+    /// write a module that getModulesPaginated never lists, so only a plain
+    /// setup is accepted. Optional only in the Base Sepolia test mode.
+    function _checkCreation(Config memory cfg, SafeInfo memory safe) private {
+        if (cfg.creationTx == 0) {
+            if (!cfg.allowEoaTreasury) revert TreasuryCreationUnknown(0);
+            _log("WARNING: test-only run without the treasury Safe's creation transaction");
+            return;
+        }
+        bytes memory raw = cfg.creationRawTx.length != 0 ? cfg.creationRawTx : fetchRawTransaction(cfg.creationTx);
+        if (keccak256(raw) != cfg.creationTx) revert TreasuryCreationUnknown(cfg.creationTx);
+        (safe.factory, safe.fallbackHandler) = checkCreation(cfg.chainId, cfg.treasury, safe, raw);
+        safe.creationTx = cfg.creationTx;
+    }
+
+    /// The signed transaction `txHash` as the RPC serves it (unknown: 32 zero bytes).
+    function fetchRawTransaction(bytes32 txHash) public returns (bytes memory) {
+        return
+            abi.decode(VM.rpc("eth_getRawTransactionByHash", string.concat('["', VM.toString(txHash), '"]')), (bytes));
+    }
+
+    /// Fails closed unless the signed transaction `raw` called a pinned canonical
+    /// factory (its code checked on this chain) with createProxyWithNonce for the
+    /// Safe's singleton, the factory's CREATE2 address for that call is the
+    /// treasury, and its initializer is a plain setup with the live owners and
+    /// threshold and a zero or canonical fallback handler.
+    function checkCreation(uint256 chainId, address treasury, SafeInfo memory safe, bytes memory raw)
+        public
+        view
+        returns (address factory, address fallbackHandler)
+    {
+        bytes memory data;
+        (factory, data) = decodeRawTransaction(raw);
+        bytes32 factoryHash = factoryCodeHash(chainId, factory);
+        if (factoryHash == 0 || factory.codehash != factoryHash) revert TreasuryCreationNotFromFactory(factory);
+        (address singleton, bytes memory initializer, uint256 saltNonce) = decodeCreateProxy(data);
+        if (singleton != safe.singleton) revert TreasuryCreationMismatch("singleton");
+        (bool ok, bytes memory code) = factory.staticcall(abi.encodeCall(ISafeProxyFactoryProbe.proxyCreationCode, ()));
+        if (!ok) revert TreasuryCreationNotFromFactory(factory);
+        if (proxyAddress(factory, abi.decode(code, (bytes)), singleton, initializer, saltNonce) != treasury) {
+            revert TreasuryCreationMismatch("proxy address");
+        }
+        fallbackHandler = checkSetup(singleton, initializer, safe.owners, safe.threshold);
+        if (fallbackHandler != address(0) && fallbackHandler.codehash != fallbackHandlerCodeHash(fallbackHandler)) {
+            revert TreasuryCreationMismatch("fallback handler code");
+        }
+    }
+
+    /// The pinned runtime code hash of a canonical SafeProxyFactory on 8453 or 84532, else zero.
+    function factoryCodeHash(uint256 chainId, address factory) public pure returns (bytes32) {
+        if (chainId != BASE && chainId != BASE_SEPOLIA) return 0;
+        if (factory == SAFE_PROXY_FACTORY_1_4_1) return SAFE_PROXY_FACTORY_1_4_1_CODEHASH;
+        if (factory == SAFE_PROXY_FACTORY_1_3_0) return SAFE_PROXY_FACTORY_1_3_0_CODEHASH;
+        return 0;
+    }
+
+    /// The pinned runtime code hash of a canonical CompatibilityFallbackHandler, else zero.
+    function fallbackHandlerCodeHash(address handler) public pure returns (bytes32) {
+        if (handler == FALLBACK_HANDLER_1_4_1) return FALLBACK_HANDLER_1_4_1_CODEHASH;
+        if (handler == FALLBACK_HANDLER_1_3_0) return FALLBACK_HANDLER_1_3_0_CODEHASH;
+        return 0;
+    }
+
+    /// The address SafeProxyFactory 1.3.0 and 1.4.1 give createProxyWithNonce.
+    function proxyAddress(
+        address factory,
+        bytes memory proxyCreationCode,
+        address singleton,
+        bytes memory initializer,
+        uint256 saltNonce
+    ) public pure returns (address) {
+        bytes32 salt = keccak256(abi.encodePacked(keccak256(initializer), saltNonce));
+        bytes32 initCodeHash = keccak256(abi.encodePacked(proxyCreationCode, abi.encode(singleton)));
+        return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), factory, salt, initCodeHash)))));
+    }
+
+    /// `to` and calldata of a signed type-2 (EIP-1559) or legacy transaction.
+    function decodeRawTransaction(bytes memory raw) public pure returns (address to, bytes memory data) {
+        uint256 pos;
+        uint256 toIndex;
+        if (raw.length != 0 && uint8(raw[0]) == 2) {
+            (pos, toIndex) = (1, 5); // [chainId, nonce, tip, maxFee, gas, to, value, data, ...]
+        } else if (raw.length != 0 && uint8(raw[0]) >= 0xc0) {
+            (pos, toIndex) = (0, 3); // [nonce, gasPrice, gas, to, value, data, v, r, s]
+        } else {
+            revert TreasuryCreationUnreadable();
+        }
+        (uint256 start, uint256 length, uint256 next, bool list) = _rlpItem(raw, pos);
+        if (!list || next != raw.length) revert TreasuryCreationUnreadable();
+        pos = start;
+        for (uint256 i = 0; i < toIndex + 3; i++) {
+            (start, length, next, list) = _rlpItem(raw, pos);
+            if (i == toIndex) {
+                if (list || length != 20) revert TreasuryCreationUnreadable();
+                to = address(bytes20(_slice(raw, start, 20)));
+            } else if (i == toIndex + 2) {
+                if (list) revert TreasuryCreationUnreadable();
+                data = _slice(raw, start, length);
+            }
+            pos = next;
+        }
+    }
+
+    /// singleton, initializer and saltNonce of a createProxyWithNonce call.
+    function decodeCreateProxy(bytes memory data)
+        public
+        pure
+        returns (address singleton, bytes memory initializer, uint256 saltNonce)
+    {
+        if (data.length < 4 || bytes4(data) != ISafeProxyFactoryProbe.createProxyWithNonce.selector) {
+            revert TreasuryCreationMismatch("createProxyWithNonce");
+        }
+        return abi.decode(_slice(data, 4, data.length - 4), (address, bytes, uint256));
+    }
+
+    /// The fallback handler of a plain `setup` initializer (no delegatecall: `to`
+    /// zero, `data` empty) with these owners and this threshold, whose fallback
+    /// handler is zero or the canonical one of the singleton's version.
+    function checkSetup(address singleton, bytes memory initializer, address[] memory owners, uint256 threshold)
+        public
+        pure
+        returns (address)
+    {
+        SafeSetup memory setup = decodeSetup(initializer);
+        if (setup.to != address(0) || setup.data.length != 0) {
+            revert TreasuryInitializerDelegates(setup.to, setup.data.length);
+        }
+        if (keccak256(abi.encode(setup.owners)) != keccak256(abi.encode(owners))) {
+            revert TreasuryCreationMismatch("owners");
+        }
+        if (setup.threshold != threshold) revert TreasuryCreationMismatch("threshold");
+        bool v141 = singleton == SAFE_1_4_1 || singleton == SAFE_L2_1_4_1;
+        address canonical = v141 ? FALLBACK_HANDLER_1_4_1 : FALLBACK_HANDLER_1_3_0;
+        if (setup.fallbackHandler != address(0) && setup.fallbackHandler != canonical) {
+            revert TreasuryCreationMismatch("fallback handler");
+        }
+        return setup.fallbackHandler;
+    }
+
+    /// The leading arguments of a `setup` call.
+    function decodeSetup(bytes memory initializer) public pure returns (SafeSetup memory setup) {
+        if (initializer.length < 4 || bytes4(initializer) != ISafeSetupCall.setup.selector) {
+            revert TreasuryCreationMismatch("setup");
+        }
+        (setup.owners, setup.threshold, setup.to, setup.data, setup.fallbackHandler) =
+            abi.decode(_slice(initializer, 4, initializer.length - 4), (address[], uint256, address, bytes, address));
+    }
+
+    /// One RLP item at `pos`: its payload's start and length, the next item's
+    /// position, and whether it is a list. Reverts beyond the end of `raw`.
+    function _rlpItem(bytes memory raw, uint256 pos)
+        private
+        pure
+        returns (uint256 start, uint256 length, uint256 next, bool list)
+    {
+        if (pos >= raw.length) revert TreasuryCreationUnreadable();
+        uint256 b = uint8(raw[pos]);
+        if (b < 0x80) return (pos, 1, pos + 1, false);
+        list = b >= 0xc0;
+        uint256 short = list ? b - 0xc0 : b - 0x80;
+        if (short < 56) {
+            (start, length) = (pos + 1, short);
+        } else {
+            uint256 lengthBytes = short - 55;
+            if (lengthBytes > 4 || pos + 1 + lengthBytes > raw.length) revert TreasuryCreationUnreadable();
+            for (uint256 i = 0; i < lengthBytes; i++) {
+                length = (length << 8) | uint8(raw[pos + 1 + i]);
+            }
+            start = pos + 1 + lengthBytes;
+        }
+        next = start + length;
+        if (next > raw.length) revert TreasuryCreationUnreadable();
+    }
+
+    function _slice(bytes memory raw, uint256 start, uint256 length) private pure returns (bytes memory out) {
+        out = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            out[i] = raw[start + i];
+        }
+    }
+
     /// The artifact whose metadata goes in the record must be this build of the
     /// token: its creation code is the code `deploy` sends.
     /// Its recorded metadata must be the metadata of that code: the build keeps
@@ -326,6 +584,16 @@ contract DeployPFTToken {
         bytes32 built = keccak256(VM.parseJsonBytes(artifact, ".bytecode.object"));
         bytes memory creation = type(PFTToken).creationCode;
         if (built != keccak256(creation)) revert ArtifactMismatch(cfg.artifact, built, keccak256(creation));
+        // `forge coverage` writes no artifact, so none carries its build's metadata;
+        // under coverage the tests call checkArtifactMetadata on out/'s build instead.
+        // `forge script` never runs in that context.
+        if (!VM.isContext(COVERAGE)) checkArtifactMetadata(cfg.artifact, artifact, creation);
+    }
+
+    /// The metadata check of `_checkArtifact` for the artifact `json` at `path`
+    /// and the creation code `creation` it must describe.
+    function checkArtifactMetadata(string memory path, string memory json, bytes memory creation) public pure {
+        string memory artifact = json;
         string memory hashKind = VM.parseJsonString(artifact, ".metadata.settings.metadata.bytecodeHash");
         if (keccak256(bytes(hashKind)) != keccak256("ipfs")) revert MetadataHashDisabled();
         bytes memory runtime = VM.parseJsonBytes(artifact, ".deployedBytecode.object");
@@ -333,7 +601,7 @@ contract DeployPFTToken {
         if (
             digest == 0 || !endsWith(creation, runtime)
                 || ipfsDigest(bytes(VM.parseJsonString(artifact, ".rawMetadata"))) != digest
-        ) revert ArtifactMetadataMismatch(cfg.artifact);
+        ) revert ArtifactMetadataMismatch(path);
     }
 
     /// The sha256 digest of the IPFS multihash (0x12 0x20 <digest>) under the
@@ -478,6 +746,9 @@ contract DeployPFTToken {
         VM.serializeAddress(o, "treasury_safe_owners", safe.owners);
         VM.serializeAddress(o, "treasury_safe_modules", safe.modules);
         VM.serializeAddress(o, "treasury_safe_guard", safe.guard);
+        VM.serializeBytes32(o, "treasury_safe_creation_tx", safe.creationTx);
+        VM.serializeAddress(o, "treasury_safe_factory", safe.factory);
+        VM.serializeAddress(o, "treasury_safe_fallback_handler", safe.fallbackHandler);
         VM.serializeString(o, "artifact", cfg.artifact);
         VM.serializeBytes32(o, "creation_code_keccak256", keccak256(type(PFTToken).creationCode));
         VM.serializeString(o, "solc_version", VM.parseJsonString(artifact, ".metadata.compiler.version"));
