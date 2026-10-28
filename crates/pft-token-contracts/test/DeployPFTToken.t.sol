@@ -109,6 +109,10 @@ contract Broadcaster {
     }
 }
 
+interface ISafeProxyFactoryCode {
+    function proxyCreationCode() external pure returns (bytes memory);
+}
+
 contract DeployPFTTokenTest is SafeFixtures {
     IDeployTestVm private constant VM = IDeployTestVm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -865,6 +869,17 @@ contract DeployPFTTokenTest is SafeFixtures {
         broadcaster.deploy(script, cfg);
         VM.expectRevert();
         script.fetchRawTransaction(wrong);
+    }
+
+    function testTheCreationDecodersReadTheFixture() public view {
+        (, bytes memory data) = script.decodeRawTransaction(creationRaw);
+        (address singleton, bytes memory init, uint256 saltNonce) = script.decodeCreateProxy(data);
+        _assertTrue(singleton == SAFE_L2 && saltNonce == 0, "createProxyWithNonce arguments");
+        _assertTrue(keccak256(init) == keccak256(_plainSetup(_threeOwners(), 2)), "initializer");
+        DeployPFTToken.SafeSetup memory setup = script.decodeSetup(init);
+        _assertTrue(setup.threshold == 2 && setup.owners.length == 3 && setup.to == address(0), "setup");
+        bytes memory code = ISafeProxyFactoryCode(FACTORY_1_4_1).proxyCreationCode();
+        _assertTrue(script.proxyAddress(FACTORY_1_4_1, code, singleton, init, saltNonce) == TREASURY, "CREATE2");
     }
 
     function testRefusesACreationNotFromACanonicalFactory() public {

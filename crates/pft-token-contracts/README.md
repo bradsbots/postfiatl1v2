@@ -79,8 +79,14 @@ outside the repository, `*.env` is ignored) and refuses, before the broadcast:
 | `getThreshold()` and `getOwners()` answer (checked staticcalls) | `TreasuryIsNotASafe` |
 | threshold >= 2; owners distinct, non-zero, at least the threshold | `SafeThresholdTooLow`, `SafeOwnersInvalid` |
 | no module: `getModulesPaginated(0x1, 10)` returns an empty list and next `0x1` (a module spends without owner signatures) | `ModulesEnabled(count)` |
-| the guard slot (`keccak256("guard_manager.guard.address")`) is read; a non-zero guard is printed and recorded, not refused | — |
+| the guard slot (`keccak256("guard_manager.guard.address")`) is zero, or exactly the address in `PFT_TOKEN_ALLOW_GUARD` (a reverting guard blocks every owner transaction, its own removal included); recorded either way | `GuardEnabled(guard)` |
+| the signed creation transaction (`PFT_TOKEN_TREASURY_CREATION_RAW_TX`, else `eth_getRawTransactionByHash`) hashes to `PFT_TOKEN_TREASURY_CREATION_TX`; it is type 2 or legacy | `TreasuryCreationUnknown(hash)`, `TreasuryCreationUnreadable` |
+| its `to` is the canonical SafeProxyFactory 1.4.1 `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` or 1.3.0 `0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2` with its pinned code | `TreasuryCreationNotFromFactory(to)` |
+| it calls `createProxyWithNonce` for the slot 0 singleton, and the factory's CREATE2 address for that call (from its on-chain `proxyCreationCode()`) is the treasury | `TreasuryCreationMismatch(field)` |
+| its initializer is a plain `setup`: `to` zero and `data` empty | `TreasuryInitializerDelegates(to, data length)` |
+| the initializer's owners and threshold are the live ones; its fallback handler is zero or the canonical CompatibilityFallbackHandler of that version with its pinned code | `TreasuryCreationMismatch(field)` |
 | the artifact under `$FOUNDRY_OUT` (else `out`) `/PFTToken.sol/PFTToken.json` has `bytecode.object` equal to the deployed creation code | `ArtifactMismatch(path, artifact hash, compiled hash)` |
+| its `metadata.settings.metadata.bytecodeHash` is `ipfs`; the creation code ends with its `deployedBytecode.object`, whose CBOR trailer holds the IPFS digest of its `rawMetadata` | `MetadataHashDisabled`, `ArtifactMetadataMismatch(path)` |
 | the deployer's nonce on the target chain is 0 (a one-time key) | `DeployerAlreadyUsed(deployer, nonce)` |
 | a real deployment sets no test switch, sets `PFT_TOKEN_SOURCE_COMMIT` and has no record yet | `RealDeploymentWithTestSwitch`, `SourceCommitMissing`, `RecordExists(path)` |
 
@@ -116,8 +122,22 @@ Pre-deployment checklist:
 
 - [ ] The treasury Safe is deployed on the target chain and its address,
       owners and threshold are checked on the explorer.
-- [ ] The treasury Safe has no module (the script refuses one) and its guard,
-      printed by the dry run, is zero or reviewed.
+- [ ] The treasury Safe has no module (the script refuses one). A guard is
+      refused by default; it may be allowed only by naming it in
+      `PFT_TOKEN_ALLOW_GUARD` after an independent review.
+- [ ] The treasury Safe was created through the canonical SafeProxyFactory
+      with a plain `setup` (no `to`, no `data`), and
+      `PFT_TOKEN_TREASURY_CREATION_TX` is that transaction's hash. A setup
+      delegatecall can write a module the module list never shows, so a
+      delegating initializer cannot be told from a hidden module; the
+      Safe{Wallet} app's L2 setup contract delegates and is not accepted.
+- [ ] `PFT_TOKEN_TREASURY_CREATION_RAW_TX` holds the signed creation
+      transaction (`cast tx <hash> --raw --rpc-url <base-rpc-url>`) when the
+      RPC does not serve `eth_getRawTransactionByHash`;
+      https://sepolia.base.org does not, so it is required there.
+- [ ] The build keeps the IPFS metadata hash: no `--no-metadata`, no
+      `bytecode_hash = "none"`, and forge's default `out/` (or the same
+      `FOUNDRY_OUT` for the build and the script).
 - [ ] `PFT_TOKEN_CHAIN_ID` is the target chain (84532 first; 8453 only after
       the audit below).
 - [ ] The supply pair `PFT_TOKEN_TOTAL_SUPPLY` / `PFT_TOKEN_TOTAL_SUPPLY_PFT`
@@ -143,7 +163,7 @@ existing one; every other broadcast (a local anvil) writes under the ignored
 `cache/deploy-test/`, and a dry run writes none. A real deployment is refused
 without `PFT_TOKEN_SOURCE_COMMIT`. The record holds the mode (`real`/`test`),
 token, chain id, constructor arguments, deployer, Safe singleton, threshold,
-owners, modules (empty) and guard, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin
+owners, modules (empty), guard, creation transaction, factory and fallback handler, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin
 commit, the artifact path, the keccak256 of the deployed creation code and the
 effective compiler settings of the build (solc version, optimizer and runs,
 `evm_version`, `bytecode_hash`), read from the metadata of that artifact
@@ -181,7 +201,10 @@ After the broadcast, in this order:
 3. On the explorer, `totalSupply()` equals `PFT_TOKEN_TOTAL_SUPPLY` and the
    treasury Safe holds all of it.
 4. Finalise the record: copy `tx_hash` and `block_number` in from
-   `run-latest.json`, then commit it.
+   `run-latest.json`, fill `verification_sourcify`, `verification_sourcify_url`,
+   `verification_blockscout`, `verification_blockscout_url` and
+   `verification_basescan` with each explorer's verification result, then
+   commit it.
 5. Retire the deployer key; it holds nothing and is never used again.
 
 If the broadcast fails ambiguously (a timeout, a dropped connection, an

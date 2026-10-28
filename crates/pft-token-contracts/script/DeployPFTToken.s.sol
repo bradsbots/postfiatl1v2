@@ -406,8 +406,8 @@ contract DeployPFTToken {
 
     /// The signed transaction `txHash` as the RPC serves it (unknown: 32 zero bytes).
     function fetchRawTransaction(bytes32 txHash) public returns (bytes memory) {
-        return
-            abi.decode(VM.rpc("eth_getRawTransactionByHash", string.concat('["', VM.toString(txHash), '"]')), (bytes));
+        // forge returns a hex-string result as its bytes, not ABI-encoded.
+        return VM.rpc("eth_getRawTransactionByHash", string.concat('["', VM.toString(txHash), '"]'));
     }
 
     /// Fails closed unless the signed transaction `raw` called a pinned canonical
