@@ -35,7 +35,7 @@ Owners are marked *(this lane)*, *(other lane)* or *(Coinbase)*.
   - [ ] the treatment of PFT already paid on the PFT Ledger;
   - [ ] the treasury signers and threshold.
 - [ ] P1.6 *(other lane)* The Safe multisig on Base, with the other lane's keys. To tick it: the Safe address, its signers and its threshold.
-- [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the total supply.
+- [ ] P1.7 *(other lane)* The Base mainnet deployment, with the other lane's keys and money. To tick it: the token address, the deploy transaction, and a treasury balance equal to the Base ERC-20 slice.
 - [ ] P1.8 *(this lane)* Source verification on the Base block explorer. To tick it: the verified-source page.
   - The test-network source is verified on [Sourcify](https://repo.sourcify.dev/84532/0x18fE4ca51A0cE042688D5A54917319d03B527D92) and [Blockscout](https://base-sepolia.blockscout.com/address/0x18fE4ca51A0cE042688D5A54917319d03B527D92?tab=contract) (Base Sepolia, 2026-10-28). The Base mainnet verification is still open.
 - [x] P1.9 *(this lane)* The Coinbase one-pager, built from the paper's Appendix A: [pft-erc20-one-pager.md](../../listings/coinbase/pft-erc20-one-pager.md) (`66326c6d`). It is final for now; its figures change only when the token document is published.

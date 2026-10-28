@@ -69,6 +69,11 @@ with its tests in
 
 The total supply is 100 billion PFT, fixed, decided 2026-10-28; the ERC-20
 launch quantity and allocation are not yet decided.
+The product owner's target for token generation is late Q1 2027, as an
+ERC-20 on Base; the development organization's allocation is to unlock
+monthly over five years from an on-chain escrow; the Base ERC-20 is a slice
+of the 100 billion, the rest native PFT at mainnet genesis, the slice size
+open.
 
 ## Facts at a glance
 

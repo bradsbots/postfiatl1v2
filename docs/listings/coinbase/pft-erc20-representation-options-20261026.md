@@ -7,7 +7,7 @@
 1. I recommend "ERC-20 first, bridge at mainnet": a plain fixed-supply ERC-20 PFT on Base now, and a 1:1 bridge into native PFT that opens at this L1's mainnet genesis and never closes.
 2. Coinbase integrates ERC-20 tokens with little engineering work. A native chain without mainnet or post-quantum custody cannot be integrated soon. Injective took this route onto Coinbase. Coinbase custody cannot sign ML-DSA-65 before about mid-2027, so even after mainnet the ERC-20 is most likely Coinbase's listed form for a long time, not a stopgap.
 3. The token costs about two days of engineering plus the audit, the genesis bridge about one to two weeks, and an optional reverse bridge about two weeks; all are my estimates, without audit time.
-4. The four decisions in section 9 are: the supply number, the treasury multisig's signers and threshold, the allocation with the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase. The supply number is decided (100 billion PFT, fixed, 2026-10-28); the other decisions are yours.
+4. The four decisions in section 9 are: the supply number, the treasury multisig's signers and threshold, the allocation with the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase. The supply number is decided (100 billion PFT, fixed, 2026-10-28); the open items are the ERC-20 slice size, the launch allocation, the issuing entity, the treasury signers and threshold, the treatment of PFT already paid on the PFT Ledger, and when to tell Coinbase.
 5. The contract, its tests and the Base Sepolia deploy script are on main (`crates/pft-token-contracts/src/PFTToken.sol`, `test/PFTToken.t.sol`, `script/DeployPFTToken.s.sol`); the deployment waits for the open items among the four decisions in section 9, and the one-page note for Coinbase and the Phase 2 design note follow.
 6. The [milestone](../../plans/active/pft-erc20-base-listing-milestone.md) tracks the work.
 
@@ -113,7 +113,7 @@ The day counts assume one engineer who knows the repository, the existing BFT-ch
 
 **What this path does not solve.** These questions belong in the token document. They are yours to decide, with counsel on the legal ones, including the securities framing; I do not decide them.
 
-- The allocation, that is, how much supply is in the ERC-20 at launch and how much stays in genesis for the Foundation, validators and the Task Node pool (`integration-plan.md:710-711`). The ERC-20 supply at launch is one slice of the total supply the token document fixes, and the genesis lane reserves exactly that slice, so the ERC-20 never exceeds its share of genesis.
+- The allocation, that is, how much supply is in the ERC-20 at launch and how much stays in genesis for the Foundation, validators and the Task Node pool (`integration-plan.md:710-711`). The ERC-20 supply at launch is one slice of the decided 100 billion PFT total supply, and the genesis lane reserves exactly that slice, so the ERC-20 never exceeds its share of genesis.
 - Whether PFT already paid on the PFT Ledger is swapped, after a snapshot, into the ERC-20 or into native PFT at genesis. If you choose that one-time swap, it follows the frozen-snapshot pattern of `A651ToA666MigrationV1` (`A651ToA666MigrationV1.sol:14-18`), which the ERC-20 bridge does not use.
 - PFT's legal classification, which the package already lists as a question for counsel (`integration-plan.md:749-751`).
 
@@ -143,7 +143,7 @@ On 2026-10-28 the product owner also decided that PFT gets an SPL version on Sol
 2. Next, a one-page note for Coinbase built from Appendix A.
 3. Then the Phase 2 design note for the genesis external lane and the lock-and-release path.
 
-Also decided by the product owner on 2026-10-28: the token generation is in late Q1 2027, as the ERC-20 on Base; the development organization's allocation unlocks monthly over five years from an on-chain escrow (planned, built on the chain's escrow); and the Base ERC-20 is a slice of the 100 billion, the rest being native PFT at mainnet genesis, with the slice size still open.
+Also decided by the product owner on 2026-10-28: the product owner's target for token generation is late Q1 2027, as the ERC-20 on Base; the development organization's allocation unlocks monthly over five years from an on-chain escrow (planned); and the Base ERC-20 is a slice of the 100 billion, the rest being native PFT at mainnet genesis, with the slice size still open.
 
 ## Appendix A: text for the Coinbase document
 

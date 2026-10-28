@@ -30,7 +30,7 @@ lane; the last one is this lane's and needs only funding.
 
 | Decision | Recommendation on record | Where it came from | Your answer |
 | --- | --- | --- | --- |
-| The total supply number | Open; fix it in the token document | 2026-10-26, milestone P1.5, paper section 9. Blocks the token document, the Base mainnet deployment (P1.7) and any Phase 2 genesis code | **Answered 2026-10-28:** 100 billion PFT, fixed, with no validator rewards (source: the exchange guidance handoff, 00:26 UTC). |
+| The total supply number | Decided; record it in the token document | 2026-10-26, milestone P1.5, paper section 9. Blocks the token document, the Base mainnet deployment (P1.7) and any Phase 2 genesis code | **Answered 2026-10-28:** 100 billion PFT, fixed, with no validator rewards (source: the exchange guidance handoff, 00:26 UTC). |
 | The split at launch between the ERC-20 slice and genesis | Open; the genesis external lane later reserves exactly the ERC-20 slice | 2026-10-26, milestone P1.5. Blocks the token document, the token's constructor supply for P1.7 and the lane's reserved amount in Phase 2 | — |
 | The treatment of PFT already paid on the PFT Ledger | Open; a snapshot and a swap into the ERC-20, or into native PFT at genesis (paper section 7) | 2026-10-26, milestone P1.5. Blocks the token document | — |
 | The treasury Safe's signers and threshold | Name the signers and set the threshold; never a single key | 2026-10-26, milestone P1.5 and P1.6. Blocks the Safe on Base (P1.6) and the treasury address the deployment needs (P1.7) | — |
