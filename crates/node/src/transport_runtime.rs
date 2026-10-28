@@ -2970,9 +2970,12 @@ pub(super) fn finish_round_block_vote_record(mut input: RoundBlockVoteRecordInpu
             observation.duration_ms > input.round_deadline_ms as f64
         };
         let entry = match input.observations.get(peer) {
+            // A refusal is an answer whenever it arrived: it keeps its class
+            // also after the deadline (only a missing answer is no_answer).
             Some(observation)
-                if observation.outcome != BlockVoteOutcome::NoAnswer
-                    && !after_deadline(observation) =>
+                if observation.outcome == BlockVoteOutcome::Refused
+                    || (observation.outcome != BlockVoteOutcome::NoAnswer
+                        && !after_deadline(observation)) =>
             {
                 BlockVoteRecordEntry {
                     validator: peer.clone(),
