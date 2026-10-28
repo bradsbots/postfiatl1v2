@@ -2292,7 +2292,6 @@ dependencies = [
  "elliptic-curve",
  "once_cell",
  "sha2",
- "signature",
 ]
 
 [[package]]
@@ -3178,7 +3177,6 @@ version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "flate2",
- "k256",
  "libc",
  "orchard",
  "postfiat-bridge",

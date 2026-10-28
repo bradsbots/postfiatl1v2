@@ -58,7 +58,6 @@ postfiat-privacy-orchard = { path = "../privacy_orchard" }
 postfiat-rpc-sdk = { path = "../rpc_sdk" }
 postfiat-storage = { path = "../storage" }
 postfiat-types = { path = "../types" }
-k256 = { workspace = true }
 libc = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

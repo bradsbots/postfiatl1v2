@@ -58,7 +58,6 @@ serde_cbor = "0.11"
 redb = "=4.2.0"
 sha2 = "0.10"
 sha3 = "0.11"
-k256 = { version = "0.13", features = ["ecdsa"] }
 libc = "0.2"
 zcash_note_encryption = "0.4.1"
 zeroize = "1"
