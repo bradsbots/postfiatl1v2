@@ -71,11 +71,14 @@ with:
 
 ```bash
 postfiat-node storage-rebuild-transactional --data-dir PATH --output-dir PATH \
-  --offline-confirmed
+  --expected-tip HASH --expected-state-root HASH --offline-confirmed
 postfiat-node storage-rebuild-transactional --data-dir PATH --output-dir PATH \
   --expected-tip HASH --expected-state-root HASH --verify-only \
   --offline-confirmed
 ```
+
+Both forms require `--expected-tip` and `--expected-state-root`: the source
+node's `status` `block_tip_hash` and `state_root`.
 
 The verification form is strictly non-mutating. It requires existing source
 and target directories plus the existing source integrity key, opens the
