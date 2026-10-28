@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from typing import Callable
 
-from postfiat_rpc import Endpoint, pft_token
+from postfiat_rpc import Endpoint, pft_token, pft_token_ui
 from postfiat_rpc.__main__ import build_parser, parse_endpoint_ref
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +82,10 @@ class CliDocExampleTests(unittest.TestCase):
             with self.subTest(argv=argv):
                 args = self.parse(relative, pft_token.build_parser().parse_args, argv)
                 self.assertTrue(args.record or (args.token and args.treasury))
+        commands = documented_commands(relative, "python -m postfiat_rpc.pft_token_ui")
+        self.assertEqual(len(commands), 1)
+        args = self.parse(relative, pft_token_ui.build_parser().parse_args, commands[0])
+        self.assertTrue(args.record)
 
     def test_python_examples_target_the_validator_rpc_port(self) -> None:
         relative = "docs/python/examples.md"

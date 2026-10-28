@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PFT token on Base</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">Read only · ERC-20 on Base</p>
+        <h1 id="title">PFT token</h1>
+      </div>
+      <button id="refresh" type="button">Refresh</button>
+    </header>
+
+    <main>
+      <p id="status" class="status" role="status" aria-live="polite">Reading the token…</p>
+
+      <p id="whole-supply" class="verdict" hidden></p>
+
+      <dl class="facts">
+        <div><dt>Token</dt><dd><a id="token" rel="noopener noreferrer" target="_blank"></a></dd></div>
+        <div><dt>Chain</dt><dd id="chain"></dd></div>
+        <div><dt>Decimals</dt><dd id="decimals"></dd></div>
+        <div><dt>Total supply</dt><dd><span id="supply-pft"></span><small id="supply-units"></small></dd></div>
+        <div><dt>Treasury</dt><dd><a id="treasury" rel="noopener noreferrer" target="_blank"></a></dd></div>
+        <div><dt>Treasury balance</dt><dd><span id="balance-pft"></span><small id="balance-units"></small></dd></div>
+        <div><dt>Code size</dt><dd id="code-size"></dd></div>
+        <div><dt>Block</dt><dd id="block"></dd></div>
+        <div><dt>Read at</dt><dd id="read-at"></dd></div>
+        <div><dt>RPC</dt><dd id="rpc"></dd></div>
+      </dl>
+    </main>
+  </body>
+</html>
