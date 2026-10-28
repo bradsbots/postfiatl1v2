@@ -57,7 +57,7 @@ The contract keeps four invariants.
 1. `totalLocked - totalReleased` equals the sum of `Locked` amounts minus Phase 3 releases, and `token.balanceOf(lock)` is at least that. The two differ only by tokens sent with a plain transfer, which no Lock records and nothing can ever release.
 2. Nonces run from 0 to `nextNonce - 1`, each with exactly one record and one event.
 3. No function lowers the contract's token balance except the Phase 3 release path of section 6.
-4. `totalLocked` cannot exceed the token's fixed supply (`PFTToken.sol:9-10`, `:34`), so releases on PFTL cannot exceed the lane.
+4. `totalLocked - totalReleased` cannot exceed the token's fixed supply (`PFTToken.sol:9-10`, `:34`), so releases on PFTL cannot exceed the lane. Released tokens can be locked again in Phase 3, so `totalLocked` alone can pass the supply; in Phase 2, with no releases, the two bounds are the same.
 
 ## 4. Proving a Base Lock on PFTL
 
