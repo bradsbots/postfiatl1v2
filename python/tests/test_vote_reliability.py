@@ -150,6 +150,39 @@ class VoteReliabilityWindowTests(unittest.TestCase):
         self.assertIn(NOT_AVAILABLE, text)
         self.assertIn("heights without a record: 4", text)
 
+    def test_cli_table_shows_late_after_deadline(self) -> None:
+        # The table's columns add up to `requested`, also for a vote the writer
+        # saw after the round deadline (VR-01), and the answered_after_quorum
+        # count has its own column.
+        record = json.loads((WINDOW / "validator-1" / "block-vote-records" / "height-00000000000000000002.json").read_text())
+        for entry in record["entries"]:
+            if entry["validator"] == "validator-3":
+                entry["outcome"] = "late_after_deadline"
+        with tempfile.TemporaryDirectory() as root:
+            records = Path(root) / "block-vote-records"
+            records.mkdir()
+            (records / "height-00000000000000000002.json").write_text(json.dumps(record))
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                code = main(["--records", str(records), "--from-height", "2", "--to-height", "2", "--table"])
+        self.assertEqual(code, 0)
+        lines = out.getvalue().splitlines()
+        self.assertEqual(
+            lines[1].split(),
+            [
+                "validator",
+                "requested",
+                "accepted",
+                "refused",
+                "no_answer",
+                "late_after_deadline",
+                "after_quorum",
+                "uptime_window_bps",
+            ],
+        )
+        row = next(line.split() for line in lines if line.startswith("validator-3 "))
+        self.assertEqual(row, ["validator-3", "1", "0", "0", "0", "1", "1", "0"])
+
 
 if __name__ == "__main__":
     unittest.main()

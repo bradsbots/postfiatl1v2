@@ -277,7 +277,16 @@ def derive_reliability(
 
 
 def render_table(report: dict[str, Any]) -> str:
-    header = ("validator", "requested", "accepted", "refused", "no_answer", "late", "uptime_window_bps")
+    header = (
+        "validator",
+        "requested",
+        "accepted",
+        "refused",
+        "no_answer",
+        "late_after_deadline",
+        "after_quorum",
+        "uptime_window_bps",
+    )
     lines = [
         f"heights {report['from_height']}-{report['to_height']} ({report['window_heights']}), "
         f"records for {report['heights_with_record']}, status {report['status']}",
@@ -291,6 +300,7 @@ def render_table(report: dict[str, Any]) -> str:
             str(row["accepted"]),
             str(row["refused"]),
             str(row["no_answer"]),
+            str(row["late_after_deadline"]),
             str(row["answered_after_quorum"]),
             str(row["uptime_window_bps"]),
         )
