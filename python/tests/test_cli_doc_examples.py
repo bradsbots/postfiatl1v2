@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from typing import Callable
 
-from postfiat_rpc import Endpoint
+from postfiat_rpc import Endpoint, pft_token
 from postfiat_rpc.__main__ import build_parser, parse_endpoint_ref
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -40,7 +40,7 @@ def documented_commands(relative: str, command: str = MODULE_COMMAND) -> list[li
         if pending.endswith("\\"):
             pending = pending[:-1] + " "
             continue
-        if command in pending:
+        if re.search(re.escape(command) + r"(?=\s|$)", pending):
             argv = shlex.split(pending.replace("<address>", FAKE_ADDRESS))
             commands.append(argv[argv.index(program) + 1 :])
         pending = ""
@@ -73,6 +73,15 @@ class CliDocExampleTests(unittest.TestCase):
                 with self.subTest(doc=relative, argv=argv):
                     args = self.parse(relative, build_parser().parse_args, argv)
                     self.assertEqual(parse_endpoint_ref(args.endpoint)[1].port, VALIDATOR_RPC_PORT)
+
+    def test_documented_pft_token_commands_parse(self) -> None:
+        relative = "docs/rpc/examples.md"
+        commands = documented_commands(relative, "python -m postfiat_rpc.pft_token")
+        self.assertEqual(len(commands), 2)
+        for argv in commands:
+            with self.subTest(argv=argv):
+                args = self.parse(relative, pft_token.build_parser().parse_args, argv)
+                self.assertTrue(args.record or (args.token and args.treasury))
 
     def test_python_examples_target_the_validator_rpc_port(self) -> None:
         relative = "docs/python/examples.md"

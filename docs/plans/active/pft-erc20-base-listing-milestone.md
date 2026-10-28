@@ -67,7 +67,8 @@ Decided by the product owner 2026-10-28: total supply 100 billion PFT; the Base 
 ## Mandate deliverables (AGENTS.md)
 
 - [ ] M1 *(this lane)* Lock the source paper as the research specification at 86 or above on the full gate, requested as a Task Node task. It stood at 85.67 on 2026-10-26, then at 82.60 on 2026-10-28 and 84.00 after one more pass.
-- [ ] M2 *(this lane)* A Python CLI that reads the token's state: address, total supply, decimals and treasury balance.
+- [x] M2 *(this lane)* A Python CLI that reads the token's state: address, total supply, decimals and treasury balance.
+  - `python/postfiat_rpc/pft_token.py` (`--record` or `--token`/`--treasury`, JSON or `--table`, exit 2 on a chain-id mismatch, a token without code or a malformed answer); `python/tests/test_pft_token.py`: 10 tests. Documented in [RPC examples](../../rpc/examples.md#erc-20-pft-on-base).
 - [ ] M3 *(this lane)* A user-facing interface that consumes the CLI output.
 - [ ] M4 *(this lane)* Retire this document into `docs/plans/completed/` and document the token in the existing documentation.
 
