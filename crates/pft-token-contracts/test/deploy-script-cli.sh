@@ -176,10 +176,19 @@ fi
 grep -q "TreasuryInitializerDelegates" <<<"$out" || { printf '%s\n' "$out"; exit 1; }
 echo "ok: anvil Safe with a delegating initializer refused"
 
-# A real deployment of a --no-metadata build. The anvil switches to 8453, which
-# has no record yet (84532's would stop the run at RecordExists first); forge
-# builds into its own FOUNDRY_OUT, which the script reads.
+# The same Safe (a CREATE2 address is the same on every chain) checked on 8453
+# with its 84532 creation transaction: the signature binds it to 84532.
 c rpc anvil_setChainId 8453 >/dev/null
+if out="$(run_anvil 8453 "$SAFE" PFT_TOKEN_TREASURY_CREATION_TX="$SAFE_TX" PFT_TOKEN_TREASURY_CREATION_RAW_TX="$SAFE_RAW")"; then
+  printf '%s\n' "$out"; echo "FAIL: the script accepted a creation transaction signed for another chain" >&2; exit 1
+fi
+grep -q "TreasuryCreationWrongChain(84532" <<<"$out" || { printf '%s\n' "$out"; exit 1; }
+echo "ok: 84532 creation transaction refused on 8453"
+
+# A real deployment of a --no-metadata build, on 8453 (no record yet; 84532's
+# would stop the run at RecordExists first) with a Safe created there; forge
+# builds into its own FOUNDRY_OUT, which the script reads.
+read -r SAFE SAFE_TX <<<"$(create_safe "$ZERO" 2)"
 NOMETA_OUT=cache/deploy-test/out-no-metadata
 rm -rf "$NOMETA_OUT" cache/deploy-test/cache-no-metadata
 FORGE_ARGS=(--no-metadata --cache-path cache/deploy-test/cache-no-metadata)

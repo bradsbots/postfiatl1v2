@@ -161,6 +161,8 @@ contract DeployPFTTokenTest is SafeFixtures {
         VM.createDir(string.concat(dir, "/PFTToken.sol"), true);
         VM.writeFile(path, VM.readFile(ARTIFACT));
         VM.writeJson(string.concat('"', VM.toString(type(PFTToken).creationCode), '"'), path, ".bytecode.object");
+        bytes memory runtime = address(new PFTToken(NAME, SYMBOL, SUPPLY, address(0xE0A))).code;
+        VM.writeJson(string.concat('"', VM.toString(runtime), '"'), path, ".deployedBytecode.object");
     }
 
     // ---------------------------------------------------------------- accepted
@@ -760,6 +762,57 @@ contract DeployPFTTokenTest is SafeFixtures {
         script.checkArtifactMetadata(ARTIFACT, VM.readFile(ARTIFACT), creation);
     }
 
+    function testRecordsTheCompilerSettingsOfTheRawMetadata() public {
+        // The metadata object is not covered by the code's IPFS digest; the record ignores it.
+        string memory dir =
+            string.concat("cache/deploy-test/edited-metadata-", VM.toString(abi.encode(VM.randomUint())));
+        string memory path = string.concat(dir, "/PFTToken.sol/PFTToken.json");
+        VM.createDir(string.concat(dir, "/PFTToken.sol"), true);
+        VM.writeFile(path, VM.readFile(_artifact()));
+        VM.writeJson('"0.8.20+commit.a1b79de6"', path, ".metadata.compiler.version");
+        VM.writeJson("999", path, ".metadata.settings.optimizer.runs");
+        VM.writeJson("false", path, ".metadata.settings.optimizer.enabled");
+        VM.writeJson('"paris"', path, ".metadata.settings.evmVersion");
+        DeployPFTToken.Config memory cfg = _config(BASE_SEPOLIA);
+        cfg.artifact = path;
+        cfg.recordDir = string.concat(dir, "/record");
+        cfg.writeRecord = true;
+        broadcaster.deploy(script, cfg);
+        string memory json = VM.readFile(string.concat(cfg.recordDir, "/deployment.json"));
+        _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "solc of rawMetadata");
+        _assertEq(VM.parseJsonUint(json, ".optimizer_runs"), 200, "runs of rawMetadata");
+        _assertTrue(VM.parseJsonBool(json, ".optimizer"), "optimizer of rawMetadata");
+        _assertTrue(_eq(VM.parseJsonString(json, ".evm_version"), "cancun"), "evm version of rawMetadata");
+    }
+
+    function testRefusesATrailerOnlyRuntimeCode() public {
+        bytes memory runtime = VM.parseJsonBytes(VM.readFile(ARTIFACT), ".deployedBytecode.object");
+        bytes memory trailer = script.metadataTrailer(runtime);
+        _assertTrue(trailer.length == 53 && script.metadataDigest(trailer) != 0, "a 53-byte trailer with the digest");
+        string memory path = _artifactCopy("trailer-only");
+        VM.writeJson(string.concat('"', VM.toString(trailer), '"'), path, ".deployedBytecode.object");
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.ArtifactMetadataMismatch.selector, path));
+        script.checkArtifactMetadata(path, VM.readFile(path), _outCreationCode());
+        // After the broadcast: the deployed code has the artifact's length and trailer.
+        PFTToken token = broadcaster.deploy(script, _config(BASE_SEPOLIA));
+        bytes memory built = VM.parseJsonBytes(VM.readFile(_artifact()), ".deployedBytecode.object");
+        script.checkDeployedCode(address(token), built);
+        uint256 length = address(token).code.length;
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.DeployedCodeMismatch.selector, address(token), length, 53)
+        );
+        script.checkDeployedCode(address(token), trailer);
+        bytes memory other = abi.encodePacked(built);
+        other[other.length - 3] = bytes1(uint8(other[other.length - 3]) ^ 1);
+        VM.expectRevert(
+            abi.encodeWithSelector(DeployPFTToken.DeployedCodeMismatch.selector, address(token), length, length)
+        );
+        script.checkDeployedCode(address(token), other);
+        _assertTrue(
+            script.metadataTrailer(hex"00").length == 0 && script.metadataTrailer(hex"ffff").length == 0, "none"
+        );
+    }
+
     function testMetadataDigestReadsTheCborTrailer() public view {
         bytes32 digest = sha256("metadata");
         bytes memory cbor = abi.encodePacked(hex"a264697066735822", hex"1220", digest, hex"64736f6c6343000818");
@@ -828,8 +881,8 @@ contract DeployPFTTokenTest is SafeFixtures {
         bytes memory init = _plainSetup(_threeOwners(), 2);
         string[2] memory names = ["type2", "legacy"];
         for (uint256 i = 0; i < 2; i++) {
-            (address to, bytes memory data) = script.decodeRawTransaction(_fixtureRaw(names[i]));
-            _assertTrue(to == FACTORY_1_4_1, "to is the factory");
+            (uint256 chain, address to, bytes memory data) = script.decodeRawTransaction(_fixtureRaw(names[i]));
+            _assertTrue(chain == BASE_SEPOLIA && to == FACTORY_1_4_1, "chain id and to");
             bytes memory expected = abi.encodeCall(ISafeProxyFactory.createProxyWithNonce, (SAFE_L2, init, i));
             _assertTrue(keccak256(data) == keccak256(expected), "calldata");
         }
@@ -846,9 +899,48 @@ contract DeployPFTTokenTest is SafeFixtures {
         cfg.writeRecord = true;
         broadcaster.deploy(script, cfg);
         string memory json = VM.readFile(string.concat(cfg.recordDir, "/deployment.json"));
-        _assertTrue(VM.parseJsonBytes32(json, ".treasury_safe_creation_tx") == keccak256(creationRaw), "tx");
+        _assertTrue(VM.parseJsonBytes32(json, ".treasury_safe_creation_tx") == cfg.creationTx, "tx");
         _assertTrue(VM.parseJsonAddress(json, ".treasury_safe_factory") == FACTORY_1_4_1, "factory");
         _assertTrue(VM.parseJsonAddress(json, ".treasury_safe_fallback_handler") == address(0), "handler");
+    }
+
+    function testRefusesACreationTransactionOfAnotherChain() public {
+        bytes memory init = _plainSetup(_threeOwners(), 2);
+        address legacy = ISafeProxyFactory(FACTORY_1_4_1).createProxyWithNonce(SAFE_L2, init, 1);
+        DeployPFTToken.SafeInfo memory safe = script.checkSafe(BASE, TREASURY);
+        DeployPFTToken.SafeInfo memory legacySafe = script.checkSafe(BASE, legacy);
+        // The CREATE2 address and the factory are the same on both chains; the signature is not.
+        VM.chainId(BASE);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, BASE_SEPOLIA));
+        script.checkCreation(BASE, TREASURY, safe, creationRaw);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, BASE_SEPOLIA));
+        script.checkCreation(BASE, legacy, legacySafe, _fixtureRaw("legacy"));
+        DeployPFTToken.Config memory cfg = _config(BASE);
+        cfg.creationRawTx = creationRaw;
+        cfg.creationTx = keccak256(creationRaw);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, BASE_SEPOLIA));
+        broadcaster.deploy(script, cfg);
+        (address factory,) = script.checkCreation(BASE, TREASURY, safe, _fixtureRaw("type2-8453"));
+        _assertTrue(factory == FACTORY_1_4_1, "the 8453 creation accepted on 8453");
+        VM.chainId(BASE_SEPOLIA);
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, BASE));
+        script.checkCreation(BASE_SEPOLIA, TREASURY, safe, _fixtureRaw("type2-8453"));
+        // A legacy v without EIP-155 (27, 28) names no chain.
+        bytes memory signature = _last(_fixtureRaw("legacy"), 66);
+        for (uint256 v = 27; v <= 28; v++) {
+            bytes memory raw = _alter("legacy", 70, abi.encodePacked(uint8(v), signature));
+            (uint256 chain,,) = script.decodeRawTransaction(raw);
+            _assertEq(chain, 0, "no chain id");
+            VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, 0));
+            script.checkCreation(BASE_SEPOLIA, legacy, legacySafe, raw);
+        }
+        // 2 x 84532 + 35 and + 36 are 84532; + 37 is chain 84533.
+        bytes memory v37 = _alter("legacy", 70, abi.encodePacked(hex"8302948d", signature));
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationWrongChain.selector, BASE_SEPOLIA + 1));
+        script.checkCreation(BASE_SEPOLIA, legacy, legacySafe, v37);
+        bytes memory v35 = _alter("legacy", 70, abi.encodePacked(hex"8302948b", signature));
+        (uint256 chain35,,) = script.decodeRawTransaction(v35);
+        _assertEq(chain35, BASE_SEPOLIA, "v 2 x chain + 35");
     }
 
     function testRefusesAMissingOrWrongCreationTransaction() public {
@@ -872,7 +964,7 @@ contract DeployPFTTokenTest is SafeFixtures {
     }
 
     function testTheCreationDecodersReadTheFixture() public view {
-        (, bytes memory data) = script.decodeRawTransaction(creationRaw);
+        (,, bytes memory data) = script.decodeRawTransaction(creationRaw);
         (address singleton, bytes memory init, uint256 saltNonce) = script.decodeCreateProxy(data);
         _assertTrue(singleton == SAFE_L2 && saltNonce == 0, "createProxyWithNonce arguments");
         _assertTrue(keccak256(init) == keccak256(_plainSetup(_threeOwners(), 2)), "initializer");
@@ -945,6 +1037,16 @@ contract DeployPFTTokenTest is SafeFixtures {
         script.checkSetup(SAFE_L2, _setup(owners, 2, address(0xD1), "", address(0)), owners, 2);
         VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryInitializerDelegates.selector, address(0), 1));
         script.checkSetup(SAFE_L2, _setup(owners, 2, address(0), hex"01", address(0)), owners, 2);
+        bytes memory paid = abi.encodeCall(
+            ISafeSetupCall.setup, (owners, 2, address(0), "", address(0), address(0), 1, payable(address(0xFEE)))
+        );
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasurySetupHasPayment.selector, address(0), 1));
+        script.checkSetup(SAFE_L2, paid, owners, 2);
+        paid = abi.encodeCall(
+            ISafeSetupCall.setup, (owners, 2, address(0), "", address(0), address(0x70C), 0, payable(address(0)))
+        );
+        VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasurySetupHasPayment.selector, address(0x70C), 0));
+        script.checkSetup(SAFE_L2, paid, owners, 2);
         address[] memory others = _threeOwners();
         others[2] = address(0x0A4);
         VM.expectRevert(abi.encodeWithSelector(DeployPFTToken.TreasuryCreationMismatch.selector, "owners"));
@@ -978,6 +1080,47 @@ contract DeployPFTTokenTest is SafeFixtures {
         bytes memory shortList = abi.encodePacked(hex"0102030405");
         VM.expectRevert(DeployPFTToken.TreasuryCreationUnreadable.selector);
         script.decodeRawTransaction(abi.encodePacked(hex"02", _rlpHeader(shortList.length, 0xc0), shortList));
+    }
+
+    function testRefusesAnIncompleteOrMistypedEnvelope() public {
+        // The fixtures end with accessList c0, yParity 01, r, s (type 2) and v, r, s (legacy).
+        bytes memory rs = _last(creationRaw, 66);
+        bytes memory s = _last(creationRaw, 33);
+        bytes memory r = _truncate(rs, 33);
+        bytes[] memory bad = new bytes[](13);
+        bad[0] = _alter("type2", 68, ""); // no accessList, yParity, r, s
+        bad[1] = _alter("type2", 66, ""); // no r, s
+        bad[2] = _alter("type2", 33, ""); // no s
+        bad[3] = _alter("type2", 0, hex"80"); // a thirteenth item
+        bad[4] = _alter("type2", 68, abi.encodePacked(hex"8001", rs)); // a string as the access list
+        bad[5] = _alter("type2", 67, abi.encodePacked(hex"02", rs)); // yParity 2
+        bad[6] = _alter("type2", 66, abi.encodePacked(hex"80", s)); // r zero
+        bad[7] = _alter("type2", 33, hex"80"); // s zero
+        bad[8] = _alter("type2", 66, abi.encodePacked(hex"a100", _slice(r, 1), s)); // r of 33 bytes
+        bad[9] = _alter("type2", 67, abi.encodePacked(hex"c0", rs)); // yParity a list
+        bad[10] = _alter("legacy", 70, ""); // no v, r, s
+        bad[11] = _alter("legacy", 33, ""); // no s
+        bad[12] = _alter("legacy", 0, hex"80"); // a tenth item
+        for (uint256 i = 0; i < bad.length; i++) {
+            VM.expectRevert(DeployPFTToken.TreasuryCreationUnreadable.selector);
+            script.decodeRawTransaction(bad[i]);
+        }
+        // The unaltered envelopes, re-wrapped, still read.
+        script.decodeRawTransaction(_alter("type2", 0, ""));
+        script.decodeRawTransaction(_alter("legacy", 0, ""));
+    }
+
+    /// The fixture `name` with the last `drop` bytes of its list payload replaced by `tail`.
+    function _alter(string memory name, uint256 drop, bytes memory tail) private view returns (bytes memory) {
+        bytes memory raw = _fixtureRaw(name);
+        bool typed = uint8(raw[0]) == 2;
+        uint256 from = typed ? 4 : 3; // [0x02] 0xf9 <two length bytes>
+        bytes memory payload = abi.encodePacked(_truncate(_slice(raw, from), raw.length - from - drop), tail);
+        return abi.encodePacked(typed ? bytes(hex"02") : bytes(""), _rlpHeader(payload.length, 0xc0), payload);
+    }
+
+    function _last(bytes memory b, uint256 n) private pure returns (bytes memory) {
+        return _slice(b, b.length - n);
     }
 
     function _slice(bytes memory b, uint256 from) private pure returns (bytes memory out) {
@@ -1014,9 +1157,11 @@ contract DeployPFTTokenTest is SafeFixtures {
         );
     }
 
-    /// A type-2 transaction to `to` with `data` (its signature is not checked).
-    function _rawTx(address to, bytes memory data) private pure returns (bytes memory) {
-        bytes memory items = abi.encodePacked(hex"83014a3480010183", hex"0f4240", _rlp(abi.encodePacked(to)), hex"80");
+    /// A type-2 transaction on this chain (8453 or 84532) to `to` with `data`
+    /// (its signature is not checked).
+    function _rawTx(address to, bytes memory data) private view returns (bytes memory) {
+        bytes memory chain = block.chainid == BASE ? bytes(hex"822105") : bytes(hex"83014a34");
+        bytes memory items = abi.encodePacked(chain, hex"80010183", hex"0f4240", _rlp(abi.encodePacked(to)), hex"80");
         items = abi.encodePacked(items, _rlp(data), hex"c080", _rlp(abi.encode(1)), _rlp(abi.encode(2)));
         return abi.encodePacked(hex"02", _rlpHeader(items.length, 0xc0), items);
     }
@@ -1073,8 +1218,8 @@ contract DeployPFTTokenTest is SafeFixtures {
         cfg.totalSupplyPft = SUPPLY_PFT;
         cfg.treasury = TREASURY;
         cfg.artifact = _artifact();
-        cfg.creationRawTx = creationRaw;
-        cfg.creationTx = keccak256(creationRaw);
+        cfg.creationRawTx = chainId == BASE ? _fixtureRaw("type2-8453") : creationRaw;
+        cfg.creationTx = keccak256(cfg.creationRawTx);
     }
 
     function _placeholder(string memory name) private pure returns (bytes memory) {
@@ -1132,14 +1277,16 @@ contract DeployPFTTokenTest is SafeFixtures {
         string memory artifact = VM.readFile(_artifact());
         _assertTrue(_eq(VM.parseJsonString(json, ".solc_version"), "0.8.24+commit.e11b9ed9"), "record solc");
         _assertTrue(_eq(VM.parseJsonString(json, ".evm_version"), "cancun"), "record evm version");
-        _assertEq(
-            VM.parseJsonUint(json, ".optimizer_runs"),
-            VM.parseJsonUint(artifact, ".metadata.settings.optimizer.runs"),
-            "record optimizer runs"
+        _assertEq(VM.parseJsonUint(json, ".optimizer_runs"), 200, "record optimizer runs");
+        _assertTrue(VM.parseJsonBool(json, ".optimizer"), "record optimizer");
+        _assertTrue(
+            VM.parseJsonBytes32(json, ".runtime_code_keccak256")
+                == keccak256(VM.parseJsonBytes(artifact, ".deployedBytecode.object")),
+            "record runtime code"
         );
         _assertTrue(
-            VM.parseJsonBool(json, ".optimizer") == VM.parseJsonBool(artifact, ".metadata.settings.optimizer.enabled"),
-            "record optimizer"
+            VM.parseJsonBytes32(json, ".deployed_code_keccak256") == keccak256(address(token).code),
+            "record deployed code"
         );
         _assertTrue(
             _eq(VM.parseJsonString(json, ".openzeppelin_commit"), "cab19933c33c2ad1d4c7a84864a3601dddfd16f3"),

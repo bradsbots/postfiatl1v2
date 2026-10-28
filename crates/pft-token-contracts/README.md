@@ -56,7 +56,8 @@ supply over random transfers, approvals and permits (64 runs, depth 32,
 deploy script and its accepted path; `test/deploy-script-cli.sh` runs the
 script through `forge script` with a real Safe treasury, a wrong singleton, a
 lookalike, an enabled module and the artifact of a `--optimizer-runs 201` build,
-offline and isolated (`env -i`, `FOUNDRY_OFFLINE=true`, no RPC variable,
+and against a local anvil with Safes created by the factory (an 84532 creation
+transaction refused once the anvil is 8453), offline and isolated (`env -i`, `FOUNDRY_OFFLINE=true`, no RPC variable,
 `FOUNDRY_CONFIG` unset, a temporary `HOME`, URLs redacted from the output; the
 project's `foundry.toml` is used on purpose).
 
@@ -80,15 +81,18 @@ outside the repository, `*.env` is ignored) and refuses, before the broadcast:
 | threshold >= 2; owners distinct, non-zero, at least the threshold | `SafeThresholdTooLow`, `SafeOwnersInvalid` |
 | no module: `getModulesPaginated(0x1, 10)` returns an empty list and next `0x1` (a module spends without owner signatures) | `ModulesEnabled(count)` |
 | the guard slot (`keccak256("guard_manager.guard.address")`) is zero, or exactly the address in `PFT_TOKEN_ALLOW_GUARD` (a reverting guard blocks every owner transaction, its own removal included); recorded either way | `GuardEnabled(guard)` |
-| the signed creation transaction (`PFT_TOKEN_TREASURY_CREATION_RAW_TX`, else `eth_getRawTransactionByHash`) hashes to `PFT_TOKEN_TREASURY_CREATION_TX`; it is type 2 or legacy | `TreasuryCreationUnknown(hash)`, `TreasuryCreationUnreadable` |
+| the signed creation transaction (`PFT_TOKEN_TREASURY_CREATION_RAW_TX`, else `eth_getRawTransactionByHash`) hashes to `PFT_TOKEN_TREASURY_CREATION_TX`; its whole envelope reads: type 2 with exactly 12 items or legacy with exactly 9, integers of at most 32 bytes, an access-list list, yParity 0 or 1, r and s non-zero | `TreasuryCreationUnknown(hash)`, `TreasuryCreationUnreadable` |
+| it was signed for this chain: type-2 `chainId`, or legacy `v` = 2 × chain id + 35 or + 36 (v 27/28 refused); the Safe's CREATE2 address and the factories are the same on 8453 and 84532 | `TreasuryCreationWrongChain(chain id)` |
 | its `to` is the canonical SafeProxyFactory 1.4.1 `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` or 1.3.0 `0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2` with its pinned code | `TreasuryCreationNotFromFactory(to)` |
 | it calls `createProxyWithNonce` for the slot 0 singleton, and the factory's CREATE2 address for that call (from its on-chain `proxyCreationCode()`) is the treasury | `TreasuryCreationMismatch(field)` |
 | its initializer is a plain `setup`: `to` zero and `data` empty | `TreasuryInitializerDelegates(to, data length)` |
 | the initializer's owners and threshold are the live ones; its fallback handler is zero or the canonical CompatibilityFallbackHandler of that version with its pinned code | `TreasuryCreationMismatch(field)` |
+| the initializer pays nothing: `paymentToken` zero and `payment` 0 | `TreasurySetupHasPayment(token, payment)` |
 | the artifact under `$FOUNDRY_OUT` (else `out`) `/PFTToken.sol/PFTToken.json` has `bytecode.object` equal to the deployed creation code | `ArtifactMismatch(path, artifact hash, compiled hash)` |
-| its `metadata.settings.metadata.bytecodeHash` is `ipfs`; the creation code ends with its `deployedBytecode.object`, whose CBOR trailer holds the IPFS digest of its `rawMetadata` | `MetadataHashDisabled`, `ArtifactMetadataMismatch(path)` |
+| its `metadata.settings.metadata.bytecodeHash` is `ipfs`; the creation code ends with its `deployedBytecode.object`, which exceeds its CBOR trailer by at least 512 bytes and whose trailer holds the IPFS digest of its `rawMetadata` | `MetadataHashDisabled`, `ArtifactMetadataMismatch(path)` |
 | the deployer's nonce on the target chain is 0 (a one-time key) | `DeployerAlreadyUsed(deployer, nonce)` |
 | a real deployment sets no test switch, sets `PFT_TOKEN_SOURCE_COMMIT` and has no record yet | `RealDeploymentWithTestSwitch`, `SourceCommitMissing`, `RecordExists(path)` |
+| right after the broadcast, the token's code has the length and the CBOR trailer of `deployedBytecode.object` (the immutables make the rest differ) | `DeployedCodeMismatch(token, code length, artifact length)` |
 
 The Safe checks fail closed on both chains. Pinned singletons (the canonical
 deployments in safe-global/safe-deployments, commit `b45417dd`, listed there
@@ -116,7 +120,12 @@ PFT_TOKEN_ALLOW_EOA_TREASURY=1 \
 ```
 
 Without `--rpc-url`, forge's in-process EVM starts the sender at nonce 1, so an
-in-process run also needs `PFT_TOKEN_ALLOW_USED_DEPLOYER=1`.
+in-process run also needs `PFT_TOKEN_ALLOW_USED_DEPLOYER=1`. The same holds for
+a read-only re-check of the deployed Base Sepolia token's inputs: its retired
+deployer has nonce 2, so a dry run with `PFT_TOKEN_REAL_DEPLOYMENT=1` stops at
+`DeployerAlreadyUsed` before `RecordExists`; run it without
+`PFT_TOKEN_REAL_DEPLOYMENT` and with `PFT_TOKEN_ALLOW_USED_DEPLOYER=1` (84532
+only), and without `--broadcast`.
 
 Pre-deployment checklist:
 
@@ -164,13 +173,16 @@ existing one; every other broadcast (a local anvil) writes under the ignored
 without `PFT_TOKEN_SOURCE_COMMIT`. The record holds the mode (`real`/`test`),
 token, chain id, constructor arguments, deployer, Safe singleton, threshold,
 owners, modules (empty), guard, creation transaction, factory and fallback handler, `PFT_TOKEN_SOURCE_COMMIT`, the OpenZeppelin
-commit, the artifact path, the keccak256 of the deployed creation code and the
-effective compiler settings of the build (solc version, optimizer and runs,
-`evm_version`, `bytecode_hash`), read from the metadata of that artifact
-(`$FOUNDRY_OUT/PFTToken.sol/PFTToken.json`, else `out/...`), which must carry
-the deployed creation code, so a command-line override such as
-`--optimizer-runs` is what the record shows and an artifact of another build is
-refused. The script runs before the
+commit, the artifact path, the keccak256 of the deployed creation code
+(`creation_code_keccak256`), of the artifact's runtime code
+(`runtime_code_keccak256`) and of the token's code on the chain
+(`deployed_code_keccak256`), and the effective compiler settings of the build
+(solc version, optimizer and runs, `evm_version`, `bytecode_hash`), read from
+the `rawMetadata` of that artifact (`$FOUNDRY_OUT/PFTToken.sol/PFTToken.json`,
+else `out/...`), the string whose IPFS digest the code's trailer carries, never
+from its unchecked `metadata` object. The artifact must carry the deployed
+creation code, so a command-line override such as `--optimizer-runs` is what the
+record shows and an artifact of another build is refused. The script runs before the
 transaction is sent, so `tx_hash` and `block_number` are `pending`.
 `broadcast/` stays ignored.
 
@@ -200,8 +212,10 @@ After the broadcast, in this order:
    and the compiler settings equal the record's.
 3. On the explorer, `totalSupply()` equals `PFT_TOKEN_TOTAL_SUPPLY` and the
    treasury Safe holds all of it.
-4. Finalise the record: copy `tx_hash` and `block_number` in from
-   `run-latest.json`, fill `verification_sourcify`, `verification_sourcify_url`,
+4. Finalise the record: check that `deployed_code_keccak256` equals
+   `cast keccak $(cast code <token> --rpc-url <base-rpc-url>)`, copy `tx_hash`
+   and `block_number` in from `run-latest.json`, fill
+   `verification_sourcify`, `verification_sourcify_url`,
    `verification_blockscout`, `verification_blockscout_url` and
    `verification_basescan` with each explorer's verification result, then
    commit it.

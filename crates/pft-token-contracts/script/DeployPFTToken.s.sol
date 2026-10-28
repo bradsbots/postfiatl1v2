@@ -155,6 +155,8 @@ contract DeployPFTToken {
     /// whose metadata is the record's build provenance. Its creation code must
     /// be the code this script deploys.
     string public constant TOKEN_ARTIFACT = "/PFTToken.sol/PFTToken.json";
+    /// The artifact's runtime code must exceed its CBOR trailer by at least this many bytes.
+    uint256 public constant MIN_RUNTIME_CODE_BEYOND_TRAILER = 512;
     uint256 public constant MIN_SAFE_THRESHOLD = 2;
     /// A module executes through the Safe without owner signatures, so the
     /// treasury must have none. SENTINEL_MODULES heads the Safe's module list.
@@ -202,6 +204,9 @@ contract DeployPFTToken {
         address to;
         bytes data;
         address fallbackHandler;
+        address paymentToken;
+        uint256 payment;
+        address paymentReceiver;
     }
 
     error PlaceholderValue(string name);
@@ -233,6 +238,9 @@ contract DeployPFTToken {
     error TreasuryCreationNotFromFactory(address to);
     error TreasuryInitializerDelegates(address to, uint256 dataLength);
     error TreasuryCreationMismatch(string field);
+    error TreasuryCreationWrongChain(uint256 chainId);
+    error TreasurySetupHasPayment(address paymentToken, uint256 payment);
+    error DeployedCodeMismatch(address token, uint256 codeLength, uint256 artifactLength);
 
     event PFTTokenDeployed(
         address indexed token, address indexed treasury, uint256 total_supply, string name, string symbol
@@ -312,6 +320,7 @@ contract DeployPFTToken {
         VM.startBroadcast(deployer);
         token = new PFTToken(cfg.name, cfg.symbol, cfg.totalSupply, cfg.treasury);
         VM.stopBroadcast();
+        checkDeployedCode(address(token), VM.parseJsonBytes(artifact, ".deployedBytecode.object"));
 
         emit PFTTokenDeployed(address(token), cfg.treasury, cfg.totalSupply, cfg.name, cfg.symbol);
         _log("PFTToken deployed at", address(token));
@@ -410,7 +419,9 @@ contract DeployPFTToken {
         return VM.rpc("eth_getRawTransactionByHash", string.concat('["', VM.toString(txHash), '"]'));
     }
 
-    /// Fails closed unless the signed transaction `raw` called a pinned canonical
+    /// Fails closed unless the signed transaction `raw` was signed for this chain
+    /// (a CREATE2 address and the canonical factories are the same on 8453 and
+    /// 84532, the signature is not), called a pinned canonical
     /// factory (its code checked on this chain) with createProxyWithNonce for the
     /// Safe's singleton, the factory's CREATE2 address for that call is the
     /// treasury, and its initializer is a plain setup with the live owners and
@@ -421,7 +432,11 @@ contract DeployPFTToken {
         returns (address factory, address fallbackHandler)
     {
         bytes memory data;
-        (factory, data) = decodeRawTransaction(raw);
+        {
+            uint256 txChainId;
+            (txChainId, factory, data) = decodeRawTransaction(raw);
+            if (txChainId != block.chainid) revert TreasuryCreationWrongChain(txChainId);
+        }
         bytes32 factoryHash = factoryCodeHash(chainId, factory);
         if (factoryHash == 0 || factory.codehash != factoryHash) revert TreasuryCreationNotFromFactory(factory);
         (address singleton, bytes memory initializer, uint256 saltNonce) = decodeCreateProxy(data);
@@ -465,31 +480,44 @@ contract DeployPFTToken {
         return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xff), factory, salt, initCodeHash)))));
     }
 
-    /// `to` and calldata of a signed type-2 (EIP-1559) or legacy transaction.
-    function decodeRawTransaction(bytes memory raw) public pure returns (address to, bytes memory data) {
-        uint256 pos;
-        uint256 toIndex;
-        if (raw.length != 0 && uint8(raw[0]) == 2) {
-            (pos, toIndex) = (1, 5); // [chainId, nonce, tip, maxFee, gas, to, value, data, ...]
-        } else if (raw.length != 0 && uint8(raw[0]) >= 0xc0) {
-            (pos, toIndex) = (0, 3); // [nonce, gasPrice, gas, to, value, data, v, r, s]
-        } else {
-            revert TreasuryCreationUnreadable();
-        }
-        (uint256 start, uint256 length, uint256 next, bool list) = _rlpItem(raw, pos);
+    /// The chain id, `to` and calldata of a signed type-2 (EIP-1559) or legacy
+    /// transaction, whose whole envelope is read: exactly 12 items (chainId, nonce,
+    /// maxPriorityFeePerGas, maxFeePerGas, gasLimit, to, value, data, accessList,
+    /// yParity, r, s) or 9 (nonce, gasPrice, gasLimit, to, value, data, v, r, s);
+    /// integers of at most 32 bytes, `to` of 20, the access list a list (its
+    /// elements unread), yParity 0 or 1, r and s non-zero. A legacy chain id is
+    /// (v - 35) / 2, so v is 2 x chainId + 35 or + 36; v 27 or 28 gives 0.
+    function decodeRawTransaction(bytes memory raw)
+        public
+        pure
+        returns (uint256 chainId, address to, bytes memory data)
+    {
+        bool typed = raw.length != 0 && uint8(raw[0]) == 2;
+        if (!typed && (raw.length == 0 || uint8(raw[0]) < 0xc0)) revert TreasuryCreationUnreadable();
+        (uint256 pos,, uint256 next, bool list) = _rlpItem(raw, typed ? 1 : 0);
         if (!list || next != raw.length) revert TreasuryCreationUnreadable();
-        pos = start;
-        for (uint256 i = 0; i < toIndex + 3; i++) {
+        uint256 count = typed ? 12 : 9;
+        uint256 toIndex = typed ? 5 : 3;
+        for (uint256 i = 0; i < count; i++) {
+            uint256 start;
+            uint256 length;
             (start, length, next, list) = _rlpItem(raw, pos);
+            if (list != (typed && i == 8)) revert TreasuryCreationUnreadable();
             if (i == toIndex) {
-                if (list || length != 20) revert TreasuryCreationUnreadable();
+                if (length != 20) revert TreasuryCreationUnreadable();
                 to = address(bytes20(_slice(raw, start, 20)));
             } else if (i == toIndex + 2) {
-                if (list) revert TreasuryCreationUnreadable();
                 data = _slice(raw, start, length);
+            } else if (!list) {
+                uint256 value = _rlpUint(raw, start, length);
+                if (i + 2 >= count && value == 0) revert TreasuryCreationUnreadable(); // r, s
+                if (typed && i == 9 && value > 1) revert TreasuryCreationUnreadable(); // yParity
+                if (typed && i == 0) chainId = value;
+                if (!typed && i == 6) chainId = value >= 35 ? (value - 35) / 2 : 0; // EIP-155 v
             }
             pos = next;
         }
+        if (pos != raw.length) revert TreasuryCreationUnreadable();
     }
 
     /// singleton, initializer and saltNonce of a createProxyWithNonce call.
@@ -506,7 +534,8 @@ contract DeployPFTToken {
 
     /// The fallback handler of a plain `setup` initializer (no delegatecall: `to`
     /// zero, `data` empty) with these owners and this threshold, whose fallback
-    /// handler is zero or the canonical one of the singleton's version.
+    /// handler is zero or the canonical one of the singleton's version, and no
+    /// payment (paymentToken zero, payment 0; the receiver is then unused).
     function checkSetup(address singleton, bytes memory initializer, address[] memory owners, uint256 threshold)
         public
         pure
@@ -520,6 +549,9 @@ contract DeployPFTToken {
             revert TreasuryCreationMismatch("owners");
         }
         if (setup.threshold != threshold) revert TreasuryCreationMismatch("threshold");
+        if (setup.paymentToken != address(0) || setup.payment != 0) {
+            revert TreasurySetupHasPayment(setup.paymentToken, setup.payment);
+        }
         bool v141 = singleton == SAFE_1_4_1 || singleton == SAFE_L2_1_4_1;
         address canonical = v141 ? FALLBACK_HANDLER_1_4_1 : FALLBACK_HANDLER_1_3_0;
         if (setup.fallbackHandler != address(0) && setup.fallbackHandler != canonical) {
@@ -528,13 +560,16 @@ contract DeployPFTToken {
         return setup.fallbackHandler;
     }
 
-    /// The leading arguments of a `setup` call.
+    /// The arguments of a `setup` call.
     function decodeSetup(bytes memory initializer) public pure returns (SafeSetup memory setup) {
         if (initializer.length < 4 || bytes4(initializer) != ISafeSetupCall.setup.selector) {
             revert TreasuryCreationMismatch("setup");
         }
+        bytes memory args = _slice(initializer, 4, initializer.length - 4);
         (setup.owners, setup.threshold, setup.to, setup.data, setup.fallbackHandler) =
-            abi.decode(_slice(initializer, 4, initializer.length - 4), (address[], uint256, address, bytes, address));
+            abi.decode(args, (address[], uint256, address, bytes, address));
+        (,,,,, setup.paymentToken, setup.payment, setup.paymentReceiver) =
+            abi.decode(args, (address[], uint256, address, bytes, address, address, uint256, address));
     }
 
     /// One RLP item at `pos`: its payload's start and length, the next item's
@@ -563,6 +598,14 @@ contract DeployPFTToken {
         if (next > raw.length) revert TreasuryCreationUnreadable();
     }
 
+    /// The integer of an RLP string of at most 32 bytes.
+    function _rlpUint(bytes memory raw, uint256 start, uint256 length) private pure returns (uint256 value) {
+        if (length > 32) revert TreasuryCreationUnreadable();
+        for (uint256 i = 0; i < length; i++) {
+            value = (value << 8) | uint8(raw[start + i]);
+        }
+    }
+
     function _slice(bytes memory raw, uint256 start, uint256 length) private pure returns (bytes memory out) {
         out = new bytes(length);
         for (uint256 i = 0; i < length; i++) {
@@ -576,7 +619,8 @@ contract DeployPFTToken {
     /// the IPFS metadata hash (`--no-metadata` and bytecode_hash = "none" drop
     /// it, and two builds with other settings would then share one code), the
     /// creation code ends with the artifact's runtime code (PFTToken has
-    /// immutables, so `type(PFTToken).runtimeCode` does not exist), and the
+    /// immutables, so `type(PFTToken).runtimeCode` does not exist) and exceeds its
+    /// CBOR trailer by at least MIN_RUNTIME_CODE_BEYOND_TRAILER bytes, and the
     /// IPFS digest of the artifact's rawMetadata is the digest in that runtime
     /// code's CBOR trailer.
     function _checkArtifact(Config memory cfg) private view returns (string memory artifact) {
@@ -599,7 +643,8 @@ contract DeployPFTToken {
         bytes memory runtime = VM.parseJsonBytes(artifact, ".deployedBytecode.object");
         bytes32 digest = metadataDigest(runtime);
         if (
-            digest == 0 || !endsWith(creation, runtime)
+            digest == 0 || runtime.length < metadataTrailer(runtime).length + MIN_RUNTIME_CODE_BEYOND_TRAILER
+                || !endsWith(creation, runtime)
                 || ipfsDigest(bytes(VM.parseJsonString(artifact, ".rawMetadata"))) != digest
         ) revert ArtifactMetadataMismatch(path);
     }
@@ -642,6 +687,24 @@ contract DeployPFTToken {
             value >>= 7;
         }
         out = abi.encodePacked(out, bytes1(uint8(value)));
+    }
+
+    /// The CBOR trailer of `code` with its two length bytes, empty if there is none.
+    function metadataTrailer(bytes memory code) public pure returns (bytes memory) {
+        if (code.length < 2) return "";
+        uint256 length = uint256(uint16(bytes2(abi.encodePacked(code[code.length - 2], code[code.length - 1])))) + 2;
+        if (length > code.length) return "";
+        return _slice(code, code.length - length, length);
+    }
+
+    /// Right after the broadcast: the token's code has the length and the CBOR
+    /// trailer of the artifact's runtime code `runtime` (the immutables make the
+    /// rest differ).
+    function checkDeployedCode(address token, bytes memory runtime) public view {
+        bytes memory code = token.code;
+        if (code.length != runtime.length || !endsWith(code, metadataTrailer(runtime))) {
+            revert DeployedCodeMismatch(token, code.length, runtime.length);
+        }
     }
 
     /// True when `code` ends with the non-empty `tail`.
@@ -715,8 +778,9 @@ contract DeployPFTToken {
     /// The broadcast transaction hash and block are not known while the script
     /// runs; they are "pending" here and copied in from broadcast/.../run-latest.json.
     /// The compiler settings are the effective ones of this build, read from the
-    /// metadata of the artifact `_checkArtifact` bound to the deployed code (so
-    /// `--optimizer-runs` and other overrides are recorded), not from foundry.toml.
+    /// artifact's rawMetadata, whose IPFS digest `_checkArtifact` bound to the
+    /// deployed code (so `--optimizer-runs` and other overrides are recorded), not
+    /// from the artifact's uncovered metadata object or foundry.toml.
     function _writeRecord(
         Config memory cfg,
         PFTToken token,
@@ -751,11 +815,16 @@ contract DeployPFTToken {
         VM.serializeAddress(o, "treasury_safe_fallback_handler", safe.fallbackHandler);
         VM.serializeString(o, "artifact", cfg.artifact);
         VM.serializeBytes32(o, "creation_code_keccak256", keccak256(type(PFTToken).creationCode));
-        VM.serializeString(o, "solc_version", VM.parseJsonString(artifact, ".metadata.compiler.version"));
-        VM.serializeBool(o, "optimizer", VM.parseJsonBool(artifact, ".metadata.settings.optimizer.enabled"));
-        VM.serializeUint(o, "optimizer_runs", VM.parseJsonUint(artifact, ".metadata.settings.optimizer.runs"));
-        VM.serializeString(o, "evm_version", VM.parseJsonString(artifact, ".metadata.settings.evmVersion"));
-        VM.serializeString(o, "bytecode_hash", VM.parseJsonString(artifact, ".metadata.settings.metadata.bytecodeHash"));
+        VM.serializeBytes32(
+            o, "runtime_code_keccak256", keccak256(VM.parseJsonBytes(artifact, ".deployedBytecode.object"))
+        );
+        VM.serializeBytes32(o, "deployed_code_keccak256", keccak256(address(token).code));
+        string memory metadata = VM.parseJsonString(artifact, ".rawMetadata");
+        VM.serializeString(o, "solc_version", VM.parseJsonString(metadata, ".compiler.version"));
+        VM.serializeBool(o, "optimizer", VM.parseJsonBool(metadata, ".settings.optimizer.enabled"));
+        VM.serializeUint(o, "optimizer_runs", VM.parseJsonUint(metadata, ".settings.optimizer.runs"));
+        VM.serializeString(o, "evm_version", VM.parseJsonString(metadata, ".settings.evmVersion"));
+        VM.serializeString(o, "bytecode_hash", VM.parseJsonString(metadata, ".settings.metadata.bytecodeHash"));
         VM.serializeString(o, "source_commit", cfg.sourceCommit);
         string memory json = VM.serializeString(o, "openzeppelin_commit", OPENZEPPELIN_COMMIT);
         VM.createDir(cfg.recordDir, true);
