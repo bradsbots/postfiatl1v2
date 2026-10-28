@@ -206,8 +206,10 @@ at PFTL's genesis lane. `lock(amount, pftlRecipient)` pulls the tokens with
 `transferFrom`, takes the next nonce (from 0), writes a permanent record
 (`lockRecord(nonce)`: holder, amount, keccak256 of the recipient), emits one
 `Locked` event and keeps the tokens. `lockWithPermit` does the same after an
-EIP-2612 permit; a permit someone submitted first is ignored when the
-allowance already covers the amount, and otherwise refused (`PermitFailed`).
+EIP-2612 permit. A failed permit (expired, wrongly signed, or submitted first
+by someone else) is tolerated when the existing allowance covers the amount
+and otherwise refused (`PermitFailed`); the deadline bounds the permit, not
+the lock.
 
 A Lock is refused for a zero amount, an amount above `maxLockAmount` (the
 genesis per-window release cap, `uint64`), an empty or over-256-byte
@@ -243,7 +245,9 @@ the immutable `finalityVerifier` (`IPFTLFinalityVerifierV1.verifyAndConsume`,
 as in `ERC20BridgeVaultL1`) accepts, refuses a zero amount or recipient, a
 replayed withdrawal or burn commitment and an amount above
 `totalLocked - totalReleased`, checks both balance deltas, and emits
-`Released`.
+`Released`. The release path has no phase switch of its own: it is dormant
+only as long as the finality verifier accepts no export proof, so the
+verifier's deployment and qualification on Base decide when Phase 3 opens.
 
 Not deployed: no lock contract exists on Base Sepolia or Base mainnet, and no
 PFTL finality verifier is deployed on Base, which must come first. The
