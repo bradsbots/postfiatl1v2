@@ -196,6 +196,7 @@ class PftTokenTests(unittest.TestCase):
         self.assertEqual(pft_token.redact_rpc_url("http://[::1]:8545"), "http://[::1]:8545")
         self.assertEqual(pft_token.redact_rpc_url("https://[2001:db8::1]/v2/KEY"), "https://[2001:db8::1]/…")
         self.assertEqual(pft_token.redact_rpc_url("https://:pw@base.example"), "https://base.example/…")
+        self.assertEqual(pft_token.redact_rpc_url("http://user:pw@[::1]:8545"), "http://[::1]:8545/…")
         state = pft_token.read_token_state("http://[::1]:8545", record=self.record)
         self.assertEqual(state["rpc_url"], "http://[::1]:8545")
         state = pft_token.read_token_state("https://base.example/v2/KEY", record=self.record)
